@@ -1,0 +1,42 @@
+.touchgal-app { display: flex; flex-direction: column; height: 100%; background: var(--bg-elevated); }
+
+.touchgal-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--bg-card); border-bottom: 1px solid var(--border-glass); flex-shrink: 0; }
+
+.touchgal-brand { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+
+.touchgal-url-bar { flex: 1; display: flex; align-items: center; }
+.touchgal-url-bar input { width: 100%; padding: 8px 14px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-secondary); font-size: 13px; color: var(--text-primary); transition: all var(--transition-fast); }
+.touchgal-url-bar input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.touchgal-url-bar input::placeholder { color: var(--text-quaternary); }
+
+.touchgal-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.touchgal-btn { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: all var(--transition-fast); }
+.touchgal-btn:hover { background: var(--primary-bg); color: var(--primary); }
+.touchgal-btn.active { color: var(--primary); }
+
+.touchgal-bookmarks { display: flex; gap: 6px; padding: 8px 16px; background: var(--bg-input); border-bottom: 1px solid var(--border-glass); flex-shrink: 0; overflow-x: auto; }
+.touchgal-bm-btn { padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--bg-card); white-space: nowrap; transition: all var(--transition-fast); }
+.touchgal-bm-btn:hover { background: var(--primary-bg); color: var(--primary); }
+
+.touchgal-content { flex: 1; position: relative; overflow: hidden; background: #fff; }
+
+.touchgal-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: var(--bg-elevated); color: var(--text-secondary); font-size: 14px; z-index: 10; }
+
+.touchgal-error { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: var(--bg-elevated); color: var(--text-secondary); padding: 20px; text-align: center; z-index: 10; }
+.touchgal-error p { font-size: 14px; color: var(--text-quaternary); }
+.touchgal-error button { padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; margin-top: 8px; transition: all var(--transition-fast); }
+.touchgal-error button:first-of-type { background: var(--primary); color: #fff; }
+.touchgal-error button:first-of-type:hover { background: var(--primary-hover); }
+.touchgal-error button:last-of-type { background: var(--bg-input); color: var(--text-secondary); margin-left: 8px; }
+
+.touchgal-iframe { width: 100%; height: 100%; border: none; background: #fff; }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+@media (max-width: 768px) {
+  .touchgal-toolbar { padding: 8px 12px; gap: 8px; }
+  .touchgal-brand span { display: none; }
+  .touchgal-url-bar input { font-size: 12px; padding: 6px 10px; }
+  .touchgal-btn { width: 28px; height: 28px; }
+}

@@ -1,0 +1,224 @@
+.app-window {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  backdrop-filter: blur(var(--blur-xl)) saturate(200%);
+  -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(200%);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-glass-deep);
+  overflow: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  animation: appWindowOpen 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.app-window.closing {
+  opacity: 0;
+  transform: scale(0.95);
+  pointer-events: none;
+}
+
+.app-window.minimized {
+  opacity: 0;
+  transform: scale(0.8) translateY(100px);
+  pointer-events: none;
+}
+
+.app-window.maximized {
+  border-radius: 0;
+  border: none;
+}
+
+@keyframes appWindowOpen {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.app-window-titlebar {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid var(--border-glass);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.app-window-titlebar:active {
+  cursor: grabbing;
+}
+
+.app-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.app-window-btn {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.app-window-btn.close-btn {
+  background: #FF5A5A;
+}
+
+.app-window-btn.close-btn:hover {
+  background: #ff3b3b;
+}
+
+.close-icon {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.5);
+  line-height: 1;
+  font-weight: 700;
+}
+
+.app-window-btn.close-btn:hover .close-icon {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.app-window-btn.minimize-btn {
+  background: #FFBD2E;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.35);
+  line-height: 1;
+}
+
+.app-window-btn.minimize-btn:hover {
+  background: #f5b024;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app-window-btn.maximize-btn {
+  background: #28C840;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.3);
+  line-height: 1;
+}
+
+.app-window-btn.maximize-btn:hover {
+  background: #1fb832;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.app-window-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  text-align: center;
+  pointer-events: none;
+}
+
+.app-window-titlebar-spacer {
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.app-window-content {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.app-resize-handle {
+  position: absolute;
+  z-index: 10;
+}
+
+.app-resize-handle.se {
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: se-resize;
+}
+
+.app-resize-handle.e {
+  right: 0;
+  top: 38px;
+  bottom: 16px;
+  width: 5px;
+  cursor: e-resize;
+}
+
+.app-resize-handle.s {
+  bottom: 0;
+  left: 16px;
+  right: 16px;
+  height: 5px;
+  cursor: s-resize;
+}
+
+.app-resize-handle.sw {
+  left: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: sw-resize;
+}
+
+.app-resize-handle.w {
+  left: 0;
+  top: 38px;
+  bottom: 16px;
+  width: 5px;
+  cursor: w-resize;
+}
+
+.app-resize-handle.se::after,
+.app-resize-handle.sw::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-quaternary);
+  border-bottom: 2px solid var(--text-quaternary);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.app-resize-handle.se::after {
+  right: 3px;
+}
+
+.app-resize-handle.sw::after {
+  left: 3px;
+  border-right: none;
+  border-left: 2px solid var(--text-quaternary);
+}
+
+.app-window:hover .app-resize-handle.se::after,
+.app-window:hover .app-resize-handle.sw::after {
+  opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  .app-window {
+    border-radius: var(--radius-lg);
+  }
+}

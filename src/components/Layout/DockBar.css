@@ -1,0 +1,81 @@
+.dock-bar-wrapper { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+
+.dock-launcher { pointer-events: auto; margin-bottom: 8px; background: var(--bg-elevated); backdrop-filter: blur(var(--blur-xl)) saturate(200%); -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(200%); border-radius: 8px; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass-deep); padding: 6px; display: flex; flex-direction: column; gap: 2px; min-width: 160px; animation: dockLauncherIn 0.2s ease; }
+@keyframes dockLauncherIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.dock-launcher-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-secondary); transition: all var(--transition-fast); position: relative; }
+.dock-launcher-item:hover, .dock-launcher-item.focused { background: var(--primary-bg); color: var(--primary); }
+.dock-launcher-item.running { font-weight: 600; }
+.dock-launcher-icon { display: flex; align-items: center; }
+.dock-launcher-label { flex: 1; }
+.dock-launcher-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+
+.dock-bar { pointer-events: auto; display: flex; align-items: center; gap: 0; padding: 6px 12px; background: var(--bg-elevated); backdrop-filter: blur(var(--blur-xl)) saturate(200%); -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(200%); border-radius: 8px; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass-deep); margin-bottom: 8px; }
+
+.dock-item-wrap { display: flex; align-items: center; gap: 0; }
+.dock-separator { width: 1px; height: 20px; background: var(--border-glass); margin: 0 4px; flex-shrink: 0; }
+
+.dock-btn { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: all var(--transition-fast); position: relative; }
+.dock-btn:hover { background: var(--primary-bg); color: var(--primary); transform: translateY(-2px); }
+.dock-btn.active { background: var(--primary-bg); color: var(--primary); }
+
+.dock-btn-indicator { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--primary); }
+.dock-btn-playing { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 1.5s ease-in-out infinite; }
+
+.dock-btn-badge { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; border-radius: 8px; background: var(--error); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+
+.dock-panel { pointer-events: auto; margin-bottom: 8px; background: var(--bg-elevated); backdrop-filter: blur(var(--blur-xl)) saturate(200%); -webkit-backdrop-filter: blur(var(--blur-xl)) saturate(200%); border-radius: 8px; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass-deep); width: 280px; animation: dockPanelIn 0.2s ease; }
+@keyframes dockPanelIn { from { opacity: 0; transform: translateY(10px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.dock-panel-content { padding: 12px; }
+.dock-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dock-panel-header h3 { font-size: 14px; font-weight: 700; }
+.dock-panel-header button { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-quaternary); transition: all var(--transition-fast); }
+.dock-panel-header button:hover { background: var(--bg-input); color: var(--text-secondary); }
+
+.dock-settings { display: flex; flex-direction: column; gap: 12px; }
+.dock-setting-group { display: flex; flex-direction: column; gap: 6px; }
+.dock-setting-group label { font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+
+.dock-theme-btns { display: flex; gap: 4px; }
+.dock-theme-btn { display: flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 500; color: var(--text-secondary); background: var(--bg-input); transition: all var(--transition-fast); }
+.dock-theme-btn:hover { background: var(--primary-bg); color: var(--primary); }
+.dock-theme-btn.active { background: var(--primary); color: #fff; }
+
+.dock-setting-toggle { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--bg-input); transition: all var(--transition-fast); }
+.dock-setting-toggle:hover { background: var(--primary-bg); color: var(--primary); }
+
+.dock-account-info { display: flex; align-items: center; justify-content: space-between; }
+.dock-account-info span { font-size: 13px; font-weight: 600; }
+.dock-account-link { font-size: 12px; color: var(--primary); font-weight: 500; }
+.dock-login-btn { padding: 6px 16px; border-radius: 6px; background: var(--primary); color: #fff; font-size: 12px; font-weight: 600; transition: all var(--transition-fast); }
+.dock-login-btn:hover { background: var(--primary-hover); }
+
+.dock-music { display: flex; flex-direction: column; gap: 10px; }
+.dock-music-info { display: flex; align-items: center; gap: 10px; }
+.dock-music-cover { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+.dock-music-meta { display: flex; flex-direction: column; min-width: 0; }
+.dock-music-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-music-artist { font-size: 11px; color: var(--text-quaternary); }
+.dock-music-controls { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.dock-music-play { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; transition: all var(--transition-fast); }
+.dock-music-play:hover { background: var(--primary-hover); transform: scale(1.05); }
+.dock-music-controls button:not(.dock-music-play) { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: all var(--transition-fast); }
+.dock-music-controls button:not(.dock-music-play):hover { background: var(--bg-input); color: var(--primary); }
+.dock-music-volume { display: flex; align-items: center; gap: 6px; }
+.dock-music-volume svg { color: var(--text-quaternary); flex-shrink: 0; }
+.dock-music-volume input { flex: 1; height: 4px; -webkit-appearance: none; appearance: none; background: var(--border-primary); border-radius: 2px; outline: none; }
+.dock-music-volume input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); cursor: pointer; }
+
+.dock-live2d { display: flex; flex-direction: column; gap: 10px; }
+.dock-live2d-link { font-size: 12px; color: var(--primary); font-weight: 500; text-align: center; padding: 6px; border-radius: 6px; background: var(--primary-bg); transition: all var(--transition-fast); }
+.dock-live2d-link:hover { background: var(--primary); color: #fff; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+@media (max-width: 768px) {
+  .dock-bar { padding: 4px 8px; margin-bottom: 4px; }
+  .dock-btn { width: 32px; height: 32px; }
+  .dock-separator { margin: 0 2px; height: 16px; }
+  .dock-panel { width: 240px; }
+}

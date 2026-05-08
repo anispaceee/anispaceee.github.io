@@ -1,0 +1,50 @@
+.md-editor { border: 1px solid var(--border-secondary); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-card); transition: border-color var(--transition-fast); }
+.md-editor:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.md-editor-compact .md-toolbar { padding: 4px 8px; }
+.md-editor-compact .md-toolbar-btn { padding: 4px 6px; }
+
+.md-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--bg-input); border-bottom: 1px solid var(--border-secondary); gap: 4px; }
+.md-toolbar-actions { display: flex; gap: 1px; flex-wrap: wrap; }
+.md-toolbar-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; color: var(--text-tertiary); transition: all var(--transition-fast); }
+.md-toolbar-btn:hover { background: var(--bg-card); color: var(--primary); }
+.md-preview-toggle { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--text-tertiary); background: var(--bg-card); transition: all var(--transition-fast); white-space: nowrap; }
+.md-preview-toggle:hover { color: var(--primary); }
+.md-preview-toggle.active { background: var(--primary-bg); color: var(--primary); }
+
+.md-emoji-picker { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-secondary); max-height: 120px; overflow-y: auto; }
+.md-emoji-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 14px; transition: all var(--transition-fast); }
+.md-emoji-btn:hover { background: var(--primary-bg); transform: scale(1.2); }
+
+.md-content { position: relative; }
+.md-textarea { width: 100%; padding: 16px; font-size: 14px; line-height: 1.7; color: var(--text-primary); background: var(--bg-card); resize: vertical; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.md-textarea::placeholder { color: var(--text-quaternary); }
+.md-textarea:focus { outline: none; }
+
+.md-preview { padding: 16px; font-size: 14px; line-height: 1.8; color: var(--text-primary); overflow-y: auto; }
+.md-preview-empty { color: var(--text-quaternary); font-style: italic; }
+
+.md-rendered .md-h1 { font-size: 24px; font-weight: 800; margin: 16px 0 8px; color: var(--text-primary); }
+.md-rendered .md-h2 { font-size: 20px; font-weight: 700; margin: 14px 0 6px; color: var(--text-primary); }
+.md-rendered .md-h3 { font-size: 16px; font-weight: 600; margin: 12px 0 4px; color: var(--text-primary); }
+.md-rendered strong { font-weight: 700; }
+.md-rendered em { font-style: italic; }
+.md-rendered u { text-decoration: underline; }
+.md-rendered del { text-decoration: line-through; color: var(--text-quaternary); }
+.md-rendered .md-link { color: var(--text-link); text-decoration: none; }
+.md-rendered .md-link:hover { text-decoration: underline; }
+.md-rendered .md-img { max-width: 100%; border-radius: var(--radius-sm); margin: 8px 0; }
+.md-rendered .md-inline-code { background: var(--bg-input); padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: 'Fira Code', Consolas, monospace; color: var(--primary); }
+.md-rendered .md-code-block { background: var(--bg-input); padding: 14px; border-radius: var(--radius-sm); overflow-x: auto; font-size: 13px; line-height: 1.6; font-family: 'Fira Code', Consolas, monospace; margin: 8px 0; }
+.md-rendered .md-blockquote { border-left: 3px solid var(--primary); padding: 8px 14px; margin: 8px 0; color: var(--text-secondary); background: var(--primary-bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.md-rendered .md-ul-item { padding-left: 8px; margin: 2px 0; }
+.md-rendered .md-ol-item { display: flex; gap: 6px; margin: 2px 0; }
+.md-rendered .md-ol-num { color: var(--primary); font-weight: 600; min-width: 20px; }
+.md-rendered .md-hr { border: none; height: 1px; background: var(--border-secondary); margin: 16px 0; }
+.md-rendered .md-math-block { background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); text-align: center; font-family: 'Times New Roman', serif; font-style: italic; color: var(--text-primary); margin: 8px 0; border: 1px dashed var(--border-primary); }
+.md-rendered .md-math-inline { background: var(--secondary-bg); padding: 1px 4px; border-radius: 3px; font-family: 'Times New Roman', serif; font-style: italic; color: var(--secondary); }
+
+@media (max-width: 480px) {
+  .md-toolbar { flex-wrap: wrap; }
+  .md-toolbar-actions { gap: 0; }
+  .md-toolbar-btn { width: 26px; height: 26px; }
+}

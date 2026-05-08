@@ -1,0 +1,56 @@
+.post-detail-page { max-width: var(--max-content); margin: 0 auto; padding: 24px 20px; }
+.post-detail-container { display: flex; flex-direction: column; gap: 16px; }
+.post-detail-back a { font-size: 14px; color: var(--text-link); font-weight: 500; }
+.post-detail-back a:hover { color: var(--text-link-hover); }
+.post-not-found { display: flex; flex-direction: column; align-items: center; padding: 80px 20px; gap: 12px; }
+.post-not-found span { font-size: 48px; }
+.back-link { color: var(--text-link); font-size: 14px; }
+
+.post-detail-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-xs); }
+.detail-header { margin-bottom: 16px; }
+.detail-title { font-size: 24px; font-weight: 800; margin-top: 8px; line-height: 1.4; }
+.post-cat-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-xs); color: #fff; }
+.post-cat-tag.game { background: var(--tag-game); }
+.post-cat-tag.anime { background: var(--tag-anime); }
+.post-cat-tag.novel { background: var(--tag-novel); }
+.post-cat-tag.chat { background: var(--tag-chat); }
+
+.detail-author { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-secondary); }
+.detail-author-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; }
+.detail-author-info { display: flex; align-items: center; gap: 8px; }
+.detail-author-name { font-size: 14px; font-weight: 600; }
+.detail-author-level { font-size: 11px; color: var(--secondary); font-weight: 500; }
+.detail-time { font-size: 12px; color: var(--text-quaternary); }
+.detail-content { font-size: 15px; line-height: 1.8; color: var(--text-primary); margin-bottom: 16px; }
+.detail-images { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.detail-img { max-width: 400px; max-height: 300px; border-radius: var(--radius-md); object-fit: cover; }
+.detail-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.post-tag { font-size: 11px; color: var(--secondary); background: var(--secondary-bg); padding: 1px 6px; border-radius: 3px; }
+.detail-stats { display: flex; gap: 20px; font-size: 13px; color: var(--text-quaternary); padding-top: 12px; border-top: 1px solid var(--border-secondary); }
+
+.replies-section { background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-xs); }
+.replies-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.replies-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.reply-item { display: flex; gap: 10px; padding: 12px; border-radius: var(--radius-sm); background: var(--bg-input); }
+.reply-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+.reply-body { flex: 1; }
+.reply-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.reply-name { font-size: 13px; font-weight: 600; }
+.reply-level { font-size: 11px; color: var(--secondary); }
+.reply-time { font-size: 11px; color: var(--text-quaternary); margin-left: auto; }
+.reply-content { font-size: 14px; line-height: 1.6; }
+.reply-actions { display: flex; gap: 12px; }
+.reply-like { font-size: 12px; color: var(--text-quaternary); cursor: pointer; transition: color var(--transition-fast); }
+.reply-like:hover { color: var(--primary); }
+
+.reply-form { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border-secondary); }
+.reply-input { padding: 10px 14px; border: 1px solid var(--border-primary); border-radius: var(--radius-sm); font-size: 14px; resize: vertical; background: var(--bg-input); color: var(--text-primary); transition: all var(--transition-fast); }
+.reply-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+.reply-btn { align-self: flex-end; padding: 8px 24px; border-radius: var(--radius-sm); background: var(--primary); color: #fff; font-size: 14px; font-weight: 600; transition: background var(--transition-fast); }
+.reply-btn:hover:not(:disabled) { background: var(--primary-active); }
+.reply-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 768px) {
+  .detail-images { flex-direction: column; }
+  .detail-img { max-width: 100%; }
+}
