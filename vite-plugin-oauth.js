@@ -25,7 +25,7 @@ export default function viteOAuthPlugin() {
 
             const clientId = process.env.VITE_BANGUMI_CLIENT_ID || oauthConfig.bangumi.clientId;
             const clientSecret = process.env.VITE_BANGUMI_CLIENT_SECRET || '';
-            const redirectUri = `http://localhost:${server.config.server?.port || 5173}${oauthConfig.bangumi.redirectPath}`;
+            const redirectUri = url.searchParams.get('redirect_uri') || `http://localhost:${server.config.server?.port || 5173}${oauthConfig.bangumi.redirectPath}`;
 
             const body = new URLSearchParams({
               client_id: clientId,
@@ -98,7 +98,7 @@ export default function viteOAuthPlugin() {
 
             const clientId = process.env.VITE_GITHUB_CLIENT_ID || oauthConfig.github.clientId;
             const clientSecret = process.env.VITE_GITHUB_CLIENT_SECRET || '';
-            const redirectUri = `http://localhost:${server.config.server?.port || 5173}${oauthConfig.github.redirectPath}`;
+            const redirectUri = url.searchParams.get('redirect_uri') || `http://localhost:${server.config.server?.port || 5173}${oauthConfig.github.redirectPath}`;
 
             const body = new URLSearchParams({
               client_id: clientId,

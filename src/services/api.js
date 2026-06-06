@@ -1140,7 +1140,9 @@ export const BangumiAuthService = {
 
   async handleOAuthCallback(code) {
     try {
-      const res = await fetch(`/api/oauth/bangumi/token?code=${encodeURIComponent(code)}`);
+      const base = oauthConfig.proxyUrl || '';
+      const redirectUri = `${window.location.origin}${oauthConfig.bangumi.redirectPath}`;
+      const res = await fetch(`${base}/oauth/bangumi/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
       const data = await res.json();
       if (data.error) return { error: data.error };
       return data;
@@ -1196,7 +1198,9 @@ export const GitHubAuthService = {
 
   async handleOAuthCallback(code) {
     try {
-      const res = await fetch(`/api/oauth/github/token?code=${encodeURIComponent(code)}`);
+      const base = oauthConfig.proxyUrl || '';
+      const redirectUri = `${window.location.origin}${oauthConfig.github.redirectPath}`;
+      const res = await fetch(`${base}/oauth/github/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
       const data = await res.json();
       if (data.error) return { error: data.error };
       return data;

@@ -1,0 +1,7 @@
+name = "anispace-oauth-proxy"
+main = "oauth-proxy.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# 非敏感配置可放这里
+# 敏感信息（CLIENT_SECRET）请在 Cloudflare Dashboard 中配置为 Secrets
