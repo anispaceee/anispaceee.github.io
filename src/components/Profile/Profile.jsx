@@ -1,11 +1,17 @@
 import { useParams, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { UserService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService } from '../../services/api';
+import { UserService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService } from '../../services/api';
 import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Image as ImageIcon, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useRef, useMemo } from 'react';
 import ProfileStats from './ProfileStats';
 import './Profile.css';
+
+const GitHubIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+  </svg>
+);
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
 
@@ -255,6 +261,12 @@ export default function Profile() {
             {profileUser.bio && <div className="profile-bio-md"><MarkdownRenderer content={profileUser.bio} /></div>}
             <div className="profile-meta-list">
               <div className="profile-meta-item"><Calendar size={14} /> <span>加入于 {profileUser.joinDate}</span></div>
+              {profileUser.provider && (
+                <div className="profile-meta-item">
+                  {profileUser.provider === 'bangumi' ? <BookOpen size={14} /> : profileUser.provider === 'github' ? <GitHubIcon size={14} /> : <Shield size={14} />}
+                  <span>通过 {profileUser.provider === 'bangumi' ? 'Bangumi' : profileUser.provider === 'github' ? 'GitHub' : '系统'} 登录</span>
+                </div>
+              )}
               {profileUser.gender && profileUser.gender !== 'other' && (
                 <div className="profile-meta-item"><MapPin size={14} /> <span>{profileUser.gender === 'male' ? '男' : '女'}</span></div>
               )}
@@ -385,7 +397,7 @@ export default function Profile() {
                 <Shield size={14} /> 隐私设置
               </button>
               <button className={`settings-nav ${settingsTab === 'bangumi' ? 'active' : ''}`} onClick={() => setSettingsTab('bangumi')}>
-                <BookOpen size={14} /> Bangumi绑定
+                <BookOpen size={14} /> 账号绑定
               </button>
               <button className={`settings-nav ${settingsTab === 'theme' ? 'active' : ''}`} onClick={() => setSettingsTab('theme')}>
                 <Smile size={14} /> 主题外观
@@ -475,27 +487,52 @@ export default function Profile() {
               )}
               {settingsTab === 'bangumi' && (
                 <div className="settings-section">
-                  <h3>Bangumi 账号绑定</h3>
-                  <p className="settings-desc">绑定 Bangumi 账号后可同步你的追番记录和评分数据</p>
-                  {BangumiAuthService.isBound() ? (
-                    <div className="bangumi-bound-info">
-                      <div className="bangumi-bound-user">
-                        <img src={BangumiAuthService.getBoundAccount()?.avatar || FALLBACK_IMG} alt="" className="settings-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
-                        <div>
-                          <span className="bangumi-bound-name">{BangumiAuthService.getBoundAccount()?.name || '已绑定'}</span>
-                          <span className="settings-hint">Bangumi 账号已绑定</span>
+                  <h3>账号绑定</h3>
+                  <p className="settings-desc">绑定第三方账号可同步数据或快速登录</p>
+                  <div className="account-bind-section">
+                    <h4>Bangumi</h4>
+                    {BangumiAuthService.isBound() ? (
+                      <div className="bangumi-bound-info">
+                        <div className="bangumi-bound-user">
+                          <img src={BangumiAuthService.getBoundAccount()?.avatar || FALLBACK_IMG} alt="" className="settings-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          <div>
+                            <span className="bangumi-bound-name">{BangumiAuthService.getBoundAccount()?.nickname || BangumiAuthService.getBoundAccount()?.name || '已绑定'}</span>
+                            <span className="settings-hint">Bangumi 账号已绑定</span>
+                          </div>
                         </div>
+                        <button className="bangumi-unbind-btn" onClick={() => { BangumiAuthService.unbind(); setSettingsTab('bangumi'); }}>解除绑定</button>
                       </div>
-                      <button className="bangumi-unbind-btn" onClick={() => { BangumiAuthService.unbind(); setSettingsTab('bangumi'); }}>解除绑定</button>
-                    </div>
-                  ) : (
-                    <>
-                      <button className="bangumi-bind-btn" onClick={() => BangumiAuthService.initiateLogin()}>
-                        <BookOpen size={16} /> 绑定 Bangumi 账号
-                      </button>
-                      <p className="settings-hint">将跳转至 Bangumi 进行授权登录</p>
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <button className="bangumi-bind-btn" onClick={() => BangumiAuthService.initiateLogin()}>
+                          <BookOpen size={16} /> 绑定 Bangumi 账号
+                        </button>
+                        <p className="settings-hint">将跳转至 Bangumi 进行授权</p>
+                      </>
+                    )}
+                  </div>
+                  <div className="account-bind-section">
+                    <h4>GitHub</h4>
+                    {GitHubAuthService.isBound() ? (
+                      <div className="bangumi-bound-info">
+                        <div className="bangumi-bound-user">
+                          <img src={GitHubAuthService.getBoundAccount()?.avatar || FALLBACK_IMG} alt="" className="settings-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          <div>
+                            <span className="bangumi-bound-name">{GitHubAuthService.getBoundAccount()?.nickname || GitHubAuthService.getBoundAccount()?.username || '已绑定'}</span>
+                            <span className="settings-hint">GitHub 账号已绑定</span>
+                          </div>
+                        </div>
+                        <button className="bangumi-unbind-btn" onClick={() => { GitHubAuthService.unbind(); setSettingsTab('bangumi'); }}>解除绑定</button>
+                      </div>
+                    ) : (
+                      <>
+                        <button className="bangumi-bind-btn" onClick={() => GitHubAuthService.initiateLogin()}>
+                          <GitHubIcon size={16} /> 绑定 GitHub 账号
+                        </button>
+                        <p className="settings-hint">将跳转至 GitHub 进行授权</p>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

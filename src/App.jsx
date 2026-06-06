@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import Layout from './components/Layout/Layout'
 import HomePage from './pages/HomePage'
+import OAuthCallback from './pages/OAuthCallback'
 import WorldChannel from './components/WorldChannel/WorldChannel'
 import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
@@ -48,7 +49,6 @@ function WindowLayer() {
             {win.id === 'amadeus' && <Amadeus />}
             {win.id === 'world' && <WorldChannel />}
             {win.id === 'notifications' && <Notifications />}
-            {win.id === 'touchgal' && <TouchGalApp />}
           </AppWindow>
         );
       })}
@@ -100,6 +100,8 @@ function AppInner() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/auth/bangumi" element={<OAuthCallback />} />
+          <Route path="/auth/github" element={<OAuthCallback />} />
           <Route path="/world" element={<WorldChannel />} />
           <Route path="/forum" element={<Forum />} />
           <Route path="/forum/post/:id" element={<PostDetail />} />

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { StorageService } from '../../services/api';
+import { StorageService, UserService } from '../../services/api';
 import { Users, Plus, Crown, Shield, MessageSquare, Settings, X, Send, Search, UserPlus, LogOut, ChevronDown, ChevronRight, Hash } from 'lucide-react';
 import './Club.css';
 
@@ -57,7 +57,7 @@ function getInitialClubs() {
 }
 
 export default function Club() {
-  const { currentUser, isAuthenticated, openAuth, mockUsers } = useApp();
+  const { currentUser, isAuthenticated, openAuth } = useApp();
   const [clubs, setClubs] = useState(getInitialClubs);
   const [activeClub, setActiveClub] = useState(null);
   const [messageInput, setMessageInput] = useState('');
@@ -73,7 +73,7 @@ export default function Club() {
 
   const getUserById = (id) => {
     if (currentUser && id === currentUser.id) return currentUser;
-    return mockUsers?.find(u => u.id === id) || { name: '用户' + id.slice(-4), avatar: FALLBACK_AVATAR };
+    return UserService.getById(id) || { name: '用户' + String(id).slice(-4), avatar: FALLBACK_AVATAR };
   };
 
   const isMember = (club) => isAuthenticated && club.members.includes(currentUser?.id);

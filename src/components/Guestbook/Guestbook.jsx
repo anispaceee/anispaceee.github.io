@@ -210,7 +210,7 @@ export default function Guestbook() {
         {!isAuthenticated && (
           <div className="guestbook-nickname">
             <input placeholder="你的昵称（不填则匿名）" value={nickname} onChange={e => setNickname(e.target.value)} maxLength={20} />
-            <button className="guestbook-login-hint" onClick={() => openAuth('login')}>登录后留言</button>
+            <button className="guestbook-login-hint" onClick={() => openAuth()}>登录后留言</button>
           </div>
         )}
         {replyTo && (

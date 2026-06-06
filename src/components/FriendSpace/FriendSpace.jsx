@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { StorageService } from '../../services/api';
+import { StorageService, UserService } from '../../services/api';
 import { Heart, MessageSquare, Share2, Lock, Globe, MoreHorizontal, Send, Image, X, Eye, Users, Plus, ChevronDown } from 'lucide-react';
 import './FriendSpace.css';
 
@@ -42,7 +42,7 @@ function getInitialPosts() {
 }
 
 export default function FriendSpace() {
-  const { currentUser, isAuthenticated, openAuth, mockUsers } = useApp();
+  const { currentUser, isAuthenticated, openAuth } = useApp();
   const [posts, setPosts] = useState(getInitialPosts);
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('friends');
@@ -101,7 +101,7 @@ export default function FriendSpace() {
 
   const getUserById = (id) => {
     if (currentUser && id === currentUser.id) return currentUser;
-    return mockUsers?.find(u => u.id === id) || { name: '用户' + id.slice(-4), avatar: FALLBACK_AVATAR };
+    return UserService.getById(id) || { name: '用户' + String(id).slice(-4), avatar: FALLBACK_AVATAR };
   };
 
   const formatTime = (ts) => {

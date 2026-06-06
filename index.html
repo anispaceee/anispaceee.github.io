@@ -2,9 +2,19 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?</text></svg>" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ACG Community - ����Ԫ����</title>
+    <title>ANISpace - ACG Community</title>
+    <!-- GitHub Pages SPA 路由恢复：从 404.html redirect 过来的 URL 中恢复真实路径 -->
+    <script>
+      (function() {
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect != window.location.href) {
+          window.history.replaceState(null, null, redirect);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

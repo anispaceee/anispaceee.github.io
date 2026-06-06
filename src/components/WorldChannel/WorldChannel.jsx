@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { mockWorldMessages, mockUsers } from '../../data/mockData';
+import { StorageService, UserService } from '../../services/api';
 import { Send, Image, Smile, Clock, TrendingUp, Eye, X } from 'lucide-react';
 import './WorldChannel.css';
 
@@ -13,7 +13,7 @@ function Avatar({ src, alt, size = 40 }) {
 
 export default function WorldChannel() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
-  const [messages, setMessages] = useState(mockWorldMessages);
+  const [messages, setMessages] = useState(() => StorageService.get('acg_world_messages', []));
   const [newMessage, setNewMessage] = useState('');
   const [sortBy, setSortBy] = useState('latest');
   const [imagePreview, setImagePreview] = useState(null);
@@ -21,7 +21,7 @@ export default function WorldChannel() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  const getUser = (userId) => mockUsers.find(u => u.id === userId);
+  const getUser = (userId) => UserService.getById(userId);
 
   const sortedMessages = [...messages].sort((a, b) => {
     if (sortBy === 'hot') return (b.likes || 0) - (a.likes || 0);
@@ -79,7 +79,7 @@ export default function WorldChannel() {
       <div className="chat-header">
         <div className="chat-header-info">
           <h1 className="chat-title">世界频道</h1>
-          <span className="chat-online"><span className="online-dot" /> {mockUsers.length} 人在线</span>
+          <span className="chat-online"><span className="online-dot" /> {StorageService.get('acg_users', []).length} 人在线</span>
         </div>
         <div className="chat-sort">
           <button className={`chat-sort-btn ${sortBy === 'latest' ? 'active' : ''}`} onClick={() => setSortBy('latest')}>

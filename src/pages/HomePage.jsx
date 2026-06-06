@@ -1,8 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { mockForumPosts, mockCreations, mockWorldMessages, mockUsers } from '../data/mockData';
-import { BangumiService, ApiError, StorageService } from '../services/api';
+import { BangumiService, ApiError, StorageService, UserService } from '../services/api';
 import { ArrowRight, TrendingUp, MessageCircle, Palette, Flame, Eye, Heart, MessageSquare, Clock, Search, Calendar, RefreshCw, Star, ExternalLink, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Send, Image, Smile, X, Minus, Maximize2, Sparkles, Loader2, Play, Tv, BookOpen, Gamepad2, AlertCircle, RotateCw } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import NewsZone from '../components/NewsZone/NewsZone';
@@ -155,9 +154,9 @@ export default function HomePage() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const hotPosts = [...mockForumPosts].sort((a, b) => b.likes - a.likes).slice(0, 6);
-  const latestCreations = mockCreations.filter(c => !c.isCommission).slice(0, 4);
-  const recentMessages = mockWorldMessages.slice(0, 8);
+  const hotPosts = [...StorageService.get('acg_forum_posts', [])].sort((a, b) => b.likes - a.likes).slice(0, 6);
+  const latestCreations = StorageService.get('acg_creations', []).filter(c => !c.isCommission).slice(0, 4);
+  const recentMessages = StorageService.get('acg_world_messages', []).slice(0, 8);
 
   const [randomSubject, setRandomSubject] = useState(null);
   const [randomLoading, setRandomLoading] = useState(true);
@@ -192,7 +191,7 @@ export default function HomePage() {
 
   const getCategoryLabel = (cat) => ({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' }[cat] || cat);
   const getCreationLabel = (cat) => ({ art: '绘画', novel: '小说', game: '游戏' }[cat] || cat);
-  const getUserById = (id) => mockUsers.find(u => u.id === id);
+  const getUserById = (id) => UserService.getById(id);
 
   const fetchRandom = useCallback(async () => {
     setRandomLoading(true);

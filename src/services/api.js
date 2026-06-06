@@ -1,4 +1,5 @@
 import { StorageService } from './storage';
+import oauthConfig from '../../oauth.config.js';
 
 const { STORAGE_KEYS: SK } = StorageService;
 
@@ -148,19 +149,35 @@ function normalizeSubject(item) {
 }
 
 const defaultUsers = [
-  { id: 1, username: 'kirby_star', email: 'kirby@acg.com', password: 'hashed_123', name: '星之卡比', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Kirby', level: 12, sign: '今天也要吃掉一切！', gender: 'other', birthday: '2000-01-01', bio: '热爱二次元，尤其喜欢萌系动画和RPG游戏', followingCount: 28, followerCount: 156, postCount: 45, joinDate: '2024-03-15', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 2, username: 'magical_girl', email: 'magical@acg.com', password: 'hashed_123', name: '魔法少女', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Magical', level: 8, sign: '守护世界的和平', gender: 'female', birthday: '2002-06-15', bio: '魔法少女番爱好者', followingCount: 15, followerCount: 89, postCount: 23, joinDate: '2024-06-20', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 3, username: 'otaku_chan', email: 'otaku@acg.com', password: 'hashed_123', name: '宅宅酱', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Otaku', level: 15, sign: '二次元才是归宿', gender: 'male', birthday: '1999-11-20', bio: '资深宅，每季追番30+', followingCount: 42, followerCount: 234, postCount: 89, joinDate: '2023-12-01', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: false } },
-  { id: 4, username: 'novelist_q', email: 'novelist@acg.com', password: 'hashed_123', name: '轻小说家', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Novelist', level: 20, sign: '用文字创造世界', gender: 'male', birthday: '1998-03-08', bio: '轻小说作者', followingCount: 8, followerCount: 567, postCount: 34, joinDate: '2023-09-10', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'official', theme: 'light', emailNotifications: true } },
-  { id: 5, username: 'artist_q', email: 'artist@acg.com', password: 'hashed_123', name: '画师小Q', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=ArtistQ', level: 25, sign: '接稿中~', gender: 'female', birthday: '2001-08-22', bio: '自由画师', followingCount: 12, followerCount: 890, postCount: 67, joinDate: '2023-05-01', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 6, username: 'gamer_pro', email: 'gamer@acg.com', password: 'hashed_123', name: '游戏达人', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Gamer', level: 18, sign: '全平台制霸', gender: 'male', birthday: '2000-12-05', bio: '全平台玩家', followingCount: 35, followerCount: 345, postCount: 56, joinDate: '2024-01-15', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: false } },
-  { id: 7, username: 'anime_fan', email: 'animefan@acg.com', password: 'hashed_123', name: '追番狂人', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=AnimeFan', level: 22, sign: '每季追番30+', gender: 'male', birthday: '1997-04-18', bio: '看过的番比吃过的饭还多', followingCount: 56, followerCount: 678, postCount: 123, joinDate: '2023-03-20', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 8, username: 'official_helper', email: 'official@acg.com', password: 'hashed_123', name: '官方小助手', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Official', level: 99, sign: 'ACG社区官方账号', gender: 'other', birthday: '2023-01-01', bio: 'ANISpace 官方运营账号', followingCount: 0, followerCount: 5678, postCount: 234, joinDate: '2023-01-01', lastLogin: '2026-05-08', status: 'active', isOfficial: true, preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
+  { id: 1, username: 'kirby_star', provider: 'bangumi', providerId: '1001', name: '星之卡比', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Kirby', level: 12, sign: '今天也要吃掉一切！', gender: 'other', birthday: '2000-01-01', bio: '热爱二次元，尤其喜欢萌系动画和RPG游戏', followingCount: 28, followerCount: 156, postCount: 45, joinDate: '2024-03-15', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
+  { id: 2, username: 'magical_girl', provider: 'bangumi', providerId: '1002', name: '魔法少女', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Magical', level: 8, sign: '守护世界的和平', gender: 'female', birthday: '2002-06-15', bio: '魔法少女番爱好者', followingCount: 15, followerCount: 89, postCount: 23, joinDate: '2024-06-20', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
+  { id: 3, username: 'otaku_chan', provider: 'bangumi', providerId: '1003', name: '宅宅酱', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Otaku', level: 15, sign: '二次元才是归宿', gender: 'male', birthday: '1999-11-20', bio: '资深宅，每季追番30+', followingCount: 42, followerCount: 234, postCount: 89, joinDate: '2023-12-01', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: false } },
+  { id: 4, username: 'novelist_q', provider: 'bangumi', providerId: '1004', name: '轻小说家', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Novelist', level: 20, sign: '用文字创造世界', gender: 'male', birthday: '1998-03-08', bio: '轻小说作者', followingCount: 8, followerCount: 567, postCount: 34, joinDate: '2023-09-10', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'official', theme: 'light', emailNotifications: true } },
+  { id: 5, username: 'artist_q', provider: 'bangumi', providerId: '1005', name: '画师小Q', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=ArtistQ', level: 25, sign: '接稿中~', gender: 'female', birthday: '2001-08-22', bio: '自由画师', followingCount: 12, followerCount: 890, postCount: 67, joinDate: '2023-05-01', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
+  { id: 6, username: 'gamer_pro', provider: 'github', providerId: '2001', name: '游戏达人', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Gamer', level: 18, sign: '全平台制霸', gender: 'male', birthday: '2000-12-05', bio: '全平台玩家', followingCount: 35, followerCount: 345, postCount: 56, joinDate: '2024-01-15', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: false } },
+  { id: 7, username: 'anime_fan', provider: 'github', providerId: '2002', name: '追番狂人', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=AnimeFan', level: 22, sign: '每季追番30+', gender: 'male', birthday: '1997-04-18', bio: '看过的番比吃过的饭还多', followingCount: 56, followerCount: 678, postCount: 123, joinDate: '2023-03-20', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
+  { id: 8, username: 'official_helper', provider: 'system', providerId: 'official', name: '官方小助手', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Official', level: 99, sign: 'ACG社区官方账号', gender: 'other', birthday: '2023-01-01', bio: 'ANISpace 官方运营账号', followingCount: 0, followerCount: 5678, postCount: 234, joinDate: '2023-01-01', lastLogin: '2026-05-08', status: 'active', isOfficial: true, preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
 ];
 
 function initDB() {
   if (!StorageService.get(SK.USERS)) {
     StorageService.set(SK.USERS, defaultUsers);
+  } else {
+    // 迁移：为旧用户添加 provider/providerId 字段
+    const users = StorageService.get(SK.USERS, []);
+    let changed = false;
+    users.forEach(u => {
+      if (!u.provider) {
+        u.provider = u.email ? 'legacy' : 'bangumi';
+        u.providerId = String(u.id + 1000);
+        changed = true;
+      }
+      if (u.password) {
+        delete u.password;
+        changed = true;
+      }
+    });
+    if (changed) StorageService.set(SK.USERS, users);
   }
 }
 
@@ -174,15 +191,35 @@ export { ApiError, CacheManager, isOnline, validateSubject, normalizeSubject };
 export { StorageService } from './storage';
 
 export const AuthService = {
-  register(data) {
+  loginWithOAuth(provider, oauthUser) {
     const users = StorageService.get(SK.USERS, []);
-    if (users.find(u => u.email === data.email)) return { error: '该邮箱已被注册' };
-    if (users.find(u => u.username === data.username)) return { error: '该用户名已被占用' };
+    // 查找已有用户（按 provider + providerId）
+    const existing = users.find(u => u.provider === provider && u.providerId === String(oauthUser.id));
+    if (existing) {
+      if (existing.status === 'disabled') return { error: '账户已被禁用' };
+      existing.lastLogin = new Date().toISOString().split('T')[0];
+      if (oauthUser.nickname && existing.name !== oauthUser.nickname) existing.name = oauthUser.nickname;
+      if (oauthUser.avatar) existing.avatar = oauthUser.avatar;
+      if (oauthUser.bio && !existing.bio) existing.bio = oauthUser.bio;
+      StorageService.set(SK.USERS, users);
+      const token = `token_${existing.id}_${Date.now()}`;
+      StorageService.set(SK.AUTH_TOKEN, token);
+      StorageService.set(SK.CURRENT_USER, existing);
+      return { user: existing, token };
+    }
+    // 创建新用户
     const newUser = {
-      id: generateId(users), username: data.username, email: data.email, password: `hashed_${data.password}`,
-      name: data.username, avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${data.username}`,
-      level: 1, sign: '', gender: 'other', birthday: '', bio: '', followingCount: 0, followerCount: 0, postCount: 0,
-      joinDate: new Date().toISOString().split('T')[0], lastLogin: new Date().toISOString().split('T')[0], status: 'active',
+      id: generateId(users),
+      username: oauthUser.username || `user_${Date.now()}`,
+      provider,
+      providerId: String(oauthUser.id),
+      name: oauthUser.nickname || oauthUser.username || '新用户',
+      avatar: oauthUser.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${oauthUser.username || Date.now()}`,
+      level: 1, sign: '', gender: 'other', birthday: '', bio: oauthUser.bio || '',
+      followingCount: 0, followerCount: 0, postCount: 0,
+      joinDate: new Date().toISOString().split('T')[0],
+      lastLogin: new Date().toISOString().split('T')[0],
+      status: 'active',
       preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true },
     };
     users.push(newUser);
@@ -191,19 +228,6 @@ export const AuthService = {
     StorageService.set(SK.AUTH_TOKEN, token);
     StorageService.set(SK.CURRENT_USER, newUser);
     return { user: newUser, token };
-  },
-  login(identifier, password) {
-    const users = StorageService.get(SK.USERS, []);
-    const user = users.find(u => u.email === identifier || u.username === identifier);
-    if (!user) return { error: '用户不存在' };
-    if (user.password !== `hashed_${password}`) return { error: '密码错误' };
-    if (user.status === 'disabled') return { error: '账户已被禁用' };
-    user.lastLogin = new Date().toISOString().split('T')[0];
-    StorageService.set(SK.USERS, users);
-    const token = `token_${user.id}_${Date.now()}`;
-    StorageService.set(SK.AUTH_TOKEN, token);
-    StorageService.set(SK.CURRENT_USER, user);
-    return { user, token };
   },
   logout() { StorageService.remove(SK.AUTH_TOKEN); StorageService.remove(SK.CURRENT_USER); },
   getCurrentUser() { return StorageService.get(SK.CURRENT_USER); },
@@ -674,51 +698,11 @@ export const PrivateMessageService = {
 
 const SAMPLE_VIDEO_URL = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
-const DEFAULT_VIDEOS = [
-  { id: 1, title: '四月新番推荐 TOP10', author: '追番达人', authorId: 1, views: 12580, likes: 834, danmakuCount: 2340, cover: '', duration: '12:34', category: 'anime', subCategory: '番剧', tags: ['新番', '推荐', '动画'], description: '2026年4月新番全面盘点，从热血到治愈应有尽有！', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-06', allowDanmaku: true, allowComment: true },
-  { id: 2, title: '原神4.7版本实况', author: '游戏玩家', authorId: 2, views: 8920, likes: 567, danmakuCount: 1560, cover: '', duration: '25:18', category: 'game', subCategory: '手机游戏', tags: ['原神', '实况', '攻略'], description: '原神4.7版本全新内容实况体验', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-07', allowDanmaku: true, allowComment: true },
-  { id: 3, title: '轻小说推荐合集', author: '小说家', authorId: 3, views: 5430, likes: 321, danmakuCount: 890, cover: '', duration: '08:45', category: 'novel', subCategory: '轻小说', tags: ['轻小说', '推荐', '书单'], description: '本季度必读轻小说推荐', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-07', allowDanmaku: true, allowComment: true },
-  { id: 4, title: 'MAD·AMV 精选', author: '剪辑师', authorId: 4, views: 23400, likes: 1890, danmakuCount: 5670, cover: '', duration: '03:56', category: 'anime', subCategory: 'MAD·AMV', tags: ['MAD', 'AMV', '剪辑'], description: '精选高质量MAD·AMV合集', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-06', allowDanmaku: true, allowComment: true },
-  { id: 5, title: '崩坏星穹铁道攻略', author: '攻略组', authorId: 5, views: 6780, likes: 445, danmakuCount: 1230, cover: '', duration: '18:22', category: 'game', subCategory: '手机游戏', tags: ['崩坏', '星穹铁道', '攻略'], description: '崩坏星穹铁道最新版本攻略', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-07', allowDanmaku: true, allowComment: true },
-  { id: 6, title: '日常Vlog·秋叶原', author: '旅行者', authorId: 6, views: 3210, likes: 210, danmakuCount: 560, cover: '', duration: '15:30', category: 'life', subCategory: '日常', tags: ['秋叶原', 'Vlog', '日本'], description: '秋叶原一日游Vlog', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-08', allowDanmaku: true, allowComment: true },
-  { id: 7, title: '鬼畜合集·年度最佳', author: '鬼畜大师', authorId: 7, views: 45600, likes: 3200, danmakuCount: 12300, cover: '', duration: '06:12', category: 'anime', subCategory: '鬼畜', tags: ['鬼畜', '搞笑', '合集'], description: '年度最佳鬼畜视频合集', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-05', allowDanmaku: true, allowComment: true },
-  { id: 8, title: '手绘教程·动漫人物', author: '画师小Q', authorId: 8, views: 9870, likes: 678, danmakuCount: 2100, cover: '', duration: '22:40', category: 'life', subCategory: '绘画', tags: ['手绘', '教程', '动漫'], description: '从零开始学画动漫人物', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-06', allowDanmaku: true, allowComment: true },
-  { id: 9, title: 'FGO剧情解说', author: '月厨', authorId: 9, views: 7650, likes: 534, danmakuCount: 1890, cover: '', duration: '30:15', category: 'game', subCategory: '手机游戏', tags: ['FGO', '剧情', '解说'], description: 'FGO最新章节剧情深度解说', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-05', allowDanmaku: true, allowComment: true },
-  { id: 10, title: '翻唱·动漫OP合集', author: '歌手酱', authorId: 10, views: 18900, likes: 1450, danmakuCount: 4500, cover: '', duration: '11:28', category: 'anime', subCategory: '翻唱', tags: ['翻唱', 'OP', '动漫'], description: '经典动漫OP翻唱合集', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-04', allowDanmaku: true, allowComment: true },
-  { id: 11, title: '轻小说改编动画盘点', author: '小说家', authorId: 3, views: 4320, likes: 289, danmakuCount: 780, cover: '', duration: '14:05', category: 'novel', subCategory: '轻小说', tags: ['轻小说', '改编', '动画'], description: '盘点那些优秀的轻小说改编动画', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-04', allowDanmaku: true, allowComment: true },
-  { id: 12, title: '塞尔达攻略全收集', author: '攻略组', authorId: 5, views: 15600, likes: 1100, danmakuCount: 3400, cover: '', duration: '45:30', category: 'game', subCategory: '单机游戏', tags: ['塞尔达', '攻略', '收集'], description: '塞尔达传说全收集攻略', videoUrl: SAMPLE_VIDEO_URL, createdAt: '2026-05-03', allowDanmaku: true, allowComment: true },
-];
+const DEFAULT_VIDEOS = [];
 
-const DEFAULT_DANMAKUS = [
-  { id: 1, videoId: 1, userId: 3, userName: '宅宅酱', text: '这个番太棒了！', color: '#FFFFFF', time: 5.2, type: 'scroll', createdAt: '2026-05-06T10:00:00Z' },
-  { id: 2, videoId: 1, userId: 1, userName: '星之卡比', text: '第一名！', color: '#FE0302', time: 8.5, type: 'scroll', createdAt: '2026-05-06T10:01:00Z' },
-  { id: 3, videoId: 1, userId: 2, userName: '魔法少女', text: '哈哈哈笑死', color: '#FFD302', time: 15.3, type: 'scroll', createdAt: '2026-05-06T10:02:00Z' },
-  { id: 4, videoId: 1, userId: 7, userName: '追番狂人', text: '追番追番', color: '#00CD00', time: 22.1, type: 'scroll', createdAt: '2026-05-06T10:03:00Z' },
-  { id: 5, videoId: 1, userId: 5, userName: '画师小Q', text: '画风好好看', color: '#426ABE', time: 35.8, type: 'scroll', createdAt: '2026-05-06T10:04:00Z' },
-  { id: 6, videoId: 1, userId: 6, userName: '游戏达人', text: '前排', color: '#FFFFFF', time: 42.0, type: 'scroll', createdAt: '2026-05-06T10:05:00Z' },
-  { id: 7, videoId: 1, userId: 3, userName: '宅宅酱', text: '催更催更！', color: '#CC0273', time: 55.6, type: 'scroll', createdAt: '2026-05-06T10:06:00Z' },
-  { id: 8, videoId: 1, userId: 1, userName: '星之卡比', text: '太强了', color: '#89D5FF', time: 68.2, type: 'scroll', createdAt: '2026-05-06T10:07:00Z' },
-  { id: 9, videoId: 4, userId: 7, userName: '追番狂人', text: '剪辑太强了', color: '#FFFFFF', time: 3.0, type: 'scroll', createdAt: '2026-05-06T11:00:00Z' },
-  { id: 10, videoId: 4, userId: 4, userName: '轻小说家', text: 'BGM是什么', color: '#FF7204', time: 12.5, type: 'scroll', createdAt: '2026-05-06T11:01:00Z' },
-  { id: 11, videoId: 4, userId: 2, userName: '魔法少女', text: '泪目了', color: '#89D5FF', time: 28.0, type: 'scroll', createdAt: '2026-05-06T11:02:00Z' },
-  { id: 12, videoId: 7, userId: 3, userName: '宅宅酱', text: '哈哈哈哈', color: '#FFD302', time: 2.0, type: 'scroll', createdAt: '2026-05-05T12:00:00Z' },
-  { id: 13, videoId: 7, userId: 1, userName: '星之卡比', text: '鬼畜区永远的神', color: '#FFFFFF', time: 8.0, type: 'scroll', createdAt: '2026-05-05T12:01:00Z' },
-  { id: 14, videoId: 7, userId: 6, userName: '游戏达人', text: '笑到停不下来', color: '#00CD00', time: 18.5, type: 'scroll', createdAt: '2026-05-05T12:02:00Z' },
-  { id: 15, videoId: 10, userId: 2, userName: '魔法少女', text: '好听到循环', color: '#FFFFFF', time: 5.0, type: 'scroll', createdAt: '2026-05-04T14:00:00Z' },
-  { id: 16, videoId: 10, userId: 5, userName: '画师小Q', text: '翻唱好棒', color: '#426ABE', time: 20.0, type: 'scroll', createdAt: '2026-05-04T14:01:00Z' },
-];
+const DEFAULT_DANMAKUS = [];
 
-const DEFAULT_VIDEO_COMMENTS = [
-  { id: 1, videoId: 1, userId: 3, userName: '宅宅酱', userAvatar: '', content: '这个推荐太及时了，正好不知道看什么新番！', likes: 24, replies: [
-    { id: 101, userId: 1, userName: '星之卡比', userAvatar: '', content: '同感！已加入追番列表', likes: 8, createdAt: '2026-05-06T11:00:00Z' },
-  ], createdAt: '2026-05-06T10:30:00Z' },
-  { id: 2, videoId: 1, userId: 7, userName: '追番狂人', userAvatar: '', content: '每季追番30+的人表示这个推荐很到位', likes: 15, replies: [], createdAt: '2026-05-06T12:00:00Z' },
-  { id: 3, videoId: 4, userId: 4, userName: '轻小说家', userAvatar: '', content: '剪辑水平真的高，转场太丝滑了', likes: 42, replies: [], createdAt: '2026-05-06T13:00:00Z' },
-  { id: 4, videoId: 7, userId: 1, userName: '星之卡比', userAvatar: '', content: '鬼畜区永远不让人失望2333', likes: 56, replies: [
-    { id: 401, userId: 6, userName: '游戏达人', userAvatar: '', content: '笑到肚子疼', likes: 12, createdAt: '2026-05-05T14:00:00Z' },
-    { id: 402, userId: 3, userName: '宅宅酱', userAvatar: '', content: '哈哈哈哈+1', likes: 5, createdAt: '2026-05-05T14:30:00Z' },
-  ], createdAt: '2026-05-05T13:00:00Z' },
-];
+const DEFAULT_VIDEO_COMMENTS = [];
 
 export const MailService = {
   send(fromUserId, toUserId, subject, content, attachments = []) {
@@ -1140,61 +1124,44 @@ export const NetEaseMusicService = {
 };
 
 export const BangumiAuthService = {
-  CLIENT_ID: 'anispace',
-  REDIRECT_URI: '',
-  AUTH_URL: 'https://bgm.tv/oauth/authorize',
-  TOKEN_URL: 'https://bgm.tv/oauth/access_token',
-
-  getRedirectUri() {
-    return `${window.location.origin}/auth/bangumi`;
-  },
-
   buildAuthUrl() {
+    const redirectUri = `${window.location.origin}${oauthConfig.bangumi.redirectPath}`;
     const params = new URLSearchParams({
-      client_id: this.CLIENT_ID,
+      client_id: oauthConfig.bangumi.clientId,
       response_type: 'code',
-      redirect_uri: this.getRedirectUri(),
+      redirect_uri: redirectUri,
     });
-    return `${this.AUTH_URL}?${params.toString()}`;
+    return `${oauthConfig.bangumi.authUrl}?${params.toString()}`;
   },
 
   initiateLogin() {
     window.location.href = this.buildAuthUrl();
   },
 
-  async handleCallback(code) {
+  async handleOAuthCallback(code) {
     try {
-      const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(this.TOKEN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'User-Agent': BangumiService.USER_AGENT },
-        body: JSON.stringify({
-          client_id: this.CLIENT_ID,
-          client_secret: '',
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: this.getRedirectUri(),
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) throw new ApiError('Bangumi授权失败', res.status);
+      const res = await fetch(`/api/oauth/bangumi/token?code=${encodeURIComponent(code)}`);
       const data = await res.json();
-      if (data.access_token) {
-        StorageService.set('acg_bangumi_token', data.access_token);
-        StorageService.set('acg_bangumi_refresh', data.refresh_token);
-        StorageService.set('acg_bangumi_user', {
-          id: data.user_id,
-          name: data.nickname || '',
-          avatar: data.avatar || '',
-        });
-        return { success: true, token: data.access_token };
-      }
-      return { error: '授权失败，未获取到token' };
+      if (data.error) return { error: data.error };
+      return data;
     } catch (err) {
-      if (err instanceof ApiError) throw err;
-      throw new ApiError('Bangumi授权异常', 0, 'NETWORK_ERROR');
+      return { error: err.message || 'Bangumi 授权服务异常' };
     }
+  },
+
+  async loginWithBangumi(code) {
+    const oauthResult = await this.handleOAuthCallback(code);
+    if (oauthResult.error) return { error: oauthResult.error };
+
+    // 保存 Bangumi token 和用户信息
+    StorageService.set(SK.BANGUMI_CACHE, { ...StorageService.get(SK.BANGUMI_CACHE, {}), _token: oauthResult.access_token });
+    StorageService.set('acg_bangumi_token', oauthResult.access_token);
+    if (oauthResult.refresh_token) StorageService.set('acg_bangumi_refresh', oauthResult.refresh_token);
+    StorageService.set('acg_bangumi_user', oauthResult.user);
+
+    // 通过 AuthService 创建或登录本地用户
+    const result = AuthService.loginWithOAuth('bangumi', oauthResult.user);
+    return result;
   },
 
   getBoundAccount() {
@@ -1209,6 +1176,59 @@ export const BangumiAuthService = {
     StorageService.remove('acg_bangumi_token');
     StorageService.remove('acg_bangumi_refresh');
     StorageService.remove('acg_bangumi_user');
+  },
+};
+
+export const GitHubAuthService = {
+  buildAuthUrl() {
+    const redirectUri = `${window.location.origin}${oauthConfig.github.redirectPath}`;
+    const params = new URLSearchParams({
+      client_id: oauthConfig.github.clientId,
+      redirect_uri: redirectUri,
+      scope: oauthConfig.github.scope,
+    });
+    return `${oauthConfig.github.authUrl}?${params.toString()}`;
+  },
+
+  initiateLogin() {
+    window.location.href = this.buildAuthUrl();
+  },
+
+  async handleOAuthCallback(code) {
+    try {
+      const res = await fetch(`/api/oauth/github/token?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (data.error) return { error: data.error };
+      return data;
+    } catch (err) {
+      return { error: err.message || 'GitHub 授权服务异常' };
+    }
+  },
+
+  async loginWithGitHub(code) {
+    const oauthResult = await this.handleOAuthCallback(code);
+    if (oauthResult.error) return { error: oauthResult.error };
+
+    // 保存 GitHub token 和用户信息
+    StorageService.set(SK.GITHUB_TOKEN, oauthResult.access_token);
+    StorageService.set(SK.GITHUB_USER, oauthResult.user);
+
+    // 通过 AuthService 创建或登录本地用户
+    const result = AuthService.loginWithOAuth('github', oauthResult.user);
+    return result;
+  },
+
+  getBoundAccount() {
+    return StorageService.get(SK.GITHUB_USER);
+  },
+
+  isBound() {
+    return !!StorageService.get(SK.GITHUB_TOKEN);
+  },
+
+  unbind() {
+    StorageService.remove(SK.GITHUB_TOKEN);
+    StorageService.remove(SK.GITHUB_USER);
   },
 };
 

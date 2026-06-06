@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { mockWorldMessages, mockUsers } from '../../data/mockData';
+import { StorageService, UserService } from '../../services/api';
 import { X, Minus, Maximize2, Send, Smile, GripHorizontal, Settings } from 'lucide-react';
 import EmojiPicker from '../Common/EmojiPicker';
 import './WorldModal.css';
@@ -17,7 +17,7 @@ export default function WorldModal({ open, onClose }) {
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem(MSG_STORAGE);
     if (saved) { try { return JSON.parse(saved); } catch {} }
-    return mockWorldMessages;
+    return StorageService.get('acg_world_messages', []);
   });
   const [input, setInput] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
@@ -153,7 +153,7 @@ export default function WorldModal({ open, onClose }) {
 
   const getUserById = (id) => {
     if (currentUser && id === currentUser.id) return currentUser;
-    return mockUsers.find(u => u.id === id) || { name: '匿名', avatar: '' };
+    return UserService.getById(id) || { name: '匿名', avatar: '' };
   };
 
   const applySizePreset = (preset) => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { mockForumPosts, mockReplies, mockUsers } from '../../data/mockData';
+import { StorageService, UserService } from '../../services/api';
 import './PostDetail.css';
 
 export default function PostDetail() {
@@ -9,7 +9,7 @@ export default function PostDetail() {
   const [replies, setReplies] = useState(mockReplies.filter(r => r.postId === parseInt(id)));
   const [newReply, setNewReply] = useState('');
 
-  const getUser = (userId) => mockUsers.find(u => u.id === userId);
+  const getUser = (userId) => UserService.getById(userId);
 
   const getCategoryLabel = (cat) => {
     const map = { game: '游戏', anime: '动画', novel: '小说', chat: '吹水' };

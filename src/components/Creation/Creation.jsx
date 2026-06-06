@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { mockCreations, mockUsers } from '../../data/mockData';
+import { StorageService, UserService } from '../../services/api';
 import './Creation.css';
 
 const categories = [
@@ -37,7 +37,7 @@ export default function Creation() {
     return items;
   }, [activeCategory, activeFilter]);
 
-  const getUser = (userId) => mockUsers.find(u => u.id === userId);
+  const getUser = (userId) => UserService.getById(userId);
 
   const getCategoryLabel = (cat) => {
     const map = { art: '绘画', novel: '小说', game: '游戏' };

@@ -8,7 +8,6 @@ export function AppProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => AuthService.isAuthenticated());
   const [notifications, setNotifications] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState('login');
 
   useEffect(() => {
     if (currentUser) {
@@ -17,20 +16,10 @@ export function AppProvider({ children }) {
     }
   }, [currentUser]);
 
-  const login = useCallback(async (identifier, password) => {
-    const result = AuthService.login(identifier, password);
-    if (result.error) return result;
-    setCurrentUser(result.user);
+  const oauthLogin = useCallback((user) => {
+    setCurrentUser(user);
     setIsAuthenticated(true);
-    return result;
-  }, []);
-
-  const register = useCallback(async (data) => {
-    const result = AuthService.register(data);
-    if (result.error) return result;
-    setCurrentUser(result.user);
-    setIsAuthenticated(true);
-    return result;
+    setShowAuthModal(false);
   }, []);
 
   const logout = useCallback(() => {
@@ -46,8 +35,7 @@ export function AppProvider({ children }) {
     return result;
   }, [currentUser]);
 
-  const openAuth = useCallback((tab = 'login') => {
-    setAuthModalTab(tab);
+  const openAuth = useCallback(() => {
     setShowAuthModal(true);
   }, []);
 
@@ -66,9 +54,7 @@ export function AppProvider({ children }) {
       isAuthenticated,
       notifications,
       showAuthModal,
-      authModalTab,
-      login,
-      register,
+      oauthLogin,
       logout,
       updateProfile,
       openAuth,

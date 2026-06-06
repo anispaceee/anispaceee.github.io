@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { mockCreations, mockUsers } from '../../data/mockData';
+import { StorageService, UserService } from '../../services/api';
 import './CreationDetail.css';
 
 export default function CreationDetail() {
@@ -18,7 +18,7 @@ export default function CreationDetail() {
     );
   }
 
-  const user = mockUsers.find(u => u.id === item.userId);
+  const user = UserService.getById(item.userId);
   const categoryLabel = item.category === 'art' ? '绘画' : item.category === 'novel' ? '小说' : '游戏';
 
   return (

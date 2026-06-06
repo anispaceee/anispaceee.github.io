@@ -20,6 +20,8 @@ const STORAGE_KEYS = {
   DANMAKUS: 'acg_danmakus',
   VIDEO_COMMENTS: 'acg_video_comments',
   MAILBOX: 'acg_mailbox',
+  GITHUB_TOKEN: 'acg_github_token',
+  GITHUB_USER: 'acg_github_user',
 };
 
 function get(key, defaultValue = null) {

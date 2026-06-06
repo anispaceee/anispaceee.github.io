@@ -1,67 +1,48 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Mail, Lock, User, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
+import { BangumiAuthService, GitHubAuthService } from '../../services/api';
+import { X, AlertCircle } from 'lucide-react';
 import './AuthModal.css';
 
+const BangumiIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+  </svg>
+);
+
+const GitHubIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+  </svg>
+);
+
 export default function AuthModal() {
-  const { showAuthModal, authModalTab, closeAuth, login, register, openAuth } = useApp();
-  const [loginForm, setLoginForm] = useState({ identifier: '', password: '', remember: false });
-  const [registerForm, setRegisterForm] = useState({ username: '', email: '', password: '', confirmPassword: '', agree: false });
-  const [showPassword, setShowPassword] = useState(false);
+  const { showAuthModal, closeAuth } = useApp();
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(null);
 
   if (!showAuthModal) return null;
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleBangumiLogin = () => {
+    setLoading('bangumi');
     setError('');
-    if (!loginForm.identifier || !loginForm.password) {
-      setError('请填写所有字段');
-      return;
+    try {
+      BangumiAuthService.initiateLogin();
+    } catch (err) {
+      setError('无法跳转到 Bangumi 登录页面');
+      setLoading(null);
     }
-    setLoading(true);
-    const result = await login(loginForm.identifier, loginForm.password);
-    setLoading(false);
-    if (result.error) setError(result.error);
-    else { setSuccess('登录成功！'); setTimeout(() => { closeAuth(); setSuccess(''); }, 800); }
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const handleGithubLogin = () => {
+    setLoading('github');
     setError('');
-    if (!registerForm.username || !registerForm.email || !registerForm.password) {
-      setError('请填写所有字段');
-      return;
+    try {
+      GitHubAuthService.initiateLogin();
+    } catch (err) {
+      setError('无法跳转到 GitHub 登录页面');
+      setLoading(null);
     }
-    if (registerForm.password.length < 6) {
-      setError('密码至少6位');
-      return;
-    }
-    if (registerForm.password !== registerForm.confirmPassword) {
-      setError('两次密码不一致');
-      return;
-    }
-    if (!registerForm.agree) {
-      setError('请同意用户协议');
-      return;
-    }
-    setLoading(true);
-    const result = await register({
-      username: registerForm.username,
-      email: registerForm.email,
-      password: registerForm.password,
-    });
-    setLoading(false);
-    if (result.error) setError(result.error);
-    else { setSuccess('注册成功！'); setTimeout(() => { closeAuth(); setSuccess(''); }, 800); }
-  };
-
-  const switchTab = (tab) => {
-    setError('');
-    setSuccess('');
-    openAuth(tab);
   };
 
   return (
@@ -71,87 +52,42 @@ export default function AuthModal() {
 
         <div className="auth-header">
           <div className="auth-logo">✦</div>
-          <h2>{authModalTab === 'login' ? '欢迎回来' : '加入我们'}</h2>
-          <p>{authModalTab === 'login' ? '登录你的ACG社区账号' : '创建你的ACG社区账号'}</p>
+          <h2>欢迎来到 ANISpace</h2>
+          <p>选择你的登录方式</p>
         </div>
 
         {error && <div className="auth-error"><AlertCircle size={16} /> {error}</div>}
-        {success && <div className="auth-success"><Check size={16} /> {success}</div>}
 
-        {authModalTab === 'login' ? (
-          <form className="auth-form" onSubmit={handleLogin}>
-            <div className="auth-field">
-              <Mail size={16} />
-              <input type="text" placeholder="邮箱或用户名" value={loginForm.identifier}
-                onChange={e => setLoginForm({ ...loginForm, identifier: e.target.value })} />
+        <div className="auth-oauth-buttons">
+          <button
+            className="oauth-btn oauth-btn-bangumi"
+            onClick={handleBangumiLogin}
+            disabled={loading !== null}
+          >
+            <BangumiIcon />
+            <div className="oauth-btn-text">
+              <span className="oauth-btn-title">使用 Bangumi 登录</span>
+              <span className="oauth-btn-desc">同步追番记录和评分数据</span>
             </div>
-            <div className="auth-field">
-              <Lock size={16} />
-              <input type={showPassword ? 'text' : 'password'} placeholder="密码" value={loginForm.password}
-                onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} />
-              <button type="button" className="auth-eye" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            <div className="auth-options">
-              <label className="auth-remember">
-                <input type="checkbox" checked={loginForm.remember}
-                  onChange={e => setLoginForm({ ...loginForm, remember: e.target.checked })} />
-                <span>记住我</span>
-              </label>
-              <button type="button" className="auth-forgot">忘记密码？</button>
-            </div>
-            <button type="submit" className="auth-submit" disabled={loading}>
-              {loading ? '登录中...' : '登录'}
-            </button>
-            <div className="auth-divider"><span>或</span></div>
-            <div className="auth-third-party">
-              <button type="button" className="third-party-btn qq">QQ</button>
-              <button type="button" className="third-party-btn wechat">微信</button>
-            </div>
-          </form>
-        ) : (
-          <form className="auth-form" onSubmit={handleRegister}>
-            <div className="auth-field">
-              <User size={16} />
-              <input type="text" placeholder="用户名" value={registerForm.username}
-                onChange={e => setRegisterForm({ ...registerForm, username: e.target.value })} />
-            </div>
-            <div className="auth-field">
-              <Mail size={16} />
-              <input type="email" placeholder="邮箱" value={registerForm.email}
-                onChange={e => setRegisterForm({ ...registerForm, email: e.target.value })} />
-            </div>
-            <div className="auth-field">
-              <Lock size={16} />
-              <input type={showPassword ? 'text' : 'password'} placeholder="密码（至少6位）" value={registerForm.password}
-                onChange={e => setRegisterForm({ ...registerForm, password: e.target.value })} />
-              <button type="button" className="auth-eye" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            <div className="auth-field">
-              <Lock size={16} />
-              <input type="password" placeholder="确认密码" value={registerForm.confirmPassword}
-                onChange={e => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })} />
-            </div>
-            <label className="auth-agree">
-              <input type="checkbox" checked={registerForm.agree}
-                onChange={e => setRegisterForm({ ...registerForm, agree: e.target.checked })} />
-              <span>我已阅读并同意 <a href="#">用户协议</a> 和 <a href="#">隐私政策</a></span>
-            </label>
-            <button type="submit" className="auth-submit" disabled={loading}>
-              {loading ? '注册中...' : '注册'}
-            </button>
-          </form>
-        )}
+            {loading === 'bangumi' && <span className="oauth-btn-spinner" />}
+          </button>
 
-        <div className="auth-switch">
-          {authModalTab === 'login' ? (
-            <span>还没有账号？<button onClick={() => switchTab('register')}>立即注册</button></span>
-          ) : (
-            <span>已有账号？<button onClick={() => switchTab('login')}>立即登录</button></span>
-          )}
+          <button
+            className="oauth-btn oauth-btn-github"
+            onClick={handleGithubLogin}
+            disabled={loading !== null}
+          >
+            <GitHubIcon size={20} />
+            <div className="oauth-btn-text">
+              <span className="oauth-btn-title">使用 GitHub 登录</span>
+              <span className="oauth-btn-desc">快速登录，适合开发者</span>
+            </div>
+            {loading === 'github' && <span className="oauth-btn-spinner" />}
+          </button>
+        </div>
+
+        <div className="auth-footer">
+          <p>登录即表示你同意我们的 <a href="#">用户协议</a> 和 <a href="#">隐私政策</a></p>
         </div>
       </div>
     </div>

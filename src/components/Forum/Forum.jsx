@@ -1,8 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { StorageService } from '../../services/api';
-import { mockForumPosts, mockUsers } from '../../data/mockData';
+import { StorageService, UserService } from '../../services/api';
 import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, Users, FileText, TrendingUp, Clock, Heart, Image, Video, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Upload, Loader2 } from 'lucide-react';
 import './Forum.css';
 
@@ -72,8 +71,8 @@ const sortOptions = [
 function getAllPosts() {
   const stored = StorageService.get(FORUM_POSTS_KEY);
   if (!stored) {
-    StorageService.set(FORUM_POSTS_KEY, mockForumPosts);
-    return [...mockForumPosts];
+    StorageService.set(FORUM_POSTS_KEY, []);
+    return [];
   }
   return stored;
 }
@@ -207,7 +206,7 @@ export default function Forum() {
     return filtered;
   }, [activeBoard, sortBy, searchQuery, posts]);
 
-  const getUser = (userId) => mockUsers.find(u => u.id === userId);
+  const getUser = (userId) => UserService.getById(userId);
   const getCategoryLabel = (cat) => ({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' }[cat] || cat);
 
   const validatePost = useCallback(() => {

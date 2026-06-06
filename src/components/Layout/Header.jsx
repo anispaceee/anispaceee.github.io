@@ -79,8 +79,7 @@ export default function Header() {
               </div>
             ) : (
               <div className="header-auth-btns">
-                <button className="auth-btn login-btn" onClick={() => openAuth('login')}>登录</button>
-                <button className="auth-btn register-btn" onClick={() => openAuth('register')}>注册</button>
+                <button className="auth-btn login-btn" onClick={() => openAuth()}>登录</button>
               </div>
             )}
 

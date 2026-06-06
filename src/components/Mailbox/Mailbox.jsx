@@ -57,7 +57,7 @@ export default function Mailbox() {
           <Mail size={48} />
           <h2>请先登录</h2>
           <p>登录后即可使用邮箱功能</p>
-          <button className="mailbox-auth-btn" onClick={() => openAuth('login')}>登录</button>
+          <button className="mailbox-auth-btn" onClick={() => openAuth()}>登录</button>
         </div>
       </div>
     );
