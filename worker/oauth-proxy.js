@@ -1,24 +1,30 @@
 /**
- * ANISpace OAuth 代理 — Cloudflare Worker
+ * ANISpace 代理 — Cloudflare Worker
  *
- * 处理 Bangumi 和 GitHub 的 OAuth token 交换，
- * 避免 client_secret 暴露到前端。
+ * 功能：
+ * 1. OAuth token 交换（Bangumi / GitHub）
+ * 2. Bangumi API 代理 + 缓存（解决直连不稳定问题）
  *
  * 环境变量（在 Cloudflare Dashboard 中配置）：
  *   BANGUMI_CLIENT_ID      - Bangumi OAuth Client ID
  *   BANGUMI_CLIENT_SECRET  - Bangumi OAuth Client Secret
  *   GITHUB_CLIENT_ID       - GitHub OAuth Client ID
  *   GITHUB_CLIENT_SECRET   - GitHub OAuth Client Secret
- *   ALLOWED_ORIGIN         - 允许的前端域名（如 https://afterRain-2005.github.io）
+ *   ALLOWED_ORIGIN         - 允许的前端域名（如 https://afterrain-2005.github.io）
  */
 
-const BANGUMI_AUTH_URL = 'https://bgm.tv/oauth/authorize';
 const BANGUMI_TOKEN_URL = 'https://bgm.tv/oauth/access_token';
 const BANGUMI_API_URL = 'https://api.bgm.tv';
 
-const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_API_URL = 'https://api.github.com';
+
+// 缓存配置
+const CACHE_TTL = 30 * 60; // 30 分钟，单位秒
+const CACHE_TTL_SHORT = 5 * 60; // 5 分钟（搜索等实时性要求高的接口）
+
+// 不缓存的路径（POST 请求、token 交换等）
+const NO_CACHE_PATHS = ['/v0/search/'];
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -40,6 +46,78 @@ function jsonResponse(data, status = 200, origin = '*') {
       'Content-Type': 'application/json',
       ...corsHeaders(origin),
     },
+  });
+}
+
+// Bangumi API 代理
+async function handleBangumiProxy(pathname, searchParams, request, env, origin) {
+  // 构建目标 URL
+  const targetUrl = `${BANGUMI_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+
+  // 检查缓存（仅 GET 请求）
+  const cache = caches.default;
+  const cacheKey = new Request(targetUrl, { method: 'GET' });
+  if (request.method === 'GET') {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      const headers = new Headers(cached.headers);
+      headers.set('X-Cache', 'HIT');
+      Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+      return new Response(cached.body, { status: cached.status, headers });
+    }
+  }
+
+  // 转发请求
+  const headers = {
+    'User-Agent': 'ANISpace/1.0',
+    'Accept': 'application/json',
+  };
+
+  // 透传 Authorization 头（如有）
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader) headers['Authorization'] = authHeader;
+
+  const fetchOptions = {
+    method: request.method,
+    headers,
+  };
+
+  // POST 请求转发 body
+  if (request.method === 'POST') {
+    const contentType = request.headers.get('Content-Type') || 'application/json';
+    headers['Content-Type'] = contentType;
+    fetchOptions.body = await request.text();
+  }
+
+  const res = await fetch(targetUrl, fetchOptions);
+
+  // 构建响应
+  const resHeaders = new Headers();
+  resHeaders.set('Content-Type', 'application/json');
+  resHeaders.set('X-Cache', 'MISS');
+  Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+  const responseBody = await res.text();
+
+  // 缓存 GET 请求的响应
+  if (request.method === 'GET' && res.ok) {
+    const isNoCache = NO_CACHE_PATHS.some(p => pathname.startsWith(p));
+    const ttl = isNoCache ? CACHE_TTL_SHORT : CACHE_TTL;
+
+    const cacheResponse = new Response(responseBody, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${ttl}`,
+      },
+    });
+    // 使用 waitUntil 异步写入缓存，不阻塞响应
+    try { await cache.put(cacheKey, cacheResponse); } catch {}
+  }
+
+  return new Response(responseBody, {
+    status: res.status,
+    headers: resHeaders,
   });
 }
 
@@ -174,6 +252,12 @@ export default {
       return jsonResponse({ error: '来源不被允许' }, 403, origin);
     }
 
+    // Bangumi API 代理：/api/bangumi/*
+    if (url.pathname.startsWith('/api/bangumi/')) {
+      const bangumiPath = url.pathname.replace('/api/bangumi', '');
+      return handleBangumiProxy(bangumiPath, url.searchParams, request, env, origin);
+    }
+
     // Bangumi token 交换
     if (url.pathname === '/oauth/bangumi/token') {
       const code = url.searchParams.get('code');
@@ -208,7 +292,7 @@ export default {
 
     // 健康检查
     if (url.pathname === '/') {
-      return jsonResponse({ status: 'ok', service: 'ANISpace OAuth Proxy' }, 200, origin);
+      return jsonResponse({ status: 'ok', service: 'ANISpace Proxy' }, 200, origin);
     }
 
     return jsonResponse({ error: 'Not Found' }, 404, origin);

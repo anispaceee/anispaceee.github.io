@@ -2,26 +2,16 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ANISpace - ACG Community</title>
-    <!-- GitHub Pages SPA 路由回退：将当前路径写入 sessionStorage -->
     <script>
-      // 单页应用路由回退脚本
-      // 当 GitHub Pages 返回 404.html 时，将路径信息保存到 sessionStorage
-      // 然后 redirect 到 index.html，由 index.html 中的脚本恢复路径
-      var pathSegmentsToKeep = 0; // username.github.io 仓库设为 0
-      var l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-        l.hash
-      );
+      // GitHub Pages SPA 路由回退
+      // 当用户直接访问 /auth/github?code=xxx 等 SPA 路由时，
+      // GitHub Pages 返回此 404.html，我们需要保存原始路径并跳转到 index.html
+      sessionStorage.setItem('spa_redirect', window.location.pathname + window.location.search + window.location.hash);
+      window.location.replace(window.location.origin + '/');
     </script>
   </head>
   <body>
-    SPA 路由回退中...
+    正在跳转...
   </body>
 </html>

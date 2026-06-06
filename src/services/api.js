@@ -261,6 +261,15 @@ export const BangumiService = {
   BASE_URL: 'https://api.bgm.tv',
   USER_AGENT: 'ANISpace/1.0 (https://github.com/anispace)',
 
+  // 获取代理后的请求 URL
+  // 生产环境：通过 Cloudflare Worker 代理（proxyUrl + /api/bangumi + 路径）
+  // 开发环境：直连 api.bgm.tv
+  _proxyUrl(url) {
+    const proxyBase = oauthConfig.proxyUrl;
+    if (!proxyBase) return url;
+    return url.replace(this.BASE_URL, `${proxyBase}/api/bangumi`);
+  },
+
   _headers() {
     return { 'User-Agent': this.USER_AGENT, 'Accept': 'application/json' };
   },
@@ -285,7 +294,8 @@ export const BangumiService = {
 
     try {
       const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(url, {
+      const targetUrl = this._proxyUrl(url);
+      const res = await fetch(targetUrl, {
         headers: this._headers(),
         signal: controller.signal,
       });
