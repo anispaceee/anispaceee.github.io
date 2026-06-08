@@ -975,12 +975,20 @@ export const GitHubAuthService = {
   async handleOAuthCallback(code) {
     try {
       const redirectUri = `${window.location.origin}${oauthConfig.github.redirectPath}`;
-      const res = await fetch(`${oauthConfig.tokenBase}/github/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
-      const data = await res.json();
+      const url = `${oauthConfig.tokenBase}/github/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      console.log('[GitHub OAuth] tokenBase:', oauthConfig.tokenBase, 'proxyUrl:', oauthConfig.proxyUrl);
+      console.log('[GitHub OAuth] Request URL:', url);
+      const res = await fetch(url);
+      console.log('[GitHub OAuth] Response status:', res.status);
+      const text = await res.text();
+      console.log('[GitHub OAuth] Response body:', text);
+      let data;
+      try { data = JSON.parse(text); } catch { return { error: `响应解析失败 (HTTP ${res.status}): ${text.substring(0, 200)}` }; }
       if (data.error) return { error: data.error };
       return data;
     } catch (err) {
-      return { error: err.message || 'GitHub 授权服务异常' };
+      console.error('[GitHub OAuth] Exception:', err);
+      return { error: `${err.message || 'GitHub 授权服务异常'} (tokenBase: ${oauthConfig.tokenBase})` };
     }
   },
 
