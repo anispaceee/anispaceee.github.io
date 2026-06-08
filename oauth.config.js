@@ -17,14 +17,14 @@ const OAUTH_PROXY_URL = getEnvVar('VITE_OAUTH_PROXY_URL') || '';
 
 export default {
   bangumi: {
-    clientId: getEnvVar('VITE_BANGUMI_CLIENT_ID') || 'bgm_anispace',
+    clientId: getEnvVar('VITE_BANGUMI_CLIENT_ID') || '',
     authUrl: 'https://bgm.tv/oauth/authorize',
     tokenUrl: 'https://bgm.tv/oauth/access_token',
     apiUrl: 'https://api.bgm.tv',
     redirectPath: '/auth/bangumi',
   },
   github: {
-    clientId: getEnvVar('VITE_GITHUB_CLIENT_ID') || 'gh_anispace',
+    clientId: getEnvVar('VITE_GITHUB_CLIENT_ID') || '',
     authUrl: 'https://github.com/login/oauth/authorize',
     tokenUrl: 'https://github.com/login/oauth/access_token',
     apiUrl: 'https://api.github.com',
@@ -36,5 +36,12 @@ export default {
   // 生产环境：Worker URL（如 https://anispace-oauth.your-name.workers.dev）
   get proxyUrl() {
     return OAUTH_PROXY_URL;
+  },
+
+  // OAuth token 交换路径前缀
+  // 开发环境（proxyUrl 为空）：Vite 插件监听 /api/oauth/*
+  // 生产环境（proxyUrl 有值）：Worker 监听 /oauth/*
+  get tokenBase() {
+    return OAUTH_PROXY_URL ? `${OAUTH_PROXY_URL}/oauth` : '/api/oauth';
   },
 };

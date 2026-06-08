@@ -356,8 +356,9 @@ export const BangumiService = {
       sort: 'match',
     });
     try {
+      const targetUrl = this._proxyUrl(url);
       const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(url, {
+      const res = await fetch(targetUrl, {
         method: 'POST',
         headers: { ...this._headers(), 'Content-Type': 'application/json' },
         body,
@@ -505,8 +506,9 @@ export const BangumiService = {
         per_page: 25,
       });
 
+      const targetUrl = this._proxyUrl(url);
       const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(url, {
+      const res = await fetch(targetUrl, {
         method: 'POST',
         headers: { ...this._headers(), 'Content-Type': 'application/json' },
         body,
@@ -706,14 +708,6 @@ export const PrivateMessageService = {
   },
 };
 
-const SAMPLE_VIDEO_URL = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-
-const DEFAULT_VIDEOS = [];
-
-const DEFAULT_DANMAKUS = [];
-
-const DEFAULT_VIDEO_COMMENTS = [];
-
 export const MailService = {
   send(fromUserId, toUserId, subject, content, attachments = []) {
     const mails = StorageService.get(SK.MAILBOX, []);
@@ -812,232 +806,6 @@ export const MailService = {
       seen.add(m.id);
       return m.subject.toLowerCase().includes(q) || m.content.toLowerCase().includes(q);
     });
-  },
-};
-
-export const VideoService = {
-  getAll() {
-    const stored = StorageService.get(SK.VIDEOS);
-    if (!stored) {
-      StorageService.set(SK.VIDEOS, DEFAULT_VIDEOS);
-      return [...DEFAULT_VIDEOS];
-    }
-    return stored;
-  },
-
-  getById(id) {
-    const videos = this.getAll();
-    return videos.find(v => v.id === parseInt(id)) || null;
-  },
-
-  add(video) {
-    const videos = this.getAll();
-    const newId = videos.length > 0 ? Math.max(...videos.map(v => v.id)) + 1 : 1;
-    const newVideo = {
-      id: newId,
-      views: 0,
-      likes: 0,
-      danmakuCount: 0,
-      cover: '',
-      videoUrl: SAMPLE_VIDEO_URL,
-      createdAt: new Date().toISOString().split('T')[0],
-      allowDanmaku: true,
-      allowComment: true,
-      tags: [],
-      description: '',
-      ...video,
-    };
-    videos.unshift(newVideo);
-    StorageService.set(SK.VIDEOS, videos);
-    return newVideo;
-  },
-
-  delete(id) {
-    const videos = this.getAll().filter(v => v.id !== id);
-    StorageService.set(SK.VIDEOS, videos);
-  },
-
-  incrementViews(id) {
-    const videos = this.getAll();
-    const video = videos.find(v => v.id === id);
-    if (video) { video.views++; StorageService.set(SK.VIDEOS, videos); }
-  },
-
-  toggleLike(id, userId) {
-    const videos = this.getAll();
-    const video = videos.find(v => v.id === id);
-    if (video) { video.likes++; StorageService.set(SK.VIDEOS, videos); }
-  },
-
-  getByCategory(category) {
-    return this.getAll().filter(v => v.category === category);
-  },
-
-  getHot(limit = 10) {
-    return [...this.getAll()].sort((a, b) => b.views - a.views).slice(0, limit);
-  },
-
-  getLatest(limit = 10) {
-    return [...this.getAll()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, limit);
-  },
-
-  search(keyword) {
-    const q = keyword.toLowerCase();
-    return this.getAll().filter(v =>
-      v.title.toLowerCase().includes(q) ||
-      v.author.toLowerCase().includes(q) ||
-      (v.tags && v.tags.some(t => t.toLowerCase().includes(q))) ||
-      (v.description && v.description.toLowerCase().includes(q))
-    );
-  },
-};
-
-export const DanmakuService = {
-  getByVideoId(videoId) {
-    const stored = StorageService.get(SK.DANMAKUS);
-    if (!stored) {
-      StorageService.set(SK.DANMAKUS, DEFAULT_DANMAKUS);
-      return DEFAULT_DANMAKUS.filter(d => d.videoId === parseInt(videoId));
-    }
-    return stored.filter(d => d.videoId === parseInt(videoId));
-  },
-
-  add(videoId, danmaku) {
-    const all = StorageService.get(SK.DANMAKUS) || [...DEFAULT_DANMAKUS];
-    const newId = all.length > 0 ? Math.max(...all.map(d => d.id)) + 1 : 1;
-    const newDanmaku = {
-      id: newId,
-      videoId: parseInt(videoId),
-      createdAt: new Date().toISOString(),
-      ...danmaku,
-    };
-    all.push(newDanmaku);
-    StorageService.set(SK.DANMAKUS, all);
-    const videos = VideoService.getAll();
-    const video = videos.find(v => v.id === parseInt(videoId));
-    if (video) {
-      video.danmakuCount = (video.danmakuCount || 0) + 1;
-      StorageService.set(SK.VIDEOS, videos);
-    }
-    return newDanmaku;
-  },
-
-  getCount(videoId) {
-    return this.getByVideoId(videoId).length;
-  },
-
-  getRecent(videoId, limit = 50) {
-    return this.getByVideoId(videoId)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, limit);
-  },
-};
-
-export const VideoCommentService = {
-  getByVideoId(videoId) {
-    const stored = StorageService.get(SK.VIDEO_COMMENTS);
-    if (!stored) {
-      StorageService.set(SK.VIDEO_COMMENTS, DEFAULT_VIDEO_COMMENTS);
-      return DEFAULT_VIDEO_COMMENTS.filter(c => c.videoId === parseInt(videoId));
-    }
-    return stored.filter(c => c.videoId === parseInt(videoId));
-  },
-
-  add(videoId, comment) {
-    const all = StorageService.get(SK.VIDEO_COMMENTS) || [...DEFAULT_VIDEO_COMMENTS];
-    const newId = all.length > 0 ? Math.max(...all.map(c => c.id)) + 1 : 1;
-    const newComment = {
-      id: newId,
-      videoId: parseInt(videoId),
-      likes: 0,
-      replies: [],
-      createdAt: new Date().toISOString(),
-      ...comment,
-    };
-    all.push(newComment);
-    StorageService.set(SK.VIDEO_COMMENTS, all);
-    return newComment;
-  },
-
-  addReply(commentId, reply) {
-    const all = StorageService.get(SK.VIDEO_COMMENTS) || [...DEFAULT_VIDEO_COMMENTS];
-    const comment = all.find(c => c.id === parseInt(commentId));
-    if (!comment) return null;
-    if (!comment.replies) comment.replies = [];
-    const replyId = Date.now();
-    const newReply = {
-      id: replyId,
-      likes: 0,
-      createdAt: new Date().toISOString(),
-      ...reply,
-    };
-    comment.replies.push(newReply);
-    StorageService.set(SK.VIDEO_COMMENTS, all);
-    return newReply;
-  },
-
-  likeComment(commentId) {
-    const all = StorageService.get(SK.VIDEO_COMMENTS) || [...DEFAULT_VIDEO_COMMENTS];
-    const comment = all.find(c => c.id === parseInt(commentId));
-    if (comment) { comment.likes++; StorageService.set(SK.VIDEO_COMMENTS, all); }
-  },
-
-  getCount(videoId) {
-    const comments = this.getByVideoId(videoId);
-    let count = comments.length;
-    comments.forEach(c => { count += (c.replies?.length || 0); });
-    return count;
-  },
-};
-
-export const AnimeApiService = {
-  BASE_URL: 'https://api.animedb.com.br/v1',
-  USER_AGENT: 'ANISpace/1.0',
-
-  async searchAnime(query, limit = 10) {
-    if (!isOnline()) throw new ApiError('网络连接已断开', 0, 'OFFLINE');
-    try {
-      const url = `${this.BASE_URL}/anime?search=${encodeURIComponent(query)}&limit=${limit}`;
-      const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(url, {
-        headers: { 'User-Agent': this.USER_AGENT, 'Accept': 'application/json' },
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) throw new ApiError(`AnimeAPI请求失败 (${res.status})`, res.status);
-      const data = await res.json();
-      return Array.isArray(data) ? data.map(item => ({
-        id: item.id || item.mal_id,
-        title: item.title || item.name || '',
-        title_jp: item.title_japanese || '',
-        image: item.image_url || item.images?.jpg?.image_url || '',
-        score: item.score || 0,
-        episodes: item.episodes || 0,
-        synopsis: item.synopsis || '',
-        genres: Array.isArray(item.genres) ? item.genres.map(g => typeof g === 'string' ? g : g.name) : [],
-      })) : [];
-    } catch (err) {
-      if (err instanceof ApiError) throw err;
-      throw new ApiError('AnimeAPI请求异常', 0, 'NETWORK_ERROR');
-    }
-  },
-
-  async getAnimeDetail(id) {
-    if (!isOnline()) throw new ApiError('网络连接已断开', 0, 'OFFLINE');
-    try {
-      const url = `${this.BASE_URL}/anime/${id}`;
-      const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(url, {
-        headers: { 'User-Agent': this.USER_AGENT, 'Accept': 'application/json' },
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) throw new ApiError(`AnimeAPI请求失败 (${res.status})`, res.status);
-      return await res.json();
-    } catch (err) {
-      if (err instanceof ApiError) throw err;
-      throw new ApiError('AnimeAPI请求异常', 0, 'NETWORK_ERROR');
-    }
   },
 };
 
@@ -1150,9 +918,8 @@ export const BangumiAuthService = {
 
   async handleOAuthCallback(code) {
     try {
-      const base = oauthConfig.proxyUrl || '';
       const redirectUri = `${window.location.origin}${oauthConfig.bangumi.redirectPath}`;
-      const res = await fetch(`${base}/oauth/bangumi/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
+      const res = await fetch(`${oauthConfig.tokenBase}/bangumi/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
       const data = await res.json();
       if (data.error) return { error: data.error };
       return data;
@@ -1166,7 +933,6 @@ export const BangumiAuthService = {
     if (oauthResult.error) return { error: oauthResult.error };
 
     // 保存 Bangumi token 和用户信息
-    StorageService.set(SK.BANGUMI_CACHE, { ...StorageService.get(SK.BANGUMI_CACHE, {}), _token: oauthResult.access_token });
     StorageService.set('acg_bangumi_token', oauthResult.access_token);
     if (oauthResult.refresh_token) StorageService.set('acg_bangumi_refresh', oauthResult.refresh_token);
     StorageService.set('acg_bangumi_user', oauthResult.user);
@@ -1208,9 +974,8 @@ export const GitHubAuthService = {
 
   async handleOAuthCallback(code) {
     try {
-      const base = oauthConfig.proxyUrl || '';
       const redirectUri = `${window.location.origin}${oauthConfig.github.redirectPath}`;
-      const res = await fetch(`${base}/oauth/github/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
+      const res = await fetch(`${oauthConfig.tokenBase}/github/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
       const data = await res.json();
       if (data.error) return { error: data.error };
       return data;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { BangumiAuthService, GitHubAuthService } from '../../services/api';
+import oauthConfig from '../../../oauth.config.js';
 import { X, AlertCircle } from 'lucide-react';
 import './AuthModal.css';
 
@@ -26,6 +27,11 @@ export default function AuthModal() {
   const handleBangumiLogin = () => {
     setLoading('bangumi');
     setError('');
+    if (!oauthConfig.bangumi.clientId) {
+      setError('Bangumi 登录未配置，请在 .env 中设置 VITE_BANGUMI_CLIENT_ID');
+      setLoading(null);
+      return;
+    }
     try {
       BangumiAuthService.initiateLogin();
     } catch (err) {
@@ -37,6 +43,11 @@ export default function AuthModal() {
   const handleGithubLogin = () => {
     setLoading('github');
     setError('');
+    if (!oauthConfig.github.clientId) {
+      setError('GitHub 登录未配置，请在 .env 中设置 VITE_GITHUB_CLIENT_ID');
+      setLoading(null);
+      return;
+    }
     try {
       GitHubAuthService.initiateLogin();
     } catch (err) {
