@@ -123,9 +123,14 @@ async function handleBangumiProxy(pathname, searchParams, request, env, origin) 
 
 // Bangumi OAuth token 交换
 async function handleBangumiToken(code, redirectUri, env) {
+  if (!env.BANGUMI_CLIENT_ID || !env.BANGUMI_CLIENT_SECRET) {
+    return { error: 'Bangumi OAuth 环境变量未配置' };
+  }
+  const clientId = env.BANGUMI_CLIENT_ID.trim();
+  const clientSecret = env.BANGUMI_CLIENT_SECRET.trim();
   const body = new URLSearchParams({
-    client_id: env.BANGUMI_CLIENT_ID,
-    client_secret: env.BANGUMI_CLIENT_SECRET,
+    client_id: clientId,
+    client_secret: clientSecret,
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri,
@@ -175,9 +180,24 @@ async function handleBangumiToken(code, redirectUri, env) {
 
 // GitHub OAuth token 交换
 async function handleGithubToken(code, redirectUri, env) {
+  // 验证环境变量
+  if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) {
+    console.error('Missing env vars:', {
+      hasClientId: !!env.GITHUB_CLIENT_ID,
+      hasClientSecret: !!env.GITHUB_CLIENT_SECRET,
+      clientIdLen: env.GITHUB_CLIENT_ID?.length,
+      clientSecretLen: env.GITHUB_CLIENT_SECRET?.length,
+    });
+    return { error: 'GitHub OAuth 环境变量未配置' };
+  }
+
+  // 清理环境变量值（去除可能的换行/空格）
+  const clientId = env.GITHUB_CLIENT_ID.trim();
+  const clientSecret = env.GITHUB_CLIENT_SECRET.trim();
+
   const body = new URLSearchParams({
-    client_id: env.GITHUB_CLIENT_ID,
-    client_secret: env.GITHUB_CLIENT_SECRET,
+    client_id: clientId,
+    client_secret: clientSecret,
     code,
     redirect_uri: redirectUri,
   });
@@ -191,10 +211,16 @@ async function handleGithubToken(code, redirectUri, env) {
     body: body.toString(),
   });
 
-  const tokenData = await tokenRes.json();
+  const tokenText = await tokenRes.text();
+  let tokenData;
+  try {
+    tokenData = JSON.parse(tokenText);
+  } catch {
+    return { error: `GitHub 返回非 JSON 响应 (HTTP ${tokenRes.status}): ${tokenText.substring(0, 200)}` };
+  }
 
   if (!tokenData.access_token) {
-    return { error: tokenData.error_description || 'GitHub 授权失败' };
+    return { error: tokenData.error_description || tokenData.error || 'GitHub 授权失败' };
   }
 
   // 获取用户信息
@@ -204,8 +230,9 @@ async function handleGithubToken(code, redirectUri, env) {
       'Authorization': `Bearer ${tokenData.access_token}`,
     },
   });
-
-  const userData = await userRes.json();
+  const userText = await userRes.text();
+  let userData;
+  try { userData = JSON.parse(userText); } catch { userData = {}; }
 
   // 获取用户邮箱
   let email = userData.email || '';
@@ -217,9 +244,12 @@ async function handleGithubToken(code, redirectUri, env) {
           'Authorization': `Bearer ${tokenData.access_token}`,
         },
       });
-      const emails = await emailRes.json();
-      const primary = emails.find(e => e.primary);
-      if (primary) email = primary.email;
+      const emailText = await emailRes.text();
+      const emails = JSON.parse(emailText);
+      if (Array.isArray(emails)) {
+        const primary = emails.find(e => e.primary);
+        if (primary) email = primary.email;
+      }
     } catch {}
   }
 
@@ -286,7 +316,8 @@ export default {
         if (result.error) return jsonResponse(result, 400, origin);
         return jsonResponse(result, 200, origin);
       } catch (err) {
-        return jsonResponse({ error: 'GitHub 授权服务异常' }, 500, origin);
+        console.error('GitHub token exchange error:', err.message, err.stack);
+        return jsonResponse({ error: `GitHub 授权服务异常: ${err.message}` }, 500, origin);
       }
     }
 

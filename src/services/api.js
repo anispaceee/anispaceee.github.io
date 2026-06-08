@@ -148,41 +148,6 @@ function normalizeSubject(item) {
   };
 }
 
-const defaultUsers = [
-  { id: 1, username: 'kirby_star', provider: 'bangumi', providerId: '1001', name: '星之卡比', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Kirby', level: 12, sign: '今天也要吃掉一切！', gender: 'other', birthday: '2000-01-01', bio: '热爱二次元，尤其喜欢萌系动画和RPG游戏', followingCount: 28, followerCount: 156, postCount: 45, joinDate: '2024-03-15', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 2, username: 'magical_girl', provider: 'bangumi', providerId: '1002', name: '魔法少女', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Magical', level: 8, sign: '守护世界的和平', gender: 'female', birthday: '2002-06-15', bio: '魔法少女番爱好者', followingCount: 15, followerCount: 89, postCount: 23, joinDate: '2024-06-20', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 3, username: 'otaku_chan', provider: 'bangumi', providerId: '1003', name: '宅宅酱', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Otaku', level: 15, sign: '二次元才是归宿', gender: 'male', birthday: '1999-11-20', bio: '资深宅，每季追番30+', followingCount: 42, followerCount: 234, postCount: 89, joinDate: '2023-12-01', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: false } },
-  { id: 4, username: 'novelist_q', provider: 'bangumi', providerId: '1004', name: '轻小说家', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Novelist', level: 20, sign: '用文字创造世界', gender: 'male', birthday: '1998-03-08', bio: '轻小说作者', followingCount: 8, followerCount: 567, postCount: 34, joinDate: '2023-09-10', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'official', theme: 'light', emailNotifications: true } },
-  { id: 5, username: 'artist_q', provider: 'bangumi', providerId: '1005', name: '画师小Q', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=ArtistQ', level: 25, sign: '接稿中~', gender: 'female', birthday: '2001-08-22', bio: '自由画师', followingCount: 12, followerCount: 890, postCount: 67, joinDate: '2023-05-01', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 6, username: 'gamer_pro', provider: 'github', providerId: '2001', name: '游戏达人', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Gamer', level: 18, sign: '全平台制霸', gender: 'male', birthday: '2000-12-05', bio: '全平台玩家', followingCount: 35, followerCount: 345, postCount: 56, joinDate: '2024-01-15', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: false } },
-  { id: 7, username: 'anime_fan', provider: 'github', providerId: '2002', name: '追番狂人', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=AnimeFan', level: 22, sign: '每季追番30+', gender: 'male', birthday: '1997-04-18', bio: '看过的番比吃过的饭还多', followingCount: 56, followerCount: 678, postCount: 123, joinDate: '2023-03-20', lastLogin: '2026-05-08', status: 'active', preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-  { id: 8, username: 'official_helper', provider: 'system', providerId: 'official', name: '官方小助手', avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Official', level: 99, sign: 'ACG社区官方账号', gender: 'other', birthday: '2023-01-01', bio: 'ANISpace 官方运营账号', followingCount: 0, followerCount: 5678, postCount: 234, joinDate: '2023-01-01', lastLogin: '2026-05-08', status: 'active', isOfficial: true, preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true } },
-];
-
-function initDB() {
-  if (!StorageService.get(SK.USERS)) {
-    StorageService.set(SK.USERS, defaultUsers);
-  } else {
-    // 迁移：为旧用户添加 provider/providerId 字段
-    const users = StorageService.get(SK.USERS, []);
-    let changed = false;
-    users.forEach(u => {
-      if (!u.provider) {
-        u.provider = u.email ? 'legacy' : 'bangumi';
-        u.providerId = String(u.id + 1000);
-        changed = true;
-      }
-      if (u.password) {
-        delete u.password;
-        changed = true;
-      }
-    });
-    if (changed) StorageService.set(SK.USERS, users);
-  }
-}
-
-initDB();
-
 function generateId(items) {
   return items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
 }
@@ -976,19 +941,14 @@ export const GitHubAuthService = {
     try {
       const redirectUri = `${window.location.origin}${oauthConfig.github.redirectPath}`;
       const url = `${oauthConfig.tokenBase}/github/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-      console.log('[GitHub OAuth] tokenBase:', oauthConfig.tokenBase, 'proxyUrl:', oauthConfig.proxyUrl);
-      console.log('[GitHub OAuth] Request URL:', url);
       const res = await fetch(url);
-      console.log('[GitHub OAuth] Response status:', res.status);
       const text = await res.text();
-      console.log('[GitHub OAuth] Response body:', text);
       let data;
       try { data = JSON.parse(text); } catch { return { error: `响应解析失败 (HTTP ${res.status}): ${text.substring(0, 200)}` }; }
       if (data.error) return { error: data.error };
       return data;
     } catch (err) {
-      console.error('[GitHub OAuth] Exception:', err);
-      return { error: `${err.message || 'GitHub 授权服务异常'} (tokenBase: ${oauthConfig.tokenBase})` };
+      return { error: err.message || 'GitHub 授权服务异常' };
     }
   },
 

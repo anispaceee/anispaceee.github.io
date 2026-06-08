@@ -3,8 +3,9 @@
 
 .amadeus-character-area { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 24px 16px; border-right: 1px solid var(--border-secondary); transition: background 0.5s ease; }
 .amadeus-character-portrait { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 20px; }
-.amadeus-character-silhouette { width: 120px; height: 120px; border-radius: 50%; border: 3px solid; display: flex; align-items: center; justify-content: center; transition: border-color 0.5s ease, box-shadow 0.5s ease; box-shadow: 0 0 20px rgba(126,184,218,0.15); }
-.amadeus-character-expr { font-size: 48px; line-height: 1; transition: opacity 0.2s ease, transform 0.2s ease; }
+.amadeus-character-silhouette { width: 120px; height: 120px; border-radius: 50%; border: 3px solid; display: flex; align-items: center; justify-content: center; transition: border-color 0.5s ease, box-shadow 0.5s ease; box-shadow: 0 0 20px rgba(126,184,218,0.15); position: relative; overflow: hidden; }
+.amadeus-character-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.amadeus-character-expr { font-size: 36px; line-height: 1; position: absolute; bottom: 2px; right: 2px; background: var(--bg-card); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: opacity 0.2s ease, transform 0.2s ease; }
 .amadeus-character-silhouette.transitioning .amadeus-character-expr { opacity: 0; transform: scale(0.8); }
 .amadeus-character-label { text-align: center; }
 .amadeus-character-name { display: block; font-size: 16px; font-weight: 800; color: var(--text-primary); }
@@ -86,7 +87,7 @@
   .amadeus-character-area { width: 100%; flex-direction: row; padding: 12px; border-right: none; border-bottom: 1px solid var(--border-secondary); }
   .amadeus-character-portrait { flex-direction: row; margin-bottom: 0; }
   .amadeus-character-silhouette { width: 48px; height: 48px; }
-  .amadeus-character-expr { font-size: 24px; }
+  .amadeus-character-expr { font-size: 18px; width: 20px; height: 20px; bottom: -2px; right: -2px; }
   .amadeus-expression-bar { flex-wrap: nowrap; overflow-x: auto; }
   .amadeus-page { height: auto; min-height: calc(100vh - var(--header-height) - 40px); }
 }

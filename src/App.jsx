@@ -7,8 +7,6 @@ import WorldChannel from './components/WorldChannel/WorldChannel'
 import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
 import InfoDetail from './components/Info/InfoDetail'
-import Creation from './components/Creation/Creation'
-import CreationDetail from './components/Creation/CreationDetail'
 import Profile from './components/Profile/Profile'
 import VideoZone from './components/Video/VideoZone'
 import VideoDetail from './components/Video/VideoDetail'
@@ -105,8 +103,6 @@ function AppInner() {
           <Route path="/forum" element={<Forum />} />
           <Route path="/forum/post/:id" element={<PostDetail />} />
           <Route path="/info/:type/:id" element={<InfoDetail />} />
-          <Route path="/creation" element={<Creation />} />
-          <Route path="/creation/work/:id" element={<CreationDetail />} />
           <Route path="/club" element={<Club />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/profile" element={<Profile />} />

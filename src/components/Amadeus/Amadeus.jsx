@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StorageService } from '../../services/api';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, Sparkles, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
+import amadeusImg from '../../assets/Amadeus.webp';
 import EmojiPicker from '../Common/EmojiPicker';
 import './Amadeus.css';
 
@@ -284,6 +285,7 @@ export default function Amadeus() {
         <div className="amadeus-character-area" style={{ background: `linear-gradient(135deg, ${expr.color}22, ${expr.color}08)` }}>
           <div className="amadeus-character-portrait">
             <div className={`amadeus-character-silhouette ${expressionTransition ? 'transitioning' : ''}`} style={{ borderColor: expr.color }}>
+              <img src={amadeusImg} alt="Amadeus" className="amadeus-character-img" />
               <span className="amadeus-character-expr">{expr.emoji}</span>
             </div>
             <div className="amadeus-character-label">

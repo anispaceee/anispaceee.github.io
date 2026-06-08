@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BangumiService, ApiError, StorageService, UserService } from '../services/api';
-import { ArrowRight, TrendingUp, MessageCircle, Palette, Flame, Eye, Heart, MessageSquare, Clock, Search, Calendar, RefreshCw, Star, ExternalLink, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Send, Image, Smile, X, Minus, Maximize2, Sparkles, Loader2, Play, Tv, BookOpen, Gamepad2, AlertCircle, RotateCw } from 'lucide-react';
+import { ArrowRight, TrendingUp, MessageCircle, Flame, Eye, Heart, MessageSquare, Clock, Search, Calendar, RefreshCw, Star, ExternalLink, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Send, Image, Smile, X, Minus, Maximize2, Sparkles, Loader2, Play, Tv, BookOpen, Gamepad2, AlertCircle, RotateCw } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import NewsZone from '../components/NewsZone/NewsZone';
 import './HomePage.css';
@@ -155,7 +155,6 @@ export default function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const hotPosts = [...StorageService.get('acg_forum_posts', [])].sort((a, b) => b.likes - a.likes).slice(0, 6);
-  const latestCreations = StorageService.get('acg_creations', []).filter(c => !c.isCommission).slice(0, 4);
   const recentMessages = StorageService.get('acg_world_messages', []).slice(0, 8);
 
   const [randomSubject, setRandomSubject] = useState(null);
@@ -187,10 +186,9 @@ export default function HomePage() {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
 
-  const [minimized, setMinimized] = useState({ hotPosts: false, creations: false, world: false });
+  const [minimized, setMinimized] = useState({ hotPosts: false, world: false });
 
   const getCategoryLabel = (cat) => ({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' }[cat] || cat);
-  const getCreationLabel = (cat) => ({ art: '绘画', novel: '小说', game: '游戏' }[cat] || cat);
   const getUserById = (id) => UserService.getById(id);
 
   const fetchRandom = useCallback(async () => {
@@ -471,40 +469,6 @@ export default function HomePage() {
                       </Link>
                     );
                   })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className={`home-window ${minimized.creations ? 'minimized' : ''}`}>
-            <div className="home-window-header">
-              <h2 className="home-section-title"><Palette size={18} /> 最新创作</h2>
-              <div className="home-window-actions">
-                <Link to="/creation" className="home-more-link">更多 <ArrowRight size={12} /></Link>
-                <button className="home-window-toggle" onClick={() => toggleMinimize('creations')}>
-                  {minimized.creations ? <Maximize2 size={14} /> : <Minus size={14} />}
-                </button>
-              </div>
-            </div>
-            {!minimized.creations && (
-              <div className="home-window-body">
-                <div className="home-creation-grid">
-                  {latestCreations.map(item => (
-                    <Link to={`/creation/work/${item.id}`} key={item.id} className="home-creation-card">
-                      {item.images && item.images.length > 0 ? (
-                        <div className="home-creation-cover"><img src={item.images[0]} alt={item.title} loading="lazy" /></div>
-                      ) : (
-                        <div className="home-creation-cover text-cover"><span>{item.category === 'novel' ? '📖' : '🎮'}</span></div>
-                      )}
-                      <div className="home-creation-info">
-                        <h3 className="home-creation-title">{item.title}</h3>
-                        <div className="home-creation-meta">
-                          <span className={`home-creation-cat ${item.category}`}>{getCreationLabel(item.category)}</span>
-                          <span><Heart size={11} /> {item.likes}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
                 </div>
               </div>
             )}
