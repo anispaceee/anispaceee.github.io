@@ -1,356 +1,213 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import DPlayer from 'dplayer';
+import Hls from 'hls.js';
+import { VideoSourceService } from '../../services/videoSource';
+import { StorageService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
-import { VideoService, DanmakuService, VideoCommentService, UserService } from '../../services/api';
-import { ArrowLeft, Eye, Heart, MessageCircle, Share2, Star, ThumbsUp, ChevronDown, ChevronUp, Send, Play, Film, Clock, User } from 'lucide-react';
-import VideoPlayer from './VideoPlayer';
+import { ArrowLeft, Play, Server, MessageSquare, Send } from 'lucide-react';
 import './VideoDetail.css';
 
+const FALLBACK_IMG = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300"><rect fill="%23333" width="200" height="300"/><text fill="%23666" x="100" y="150" text-anchor="middle" font-size="14">No Image</text></svg>';
+
 export default function VideoDetail() {
-  const { id } = useParams();
+  const { sourceId, vodId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, isAuthenticated, openAuth } = useApp();
-
-  const [video, setVideo] = useState(null);
-  const [danmakus, setDanmakus] = useState([]);
+  const { currentUser, openAuth } = useApp();
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [currentEpisode, setCurrentEpisode] = useState(null);
+  const [currentSourceIdx, setCurrentSourceIdx] = useState(0);
   const [comments, setComments] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [liked, setLiked] = useState(false);
-  const [favorited, setFavorited] = useState(false);
-  const [showFullDesc, setShowFullDesc] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [replyTo, setReplyTo] = useState(null);
-  const [replyText, setReplyText] = useState('');
-  const [danmakuFilter, setDanmakuFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState('comments');
+  const playerRef = useRef(null);
+  const playerContainerRef = useRef(null);
 
+  // Fetch detail
   useEffect(() => {
-    const v = VideoService.getById(id);
-    if (!v) return;
-    setVideo(v);
-    VideoService.incrementViews(id);
-    const dm = DanmakuService.getByVideoId(id);
-    setDanmakus(dm);
-    const cm = VideoCommentService.getByVideoId(id);
-    setComments(cm);
-    const recs = VideoService.getAll()
-      .filter(r => r.id !== parseInt(id) && r.category === v.category)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 8);
-    setRecommendations(recs);
-  }, [id]);
-
-  const handleDanmakuSend = useCallback((text, color) => {
-    if (!isAuthenticated) { openAuth(); return; }
-    const newDm = DanmakuService.add(id, {
-      userId: currentUser.id,
-      userName: currentUser.name,
-      text,
-      color,
-      time: 0,
-      type: 'scroll',
-    });
-    setDanmakus(prev => [...prev, newDm]);
-  }, [id, isAuthenticated, currentUser, openAuth]);
-
-  const handleLike = () => {
-    if (!isAuthenticated) { openAuth(); return; }
-    if (liked) return;
-    VideoService.toggleLike(id);
-    setLiked(true);
-    setVideo(prev => prev ? { ...prev, likes: prev.likes + 1 } : prev);
-  };
-
-  const handleFavorite = () => {
-    if (!isAuthenticated) { openAuth(); return; }
-    setFavorited(!favorited);
-  };
-
-  const handleComment = () => {
-    if (!commentText.trim()) return;
-    if (!isAuthenticated) { openAuth(); return; }
-    const newComment = VideoCommentService.add(id, {
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar || '',
-      content: commentText.trim(),
-    });
-    setComments(prev => [newComment, ...prev]);
-    setCommentText('');
-  };
-
-  const handleReply = (commentId) => {
-    if (!replyText.trim()) return;
-    if (!isAuthenticated) { openAuth(); return; }
-    const newReply = VideoCommentService.addReply(commentId, {
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar || '',
-      content: replyText.trim(),
-    });
-    setComments(prev => prev.map(c => {
-      if (c.id === commentId) {
-        return { ...c, replies: [...(c.replies || []), newReply] };
+    async function fetchDetail() {
+      setLoading(true);
+      setError('');
+      try {
+        const result = await VideoSourceService.getDetail(sourceId, vodId);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setDetail(result);
+          // Auto select first episode of first source
+          if (result.episodes?.length > 0 && result.episodes[0].episodes?.length > 0) {
+            setCurrentSourceIdx(0);
+            setCurrentEpisode(result.episodes[0].episodes[0]);
+          }
+        }
+      } catch (err) {
+        setError('获取视频信息失败');
+      } finally {
+        setLoading(false);
       }
-      return c;
-    }));
-    setReplyText('');
-    setReplyTo(null);
-  };
+    }
+    fetchDetail();
+  }, [sourceId, vodId]);
 
-  const formatCount = (n) => {
-    if (n >= 10000) return (n / 10000).toFixed(1) + '万';
-    return String(n);
-  };
+  // Fetch comments
+  useEffect(() => {
+    const key = `video_${sourceId}_${vodId}`;
+    const stored = StorageService.get('acg_video_comments', []);
+    setComments(stored.filter(c => c.videoKey === key));
+  }, [sourceId, vodId]);
 
-  const formatTime = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
+  // Initialize DPlayer when episode changes
+  useEffect(() => {
+    if (!currentEpisode?.url || !playerContainerRef.current) return;
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diff = now - d;
-    if (diff < 60000) return '刚刚';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
-    if (diff < 2592000000) return `${Math.floor(diff / 86400000)}天前`;
-    return d.toLocaleDateString('zh-CN');
-  };
+    // Destroy old player
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
 
-  const filteredDanmakus = danmakuFilter === 'all'
-    ? danmakus
-    : danmakus.filter(d => d.color === danmakuFilter);
+    const isM3U8 = currentEpisode.url.includes('.m3u8');
 
-  if (!video) {
-    return (
-      <div className="vd-page">
-        <div className="vd-not-found">
-          <Film size={48} />
-          <h2>视频不存在</h2>
-          <button className="vd-back-btn" onClick={() => navigate('/video')}>
-            <ArrowLeft size={16} /> 返回影视区
-          </button>
-        </div>
-      </div>
-    );
-  }
+    const dp = new DPlayer({
+      container: playerContainerRef.current,
+      video: {
+        url: currentEpisode.url,
+        type: isM3U8 ? 'hls' : 'auto',
+        customType: isM3U8 ? {
+          hls: (video, src) => {
+            if (Hls.isSupported()) {
+              const hls = new Hls();
+              hls.loadSource(src);
+              hls.attachMedia(video);
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+              video.src = src;
+            }
+          },
+        } : undefined,
+        pic: detail?.cover || '',
+      },
+      autoplay: true,
+      theme: '#fb7299',
+      screenshot: true,
+      hotkey: true,
+      preload: 'auto',
+      volume: 0.7,
+    });
+
+    playerRef.current = dp;
+
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
+  }, [currentEpisode, detail?.cover]);
+
+  const handleEpisodeClick = useCallback((ep, sourceIdx) => {
+    setCurrentSourceIdx(sourceIdx);
+    setCurrentEpisode(ep);
+  }, []);
+
+  const handleComment = useCallback(() => {
+    if (!currentUser) { openAuth(); return; }
+    if (!commentText.trim()) return;
+    const key = `video_${sourceId}_${vodId}`;
+    const comment = {
+      id: Date.now(),
+      videoKey: key,
+      userId: currentUser.id,
+      username: currentUser.username || currentUser.name,
+      avatar: currentUser.avatar,
+      content: commentText.trim(),
+      createdAt: new Date().toISOString(),
+      likes: 0,
+    };
+    const stored = StorageService.get('acg_video_comments', []);
+    stored.push(comment);
+    StorageService.set('acg_video_comments', stored);
+    setComments(prev => [...prev, comment]);
+    setCommentText('');
+  }, [currentUser, commentText, sourceId, vodId, openAuth]);
+
+  if (loading) return <div className="vd-loading">加载中...</div>;
+  if (error) return <div className="vd-error"><p>{error}</p><button onClick={() => navigate(-1)}>返回</button></div>;
+  if (!detail) return <div className="vd-error"><p>未找到视频</p></div>;
 
   return (
-    <div className="vd-page">
-      <div className="vd-layout">
-        <div className="vd-main">
-          <div className="vd-player-section">
-            <VideoPlayer
-              src={video.videoUrl}
-              title={video.title}
-              autoPlay={true}
-              danmakus={danmakus.map(d => ({ text: d.text, color: d.color, type: d.type, time: d.time }))}
-              onDanmakuSend={handleDanmakuSend}
-            />
-          </div>
+    <div className="video-detail">
+      <div className="vd-back">
+        <button onClick={() => navigate(-1)}><ArrowLeft size={18} /> 返回</button>
+      </div>
 
-          <div className="vd-info-section">
-            <h1 className="vd-title">{video.title}</h1>
-            <div className="vd-stats">
-              <span className="vd-stat"><Eye size={15} /> {formatCount(video.views)}</span>
-              <span className="vd-stat"><MessageCircle size={15} /> {formatCount(video.danmakuCount || danmakus.length)}</span>
-              <span className="vd-stat"><Clock size={15} /> {video.createdAt}</span>
-            </div>
+      {/* Player */}
+      <div className="vd-player-wrap">
+        <div ref={playerContainerRef} className="vd-player" />
+      </div>
 
-            <div className="vd-actions">
-              <button className={`vd-action-btn ${liked ? 'liked' : ''}`} onClick={handleLike}>
-                <ThumbsUp size={18} /> {liked ? '已点赞' : '点赞'} {formatCount(video.likes)}
-              </button>
-              <button className={`vd-action-btn ${favorited ? 'favorited' : ''}`} onClick={handleFavorite}>
-                <Star size={18} /> {favorited ? '已收藏' : '收藏'}
-              </button>
-              <button className="vd-action-btn">
-                <Share2 size={18} /> 分享
-              </button>
-            </div>
+      {/* Info */}
+      <div className="vd-info">
+        <h1 className="vd-title">{detail.title}</h1>
+        <div className="vd-meta">
+          {detail.year && <span>{detail.year}</span>}
+          {detail.area && <span>{detail.area}</span>}
+          {detail.category && <span>{detail.category}</span>}
+          {detail.remarks && <span className="vd-remarks">{detail.remarks}</span>}
+        </div>
+        {detail.description && <p className="vd-desc">{detail.description}</p>}
+        <div className="vd-source-label">
+          <Server size={14} /> 来源：{detail.sourceName}
+        </div>
+      </div>
 
-            <div className="vd-uploader">
-              <div className="vd-uploader-avatar">
-                {video.author?.charAt(0) || 'U'}
-              </div>
-              <div className="vd-uploader-info">
-                <span className="vd-uploader-name">{video.author}</span>
-                <span className="vd-uploader-desc">UP主</span>
-              </div>
-              <button className="vd-follow-btn">关注</button>
-            </div>
-
-            {video.description && (
-              <div className="vd-description">
-                <div className={`vd-desc-content ${showFullDesc ? 'expanded' : ''}`}>
-                  {video.description}
-                </div>
-                {video.description.length > 80 && (
-                  <button className="vd-desc-toggle" onClick={() => setShowFullDesc(!showFullDesc)}>
-                    {showFullDesc ? <><ChevronUp size={14} /> 收起</> : <><ChevronDown size={14} /> 展开</>}
+      {/* Episodes */}
+      {detail.episodes?.length > 0 && (
+        <div className="vd-episodes">
+          {detail.episodes.map((group, gIdx) => (
+            <div key={gIdx} className="vd-ep-group">
+              <h3 className="vd-ep-source">播放源：{group.source}</h3>
+              <div className="vd-ep-list">
+                {group.episodes.map((ep, epIdx) => (
+                  <button
+                    key={epIdx}
+                    className={`vd-ep-btn ${currentSourceIdx === gIdx && currentEpisode?.url === ep.url ? 'active' : ''}`}
+                    onClick={() => handleEpisodeClick(ep, gIdx)}
+                  >
+                    {ep.name}
                   </button>
-                )}
-              </div>
-            )}
-
-            {video.tags && video.tags.length > 0 && (
-              <div className="vd-tags">
-                {video.tags.map(tag => (
-                  <span key={tag} className="vd-tag">{tag}</span>
                 ))}
               </div>
-            )}
-          </div>
-
-          <div className="vd-tabs">
-            <button className={`vd-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>
-              评论 {VideoCommentService.getCount(id)}
-            </button>
-            <button className={`vd-tab ${activeTab === 'danmaku' ? 'active' : ''}`} onClick={() => setActiveTab('danmaku')}>
-              弹幕列表 {danmakus.length}
-            </button>
-          </div>
-
-          {activeTab === 'comments' && (
-            <div className="vd-comments">
-              <div className="vd-comment-input">
-                <div className="vd-comment-avatar">
-                  {isAuthenticated && currentUser ? currentUser.name.charAt(0) : '?'}
-                </div>
-                <div className="vd-comment-input-wrap">
-                  <input
-                    type="text"
-                    className="vd-comment-field"
-                    placeholder={isAuthenticated ? '写下你的评论...' : '登录后即可评论'}
-                    value={commentText}
-                    onChange={e => setCommentText(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleComment()}
-                    disabled={!isAuthenticated}
-                  />
-                  <button className="vd-comment-send" onClick={handleComment} disabled={!commentText.trim() || !isAuthenticated}>
-                    <Send size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="vd-comment-list">
-                {comments.length === 0 ? (
-                  <div className="vd-empty">暂无评论，快来抢沙发吧~</div>
-                ) : (
-                  comments.map(comment => (
-                    <div key={comment.id} className="vd-comment">
-                      <div className="vd-comment-avatar-sm">
-                        {comment.userName?.charAt(0) || 'U'}
-                      </div>
-                      <div className="vd-comment-body">
-                        <div className="vd-comment-header">
-                          <span className="vd-comment-name">{comment.userName}</span>
-                          <span className="vd-comment-time">{formatDate(comment.createdAt)}</span>
-                        </div>
-                        <p className="vd-comment-text">{comment.content}</p>
-                        <div className="vd-comment-actions">
-                          <button className="vd-comment-action" onClick={() => VideoCommentService.likeComment(comment.id)}>
-                            <ThumbsUp size={12} /> {comment.likes || 0}
-                          </button>
-                          <button className="vd-comment-action" onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}>
-                            <MessageCircle size={12} /> 回复
-                          </button>
-                        </div>
-
-                        {replyTo === comment.id && (
-                          <div className="vd-reply-input">
-                            <input
-                              type="text"
-                              placeholder={`回复 ${comment.userName}...`}
-                              value={replyText}
-                              onChange={e => setReplyText(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleReply(comment.id)}
-                            />
-                            <button onClick={() => handleReply(comment.id)} disabled={!replyText.trim()}>
-                              <Send size={12} />
-                            </button>
-                          </div>
-                        )}
-
-                        {comment.replies && comment.replies.length > 0 && (
-                          <div className="vd-replies">
-                            {comment.replies.map(reply => (
-                              <div key={reply.id} className="vd-reply">
-                                <div className="vd-reply-avatar">{reply.userName?.charAt(0) || 'U'}</div>
-                                <div className="vd-reply-body">
-                                  <span className="vd-reply-name">{reply.userName}</span>
-                                  <span className="vd-reply-text">{reply.content}</span>
-                                  <span className="vd-reply-time">{formatDate(reply.createdAt)}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
             </div>
-          )}
-
-          {activeTab === 'danmaku' && (
-            <div className="vd-danmaku-list">
-              <div className="vd-danmaku-filters">
-                <button className={`vd-dm-filter ${danmakuFilter === 'all' ? 'active' : ''}`} onClick={() => setDanmakuFilter('all')}>全部</button>
-                <button className={`vd-dm-filter ${danmakuFilter === '#FFFFFF' ? 'active' : ''}`} onClick={() => setDanmakuFilter('#FFFFFF')}>白色</button>
-                <button className={`vd-dm-filter ${danmakuFilter === '#FE0302' ? 'active' : ''}`} onClick={() => setDanmakuFilter('#FE0302')}>红色</button>
-                <button className={`vd-dm-filter ${danmakuFilter === '#FFD302' ? 'active' : ''}`} onClick={() => setDanmakuFilter('#FFD302')}>黄色</button>
-                <button className={`vd-dm-filter ${danmakuFilter === '#00CD00' ? 'active' : ''}`} onClick={() => setDanmakuFilter('#00CD00')}>绿色</button>
-                <button className={`vd-dm-filter ${danmakuFilter === '#426ABE' ? 'active' : ''}`} onClick={() => setDanmakuFilter('#426ABE')}>蓝色</button>
-              </div>
-              <div className="vd-danmaku-table">
-                <div className="vd-danmaku-header">
-                  <span className="vd-dm-time">时间</span>
-                  <span className="vd-dm-content">弹幕内容</span>
-                  <span className="vd-dm-user">发送者</span>
-                  <span className="vd-dm-date">日期</span>
-                </div>
-                {filteredDanmakus.length === 0 ? (
-                  <div className="vd-empty">暂无弹幕</div>
-                ) : (
-                  filteredDanmakus.map(d => (
-                    <div key={d.id} className="vd-danmaku-row">
-                      <span className="vd-dm-time">{formatTime(d.time)}</span>
-                      <span className="vd-dm-content" style={{ color: d.color === '#FFFFFF' ? 'var(--text-primary)' : d.color }}>{d.text}</span>
-                      <span className="vd-dm-user">{d.userName}</span>
-                      <span className="vd-dm-date">{formatDate(d.createdAt)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+          ))}
         </div>
+      )}
 
-        <div className="vd-sidebar">
-          <h3 className="vd-sidebar-title">推荐视频</h3>
-          <div className="vd-rec-list">
-            {recommendations.map(rec => (
-              <div key={rec.id} className="vd-rec-card" onClick={() => navigate(`/video/${rec.id}`)}>
-                <div className="vd-rec-cover">
-                  <Play size={20} />
-                  <span className="vd-rec-duration">{rec.duration}</span>
-                </div>
-                <div className="vd-rec-info">
-                  <h4 className="vd-rec-title">{rec.title}</h4>
-                  <div className="vd-rec-meta">
-                    <span><Eye size={11} /> {formatCount(rec.views)}</span>
-                    <span><User size={11} /> {rec.author}</span>
-                  </div>
-                </div>
+      {/* Comments */}
+      <div className="vd-comments">
+        <h2><MessageSquare size={18} /> 评论</h2>
+        <div className="vd-comment-input">
+          <input
+            type="text"
+            value={commentText}
+            onChange={e => setCommentText(e.target.value)}
+            placeholder={currentUser ? '写下你的评论...' : '登录后评论'}
+            onKeyDown={e => e.key === 'Enter' && handleComment()}
+          />
+          <button onClick={handleComment} disabled={!commentText.trim()}><Send size={16} /></button>
+        </div>
+        <div className="vd-comment-list">
+          {comments.length === 0 && <p className="vd-no-comments">暂无评论</p>}
+          {comments.map(c => (
+            <div key={c.id} className="vd-comment">
+              <img src={c.avatar || FALLBACK_IMG} alt="" className="vd-comment-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+              <div className="vd-comment-body">
+                <span className="vd-comment-name">{c.username}</span>
+                <span className="vd-comment-time">{new Date(c.createdAt).toLocaleDateString()}</span>
+                <p className="vd-comment-text">{c.content}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

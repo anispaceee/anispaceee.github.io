@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { UserService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService } from '../../services/api';
+import { UserService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService, MailService } from '../../services/api';
 import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Image as ImageIcon, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useRef, useMemo } from 'react';
@@ -125,7 +125,7 @@ export default function Profile() {
   const markCounts = CollectionMarkService.getMarkCounts(profileUser.id);
   const userMarks = CollectionMarkService.getUserMarks(profileUser.id);
   const userFavorites = isAuthenticated ? FavoriteService.getUserFavorites(profileUser.id, 'info') : [];
-  const unreadMail = 3;
+  const unreadMail = currentUser ? MailService.getUnreadCount(currentUser.id) : 0;
 
   const handleEdit = () => {
     setEditForm({
@@ -240,7 +240,8 @@ export default function Profile() {
               </>
             ) : (
               <>
-                <button className={`profile-btn follow-btn ${isFollowing ? 'following' : ''}`}>
+                <button className={`profile-btn follow-btn ${isFollowing ? 'following' : ''}`}
+                  onClick={() => { if (!isAuthenticated) { openAuth(); return; } UserService.follow(currentUser.id, profileUser.id); }}>
                   {isFollowing ? '已关注' : '+ 关注'}
                 </button>
                 <Link to="/mailbox" className="profile-btn mail-btn">

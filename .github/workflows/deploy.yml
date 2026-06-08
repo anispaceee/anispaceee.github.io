@@ -32,6 +32,12 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_BANGUMI_CLIENT_ID: ${{ secrets.VITE_BANGUMI_CLIENT_ID }}
+          VITE_BANGUMI_CLIENT_SECRET: ${{ secrets.VITE_BANGUMI_CLIENT_SECRET }}
+          VITE_GITHUB_CLIENT_ID: ${{ secrets.VITE_GITHUB_CLIENT_ID }}
+          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.VITE_GITHUB_CLIENT_SECRET }}
+          VITE_OAUTH_PROXY_URL: ${{ secrets.VITE_OAUTH_PROXY_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

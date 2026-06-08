@@ -10,7 +10,6 @@ import InfoDetail from './components/Info/InfoDetail'
 import Creation from './components/Creation/Creation'
 import CreationDetail from './components/Creation/CreationDetail'
 import Profile from './components/Profile/Profile'
-import VideoUpload from './components/Video/VideoUpload'
 import VideoZone from './components/Video/VideoZone'
 import VideoDetail from './components/Video/VideoDetail'
 import Mailbox from './components/Mailbox/Mailbox'
@@ -113,8 +112,7 @@ function AppInner() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/video" element={<VideoZone />} />
-          <Route path="/video/:id" element={<VideoDetail />} />
-          <Route path="/video/upload" element={<VideoUpload />} />
+          <Route path="/video/:sourceId/:vodId" element={<VideoDetail />} />
           <Route path="/mailbox" element={<Mailbox />} />
           <Route path="/guestbook" element={<Guestbook />} />
           <Route path="/music" element={<MusicPlayer />} />

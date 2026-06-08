@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService } from '../../services/api';
-import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle } from 'lucide-react';
+import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import './InfoDetail.css';
@@ -89,6 +89,44 @@ function InfoBoxItem({ item }) {
   );
 }
 
+// 按角色分组制作人员
+function groupPersonsByRole(persons) {
+  const groups = {};
+  persons.forEach(p => {
+    const role = p.role || '其他';
+    if (!groups[role]) groups[role] = [];
+    groups[role].push(p);
+  });
+  return groups;
+}
+
+function StaffGroup({ role, members, defaultCollapsed = false }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  if (!members || members.length === 0) return null;
+  return (
+    <div className="staff-group">
+      <button className="staff-group-header" onClick={() => setCollapsed(!collapsed)}>
+        <span className="staff-group-role">{role}</span>
+        <span className="staff-group-count">{members.length}</span>
+        {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+      </button>
+      {!collapsed && (
+        <div className="staff-group-members">
+          {members.map((p, i) => {
+            const personImg = p.images?.medium || p.images?.grid || '';
+            return (
+              <div key={p.id || i} className="detail-staff-card">
+                {personImg ? <AvatarImg src={personImg} alt={p.name} size={36} /> : <div className="detail-staff-avatar-placeholder">{(p.name || '?')[0]}</div>}
+                <span className="detail-staff-name">{p.name}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InfoDetail() {
   const { type: routeType, id } = useParams();
   const navigate = useNavigate();
@@ -118,6 +156,11 @@ export default function InfoDetail() {
   const [bgmCommentsPage, setBgmCommentsPage] = useState(1);
   const [bgmCommentsHasMore, setBgmCommentsHasMore] = useState(true);
   const [activeRatingFilter, setActiveRatingFilter] = useState(null);
+
+  // Tab 状态
+  const [activeTab, setActiveTab] = useState('summary');
+  // 标签折叠状态
+  const [tagsExpanded, setTagsExpanded] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true); setError(null); setProgress(10);
@@ -295,10 +338,6 @@ export default function InfoDetail() {
     };
   }, []);
 
-  const blurAmount = Math.min(15, Math.max(0, (scrollY - 50) * 0.1));
-  const contentOpacity = Math.min(1, Math.max(0, (scrollY - 50) / 100));
-  const contentTranslateY = Math.max(0, 60 - scrollY * 0.6);
-
   const ANIME_SOURCES = [
     { id: 'bilibili', name: 'Bilibili', icon: '📺', searchUrl: (name) => `https://search.bilibili.com/all?keyword=${encodeURIComponent(name)}` },
     { id: 'acfun', name: 'AcFun', icon: '🎬', searchUrl: (name) => `https://www.acfun.cn/search?keyword=${encodeURIComponent(name)}` },
@@ -419,11 +458,16 @@ export default function InfoDetail() {
   const totalRatings = subject.rating?.total || 0;
   const rank = subject.rank;
   const avgScore = RatingService.getAverageScore(parseInt(id));
-  const mainStaff = persons.filter(p => p.role === '导演' || p.role === '原作' || p.role === '系列构成' || p.role === '动画制作' || p.role === '作者' || p.role === '插图' || p.role === '开发商' || p.role === '发行商');
+  const allChars = characters;
   const mainChars = characters.filter(c => c.role === '主角').slice(0, 8);
-  const supportChars = characters.filter(c => c.role !== '主角').slice(0, 8);
+  const supportChars = characters.filter(c => c.role !== '主角').slice(0, 12);
   const collection = subject.collection || {};
   const collectionTotal = (collection.wish || 0) + (collection.collect || 0) + (collection.doing || 0) + (collection.on_hold || 0) + (collection.dropped || 0);
+
+  // 按角色分组制作人员
+  const staffGroups = groupPersonsByRole(persons);
+  const allTags = subject.tags || [];
+  const visibleTags = tagsExpanded ? allTags : allTags.slice(0, 10);
 
   return (
     <div className="info-detail-page animate-fade-in">
@@ -451,8 +495,8 @@ export default function InfoDetail() {
       <div 
         className="detail-container"
         style={{
-          opacity: scrollY < 50 ? 0 : contentOpacity,
-          transform: `translateY(${contentTranslateY}px)`,
+          opacity: scrollY < 50 ? 0 : Math.min(1, Math.max(0, (scrollY - 50) / 100)),
+          transform: `translateY(${Math.max(0, 60 - scrollY * 0.6)}px)`,
           transition: 'opacity 0.1s ease, transform 0.1s ease',
         }}
       >
@@ -464,16 +508,46 @@ export default function InfoDetail() {
           <span className="breadcrumb-current">{subject.name_cn || subject.name}</span>
         </div>
 
-        <div className="detail-main-card">
-          <div className="detail-top-section">
+        {/* 左右两栏布局 */}
+        <div className="detail-two-column">
+          {/* 左侧栏 */}
+          <aside className="detail-sidebar">
             <CoverImg src={coverUrl} alt={subject.name_cn || subject.name} />
-            <div className="detail-info-area">
-              <div className="detail-title-row">
-                <span className={`detail-type-badge type-${typeKey}`}><TypeIcon size={13} /> {typeLabel}</span>
-                {rank > 0 && <span className="detail-rank-badge">Rank #{rank}</span>}
+            
+            {/* 评分方块 */}
+            <div className="detail-score-box">
+              <div className="score-box-main">
+                <span className="score-box-num">{score > 0 ? score.toFixed(1) : 'N/A'}</span>
+                {score > 0 && (
+                  <div className="score-box-stars">
+                    {[1,2,3,4,5].map(s => (
+                      <Star key={s} size={12} fill={s <= Math.round(score / 2) ? '#ffc107' : 'none'} color={s <= Math.round(score / 2) ? '#ffc107' : 'var(--text-quaternary)'} />
+                    ))}
+                  </div>
+                )}
               </div>
-              <h1 className="detail-title">{subject.name_cn || subject.name}</h1>
-              {subject.name && subject.name !== subject.name_cn && <p className="detail-original-name">{subject.name}</p>}
+              <div className="score-box-meta">
+                <span className="score-box-label">Bangumi 评分</span>
+                {totalRatings > 0 && <span className="score-box-count">{totalRatings} 人评分</span>}
+                {rank > 0 && <span className="score-box-rank">Rank #{rank}</span>}
+              </div>
+              <div className="score-box-divider" />
+              <div className="score-box-rate">
+                <p className="rate-prompt">{userScore ? `我的评分：${userScore}` : '点击评分'}</p>
+                <div className="rate-stars">
+                  {[1,2,3,4,5,6,7,8,9,10].map(s => (
+                    <button key={s} className={`rate-star-btn ${s <= (hoverScore || userScore) ? 'active' : ''}`}
+                      onMouseEnter={() => setHoverScore(s)} onMouseLeave={() => setHoverScore(0)} onClick={() => handleRate(s)}>
+                      <Star size={14} fill={s <= (hoverScore || userScore) ? '#ffc107' : 'none'} />
+                    </button>
+                  ))}
+                </div>
+                {avgScore > 0 && <p className="community-avg">社区均分：{avgScore}</p>}
+              </div>
+            </div>
+
+            {/* 收藏操作 */}
+            <div className="detail-sidebar-actions">
               <button className="detail-watch-btn" onClick={handleWatchNow} disabled={watchLoading}>
                 {watchLoading ? <Loader2 size={16} className="vp-spin" /> : <Play size={16} fill="#fff" />}
                 {watchLoading ? '正在跳转...' : '立即观看'}
@@ -494,271 +568,299 @@ export default function InfoDetail() {
                   <button className="detail-source-close" onClick={() => setShowSourcePicker(false)}>取消</button>
                 </div>
               )}
-              <div className="detail-rating-block">
-                <div className="detail-score-display">
-                  <span className="detail-score-num">{score > 0 ? score.toFixed(1) : 'N/A'}</span>
-                  <div className="detail-score-meta">
-                    <span className="detail-score-label">Bangumi评分</span>
-                    {totalRatings > 0 && <span className="detail-score-count">{totalRatings} 人评分</span>}
-                  </div>
-                </div>
-                <div className="detail-score-divider" />
-                <div className="detail-user-rate">
-                  <p className="rate-prompt">{userScore ? `你的评分：${userScore}/10` : '点击评分'}</p>
-                  <div className="rate-stars">
-                    {[1,2,3,4,5,6,7,8,9,10].map(s => (
-                      <button key={s} className={`rate-star-btn ${s <= (hoverScore || userScore) ? 'active' : ''}`}
-                        onMouseEnter={() => setHoverScore(s)} onMouseLeave={() => setHoverScore(0)} onClick={() => handleRate(s)}>
-                        <Star size={16} fill={s <= (hoverScore || userScore) ? '#ffc107' : 'none'} />
-                      </button>
-                    ))}
-                  </div>
-                  {avgScore > 0 && <p className="community-avg">社区均分：{avgScore}</p>}
-                </div>
+              <div className="detail-mark-group">
+                {Object.entries(CollectionMarkService.MARK_LABELS).map(([key, label]) => (
+                  <button key={key} className={`detail-mark-btn ${collectionMark === key ? `active mark-${key}` : ''}`}
+                    onClick={() => {
+                      if (!isAuthenticated) { openAuth(); return; }
+                      CollectionMarkService.setMark(currentUser.id, parseInt(id), subject?.type || 2, key, subject?.name_cn || subject?.name || '', subject?.images?.common || '');
+                      setCollectionMark(prev => prev === key ? null : key);
+                    }}>{label}</button>
+                ))}
               </div>
-              {subject.infobox && subject.infobox.length > 0 && (
-                <div className="detail-infobox">{subject.infobox.map((item, i) => <InfoBoxItem key={i} item={item} />)}</div>
-              )}
-              {subject.tags && subject.tags.length > 0 && (
-                <div className="detail-tags">{subject.tags.slice(0, 15).map((tag, i) => {
-                  const tagName = typeof tag === 'string' ? tag : tag.name;
-                  return <span key={i} className="detail-tag">{tagName}</span>;
-                })}</div>
-              )}
-              <div className="detail-actions">
-                <div className="detail-mark-group">
-                  {Object.entries(CollectionMarkService.MARK_LABELS).map(([key, label]) => (
-                    <button key={key} className={`detail-mark-btn ${collectionMark === key ? `active mark-${key}` : ''}`}
-                      onClick={() => {
-                        if (!isAuthenticated) { openAuth(); return; }
-                        CollectionMarkService.setMark(currentUser.id, parseInt(id), subject?.type || 2, key, subject?.name_cn || subject?.name || '', subject?.images?.common || '');
-                        setCollectionMark(prev => prev === key ? null : key);
-                      }}>{label}</button>
+              <div className="detail-action-row">
+                <button className={`detail-action-btn ${isFav ? 'favorited' : ''}`} onClick={toggleFav}>
+                  <Bookmark size={15} fill={isFav ? 'var(--primary)' : 'none'} /> {isFav ? '已收藏' : '收藏'}
+                </button>
+                <button className="detail-action-btn"><Share2 size={15} /> 分享</button>
+              </div>
+              <a href={BangumiService.buildBangumiUrl(id)} target="_blank" rel="noopener noreferrer" className="detail-action-btn bangumi-link sidebar-bangumi-link">
+                <ExternalLink size={15} /> 在Bangumi查看
+              </a>
+            </div>
+
+            {/* 收藏统计 */}
+            {collectionTotal > 0 && (
+              <div className="detail-collection-mini">
+                <div className="collection-mini-row"><span className="collection-mini-label">想看</span><span className="collection-mini-num wish">{collection.wish || 0}</span></div>
+                <div className="collection-mini-row"><span className="collection-mini-label">看过</span><span className="collection-mini-num collect">{collection.collect || 0}</span></div>
+                <div className="collection-mini-row"><span className="collection-mini-label">在看</span><span className="collection-mini-num doing">{collection.doing || 0}</span></div>
+                <div className="collection-mini-row"><span className="collection-mini-label">搁置</span><span className="collection-mini-num on-hold">{collection.on_hold || 0}</span></div>
+                <div className="collection-mini-row"><span className="collection-mini-label">抛弃</span><span className="collection-mini-num dropped">{collection.dropped || 0}</span></div>
+              </div>
+            )}
+
+            {/* 评分分布 */}
+            {score > 0 && totalRatings > 0 && (
+              <div className="detail-rating-mini">
+                <VerticalRatingDistribution rating={subject.rating} onFilterChange={setActiveRatingFilter} activeFilter={activeRatingFilter} />
+              </div>
+            )}
+          </aside>
+
+          {/* 右侧主内容区 */}
+          <main className="detail-main">
+            {/* 标题区 */}
+            <div className="detail-title-section">
+              <div className="detail-title-row">
+                <span className={`detail-type-badge type-${typeKey}`}><TypeIcon size={13} /> {typeLabel}</span>
+                {rank > 0 && <span className="detail-rank-badge">Rank #{rank}</span>}
+              </div>
+              <h1 className="detail-title">{subject.name_cn || subject.name}</h1>
+              {subject.name && subject.name !== subject.name_cn && <p className="detail-original-name">{subject.name}</p>}
+            </div>
+
+            {/* 详情信息卡片 */}
+            {subject.infobox && subject.infobox.length > 0 && (
+              <div className="detail-info-card">
+                {subject.infobox.map((item, i) => <InfoBoxItem key={i} item={item} />)}
+              </div>
+            )}
+
+            {/* 标签区 */}
+            {allTags.length > 0 && (
+              <div className="detail-tags-section">
+                <div className="detail-tags">
+                  {visibleTags.map((tag, i) => {
+                    const tagName = typeof tag === 'string' ? tag : tag.name;
+                    const tagCount = typeof tag === 'object' ? tag.count : null;
+                    return (
+                      <span key={i} className="detail-tag">
+                        {tagName}
+                        {tagCount && <span className="detail-tag-count">{tagCount}</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+                {allTags.length > 10 && (
+                  <button className="detail-tags-toggle" onClick={() => setTagsExpanded(!tagsExpanded)}>
+                    {tagsExpanded ? <><ChevronUp size={14} /> 收起</> : <><ChevronDown size={14} /> 显示更多 ({allTags.length})</>}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 制作人员（按角色分组） */}
+            {persons.length > 0 && (
+              <div className="detail-staff-section">
+                <h2 className="detail-section-title">制作人员</h2>
+                <div className="detail-staff-groups">
+                  {Object.entries(staffGroups).map(([role, members]) => (
+                    <StaffGroup key={role} role={role} members={members} defaultCollapsed={members.length > 6} />
                   ))}
                 </div>
-                <button className={`detail-action-btn ${isFav ? 'favorited' : ''}`} onClick={toggleFav}>
-                  <Bookmark size={16} fill={isFav ? 'var(--primary)' : 'none'} /> {isFav ? '已收藏' : '收藏'}
-                </button>
-                <button className="detail-action-btn"><Share2 size={16} /> 分享</button>
-                <a href={BangumiService.buildBangumiUrl(id)} target="_blank" rel="noopener noreferrer" className="detail-action-btn bangumi-link">
-                  <ExternalLink size={16} /> 在Bangumi查看
-                </a>
               </div>
-            </div>
-          </div>
+            )}
 
-          {collectionTotal > 0 && (
-            <div className="detail-collection-section">
-              <h2 className="detail-section-title"><Users size={16} /> 收藏统计</h2>
-              <div className="detail-collection-grid">
-                <div className="collection-item wish"><span className="collection-num">{collection.wish || 0}</span><span className="collection-label">想看</span></div>
-                <div className="collection-item collect"><span className="collection-num">{collection.collect || 0}</span><span className="collection-label">看过</span></div>
-                <div className="collection-item doing"><span className="collection-num">{collection.doing || 0}</span><span className="collection-label">在看</span></div>
-                <div className="collection-item on-hold"><span className="collection-num">{collection.on_hold || 0}</span><span className="collection-label">搁置</span></div>
-                <div className="collection-item dropped"><span className="collection-num">{collection.dropped || 0}</span><span className="collection-label">抛弃</span></div>
+            {/* Tab 区：简介 | 角色 | 评论 */}
+            <div className="detail-tabs">
+              <div className="detail-tabs-header">
+                <button className={`detail-tab ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>游戏介绍</button>
+                <button className={`detail-tab ${activeTab === 'characters' ? 'active' : ''}`} onClick={() => setActiveTab('characters')}>出场角色</button>
+                <button className={`detail-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>评论区</button>
               </div>
-            </div>
-          )}
 
-          {score > 0 && totalRatings > 0 && (
-            <div className="detail-rating-section">
-              <h2 className="detail-section-title"><Star size={16} /> 评分分布</h2>
-              <VerticalRatingDistribution rating={subject.rating} onFilterChange={setActiveRatingFilter} activeFilter={activeRatingFilter} />
-            </div>
-          )}
-
-          <div className="detail-summary-section">
-            <h2 className="detail-section-title">简介</h2>
-            <div className="detail-summary-text"><MarkdownRenderer content={subject.summary || '暂无简介'} /></div>
-          </div>
-
-          {mainChars.length > 0 && (
-            <div className="detail-chars-section">
-              <h2 className="detail-section-title">角色</h2>
-              <div className="detail-chars-grid">
-                {mainChars.map((c, i) => {
-                  const charImg = c.images?.medium || c.images?.grid || '';
-                  return (
-                    <div key={c.id || i} className="detail-char-card">
-                      {charImg ? <AvatarImg src={charImg} alt={c.name} size={48} /> : <div className="detail-char-avatar-placeholder">{(c.name || '?')[0]}</div>}
-                      <div className="detail-char-info"><span className="detail-char-name">{c.name}</span>{c.role && <span className="detail-char-role">{c.role}</span>}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              {supportChars.length > 0 && (
-                <details className="detail-chars-more">
-                  <summary>查看更多角色 ({supportChars.length})</summary>
-                  <div className="detail-chars-grid">
-                    {supportChars.map((c, i) => {
-                      const charImg = c.images?.medium || c.images?.grid || '';
-                      return (
-                        <div key={c.id || i} className="detail-char-card">
-                          {charImg ? <AvatarImg src={charImg} alt={c.name} size={48} /> : <div className="detail-char-avatar-placeholder">{(c.name || '?')[0]}</div>}
-                          <div className="detail-char-info"><span className="detail-char-name">{c.name}</span>{c.role && <span className="detail-char-role">{c.role}</span>}</div>
-                        </div>
-                      );
-                    })}
+              <div className="detail-tab-content">
+                {/* 简介Tab */}
+                {activeTab === 'summary' && (
+                  <div className="detail-summary-section">
+                    <div className="detail-summary-text"><MarkdownRenderer content={subject.summary || '暂无简介'} /></div>
                   </div>
-                </details>
-              )}
-            </div>
-          )}
+                )}
 
-          {mainStaff.length > 0 && (
-            <div className="detail-staff-section">
-              <h2 className="detail-section-title">制作人员</h2>
-              <div className="detail-staff-grid">
-                {mainStaff.map((p, i) => {
-                  const personImg = p.images?.medium || p.images?.grid || '';
-                  return (
-                    <div key={p.id || i} className="detail-staff-card">
-                      <AvatarImg src={personImg} alt={p.name} size={40} />
-                      <div className="detail-staff-info"><span className="detail-staff-name">{p.name}</span><span className="detail-staff-role">{p.role}</span></div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="detail-comments-section">
-            <h2 className="detail-section-title"><MessageCircle size={16} /> 吐槽与评论</h2>
-            
-            <div className="detail-comment-form">
-              <textarea placeholder="写下你的评论..." value={newComment} onChange={e => setNewComment(e.target.value)} rows={3} />
-              <button className="comment-submit" onClick={handleComment} disabled={!newComment.trim()}><Send size={14} /> 发表评论</button>
-            </div>
-
-            <div className="detail-comments-toolbar">
-              <div className="detail-comments-sort">
-                <span className="sort-label">排序:</span>
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="sort-select">
-                  <option value="latest">最新</option>
-                  <option value="hottest">最热</option>
-                </select>
-              </div>
-              <div className="detail-comments-perpage">
-                <span className="perpage-label">每页:</span>
-                <select value={commentsPerPage} onChange={e => setCommentsPerPage(parseInt(e.target.value))} className="perpage-select">
-                  <option value="10">10条</option>
-                  <option value="20">20条</option>
-                  <option value="50">50条</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="detail-comments-list">
-              {(() => {
-                const sortedComments = [...localComments].sort((a, b) => {
-                  if (sortBy === 'hottest') {
-                    return b.likes - a.likes;
-                  }
-                  return b.createdAt - a.createdAt;
-                });
-                const paginatedComments = sortedComments.slice(0, commentsPerPage);
-                
-                if (paginatedComments.length === 0) {
-                  return <div className="detail-no-comments">暂无评论，快来发表第一条评论吧！</div>;
-                }
-                
-                return paginatedComments.map(c => (
-                  <div key={c.id} className="detail-comment-item">
-                    <AvatarImg src={c.avatar} alt={c.username} size={36} />
-                    <div className="comment-body">
-                      <div className="comment-header">
-                        <span className="comment-name">{c.username}</span>
-                        {c.score && <span className="comment-score-badge">⭐ {c.score}</span>}
-                        <span className="comment-time">{c.timestamp}</span>
-                      </div>
-                      <p className="comment-content">{c.content}</p>
-                      <div className="comment-actions">
-                        <button className="comment-action-btn like" onClick={() => handleCommentLike(c.id)}>
-                          <Heart size={14} /> {c.likes}
-                        </button>
-                        <button className="comment-action-btn reply" onClick={() => {
-                          const replyContent = prompt('输入回复内容：');
-                          if (replyContent) handleCommentReply(c.id, replyContent);
-                        }}>
-                          <MessageCircle size={14} /> 回复
-                        </button>
-                        <button className="comment-action-btn report" onClick={() => handleCommentReport(c.id)}>
-                          <AlertCircle size={14} /> 举报
-                        </button>
-                      </div>
-                      {c.replies && c.replies.length > 0 && (
-                        <div className="comment-replies">
-                          {c.replies.map(reply => (
-                            <div key={reply.id} className="comment-reply">
-                              <AvatarImg src={reply.avatar} alt={reply.username} size={24} />
-                              <div className="reply-body">
-                                <span className="reply-name">{reply.username}</span>
-                                <span className="reply-content">{reply.content}</span>
-                                <span className="reply-time">{reply.timestamp}</span>
-                              </div>
+                {/* 角色Tab */}
+                {activeTab === 'characters' && (
+                  <div className="detail-chars-section">
+                    {charsLoading ? (
+                      <div className="detail-loading-inline"><Loader2 size={20} className="vp-spin" /> 加载角色中...</div>
+                    ) : allChars.length === 0 ? (
+                      <div className="detail-no-comments">暂无角色信息</div>
+                    ) : (
+                      <>
+                        {mainChars.length > 0 && (
+                          <div className="detail-chars-group">
+                            <h3 className="detail-chars-group-title">主角</h3>
+                            <div className="detail-chars-grid">
+                              {mainChars.map((c, i) => {
+                                const charImg = c.images?.medium || c.images?.grid || '';
+                                return (
+                                  <div key={c.id || i} className="detail-char-card">
+                                    {charImg ? <AvatarImg src={charImg} alt={c.name} size={48} /> : <div className="detail-char-avatar-placeholder">{(c.name || '?')[0]}</div>}
+                                    <div className="detail-char-info"><span className="detail-char-name">{c.name}</span>{c.role && <span className="detail-char-role">{c.role}</span>}</div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          ))}
+                          </div>
+                        )}
+                        {supportChars.length > 0 && (
+                          <div className="detail-chars-group">
+                            <h3 className="detail-chars-group-title">配角</h3>
+                            <div className="detail-chars-grid">
+                              {supportChars.map((c, i) => {
+                                const charImg = c.images?.medium || c.images?.grid || '';
+                                return (
+                                  <div key={c.id || i} className="detail-char-card">
+                                    {charImg ? <AvatarImg src={charImg} alt={c.name} size={48} /> : <div className="detail-char-avatar-placeholder">{(c.name || '?')[0]}</div>}
+                                    <div className="detail-char-info"><span className="detail-char-name">{c.name}</span>{c.role && <span className="detail-char-role">{c.role}</span>}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* 评论Tab */}
+                {activeTab === 'comments' && (
+                  <div className="detail-comments-section">
+                    <div className="detail-comment-form">
+                      <textarea placeholder="写下你的评论..." value={newComment} onChange={e => setNewComment(e.target.value)} rows={3} />
+                      <button className="comment-submit" onClick={handleComment} disabled={!newComment.trim()}><Send size={14} /> 发表评论</button>
+                    </div>
+
+                    <div className="detail-comments-toolbar">
+                      <div className="detail-comments-sort">
+                        <span className="sort-label">排序:</span>
+                        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="sort-select">
+                          <option value="latest">最新</option>
+                          <option value="hottest">最热</option>
+                        </select>
+                      </div>
+                      <div className="detail-comments-perpage">
+                        <span className="perpage-label">每页:</span>
+                        <select value={commentsPerPage} onChange={e => setCommentsPerPage(parseInt(e.target.value))} className="perpage-select">
+                          <option value="10">10条</option>
+                          <option value="20">20条</option>
+                          <option value="50">50条</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="detail-comments-list">
+                      {(() => {
+                        const sortedComments = [...localComments].sort((a, b) => {
+                          if (sortBy === 'hottest') return b.likes - a.likes;
+                          return b.createdAt - a.createdAt;
+                        });
+                        const paginatedComments = sortedComments.slice(0, commentsPerPage);
+                        if (paginatedComments.length === 0) {
+                          return <div className="detail-no-comments">暂无评论，快来发表第一条评论吧！</div>;
+                        }
+                        return paginatedComments.map(c => (
+                          <div key={c.id} className="detail-comment-item">
+                            <AvatarImg src={c.avatar} alt={c.username} size={36} />
+                            <div className="comment-body">
+                              <div className="comment-header">
+                                <span className="comment-name">{c.username}</span>
+                                {c.score && <span className="comment-score-badge">⭐ {c.score}</span>}
+                                <span className="comment-time">{c.timestamp}</span>
+                              </div>
+                              <p className="comment-content">{c.content}</p>
+                              <div className="comment-actions">
+                                <button className="comment-action-btn like" onClick={() => handleCommentLike(c.id)}>
+                                  <Heart size={14} /> {c.likes}
+                                </button>
+                                <button className="comment-action-btn reply" onClick={() => {
+                                  const replyContent = prompt('输入回复内容：');
+                                  if (replyContent) handleCommentReply(c.id, replyContent);
+                                }}>
+                                  <MessageCircle size={14} /> 回复
+                                </button>
+                                <button className="comment-action-btn report" onClick={() => handleCommentReport(c.id)}>
+                                  <AlertCircle size={14} /> 举报
+                                </button>
+                              </div>
+                              {c.replies && c.replies.length > 0 && (
+                                <div className="comment-replies">
+                                  {c.replies.map(reply => (
+                                    <div key={reply.id} className="comment-reply">
+                                      <AvatarImg src={reply.avatar} alt={reply.username} size={24} />
+                                      <div className="reply-body">
+                                        <span className="reply-name">{reply.username}</span>
+                                        <span className="reply-content">{reply.content}</span>
+                                        <span className="reply-time">{reply.timestamp}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+
+                    <div className="bgm-comments-section">
+                      <div className="bgm-comments-header">
+                        <h3 className="bgm-comments-title">Bangumi 社区评论</h3>
+                        <div className="bgm-comments-toolbar">
+                          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="bgm-sort-select">
+                            <option value="latest">最新</option>
+                            <option value="hottest">最热</option>
+                          </select>
+                          <select value={commentsPerPage} onChange={e => setCommentsPerPage(parseInt(e.target.value))} className="bgm-perpage-select">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                          </select>
                         </div>
+                      </div>
+                      {activeRatingFilter !== null && (
+                        <div className="bgm-filter-bar">
+                          <Filter size={12} /> 筛选: {activeRatingFilter}分
+                          <button className="bgm-filter-clear" onClick={() => setActiveRatingFilter(null)}>清除筛选</button>
+                        </div>
+                      )}
+                      {bgmCommentsLoading && bgmComments.length === 0 ? (
+                        <div className="bgm-comments-loading"><Loader2 size={20} className="vp-spin" /> 加载评论中...</div>
+                      ) : filteredBgmComments.length === 0 ? (
+                        <div className="detail-no-comments">暂无评论</div>
+                      ) : (
+                        <>
+                          <div className="bgm-comments-list">
+                            {filteredBgmComments.slice(0, commentsPerPage).map(c => (
+                              <div key={c.id} className="bgm-comment-item">
+                                <img src={c.avatar} alt="" className="bgm-comment-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} loading="lazy" />
+                                <div className="bgm-comment-body">
+                                  <div className="bgm-comment-header">
+                                    <span className="bgm-comment-name">{c.username}</span>
+                                    {c.score && <span className="comment-score-badge">⭐ {c.score}</span>}
+                                    {c.createdAt && <span className="bgm-comment-time">{new Date(c.createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}</span>}
+                                  </div>
+                                  <p className="bgm-comment-content">{c.content}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {bgmCommentsHasMore && activeRatingFilter === null && (
+                            <div className="bgm-comments-more">
+                              <button className="bgm-load-more" onClick={loadMoreComments} disabled={bgmCommentsLoading}>
+                                {bgmCommentsLoading ? <Loader2 size={14} className="vp-spin" /> : <ChevronDown size={14} />} 加载更多
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
-                ));
-              })()}
-            </div>
-
-            <div className="bgm-comments-section">
-              <div className="bgm-comments-header">
-                <h3 className="bgm-comments-title">Bangumi 社区评论</h3>
-                <div className="bgm-comments-toolbar">
-                  <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="bgm-sort-select">
-                    <option value="latest">最新</option>
-                    <option value="hottest">最热</option>
-                  </select>
-                  <select value={commentsPerPage} onChange={e => setCommentsPerPage(parseInt(e.target.value))} className="bgm-perpage-select">
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                  </select>
-                </div>
+                )}
               </div>
-              {activeRatingFilter !== null && (
-                <div className="bgm-filter-bar">
-                  <Filter size={12} /> 筛选: {activeRatingFilter}分
-                  <button className="bgm-filter-clear" onClick={() => setActiveRatingFilter(null)}>清除筛选</button>
-                </div>
-              )}
-              {bgmCommentsLoading && bgmComments.length === 0 ? (
-                <div className="bgm-comments-loading"><Loader2 size={20} className="vp-spin" /> 加载评论中...</div>
-              ) : filteredBgmComments.length === 0 ? (
-                <div className="detail-no-comments">暂无评论</div>
-              ) : (
-                <>
-                  <div className="bgm-comments-list">
-                    {filteredBgmComments.slice(0, commentsPerPage).map(c => (
-                      <div key={c.id} className="bgm-comment-item">
-                        <img src={c.avatar} alt="" className="bgm-comment-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} loading="lazy" />
-                        <div className="bgm-comment-body">
-                          <div className="bgm-comment-header">
-                            <span className="bgm-comment-name">{c.username}</span>
-                            {c.score && <span className="comment-score-badge">⭐ {c.score}</span>}
-                            {c.createdAt && <span className="bgm-comment-time">{new Date(c.createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}</span>}
-                          </div>
-                          <p className="bgm-comment-content">{c.content}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {bgmCommentsHasMore && activeRatingFilter === null && (
-                    <div className="bgm-comments-more">
-                      <button className="bgm-load-more" onClick={loadMoreComments} disabled={bgmCommentsLoading}>
-                        {bgmCommentsLoading ? <Loader2 size={14} className="vp-spin" /> : <ChevronDown size={14} />} 加载更多
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
             </div>
-          </div>
+          </main>
         </div>
       </div>
     </div>

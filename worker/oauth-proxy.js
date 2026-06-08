@@ -290,6 +290,42 @@ export default {
       }
     }
 
+    // Video source proxy: /api/video/proxy
+    // Proxies requests to MacCMS API sources to avoid CORS issues
+    if (url.pathname === '/api/video/proxy') {
+      const baseUrl = url.searchParams.get('baseUrl');
+      const path = url.searchParams.get('path');
+      if (!baseUrl || !path) {
+        return jsonResponse({ error: '缺少 baseUrl 或 path 参数' }, 400, origin);
+      }
+
+      // Rebuild the remaining query params (ac, wd, ids, etc.)
+      const params = new URLSearchParams(url.search);
+      params.delete('baseUrl');
+      params.delete('path');
+
+      const targetUrl = `${baseUrl}${path}${params.toString() ? '?' + params.toString() : ''}`;
+
+      try {
+        const res = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'ANISpace/1.0',
+            'Accept': 'application/json',
+          },
+        });
+        const body = await res.text();
+        return new Response(body, {
+          status: res.status,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders(origin),
+          },
+        });
+      } catch (err) {
+        return jsonResponse({ error: '视频源代理请求失败' }, 500, origin);
+      }
+    }
+
     // 健康检查
     if (url.pathname === '/') {
       return jsonResponse({ status: 'ok', service: 'ANISpace Proxy' }, 200, origin);
