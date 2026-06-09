@@ -19,6 +19,7 @@ import Notifications from './components/Notification/Notifications'
 import TouchGalApp from './components/TouchGal/TouchGalApp'
 import Club from './components/Club/Club'
 import Wiki from './components/Wiki/Wiki'
+import NewsDetail from './components/NewsZone/NewsDetail'
 import AuthModal from './components/Common/AuthModal'
 import Live2DWidget from './components/Common/Live2DWidget'
 import DockBar from './components/Layout/DockBar'
@@ -105,6 +106,7 @@ function AppInner() {
           <Route path="/info/:type/:id" element={<InfoDetail />} />
           <Route path="/club" element={<Club />} />
           <Route path="/wiki" element={<Wiki />} />
+          <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/video" element={<VideoZone />} />

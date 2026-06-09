@@ -321,6 +321,7 @@ export default function InfoDetail() {
   const [watchSources, setWatchSources] = useState([]);
   const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [bgFailed, setBgFailed] = useState(false);
   const scrollTimerRef = useRef(null);
 
   useEffect(() => {
@@ -471,18 +472,16 @@ export default function InfoDetail() {
 
   return (
     <div className="info-detail-page animate-fade-in">
-      {subject?.images?.large && (
+      {subject?.images?.large && !bgFailed ? (
         <div 
           className="detail-page-background"
-          style={{ 
-            backgroundImage: `url(${subject.images.large.replace(/\/[lg]\/|\/cover\//, '/large/')})`,
-          }}
+          style={{ backgroundImage: `url(${subject.images.large})` }}
         >
+          <img src={subject.images.large} alt="" style={{ display: 'none' }} onError={() => setBgFailed(true)} />
           <div className="detail-bg-overlay" style={{ opacity: 0.35 + Math.min(0.45, scrollY * 0.002) }} />
           <div className="detail-bg-blur" />
         </div>
-      )}
-      {!subject?.images?.large && (
+      ) : (
         <div className="detail-page-background detail-page-bg-fallback">
           <div className="detail-bg-overlay" />
         </div>

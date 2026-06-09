@@ -62,10 +62,10 @@ export default function Header() {
 
             {isAuthenticated ? (
               <div className="header-user-section">
-                <button className="header-icon-btn" title="通知">
+                <Link to="/notifications" className="header-icon-btn" title="通知">
                   <Bell size={18} />
                   {notifications.length > 0 && <span className="notification-dot">{notifications.length}</span>}
-                </button>
+                </Link>
                 <Link to="/mailbox" className="header-icon-btn" title="邮箱">
                   <Mail size={18} />
                 </Link>

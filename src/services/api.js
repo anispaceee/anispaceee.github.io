@@ -447,90 +447,66 @@ export const BangumiService = {
 
   clearCache() { CacheManager.clearAll(); },
 
-  async getRandomSubject(excludeIds = [], weights = { popularity: 0.4, score: 0.35, recency: 0.25 }) {
-    const DEDUP_KEY = 'acg_random_dedup';
+  async getRandomSubject(excludeIds = []) {
+    const HISTORY_KEY = 'acg_random_history';
+    const MAX_HISTORY = 50;
+    const MAX_RETRIES = 3;
     const FALLBACK_IDS = [12,323,590,1142,1319,1840,2001,2692,3228,4312,5033,6487,7662,8733,9914,10659,11661,12661,13761,15061];
 
-    const now = Date.now();
-    const dedup = StorageService.get(DEDUP_KEY, {});
-    const cleaned = {};
-    Object.entries(dedup).forEach(([id, ts]) => { if (now - ts < 86400000) cleaned[id] = ts; });
-    StorageService.set(DEDUP_KEY, cleaned);
+    // Load recent history from localStorage
+    const loadHistory = () => {
+      try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    };
 
-    const allExcluded = [...new Set([...excludeIds, ...Object.keys(cleaned).map(Number)])];
+    // Save history to localStorage (keep last MAX_HISTORY IDs)
+    const saveHistory = (ids) => {
+      const trimmed = ids.slice(-MAX_HISTORY);
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed)); } catch {}
+    };
 
-    try {
-      const keywords = ['冒险', '恋爱', '奇幻', '科幻', '日常', '热血', '搞笑', '治愈', '悬疑', '运动', '音乐', '机战', '魔法', '校园', '战斗'];
-      const keyword = keywords[Math.floor(Math.random() * keywords.length)];
-      const offset = Math.floor(Math.random() * 50);
-      const url = `${this.BASE_URL}/v0/search/subjects`;
-      const body = JSON.stringify({
-        keyword,
-        filter: { type: [1, 2, 4] },
-        page: Math.floor(offset / 10) + 1,
-        per_page: 25,
-      });
+    const history = loadHistory();
+    const allExcluded = [...new Set([...excludeIds, ...history])];
 
-      const targetUrl = this._proxyUrl(url);
-      const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(targetUrl, {
-        method: 'POST',
-        headers: { ...this._headers(), 'Content-Type': 'application/json' },
-        body,
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        // Use random offset with the browse endpoint for true randomness
+        const randomOffset = Math.floor(Math.random() * 500);
+        const url = `${this.BASE_URL}/browse?subjectType=2&type=1&limit=25&offset=${randomOffset}&sort=rank`;
+        const result = await this._request(url, null, false);
 
-      if (!res.ok) {
-        return this._getFallbackSubject(FALLBACK_IDS, allExcluded, cleaned, DEDUP_KEY);
+        if (!result?.data || result.data.length === 0) continue;
+
+        const candidates = result.data
+          .map(normalizeSubject)
+          .filter(s => s && s.id && !allExcluded.includes(s.id) && (s.rating?.score || s.score || 0) > 6);
+
+        if (candidates.length === 0) continue;
+
+        const selected = candidates[Math.floor(Math.random() * candidates.length)];
+
+        // Update history
+        history.push(selected.id);
+        saveHistory(history);
+
+        return selected;
+      } catch (err) {
+        if (attempt === MAX_RETRIES - 1) break;
       }
-
-      const data = await res.json();
-      if (!data?.data || data.data.length === 0) {
-        return this._getFallbackSubject(FALLBACK_IDS, allExcluded, cleaned, DEDUP_KEY);
-      }
-
-      const candidates = data.data
-        .map(normalizeSubject)
-        .filter(s => s && s.id && !allExcluded.includes(s.id));
-
-      if (candidates.length === 0) {
-        return this._getFallbackSubject(FALLBACK_IDS, allExcluded, cleaned, DEDUP_KEY);
-      }
-
-      const scored = candidates.map(s => {
-        const popularityScore = Math.min(s.rank > 0 ? 1 / s.rank : 0.01, 1);
-        const scoreVal = s.rating?.score || s.score || 0;
-        const scoreScore = scoreVal / 10;
-        const recencyScore = Math.random();
-        const weighted = popularityScore * (weights.popularity || 0.4) + scoreScore * (weights.score || 0.35) + recencyScore * (weights.recency || 0.25);
-        return { ...s, _weight: weighted };
-      });
-
-      scored.sort((a, b) => b._weight - a._weight);
-      const topN = scored.slice(0, Math.min(10, scored.length));
-      const idx = Math.floor(Math.random() * topN.length);
-      const selected = topN[idx];
-
-      cleaned[selected.id] = now;
-      StorageService.set(DEDUP_KEY, cleaned);
-
-      return selected;
-    } catch (err) {
-      return this._getFallbackSubject(FALLBACK_IDS, allExcluded, cleaned, DEDUP_KEY);
     }
-  },
 
-  async _getFallbackSubject(fallbackIds, excludedIds, dedupMap, dedupKey) {
-    const available = fallbackIds.filter(id => !excludedIds.includes(id));
-    const pool = available.length > 0 ? available : fallbackIds;
+    // Fallback: pick from hardcoded IDs
+    const available = FALLBACK_IDS.filter(id => !allExcluded.includes(id));
+    const pool = available.length > 0 ? available : FALLBACK_IDS;
     const pickId = pool[Math.floor(Math.random() * pool.length)];
     try {
       const subject = await this.getSubject(pickId);
       if (subject) {
         const normalized = normalizeSubject(subject);
-        dedupMap[pickId] = Date.now();
-        StorageService.set(dedupKey, dedupMap);
+        history.push(pickId);
+        saveHistory(history);
         return normalized;
       }
       return null;
