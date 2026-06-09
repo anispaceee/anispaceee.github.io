@@ -336,6 +336,18 @@
   gap: 12px;
 }
 
+/* 统一条目封面尺寸：3:4 竖版比例，与 Bangumi 封面一致 */
+.category-covers .subject-card-cover {
+  aspect-ratio: 3/4;
+  padding: 6px 6px 0;
+}
+.category-covers .subject-card-body {
+  padding: 6px 8px 10px;
+}
+.category-covers .subject-card-name {
+  font-size: 12px;
+}
+
 .category-empty {
   font-size: 13px;
   color: var(--text-quaternary);
