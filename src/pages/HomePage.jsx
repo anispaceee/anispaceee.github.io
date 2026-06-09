@@ -150,6 +150,7 @@ export default function HomePage() {
 
   const [hotPosts, setHotPosts] = useState([]);
   const [recentMessages, setRecentMessages] = useState([]);
+  const [carouselItems, setCarouselItems] = useState([]);
 
   useEffect(() => {
     const loadHomeData = async () => {
@@ -164,6 +165,23 @@ export default function HomePage() {
       } catch {}
     };
     loadHomeData();
+  }, []);
+
+  // 横滑推荐：加载5个随机条目
+  useEffect(() => {
+    const loadCarousel = async () => {
+      try {
+        const types = ['anime', 'anime', 'anime', 'game', 'novel'];
+        const results = await Promise.allSettled(
+          types.map(type => BangumiService.search('', type, 1, 1))
+        );
+        const items = results
+          .filter(r => r.status === 'fulfilled' && r.value?.data?.[0])
+          .map(r => r.value.data[0]);
+        setCarouselItems(items);
+      } catch { setCarouselItems([]); }
+    };
+    loadCarousel();
   }, []);
 
   const [randomSubject, setRandomSubject] = useState(null);
@@ -208,6 +226,50 @@ export default function HomePage() {
       <div className="home-container">
         <div className="home-columns">
           <div className="home-main-col">
+            {/* 横滑推荐 */}
+            {carouselItems.length > 0 && (
+              <div className="home-carousel-section">
+                <div className="home-section-title" style={{ marginBottom: 12 }}><Sparkles size={18} /> 今日推荐</div>
+                <div className="home-carousel">
+                  {carouselItems.map((item, idx) => {
+                    const img = item.images?.common || item.images?.medium || item.image || '';
+                    const score = item.rating?.score || item.rating?.value || 0;
+                    const typeLabel = item.type === 1 ? '小说' : item.type === 4 ? '游戏' : '动画';
+                    const typePath = item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime';
+                    return (
+                      <Link key={item.id} to={`/info/${typePath}/${item.id}`} className="home-carousel-card">
+                        <div className="home-carousel-cover">
+                          {img ? <img src={img} alt="" className="home-carousel-cover-img" loading="lazy" /> : <div style={{ width: '100%', height: '100%', background: 'var(--primary-bg)' }} />}
+                          <div className="home-carousel-cover-gradient" />
+                          <div className="home-carousel-badge">{idx === 0 ? '🌸 今日推荐' : '✨ 精选'}</div>
+                          <div className="home-carousel-cover-info">
+                            <div className="home-carousel-cover-title">{item.name_cn || item.name}</div>
+                            <div className="home-carousel-cover-meta">⭐ {score > 0 ? score.toFixed(1) : '-'} · {typeLabel}</div>
+                          </div>
+                        </div>
+                        <div className="home-carousel-body">
+                          <div className="home-carousel-tags">
+                            <span className="home-carousel-tag home-carousel-tag-pink">{typeLabel}</span>
+                            {score > 8 && <span className="home-carousel-tag home-carousel-tag-green">高分</span>}
+                            <span className="home-carousel-tag home-carousel-tag-blue">推荐</span>
+                          </div>
+                          <div className="home-carousel-actions">
+                            <span className="home-carousel-btn-want">♡ 想看</span>
+                            <span className="home-carousel-btn-detail">详情</span>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+                <div className="home-carousel-dots">
+                  {carouselItems.map((_, i) => (
+                    <div key={i} className={`home-carousel-dot ${i === 0 ? 'active' : ''}`} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 随机推荐 */}
             <div className="home-random-section">
               <div className="home-random-header">
@@ -235,34 +297,31 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 热门帖子 */}
+            {/* 热门讨论 */}
             <div className="home-hot-section">
               <div className="home-hot-header">
-                <h2 className="home-section-title"><Flame size={18} /> 热门帖子</h2>
+                <h2 className="home-section-title"><Flame size={18} /> 热门讨论</h2>
                 <Link to="/forum" className="home-more-link">更多 <ArrowRight size={12} /></Link>
               </div>
               <div className="home-hot-posts">
-                {hotPosts.map((post, index) => {
+                {hotPosts.map((post) => {
                   const authorName = post.author_name || getUserById(post.author_id)?.name || '未知';
                   const authorAvatar = post.author_avatar || getUserById(post.author_id)?.avatar || '';
                   return (
                     <Link to={`/forum/post/${post.id}`} key={post.id} className="home-hot-post">
-                      <span className="home-hot-rank">{index + 1}</span>
-                      <div className="home-hot-content">
-                        <div className="home-hot-top">
-                          <span className={`home-post-cat ${post.category}`}>{getCategoryLabel(post.category)}</span>
-                          <span className="home-hot-title">{post.title}</span>
+                      <div className="home-hot-post-top">
+                        <div className="home-hot-avatar-wrap">
+                          <UserAvatar userId={post.author_id} src={authorAvatar} alt={authorName} size={28} />
                         </div>
-                        <div className="home-hot-meta">
-                          <span className="home-hot-author">
-                            <UserAvatar userId={post.author_id} src={authorAvatar} alt={authorName} size={24} className="home-hot-avatar" />
-                            {authorName}
-                          </span>
-                          <div className="home-hot-stats">
-                            <span><Heart size={11} /> {post.likes || 0}</span>
-                            <span><MessageSquare size={11} /> {post.replies_count || 0}</span>
-                          </div>
+                        <div>
+                          <div className="home-hot-post-user">{authorName}</div>
+                          <div className="home-hot-post-time">{formatTime(post.created_at)}</div>
                         </div>
+                      </div>
+                      <div className="home-hot-title">{post.title}</div>
+                      <div className="home-hot-post-stats">
+                        <span><Heart size={10} /> {post.likes || 0}</span>
+                        <span><MessageSquare size={10} /> {post.replies_count || 0}</span>
                       </div>
                     </Link>
                   );
