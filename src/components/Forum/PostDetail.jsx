@@ -1,48 +1,80 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { StorageService, UserService } from '../../services/api';
+import { ForumService, UserService } from '../../services/api';
+import { MessageCircle, TrendingUp, Heart, Loader2, AlertCircle } from 'lucide-react';
 import './PostDetail.css';
 
 export default function PostDetail() {
   const { id } = useParams();
-  const post = mockForumPosts.find(p => p.id === parseInt(id));
-  const [replies, setReplies] = useState(mockReplies.filter(r => r.postId === parseInt(id)));
+  const [post, setPost] = useState(null);
+  const [replies, setReplies] = useState([]);
   const [newReply, setNewReply] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const getUser = (userId) => UserService.getById(userId);
+  useEffect(() => {
+    const loadPost = async () => {
+      try {
+        const data = await ForumService.getPostById(id);
+        setPost(data);
+        setReplies(data.replies || []);
+      } catch (err) {
+        setError(err.message || '加载失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPost();
+  }, [id]);
 
   const getCategoryLabel = (cat) => {
     const map = { game: '游戏', anime: '动画', novel: '小说', chat: '吹水' };
     return map[cat] || cat;
   };
 
-  const handleReply = () => {
+  const handleReply = async () => {
     if (!newReply.trim()) return;
-    const reply = {
-      id: replies.length + 100,
-      postId: parseInt(id),
-      userId: 1,
-      content: newReply.trim(),
-      timestamp: new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-'),
-      likes: 0,
-    };
-    setReplies([...replies, reply]);
-    setNewReply('');
+    setSubmitting(true);
+    try {
+      await ForumService.addReply(id, newReply.trim());
+      // 重新加载帖子获取最新回复
+      const data = await ForumService.getPostById(id);
+      setPost(data);
+      setReplies(data.replies || []);
+      setNewReply('');
+    } catch (err) {
+      alert(err.message || '回复失败');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  if (!post) {
+  if (loading) {
+    return (
+      <div className="post-detail-page">
+        <div className="post-detail-container" style={{ textAlign: 'center', padding: '60px 0' }}>
+          <Loader2 size={32} className="spinning" />
+          <p style={{ marginTop: 12, color: 'var(--text-secondary)' }}>加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !post) {
     return (
       <div className="post-detail-page">
         <div className="post-not-found">
-          <span>🔍</span>
-          <h2>帖子不存在</h2>
+          <AlertCircle size={48} style={{ color: 'var(--error)' }} />
+          <h2>{error || '帖子不存在'}</h2>
           <Link to="/forum" className="back-link">返回交流区</Link>
         </div>
       </div>
     );
   }
 
-  const author = getUser(post.userId);
+  const authorName = post.author_name || '未知用户';
+  const authorAvatar = post.author_avatar || '';
 
   return (
     <div className="post-detail-page">
@@ -60,34 +92,19 @@ export default function PostDetail() {
           </div>
 
           <div className="detail-author">
-            <img src={author?.avatar} alt="" className="detail-author-avatar" />
+            <img src={authorAvatar} alt="" className="detail-author-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
             <div className="detail-author-info">
-              <span className="detail-author-name">{author?.name}</span>
-              <span className="detail-author-level">Lv.{author?.level}</span>
-              <span className="detail-time">{post.timestamp}</span>
+              <span className="detail-author-name">{authorName}</span>
+              <span className="detail-time">{post.created_at}</span>
             </div>
           </div>
 
           <div className="detail-content">{post.content}</div>
 
-          {post.images && post.images.length > 0 && (
-            <div className="detail-images">
-              {post.images.map((img, i) => (
-                <img key={i} src={img} alt="" className="detail-img" />
-              ))}
-            </div>
-          )}
-
-          <div className="detail-tags">
-            {post.tags.map(tag => (
-              <span key={tag} className="post-tag">#{tag}</span>
-            ))}
-          </div>
-
           <div className="detail-stats">
-            <span>💬 {post.replies} 回复</span>
-            <span>👁 {post.views} 浏览</span>
-            <span>❤️ {post.likes} 喜欢</span>
+            <span>💬 {post.replies_count || 0} 回复</span>
+            <span>👁 {post.views || 0} 浏览</span>
+            <span>❤️ {post.likes || 0} 喜欢</span>
           </div>
         </div>
 
@@ -96,20 +113,17 @@ export default function PostDetail() {
 
           <div className="replies-list">
             {replies.map(reply => {
-              const replyUser = getUser(reply.userId);
+              const replyName = reply.author_name || '未知用户';
+              const replyAvatar = reply.author_avatar || '';
               return (
                 <div key={reply.id} className="reply-item">
-                  <img src={replyUser?.avatar} alt="" className="reply-avatar" />
+                  <img src={replyAvatar} alt="" className="reply-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%23f9f3f5"%3E%3Crect width="36" height="36" rx="18"/%3E%3Ctext x="18" y="22" text-anchor="middle" fill="%23c8bfcc" font-size="10"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
                   <div className="reply-body">
                     <div className="reply-header">
-                      <span className="reply-name">{replyUser?.name}</span>
-                      <span className="reply-level">Lv.{replyUser?.level}</span>
-                      <span className="reply-time">{reply.timestamp}</span>
+                      <span className="reply-name">{replyName}</span>
+                      <span className="reply-time">{reply.created_at}</span>
                     </div>
                     <div className="reply-content">{reply.content}</div>
-                    <div className="reply-actions">
-                      <span className="reply-like">❤️ {reply.likes}</span>
-                    </div>
                   </div>
                 </div>
               );
@@ -124,8 +138,8 @@ export default function PostDetail() {
               className="reply-input"
               rows={3}
             />
-            <button className="reply-btn" onClick={handleReply} disabled={!newReply.trim()}>
-              回复
+            <button className="reply-btn" onClick={handleReply} disabled={!newReply.trim() || submitting}>
+              {submitting ? '回复中...' : '回复'}
             </button>
           </div>
         </div>

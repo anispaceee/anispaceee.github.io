@@ -1,11 +1,10 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { StorageService, UserService } from '../../services/api';
+import { ForumService, UserService } from '../../services/api';
 import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, Users, FileText, TrendingUp, Clock, Heart, Image, Video, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Upload, Loader2 } from 'lucide-react';
 import './Forum.css';
 
-const FORUM_POSTS_KEY = 'acg_forum_posts';
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 200 * 1024 * 1024;
@@ -67,19 +66,6 @@ const sortOptions = [
   { key: 'hot', label: '最热', icon: TrendingUp },
   { key: 'replies', label: '回复', icon: MessageCircle },
 ];
-
-function getAllPosts() {
-  const stored = StorageService.get(FORUM_POSTS_KEY);
-  if (!stored) {
-    StorageService.set(FORUM_POSTS_KEY, []);
-    return [];
-  }
-  return stored;
-}
-
-function savePosts(posts) {
-  StorageService.set(FORUM_POSTS_KEY, posts);
-}
 
 function RichTextEditor({ value, onChange, placeholder }) {
   const textareaRef = useRef(null);
@@ -182,9 +168,24 @@ export default function Forum() {
     images: [],
     videoUrl: '',
   });
-  const [posts, setPosts] = useState(() => getAllPosts());
+  const [posts, setPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
   const imageInputRef = useRef(null);
   const videoInputRef = useRef(null);
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        const data = await ForumService.getPosts(1, 100);
+        setPosts(data.posts || []);
+      } catch {
+        setPosts([]);
+      } finally {
+        setLoadingPosts(false);
+      }
+    };
+    loadPosts();
+  }, []);
 
   const filteredPosts = useMemo(() => {
     let filtered = [...posts];
@@ -199,14 +200,19 @@ export default function Forum() {
       );
     }
     switch (sortBy) {
-      case 'hot': filtered.sort((a, b) => b.views - a.views); break;
-      case 'replies': filtered.sort((a, b) => b.replies - a.replies); break;
+      case 'hot': filtered.sort((a, b) => (b.views || 0) - (a.views || 0)); break;
+      case 'replies': filtered.sort((a, b) => (b.replies_count || 0) - (a.replies_count || 0)); break;
       default: break;
     }
     return filtered;
   }, [activeBoard, sortBy, searchQuery, posts]);
 
   const getUser = (userId) => UserService.getById(userId);
+  // 从后端帖子数据中获取作者信息（后端 JOIN 返回 author_name/author_avatar）
+  const getPostAuthor = (post) => {
+    if (post.author_name) return { name: post.author_name, avatar: post.author_avatar };
+    return getUser(post.author_id);
+  };
   const getCategoryLabel = (cat) => ({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' }[cat] || cat);
 
   const validatePost = useCallback(() => {
@@ -308,37 +314,24 @@ export default function Forum() {
     setSubmitError(null);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const imageUrls = newPost.images.map(img => img.preview);
       const tags = newPost.tags.trim() ? newPost.tags.trim().split(/\s+/) : [];
 
-      const newPostData = {
-        id: Date.now(),
-        category: newPost.category,
-        userId: currentUser?.id || 1,
+      const created = await ForumService.createPost({
         title: newPost.title.trim(),
         content: newPost.content.trim(),
-        images: imageUrls,
-        videoUrl: newPost.videoUrl,
+        category: newPost.category,
         tags,
-        replies: 0,
-        views: 0,
-        likes: 0,
-        timestamp: new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-'),
-        lastReply: '',
-      };
+      });
 
-      const updatedPosts = [newPostData, ...posts];
-      setPosts(updatedPosts);
-      savePosts(updatedPosts);
+      // 将后端返回的帖子添加到列表顶部
+      setPosts(prev => [created, ...prev]);
 
       setShowNewPost(false);
       setShowPreview(false);
       setNewPost({ title: '', content: '', category: 'chat', tags: '', images: [], videoUrl: '' });
       setSubmitError(null);
     } catch (err) {
-      setSubmitError([{ type: 'network', message: '网络错误，发帖失败，请检查网络连接后重试' }]);
+      setSubmitError([{ type: 'network', message: err.message || '发帖失败，请重试' }]);
     } finally {
       setSubmitting(false);
     }
@@ -487,7 +480,6 @@ export default function Forum() {
                 const Icon = board.icon;
                 const boardPosts = posts.filter(p => p.category === board.key);
                 const latestPost = boardPosts[0];
-                const latestUser = latestPost ? getUser(latestPost.userId) : null;
                 return (
                   <div key={board.key} className="forum-board-card" onClick={() => setActiveBoard(board.key)}>
                     <div className="board-card-header">
@@ -501,13 +493,13 @@ export default function Forum() {
                     </div>
                     <div className="board-card-stats">
                       <span><FileText size={12} /> {boardPosts.length} 帖</span>
-                      <span><Users size={12} /> {boardPosts.reduce((s, p) => s + p.replies, 0)} 回复</span>
+                      <span><Users size={12} /> {boardPosts.reduce((s, p) => s + (p.replies_count || 0), 0)} 回复</span>
                     </div>
                     {latestPost && (
                       <div className="board-card-latest">
                         <span className="latest-label">最新：</span>
                         <span className="latest-title">{latestPost.title}</span>
-                        <span className="latest-author">by {latestUser?.name}</span>
+                        <span className="latest-author">by {getPostAuthor(latestPost)?.name}</span>
                       </div>
                     )}
                     <div className="board-subs">
@@ -538,25 +530,22 @@ export default function Forum() {
               </div>
               <div className="forum-latest-list">
                 {filteredPosts.slice(0, 8).map(post => {
-                  const user = getUser(post.userId);
+                  const author = getPostAuthor(post);
                   return (
                     <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-latest-item">
-                      <img src={user?.avatar} alt="" className="latest-item-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%23f9f3f5"%3E%3Crect width="36" height="36" rx="18"/%3E%3Ctext x="18" y="22" text-anchor="middle" fill="%23c8bfcc" font-size="10"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+                      <img src={author?.avatar} alt="" className="latest-item-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%23f9f3f5"%3E%3Crect width="36" height="36" rx="18"/%3E%3Ctext x="18" y="22" text-anchor="middle" fill="%23c8bfcc" font-size="10"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
                       <div className="latest-item-body">
                         <div className="latest-item-top">
                           <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
                           <span className="latest-item-title">{post.title}</span>
                         </div>
                         <div className="latest-item-meta">
-                          <span className="latest-item-author">{user?.name}</span>
-                          <span><MessageCircle size={10} /> {post.replies}</span>
-                          <span><TrendingUp size={10} /> {post.views}</span>
-                          <span><Heart size={10} /> {post.likes}</span>
+                          <span className="latest-item-author">{author?.name}</span>
+                          <span><MessageCircle size={10} /> {post.replies_count || 0}</span>
+                          <span><TrendingUp size={10} /> {post.views || 0}</span>
+                          <span><Heart size={10} /> {post.likes || 0}</span>
                         </div>
                       </div>
-                      {post.images && post.images.length > 0 && (
-                        <img src={post.images[0]} alt="" className="latest-item-thumb" />
-                      )}
                     </Link>
                   );
                 })}
@@ -603,33 +592,25 @@ export default function Forum() {
                 <div className="forum-empty"><p>没有找到相关帖子</p></div>
               ) : (
                 filteredPosts.map(post => {
-                  const user = getUser(post.userId);
+                  const author = getPostAuthor(post);
                   return (
                     <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-post-card">
                       <div className="post-card-left">
-                        <img src={user?.avatar} alt="" className="post-user-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+                        <img src={author?.avatar} alt="" className="post-user-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
                         <div className="post-card-body">
                           <div className="post-card-header">
                             <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
                             <h3 className="post-card-title">{post.title}</h3>
                           </div>
                           <p className="post-card-content">{post.content}</p>
-                          <div className="post-card-tags">
-                            {post.tags && post.tags.map(tag => <span key={tag} className="post-tag">#{tag}</span>)}
-                          </div>
                           <div className="post-card-footer">
-                            <span className="post-author">{user?.name}</span>
-                            <span className="post-time">{post.timestamp}</span>
-                            <span className="post-stat"><MessageCircle size={11} /> {post.replies}</span>
-                            <span className="post-stat"><TrendingUp size={11} /> {post.views}</span>
+                            <span className="post-author">{author?.name}</span>
+                            <span className="post-time">{post.created_at}</span>
+                            <span className="post-stat"><MessageCircle size={11} /> {post.replies_count || 0}</span>
+                            <span className="post-stat"><TrendingUp size={11} /> {post.views || 0}</span>
                           </div>
                         </div>
                       </div>
-                      {post.images && post.images.length > 0 && (
-                        <div className="post-card-images">
-                          {post.images.map((img, i) => <img key={i} src={img} alt="" className="post-thumb" />)}
-                        </div>
-                      )}
                     </Link>
                   );
                 })

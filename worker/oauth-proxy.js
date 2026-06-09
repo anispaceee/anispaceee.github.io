@@ -390,7 +390,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       } else {
         // 创建新用户
         const result = await env.DB.prepare(
-          'INSERT INTO users (provider, provider_id, username, name, avatar, bio, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))'
+          'INSERT INTO users (provider, provider_id, username, name, avatar, bio, join_date, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'), datetime(\'now\'))'
         ).bind(provider, String(providerId), username || '', name || '', avatar || '', bio || '').run();
         user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(result.meta.last_row_id).first();
       }
@@ -761,9 +761,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
       if (!title) return jsonResponse({ error: '标题不能为空' }, 400, origin);
 
       const result = await env.DB.prepare(
-        'INSERT INTO news (type, title, source, link, category, content, images, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
+        'INSERT INTO news (author_id, type, title, source, link, category, content, images, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
       ).bind(
-        type || null, title, source || null, link || null,
+        authUser.userId, type || null, title, source || null, link || null,
         category || null, content || null,
         images ? JSON.stringify(images) : null
       ).run();

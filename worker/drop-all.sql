@@ -1,0 +1,11 @@
+-- 删除所有旧表（按依赖顺序）
+DROP TABLE IF EXISTS likes;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS collections;
+DROP TABLE IF EXISTS collection_marks;
+DROP TABLE IF EXISTS follows;
+DROP TABLE IF EXISTS replies;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS world_messages;
+DROP TABLE IF EXISTS news;
+DROP TABLE IF EXISTS users;

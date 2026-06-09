@@ -1,5 +1,6 @@
 -- ANISpace D1 Database Schema
 -- Cloudflare D1 (SQLite) 初始化脚本
+-- 列名/表名与 Worker 代码 (oauth-proxy.js) 保持一致
 
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
@@ -29,13 +30,13 @@ CREATE TABLE IF NOT EXISTS users (
 -- 帖子表
 CREATE TABLE IF NOT EXISTS posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  author_id INTEGER NOT NULL REFERENCES users(id),
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   category TEXT DEFAULT '',
   likes INTEGER DEFAULT 0,
   views INTEGER DEFAULT 0,
-  reply_count INTEGER DEFAULT 0,
+  replies_count INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -44,13 +45,13 @@ CREATE TABLE IF NOT EXISTS posts (
 CREATE TABLE IF NOT EXISTS replies (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   post_id INTEGER NOT NULL REFERENCES posts(id),
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  author_id INTEGER NOT NULL REFERENCES users(id),
   content TEXT NOT NULL,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
--- 收藏标记表
-CREATE TABLE IF NOT EXISTS collection_marks (
+-- 收藏标记表（表名 collections，与 Worker 一致）
+CREATE TABLE IF NOT EXISTS collections (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
   subject_id INTEGER NOT NULL,
@@ -72,14 +73,13 @@ CREATE TABLE IF NOT EXISTS follows (
   UNIQUE(from_user_id, to_user_id)
 );
 
--- 点赞表
+-- 点赞表（与 Worker 一致：user_id + post_id）
 CREATE TABLE IF NOT EXISTS likes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  target_type TEXT NOT NULL,
-  target_id INTEGER NOT NULL,
+  post_id INTEGER NOT NULL REFERENCES posts(id),
   created_at TEXT DEFAULT (datetime('now')),
-  UNIQUE(user_id, target_type, target_id)
+  UNIQUE(user_id, post_id)
 );
 
 -- 通知表
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- 世界频道消息表
 CREATE TABLE IF NOT EXISTS world_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  author_id INTEGER NOT NULL REFERENCES users(id),
   content TEXT NOT NULL,
   created_at TEXT DEFAULT (datetime('now'))
 );
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS world_messages (
 -- 新闻/资讯表
 CREATE TABLE IF NOT EXISTS news (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id),
+  author_id INTEGER NOT NULL REFERENCES users(id),
   type TEXT NOT NULL,
   title TEXT NOT NULL,
   source TEXT DEFAULT '',
@@ -119,14 +119,14 @@ CREATE TABLE IF NOT EXISTS news (
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
-CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_replies_post ON replies(post_id);
-CREATE INDEX IF NOT EXISTS idx_collection_user ON collection_marks(user_id);
-CREATE INDEX IF NOT EXISTS idx_collection_subject ON collection_marks(user_id, subject_id);
+CREATE INDEX IF NOT EXISTS idx_collection_user ON collections(user_id);
+CREATE INDEX IF NOT EXISTS idx_collection_subject ON collections(user_id, subject_id);
 CREATE INDEX IF NOT EXISTS idx_follows_from ON follows(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_follows_to ON follows(to_user_id);
-CREATE INDEX IF NOT EXISTS idx_likes_target ON likes(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_likes_post ON likes(post_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_world_messages_created ON world_messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_news_created ON news(created_at DESC);

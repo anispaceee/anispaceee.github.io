@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Tv, Book, Gamepad2, Plus, ExternalLink, Loader2, AlertCircle, Newspaper, Calendar, Tag, TrendingUp, Bold, Italic, Link as LinkIcon, List, Quote, Image as ImageIcon, Eye, EyeOff, X } from 'lucide-react';
+import { NewsService } from '../../services/api';
+import { useApp } from '../../context/AppContext';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './NewsZone.css';
 
@@ -37,6 +39,7 @@ const MOCK_NEWS = {
 
 export default function NewsZone() {
   const navigate = useNavigate();
+  const { isAuthenticated, openAuth } = useApp();
   const [activeTab, setActiveTab] = useState('anime');
   const [newsList, setNewsList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +49,7 @@ export default function NewsZone() {
   const [articleContent, setArticleContent] = useState('');
   const [articleImages, setArticleImages] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -56,13 +60,15 @@ export default function NewsZone() {
   const fetchNews = async (category) => {
     setLoading(true);
     try {
-      const customNews = localStorage.getItem('acg_custom_news');
-      const custom = customNews ? JSON.parse(customNews) : [];
-      const categoryCustom = custom.filter(n => n.category === category);
+      // 从后端 API 加载用户提交的资讯
+      const data = await NewsService.getCustomNews(1, 50);
+      const customNews = (data.news || []).filter(n => n.category === category);
 
+      // 保留 MOCK 数据作为默认内容
       const mockData = MOCK_NEWS[category] || [];
-      setNewsList([...categoryCustom, ...mockData]);
-    } catch (err) {
+      setNewsList([...customNews, ...mockData]);
+    } catch {
+      // API 失败时仍显示 MOCK 数据
       setNewsList(MOCK_NEWS[category] || []);
     } finally {
       setLoading(false);
@@ -82,52 +88,47 @@ export default function NewsZone() {
     resetForm();
   };
 
-  const handleSubmitApply = () => {
-    if (submitMode === 'link') {
-      if (!applyForm.title.trim() || !applyForm.link.trim()) {
-        alert('请填写完整信息');
-        return;
-      }
-      const saved = localStorage.getItem('acg_custom_news');
-      const applications = saved ? JSON.parse(saved) : [];
-      applications.push({
-        id: Date.now(),
-        type: 'link',
-        title: applyForm.title.trim(),
-        source: applyForm.source.trim(),
-        link: applyForm.link.trim(),
-        category: applyForm.category || activeTab,
-        date: new Date().toISOString().split('T')[0],
-        summary: '',
-        cover: '',
-        content: '',
-        images: [],
-      });
-      localStorage.setItem('acg_custom_news', JSON.stringify(applications));
-    } else {
-      if (!applyForm.title.trim() || !articleContent.trim()) {
-        alert('请填写标题和文章内容');
-        return;
-      }
-      const saved = localStorage.getItem('acg_custom_news');
-      const applications = saved ? JSON.parse(saved) : [];
-      applications.push({
-        id: Date.now(),
-        type: 'article',
-        title: applyForm.title.trim(),
-        source: applyForm.source.trim(),
-        link: '',
-        category: applyForm.category || activeTab,
-        date: new Date().toISOString().split('T')[0],
-        summary: articleContent.substring(0, 100),
-        cover: '',
-        content: articleContent,
-        images: articleImages,
-      });
-      localStorage.setItem('acg_custom_news', JSON.stringify(applications));
+  const handleSubmitApply = async () => {
+    if (!isAuthenticated) {
+      openAuth();
+      return;
     }
-    handleCloseModal();
-    fetchNews(activeTab);
+
+    setSubmitting(true);
+    try {
+      if (submitMode === 'link') {
+        if (!applyForm.title.trim() || !applyForm.link.trim()) {
+          alert('请填写完整信息');
+          return;
+        }
+        await NewsService.createNews({
+          type: 'link',
+          title: applyForm.title.trim(),
+          source: applyForm.source.trim(),
+          link: applyForm.link.trim(),
+          category: applyForm.category || activeTab,
+        });
+      } else {
+        if (!applyForm.title.trim() || !articleContent.trim()) {
+          alert('请填写标题和文章内容');
+          return;
+        }
+        await NewsService.createNews({
+          type: 'article',
+          title: applyForm.title.trim(),
+          source: applyForm.source.trim(),
+          category: applyForm.category || activeTab,
+          content: articleContent,
+          images: articleImages,
+        });
+      }
+      handleCloseModal();
+      fetchNews(activeTab);
+    } catch (err) {
+      alert(err.message || '提交失败');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleImageUpload = (e) => {
@@ -235,11 +236,11 @@ export default function NewsZone() {
                     <span className={`news-type-badge ${news.type === 'article' ? 'news-type-article' : 'news-type-link'}`}>
                       {news.type === 'article' ? '📝 长文' : '🔗 链接'}
                     </span>
-                    <span className="news-item-date"><Calendar size={10} /> {news.date}</span>
+                    <span className="news-item-date"><Calendar size={10} /> {news.date || news.created_at?.split('T')[0] || ''}</span>
                     <span className="news-item-source">{news.source}</span>
                   </div>
                   <h3 className="news-item-title">{news.title}</h3>
-                  {news.summary && <p className="news-item-summary">{news.summary}</p>}
+                  {(news.summary || news.content) && <p className="news-item-summary">{news.summary || news.content?.substring(0, 100)}</p>}
                   {news.type === 'link' && news.link && (
                     <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-item-link" onClick={e => e.stopPropagation()}>
                       <ExternalLink size={12} /> 查看原文
@@ -374,7 +375,9 @@ export default function NewsZone() {
             </div>
             <div className="news-apply-footer">
               <button className="news-apply-cancel" onClick={handleCloseModal}>取消</button>
-              <button className="news-apply-submit" onClick={handleSubmitApply}>提交</button>
+              <button className="news-apply-submit" onClick={handleSubmitApply} disabled={submitting}>
+                {submitting ? '提交中...' : '提交'}
+              </button>
             </div>
           </div>
         </div>
