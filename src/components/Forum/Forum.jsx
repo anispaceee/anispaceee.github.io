@@ -143,7 +143,7 @@ function PostPreview({ title, content, images, videoUrl, category }) {
       {images && images.length > 0 && (
         <div className="preview-images">
           {images.map((img, i) => (
-            <img key={i} src={img.preview} alt="" className="preview-img" />
+            <img key={i} src={img.preview} alt="" className="preview-img" loading="lazy" />
           ))}
         </div>
       )}
@@ -436,7 +436,7 @@ export default function Forum() {
                     <div className="form-image-previews">
                       {newPost.images.map((img, i) => (
                         <div key={i} className="form-image-thumb">
-                          <img src={img.preview} alt="" />
+                          <img src={img.preview} alt="" loading="lazy" />
                           <button className="form-image-remove" onClick={() => removeImage(i)}><X size={10} /></button>
                         </div>
                       ))}
@@ -539,7 +539,7 @@ export default function Forum() {
                   const author = getPostAuthor(post);
                   return (
                     <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-latest-item">
-                      <img src={author?.avatar} alt="" className="latest-item-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%23f9f3f5"%3E%3Crect width="36" height="36" rx="18"/%3E%3Ctext x="18" y="22" text-anchor="middle" fill="%23c8bfcc" font-size="10"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+                      <img src={author?.avatar} alt="" className="latest-item-avatar" loading="lazy" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%23f9f3f5"%3E%3Crect width="36" height="36" rx="18"/%3E%3Ctext x="18" y="22" text-anchor="middle" fill="%23c8bfcc" font-size="10"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
                       <div className="latest-item-body">
                         <div className="latest-item-top">
                           <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
@@ -602,7 +602,7 @@ export default function Forum() {
                   return (
                     <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-post-card">
                       <div className="post-card-left">
-                        <img src={author?.avatar} alt="" className="post-user-avatar" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+                        <img src={author?.avatar} alt="" className="post-user-avatar" loading="lazy" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
                         <div className="post-card-body">
                           <div className="post-card-header">
                             <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>

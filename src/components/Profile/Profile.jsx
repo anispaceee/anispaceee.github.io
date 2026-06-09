@@ -251,7 +251,7 @@ export default function Profile() {
         <input ref={bgInputRef} type="file" accept="image/jpeg,image/png" onChange={handleBgChange} hidden />
         <div className="banner-content">
           <div className="profile-avatar-wrap">
-            <img src={avatarPreview || profileUser.avatar} alt="" className="profile-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+            <img src={avatarPreview || profileUser.avatar} alt="" className="profile-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
             <span className="profile-level">Lv.{profileUser.level}</span>
             {isOwnProfile && (
               <button className="avatar-upload-btn" onClick={() => avatarInputRef.current?.click()}>
@@ -463,7 +463,7 @@ export default function Profile() {
                   <div className="settings-item">
                     <label>头像</label>
                     <div className="avatar-settings">
-                      <img src={avatarPreview || profileUser.avatar} alt="" className="settings-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                      <img src={avatarPreview || profileUser.avatar} alt="" className="settings-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                       <button className="settings-btn" onClick={() => avatarInputRef.current?.click()}>更换头像</button>
                       <p className="settings-hint">支持 JPG、PNG 格式，5MB 以内</p>
                     </div>
@@ -547,7 +547,7 @@ export default function Profile() {
                     {BangumiAuthService.isBound() ? (
                       <div className="bangumi-bound-info">
                         <div className="bangumi-bound-user">
-                          <img src={BangumiAuthService.getBoundAccount()?.avatar || FALLBACK_IMG} alt="" className="settings-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          <img src={BangumiAuthService.getBoundAccount()?.avatar || FALLBACK_IMG} alt="" className="settings-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                           <div>
                             <span className="bangumi-bound-name">{BangumiAuthService.getBoundAccount()?.nickname || BangumiAuthService.getBoundAccount()?.name || '已绑定'}</span>
                             <span className="settings-hint">Bangumi 账号已绑定</span>
@@ -569,7 +569,7 @@ export default function Profile() {
                     {GitHubAuthService.isBound() ? (
                       <div className="bangumi-bound-info">
                         <div className="bangumi-bound-user">
-                          <img src={GitHubAuthService.getBoundAccount()?.avatar || FALLBACK_IMG} alt="" className="settings-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          <img src={GitHubAuthService.getBoundAccount()?.avatar || FALLBACK_IMG} alt="" className="settings-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                           <div>
                             <span className="bangumi-bound-name">{GitHubAuthService.getBoundAccount()?.nickname || GitHubAuthService.getBoundAccount()?.username || '已绑定'}</span>
                             <span className="settings-hint">GitHub 账号已绑定</span>
