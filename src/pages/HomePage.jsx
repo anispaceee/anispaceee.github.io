@@ -167,17 +167,12 @@ export default function HomePage() {
     loadHomeData();
   }, []);
 
-  // 横滑推荐：加载5个随机条目
+  // 横滑推荐：加载5个热门条目
   useEffect(() => {
     const loadCarousel = async () => {
       try {
-        const types = ['anime', 'anime', 'anime', 'game', 'novel'];
-        const results = await Promise.allSettled(
-          types.map(type => BangumiService.search('', type, 1, 1))
-        );
-        const items = results
-          .filter(r => r.status === 'fulfilled' && r.value?.data?.[0])
-          .map(r => r.value.data[0]);
+        const result = await BangumiService.getPopular('anime', 5);
+        const items = result?.data || [];
         setCarouselItems(items);
       } catch { setCarouselItems([]); }
     };
@@ -315,7 +310,7 @@ export default function HomePage() {
                         </div>
                         <div>
                           <div className="home-hot-post-user">{authorName}</div>
-                          <div className="home-hot-post-time">{formatTime(post.created_at)}</div>
+                          <div className="home-hot-post-time">{post.created_at ? new Date(post.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit' }) : ''}</div>
                         </div>
                       </div>
                       <div className="home-hot-title">{post.title}</div>
