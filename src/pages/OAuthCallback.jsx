@@ -13,13 +13,29 @@ export default function OAuthCallback() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    // 从 React Router location 或 sessionStorage（SPA redirect fallback）获取参数
+    let params = new URLSearchParams(location.search);
+    let pathname = location.pathname;
+
+    // Fallback: 如果 location.search 为空，尝试从 sessionStorage 恢复
+    if (!params.get('code')) {
+      const saved = sessionStorage.getItem('spa_redirect');
+      if (saved) {
+        sessionStorage.removeItem('spa_redirect');
+        try {
+          const savedUrl = new URL(saved, window.location.origin);
+          params = new URLSearchParams(savedUrl.search);
+          pathname = savedUrl.pathname;
+        } catch {}
+      }
+    }
+
     const code = params.get('code');
     const error = params.get('error');
     const state = params.get('state');
 
     // Determine provider from path
-    const provider = location.pathname.includes('github') ? 'github' : 'bangumi';
+    const provider = pathname.includes('github') ? 'github' : 'bangumi';
 
     // H-1: 验证 OAuth state 参数，防止 CSRF 登录劫持
     const storedState = sessionStorage.getItem(`oauth_state_${provider}`);
