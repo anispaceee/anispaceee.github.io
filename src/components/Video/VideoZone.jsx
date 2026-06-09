@@ -19,6 +19,7 @@ export default function VideoZone() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [failedCount, setFailedCount] = useState(0);
   const [showSourceManager, setShowSourceManager] = useState(false);
   const [newSourceName, setNewSourceName] = useState('');
   const [newSourceUrl, setNewSourceUrl] = useState('');
@@ -30,9 +31,11 @@ export default function VideoZone() {
     setSearched(true);
     try {
       const data = await VideoSourceService.searchAll(keyword.trim());
-      setResults(data);
+      setResults(data.groups);
+      setFailedCount(data.failedCount);
     } catch (err) {
       setResults([]);
+      setFailedCount(0);
     } finally {
       setLoading(false);
     }
@@ -103,6 +106,12 @@ export default function VideoZone() {
           <div className="vz-loading">
             <Loader2 size={32} className="vz-spinning" />
             <p>正在搜索多个影源...</p>
+          </div>
+        )}
+
+        {!loading && searched && failedCount > 0 && (
+          <div className="vz-failed-hint">
+            <span>{failedCount} 个影源请求失败，已显示成功的源结果</span>
           </div>
         )}
 

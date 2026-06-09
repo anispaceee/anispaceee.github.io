@@ -16,6 +16,23 @@ export default function OAuthCallback() {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
     const error = params.get('error');
+    const state = params.get('state');
+
+    // Determine provider from path
+    const provider = location.pathname.includes('github') ? 'github' : 'bangumi';
+
+    // H-1: 验证 OAuth state 参数，防止 CSRF 登录劫持
+    const storedState = sessionStorage.getItem(`oauth_state_${provider}`);
+    if (storedState) {
+      sessionStorage.removeItem(`oauth_state_${provider}`);
+      if (storedState !== state) {
+        setStatus('error');
+        setErrorMsg('安全验证失败，请重新登录');
+        return;
+      }
+    }
+    // 兼容旧流程：没有 state 也允许通过（向后兼容无 state 的旧请求）
+    // 生产环境上线一段时日后可移除兼容逻辑，改为强制校验
 
     if (error) {
       setStatus('error');
@@ -29,8 +46,8 @@ export default function OAuthCallback() {
       return;
     }
 
-    // Determine provider from path
-    const provider = location.pathname.includes('github') ? 'github' : 'bangumi';
+    // Determine provider from path (moved up for state check)
+    // const provider already defined above
 
     const handleOAuth = async () => {
       try {

@@ -247,7 +247,7 @@ export default function Guestbook() {
         ) : (
           pagedMessages.map(msg => (
             <div key={msg.id} className="guestbook-msg">
-              <img src={msg.avatar || FALLBACK_IMG} alt="" className="gb-msg-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+              <img src={msg.avatar || FALLBACK_IMG} alt="" className="gb-msg-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
               <div className="gb-msg-body">
                 <div className="gb-msg-header">
                   <span className="gb-msg-name">{sanitize(msg.nickname)}</span>

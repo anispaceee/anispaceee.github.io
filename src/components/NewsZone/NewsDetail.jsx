@@ -75,7 +75,7 @@ export default function NewsDetail() {
         {article.images && article.images.length > 0 && (
           <div className="news-detail-images">
             {article.images.map((img, idx) => (
-              <img key={idx} src={img} alt={`图片 ${idx + 1}`} className="news-detail-image" />
+              <img key={idx} src={img} alt={`图片 ${idx + 1}`} className="news-detail-image" loading="lazy" />
             ))}
           </div>
         )}

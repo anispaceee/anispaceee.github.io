@@ -294,7 +294,7 @@ export default function MusicPlayer() {
                 <button className="music-pl-back" onClick={() => setActivePlaylistView(null)}>
                   <ArrowLeft size={16} /> 返回
                 </button>
-                <img src={activePlaylistView.cover || FALLBACK_COVER} alt="" className="music-pl-detail-cover" onError={e => { e.target.src = FALLBACK_COVER; }} />
+                <img src={activePlaylistView.cover || FALLBACK_COVER} alt="" className="music-pl-detail-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                 <div className="music-pl-detail-info">
                   <h2>{activePlaylistView.name}</h2>
                   <span className="music-pl-detail-meta">{activePlaylistView.songCount}首 · {activePlaylistView.server === 'netease' ? '网易云' : 'QQ音乐'}</span>
@@ -307,7 +307,7 @@ export default function MusicPlayer() {
                 {(activePlaylistView.songs || []).map((song, i) => (
                   <div key={song.id || i} className={`music-song-item ${currentSong?.id === song.id ? 'active' : ''}`} onClick={() => playSong(song)}>
                     <span className="music-song-index">{i + 1}</span>
-                    <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover" onError={e => { e.target.src = FALLBACK_COVER; }} />
+                    <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                     <div className="music-song-info">
                       <span className="music-song-name">{song.name}</span>
                       <span className="music-song-artist">{song.artists}</span>
@@ -340,7 +340,7 @@ export default function MusicPlayer() {
                       <span className="music-global-results-label">在歌单中找到 {globalSearchResults.length} 首</span>
                       {globalSearchResults.slice(0, 20).map((song, i) => (
                         <div key={`${song.id}-${i}`} className="music-song-item global-result" onClick={() => jumpToPlaylistSong(song)}>
-                          <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover" onError={e => { e.target.src = FALLBACK_COVER; }} />
+                          <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                           <div className="music-song-info">
                             <span className="music-song-name">{song.name}</span>
                             <span className="music-song-artist">{song.artists}</span>
@@ -359,7 +359,7 @@ export default function MusicPlayer() {
                   <div className="music-saved-list">
                     {savedPlaylists.map(pl => (
                       <div key={pl.id} className="music-saved-pl-item" onClick={() => loadSavedPlaylist(pl)}>
-                        <img src={pl.cover || FALLBACK_COVER} alt="" className="music-saved-pl-cover" onError={e => { e.target.src = FALLBACK_COVER; }} />
+                        <img src={pl.cover || FALLBACK_COVER} alt="" className="music-saved-pl-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                         <div className="music-saved-pl-info">
                           <span className="music-saved-pl-name">{pl.name}</span>
                           <span className="music-saved-pl-meta">{pl.songCount}首 · {pl.server === 'netease' ? '网易云' : 'QQ音乐'}</span>
@@ -380,7 +380,7 @@ export default function MusicPlayer() {
                 )}
                 {searchResults.map(song => (
                   <div key={song.id || song.mid} className={`music-song-item ${currentSong?.id === song.id ? 'active' : ''}`} onClick={() => playSong(song)}>
-                    <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover" onError={e => { e.target.src = FALLBACK_COVER; }} />
+                    <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                     <div className="music-song-info">
                       <span className="music-song-name">{song.name}</span>
                       <span className="music-song-artist">{song.artists}</span>
@@ -396,7 +396,7 @@ export default function MusicPlayer() {
                   <div className="music-history-list">
                     {history.slice(0, 10).map(song => (
                       <div key={song.id} className="music-song-item mini" onClick={() => playSong(song)}>
-                        <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover mini" onError={e => { e.target.src = FALLBACK_COVER; }} />
+                        <img src={song.albumCover || FALLBACK_COVER} alt="" className="music-song-cover mini" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                         <div className="music-song-info">
                           <span className="music-song-name">{song.name}</span>
                           <span className="music-song-artist">{song.artists}</span>
@@ -413,7 +413,7 @@ export default function MusicPlayer() {
         <div className="music-right">
           <div className="music-now-playing">
             <div className="music-cover-wrap">
-              <img src={currentSong?.albumCover || FALLBACK_COVER} alt="" className={`music-cover-large ${playing ? 'spinning' : ''}`} onError={e => { e.target.src = FALLBACK_COVER; }} />
+              <img src={currentSong?.albumCover || FALLBACK_COVER} alt="" className={`music-cover-large ${playing ? 'spinning' : ''}`} loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
             </div>
             <div className="music-song-detail">
               <h2>{currentSong?.name || '未播放'}</h2>

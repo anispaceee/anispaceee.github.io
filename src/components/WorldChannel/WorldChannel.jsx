@@ -8,7 +8,7 @@ const FALLBACK_AVATAR = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000
 
 function Avatar({ src, alt, size = 40 }) {
   const [failed, setFailed] = useState(false);
-  return <img src={failed ? FALLBACK_AVATAR : src} alt={alt} className="chat-avatar" style={{ width: size, height: size }} onError={() => setFailed(true)} />;
+  return <img src={failed ? FALLBACK_AVATAR : src} alt={alt} className="chat-avatar" style={{ width: size, height: size }} loading="lazy" onError={() => setFailed(true)} />;
 }
 
 export default function WorldChannel() {
@@ -133,7 +133,7 @@ export default function WorldChannel() {
       <div className="chat-input-area">
         {imagePreview && (
           <div className="chat-image-preview">
-            <img src={imagePreview} alt="preview" />
+            <img src={imagePreview} alt="preview" loading="lazy" />
             <button className="preview-remove" onClick={() => setImagePreview(null)}><X size={14} /></button>
           </div>
         )}
@@ -160,7 +160,7 @@ export default function WorldChannel() {
 
       {fullscreenImg && (
         <div className="chat-fullscreen-overlay" onClick={() => setFullscreenImg(null)}>
-          <img src={fullscreenImg} alt="" className="chat-fullscreen-img" onClick={e => e.stopPropagation()} />
+          <img src={fullscreenImg} alt="" className="chat-fullscreen-img" loading="lazy" onClick={e => e.stopPropagation()} />
           <button className="fullscreen-close" onClick={() => setFullscreenImg(null)}><X size={24} /></button>
         </div>
       )}

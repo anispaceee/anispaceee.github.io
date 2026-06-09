@@ -130,7 +130,7 @@ export default function FriendSpace() {
       {showComposer && (
         <div className="friend-space-composer">
           <div className="composer-header">
-            <img src={currentUser?.avatar || FALLBACK_AVATAR} alt="" className="composer-avatar" />
+            <img src={currentUser?.avatar || FALLBACK_AVATAR} alt="" className="composer-avatar" loading="lazy" />
             <span className="composer-name">{currentUser?.name || '匿名'}</span>
             <div className="composer-visibility">
               <button className={`visibility-btn ${newVisibility === 'friends' ? 'active' : ''}`} onClick={() => setNewVisibility('friends')}>
@@ -168,7 +168,7 @@ export default function FriendSpace() {
           return (
             <div key={post.id} className="space-post">
               <div className="space-post-header">
-                <img src={author.avatar || FALLBACK_AVATAR} alt="" className="space-post-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
+                <img src={author.avatar || FALLBACK_AVATAR} alt="" className="space-post-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
                 <div className="space-post-author">
                   <span className="space-post-name">{author.name}</span>
                   <span className="space-post-meta">
@@ -179,7 +179,7 @@ export default function FriendSpace() {
               <div className="space-post-content">{post.content}</div>
               {post.images?.length > 0 && (
                 <div className="space-post-images">
-                  {post.images.map((img, i) => <img key={i} src={img} alt="" className="space-post-img" />)}
+                  {post.images.map((img, i) => <img key={i} src={img} alt="" className="space-post-img" loading="lazy" />)}
                 </div>
               )}
               <div className="space-post-stats">

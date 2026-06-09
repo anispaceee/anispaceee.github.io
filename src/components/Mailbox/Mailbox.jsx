@@ -1,18 +1,13 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { MailService, UserService } from '../../services/api';
+import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
 import { Mail, Send, Star, Trash2, Search, Inbox, ArrowRight, MessageCircle, FileText, Paperclip, X, ChevronLeft, Bold, Italic, Underline, Smile, LinkIcon, Image as ImageIcon, Eye, EyeOff, Loader2 } from 'lucide-react';
 import './Mailbox.css';
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
 
 const EMOJI_LIST = ['😊', '😂', '🥰', '😎', '🤔', '😅', '😍', '🥺', '😭', '😤', '👍', '❤️', '🎉', '✨', '🌟', '💫', '🎵', '🎮', '📺', '🎬', '🌸', '🎀', '🐱', '🐰', '🦊', '🐻', '🐨', '🐼'];
-
-function sanitizeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 function formatTime(isoStr) {
   const d = new Date(isoStr);
@@ -73,6 +68,7 @@ export default function Mailbox() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (currentUser) loadData();
+    return () => { setLoading(false); setSelectedMail(null); setSelectedChat(null); };
   }, [loadData, currentUser]);
 
   useEffect(() => {
@@ -201,7 +197,9 @@ export default function Mailbox() {
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
     html = html.replace(/__(.*?)__/g, '<u>$1</u>');
-    html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--text-link)">$1</a>');
+    html = html.replace(/\[(.*?)\]\((.*?)\)/g, (_, text, url) =>
+      safeUrl(url) ? `<a href="${safeUrl(url)}" target="_blank" rel="noopener" style="color:var(--text-link)">${text}</a>` : text
+    );
     html = html.replace(/\n/g, '<br/>');
     return html;
   };
@@ -255,7 +253,7 @@ export default function Mailbox() {
                     const otherUser = UserService.getById(isFromMe ? mail.toUserId : mail.fromUserId);
                     return (
                       <div key={mail.id} className={`mail-item ${selectedMail?.id === mail.id ? 'selected' : ''} ${!mail.read && !isFromMe ? 'unread' : ''}`} onClick={() => handleSelectMail(mail)}>
-                        <img src={otherUser?.avatar || FALLBACK_IMG} alt="" className="mail-item-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <img src={otherUser?.avatar || FALLBACK_IMG} alt="" className="mail-item-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                         <div className="mail-item-content">
                           <div className="mail-item-top">
                             <span className="mail-item-from">{otherUser?.name || '未知用户'}</span>
@@ -335,7 +333,7 @@ export default function Mailbox() {
                   </div>
                   <h2 className="mail-detail-subject">{selectedMail.subject}</h2>
                   <div className="mail-detail-meta">
-                    <img src={UserService.getById(selectedMail.fromUserId)?.avatar || FALLBACK_IMG} alt="" className="mail-detail-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                    <img src={UserService.getById(selectedMail.fromUserId)?.avatar || FALLBACK_IMG} alt="" className="mail-detail-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                     <div>
                       <span className="mail-detail-from">{UserService.getById(selectedMail.fromUserId)?.name || '未知'}</span>
                       <span className="mail-detail-to">发送给 {UserService.getById(selectedMail.toUserId)?.name || '未知'}</span>
@@ -384,7 +382,7 @@ export default function Mailbox() {
                     if (searchQuery && !otherUser.name.includes(searchQuery) && !otherUser.username.includes(searchQuery)) return null;
                     return (
                       <div key={conv.otherUserId} className={`chat-item ${selectedChat === conv.otherUserId ? 'selected' : ''}`} onClick={() => setSelectedChat(conv.otherUserId)}>
-                        <img src={otherUser.avatar || FALLBACK_IMG} alt="" className="chat-item-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <img src={otherUser.avatar || FALLBACK_IMG} alt="" className="chat-item-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                         <div className="chat-item-content">
                           <div className="chat-item-top">
                             <span className="chat-item-name">{otherUser.name}</span>
@@ -404,7 +402,7 @@ export default function Mailbox() {
               {selectedChat ? (
                 <>
                   <div className="chat-header">
-                    <img src={UserService.getById(selectedChat)?.avatar || FALLBACK_IMG} alt="" className="chat-header-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                    <img src={UserService.getById(selectedChat)?.avatar || FALLBACK_IMG} alt="" className="chat-header-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                     <span className="chat-header-name">{UserService.getById(selectedChat)?.name || '未知'}</span>
                     <span className="chat-header-status">@{UserService.getById(selectedChat)?.username}</span>
                   </div>
@@ -413,7 +411,7 @@ export default function Mailbox() {
                       const isMine = mail.fromUserId === currentUser.id;
                       return (
                         <div key={mail.id} className={`chat-msg ${isMine ? 'mine' : 'other'}`}>
-                          {!isMine && <img src={UserService.getById(mail.fromUserId)?.avatar || FALLBACK_IMG} alt="" className="chat-msg-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />}
+                          {!isMine && <img src={UserService.getById(mail.fromUserId)?.avatar || FALLBACK_IMG} alt="" className="chat-msg-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />}
                           <div className="chat-msg-bubble">
                             <div className="chat-msg-text" dangerouslySetInnerHTML={{ __html: renderMailContent(mail.content) }} />
                             <div className="chat-msg-meta">
@@ -421,7 +419,7 @@ export default function Mailbox() {
                               {isMine && <span className="chat-msg-read">{mail.read ? <Eye size={10} /> : <EyeOff size={10} />}</span>}
                             </div>
                           </div>
-                          {isMine && <img src={currentUser.avatar || FALLBACK_IMG} alt="" className="chat-msg-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />}
+                          {isMine && <img src={currentUser.avatar || FALLBACK_IMG} alt="" className="chat-msg-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />}
                         </div>
                       );
                     })}

@@ -147,7 +147,7 @@ const Live2DViewer = forwardRef(function Live2DViewer({ modelId, width = 500, he
         setLoaded(true);
         if (onModelLoad) onModelLoad(model);
       } catch (err) {
-        console.error('[Live2D] 初始化失败:', err);
+        console.error('[Live2D] 初始化失败');
         if (!destroyed) {
           setError(err.message || '模型加载失败');
           if (onModelError) onModelError(err);
@@ -183,7 +183,7 @@ const Live2DViewer = forwardRef(function Live2DViewer({ modelId, width = 500, he
       )}
       {error && (
         <div className="live2d-viewer-error">
-          <img src={modelConfig.fallbackImage} alt={modelConfig.name} className="live2d-viewer-fallback" />
+          <img src={modelConfig.fallbackImage} alt={modelConfig.name} className="live2d-viewer-fallback" loading="lazy" />
           <div className="live2d-viewer-error-info">
             <AlertCircle size={16} />
             <span>模型加载失败</span>

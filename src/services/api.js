@@ -1,5 +1,6 @@
 import { StorageService } from './storage';
 import oauthConfig from '../../oauth.config.js';
+import { openDB } from 'idb';
 
 const { STORAGE_KEYS: SK } = StorageService;
 
@@ -57,37 +58,72 @@ class ApiError extends Error {
   }
 }
 
+// ─── IndexedDB 缓存管理器 (M-6) ───
+// 替代 localStorage 缓存，防止过载，支持 LRU 淘汰
+
+const IDB_DB = 'anispace-cache';
+const IDB_STORE = 'bangumi-cache';
+const MAX_CACHE_ENTRIES = 200;
+
+let _dbPromise = null;
+
+function getDB() {
+  if (!_dbPromise) {
+    _dbPromise = openDB(IDB_DB, 1, {
+      upgrade(db) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'key' });
+      },
+    });
+  }
+  return _dbPromise;
+}
+
 class CacheManager {
-  static get(key) {
-    const cache = StorageService.get(SK.BANGUMI_CACHE, {});
-    const entry = cache[key];
-    if (!entry) return null;
-    if (Date.now() - entry.timestamp > CACHE_TTL) {
-      delete cache[key];
-      StorageService.set(SK.BANGUMI_CACHE, cache);
+  static async get(key) {
+    try {
+      const db = await getDB();
+      const entry = await db.get(IDB_STORE, key);
+      if (!entry) return null;
+      if (Date.now() - entry.timestamp > CACHE_TTL) {
+        await db.delete(IDB_STORE, key);
+        return null;
+      }
+      return entry.data;
+    } catch {
       return null;
     }
-    return entry.data;
   }
 
-  static set(key, data) {
-    const cache = StorageService.get(SK.BANGUMI_CACHE, {});
-    cache[key] = { data, timestamp: Date.now() };
+  static async set(key, data) {
     try {
-      StorageService.set(SK.BANGUMI_CACHE, cache);
+      const db = await getDB();
+      // LRU: 检查条目数，超过上限删除最早条目
+      const count = await db.count(IDB_STORE);
+      if (count >= MAX_CACHE_ENTRIES) {
+        const all = await db.getAll(IDB_STORE);
+        all.sort((a, b) => a.timestamp - b.timestamp);
+        const toDelete = all.slice(0, Math.max(1, all.length - MAX_CACHE_ENTRIES + 1));
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        for (const entry of toDelete) {
+          tx.store.delete(entry.key);
+        }
+        await tx.done;
+      }
+      await db.put(IDB_STORE, { key, data, timestamp: Date.now() });
     } catch {
-      const cache2 = {};
-      cache2[key] = { data, timestamp: Date.now() };
-      StorageService.set(SK.BANGUMI_CACHE, cache2);
+      // IndexedDB 不可用时静默失败
     }
   }
 
-  static clear() {
-    StorageService.set(SK.BANGUMI_CACHE, {});
+  static async clear() {
+    try {
+      const db = await getDB();
+      await db.clear(IDB_STORE);
+    } catch {}
   }
 
-  static clearAll() {
-    StorageService.remove(SK.BANGUMI_CACHE);
+  static async clearAll() {
+    return this.clear();
   }
 }
 
@@ -278,12 +314,21 @@ export const FollowService = {
     });
   },
 
+  // Worker GET /api/follows/:userId 返回 { following, followers }
+  // 提取对应字段供组件使用
+  async _getFollowData(userId) {
+    const data = await apiRequest(`/api/follows/${userId}`);
+    return data; // { following: [...], followers: [...] }
+  },
+
   async getFollowers(userId) {
-    return await apiRequest(`/api/follows/${userId}?type=followers`);
+    const data = await this._getFollowData(userId);
+    return data.followers || [];
   },
 
   async getFollowing(userId) {
-    return await apiRequest(`/api/follows/${userId}?type=following`);
+    const data = await this._getFollowData(userId);
+    return data.following || [];
   },
 
   // 保留同步方法签名兼容旧代码（从本地缓存读取）
@@ -395,17 +440,22 @@ export const NotificationService = {
     });
   },
 
-  // 保留 add 方法用于本地即时通知（非持久化）
+  // 保留 add 方法用于本地即时通知（非持久化，关闭标签页丢失）
+  // @deprecated 请使用 addAsync() 走后端 API 创建持久化通知
   add(userId, type, title, content, link = '') {
     const n = StorageService.get(SK.NOTIFICATIONS, []);
     n.unshift({ id: generateId(n), userId, type, title, content, link, read: false, createdAt: new Date().toISOString() });
     StorageService.set(SK.NOTIFICATIONS, n);
   },
 
-  // 保留同步方法兼容旧代码
+  // 保留同步方法兼容旧代码（仅读取本地缓存，不跨设备同步）
+  // @deprecated 请使用 getByUserId() 走后端 API
   getUnread(userId) { return StorageService.get(SK.NOTIFICATIONS, []).filter(n => n.userId === userId && !n.read); },
+  // @deprecated 请使用 getByUserId() 走后端 API
   getAll(userId) { return StorageService.get(SK.NOTIFICATIONS, []).filter(n => n.userId === userId); },
+  // @deprecated 请使用 markAsRead() 走后端 API
   markRead(id) { const n = StorageService.get(SK.NOTIFICATIONS, []); const item = n.find(x => x.id === id); if (item) item.read = true; StorageService.set(SK.NOTIFICATIONS, n); },
+  // @deprecated 请使用 markAllAsRead() 走后端 API
   markAllRead(userId) { const n = StorageService.get(SK.NOTIFICATIONS, []); n.forEach(x => { if (x.userId === userId) x.read = true; }); StorageService.set(SK.NOTIFICATIONS, n); },
 
   // ── 异步方法（走后端 API） ──
@@ -477,14 +527,14 @@ export const BangumiService = {
   async _request(url, cacheKey = null, useCache = true, retryCount = 0) {
     if (!isOnline()) {
       if (useCache && cacheKey) {
-        const cached = CacheManager.get(cacheKey);
+        const cached = await CacheManager.get(cacheKey);
         if (cached) return cached;
       }
       throw new ApiError('网络连接已断开，请检查网络设置', 0, 'OFFLINE');
     }
 
     if (useCache && cacheKey) {
-      const cached = CacheManager.get(cacheKey);
+      const cached = await CacheManager.get(cacheKey);
       if (cached) return cached;
     }
 
@@ -515,7 +565,7 @@ export const BangumiService = {
       }
 
       const data = await res.json();
-      if (cacheKey) CacheManager.set(cacheKey, data);
+      if (cacheKey) await CacheManager.set(cacheKey, data);
       return data;
     } catch (err) {
       if (err instanceof ApiError) throw err;

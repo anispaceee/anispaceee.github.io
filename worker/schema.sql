@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS private_messages (
 CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
 CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_replies_post ON replies(post_id);
 CREATE INDEX IF NOT EXISTS idx_collection_user ON collections(user_id);
 CREATE INDEX IF NOT EXISTS idx_collection_subject ON collections(user_id, subject_id);
@@ -184,5 +185,7 @@ CREATE INDEX IF NOT EXISTS idx_ratings_user ON ratings(user_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_subject ON ratings(subject_id);
 CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_mails_to ON mails(to_user_id, read);
+CREATE INDEX IF NOT EXISTS idx_mails_to_created ON mails(to_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_mails_from ON mails(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_pm_conversation ON private_messages(from_user_id, to_user_id);
+CREATE INDEX IF NOT EXISTS idx_pm_to_read ON private_messages(to_user_id, from_user_id, read);

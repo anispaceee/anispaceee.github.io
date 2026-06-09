@@ -272,7 +272,7 @@ export default function Club() {
                     const roleClass = mid === activeClub.president ? 'president' : activeClub.admins.includes(mid) ? 'admin' : 'member';
                     return (
                       <div key={mid} className="club-member">
-                        <img src={m.avatar || FALLBACK_AVATAR} alt="" className="club-member-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
+                        <img src={m.avatar || FALLBACK_AVATAR} alt="" className="club-member-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
                         <span className="club-member-name">{m.name}</span>
                         <span className={`club-member-role ${roleClass}`}>{role === '社长' ? <Crown size={10} /> : role === '管理员' ? <Shield size={10} /> : null} {role}</span>
                         {isPresident(activeClub) && mid !== currentUser.id && (
@@ -300,7 +300,7 @@ export default function Club() {
                       const isSelf = currentUser && msg.userId === currentUser.id;
                       return (
                         <div key={msg.id} className={`club-chat-msg ${isSelf ? 'self' : ''}`}>
-                          <img src={sender.avatar || FALLBACK_AVATAR} alt="" className="club-chat-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
+                          <img src={sender.avatar || FALLBACK_AVATAR} alt="" className="club-chat-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
                           <div className="club-chat-body">
                             <span className="club-chat-name">{sender.name} <span className="club-chat-time">{formatTime(msg.createdAt)}</span></span>
                             <div className="club-chat-text">{msg.content}</div>

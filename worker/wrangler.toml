@@ -1,7 +1,7 @@
 name = "anispace-oauth-proxy"
 main = "oauth-proxy.js"
 compatibility_date = "2024-01-01"
-account_id = "e3859153513e18ee3e56cc9345846356"
+# account_id 由 wrangler deploy 自动读取，无需提交到仓库
 
 [vars]
 ALLOWED_ORIGIN = "https://afterrain-2005.github.io"

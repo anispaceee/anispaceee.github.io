@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Bold, Italic, Underline, Link as LinkIcon, Image as ImageIcon, Code, List, ListOrdered, Heading1, Heading2, Heading3, Quote, Minus, Smile, Eye, EyeOff, Type, Superscript } from 'lucide-react';
+import { safeUrl } from '../../../utils/sanitize.js';
 import './MarkdownEditor.css';
 
 const EMOJIS = ['😊','😂','🥰','😎','🤔','😅','😍','🥺','😭','😤','👍','❤️','🎉','✨','🌟','💫','🎵','🎮','📺','🎬','🌸','🎀','🐱','🐰','🦊','🐻','🐨','🐼','💖','💗','💕','🔥','⭐','💎','🎪','🎨','🎭','🎬','🎤','🎧','🎸','🎹','🎺','🎻','🎬','🏆','🥇','🎯','🎲','🧩','🔮','🪄','🧸','🍬','🍭','🍰','🎂','🍩','🍪','🧁','🍫','☕','🍵','🥤','🧃','🍓','🍒','🍑','🍊','🍋','🍇','🍉','🥝'];
@@ -30,8 +31,12 @@ function parseMarkdown(text) {
   html = html.replace(/__(.+?)__/g, '<u>$1</u>');
   html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
 
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img class="md-img" src="$2" alt="$1" />');
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a class="md-link" href="$2" target="_blank" rel="noopener">$1</a>');
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
+    `<img class="md-img" src="${safeUrl(url)}" alt="${alt}" />`
+  );
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) =>
+    `<a class="md-link" href="${safeUrl(url)}" target="_blank" rel="noopener">${text}</a>`
+  );
 
   html = html.replace(/^&gt; (.+)$/gm, '<blockquote class="md-blockquote">$1</blockquote>');
 

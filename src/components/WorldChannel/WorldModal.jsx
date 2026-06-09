@@ -245,7 +245,7 @@ export default function WorldModal({ open, onClose }) {
                 const isSelf = currentUser && msg.userId === currentUser.id;
                 return (
                   <div key={msg.id} className={`world-modal-msg ${isSelf ? 'self' : ''}`}>
-                    <img src={user.avatar || ''} alt="" className="world-modal-avatar" onError={e => { e.target.style.display = 'none'; }} />
+                    <img src={user.avatar || ''} alt="" className="world-modal-avatar" loading="lazy" onError={e => { e.target.style.display = 'none'; }} />
                     <div className="world-modal-bubble-wrap">
                       <span className="world-modal-name">{user.name}</span>
                       <div className={`world-modal-bubble ${isSelf ? 'self' : ''}`}>{msg.content}</div>

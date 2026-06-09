@@ -195,6 +195,18 @@
   font-size: 12px;
 }
 
+/* Failed hint */
+.vz-failed-hint {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: #b8860b;
+}
+
 /* Results Grid */
 .vz-grid {
   display: grid;

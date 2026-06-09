@@ -121,10 +121,15 @@ export const VideoSourceService = {
     const promises = sources.map(s => this.searchSource(s, keyword));
     const results = await Promise.allSettled(promises);
 
-    return results
-      .filter(r => r.status === 'fulfilled')
-      .map(r => r.value)
-      .filter(r => r.results.length > 0);
+    const failedCount = results.filter(r => r.status === 'rejected').length;
+
+    return {
+      groups: results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value)
+        .filter(r => r.results.length > 0),
+      failedCount,
+    };
   },
 
   // Get video detail (with play URLs) from a specific source

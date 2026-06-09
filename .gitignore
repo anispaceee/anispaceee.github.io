@@ -15,6 +15,7 @@ dist-ssr
 # Environment variables
 .env
 .env.*
+.dev.vars
 
 # Editor directories and files
 .vscode/*
@@ -26,3 +27,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Database temp files
+*.db
+*.db-shm
+*.db-wal
+
+# Coverage
+coverage/
+
+# Misc
+.vite/
+.turbo/

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DPlayer from 'dplayer';
 import Hls from 'hls.js';
+import { safeUrl } from '../../utils/sanitize.js';
 import { VideoSourceService } from '../../services/videoSource';
 import { StorageService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
@@ -61,18 +62,22 @@ export default function VideoDetail() {
   useEffect(() => {
     if (!currentEpisode?.url || !playerContainerRef.current) return;
 
+    // M-7: 校验视频 URL 仅允许安全协议
+    const url = safeUrl(currentEpisode.url);
+    if (!url) return;
+
     // Destroy old player
     if (playerRef.current) {
       playerRef.current.destroy();
       playerRef.current = null;
     }
 
-    const isM3U8 = currentEpisode.url.includes('.m3u8');
+    const isM3U8 = url.includes('.m3u8');
 
     const dp = new DPlayer({
       container: playerContainerRef.current,
       video: {
-        url: currentEpisode.url,
+        url,
         type: isM3U8 ? 'hls' : 'auto',
         customType: isM3U8 ? {
           hls: (video, src) => {
@@ -200,7 +205,7 @@ export default function VideoDetail() {
           {comments.length === 0 && <p className="vd-no-comments">暂无评论</p>}
           {comments.map(c => (
             <div key={c.id} className="vd-comment">
-              <img src={c.avatar || FALLBACK_IMG} alt="" className="vd-comment-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+              <img src={c.avatar || FALLBACK_IMG} alt="" className="vd-comment-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
               <div className="vd-comment-body">
                 <span className="vd-comment-name">{c.username}</span>
                 <span className="vd-comment-time">{new Date(c.createdAt).toLocaleDateString()}</span>

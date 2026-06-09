@@ -358,7 +358,7 @@ export default function NewsZone() {
                       <div className="news-image-previews">
                         {articleImages.map((img, idx) => (
                           <div key={idx} className="news-image-thumb">
-                            <img src={img} alt={`预览 ${idx + 1}`} />
+                            <img src={img} alt={`预览 ${idx + 1}`} loading="lazy" />
                             <button className="news-image-remove" onClick={() => removeImage(idx)}><X size={10} /></button>
                           </div>
                         ))}

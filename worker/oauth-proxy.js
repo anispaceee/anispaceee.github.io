@@ -782,6 +782,24 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse({ following: following.results, followers: followers.results }, 200, origin);
   }
 
+  // POST /api/notifications — 创建通知
+  if (method === 'POST' && pathname === '/api/notifications') {
+    try {
+      const body = await request.json();
+      const { userId, type, fromUserId, targetType, targetId, content } = body;
+      if (!userId || !type) return jsonResponse({ error: '缺少 userId 或 type' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO notifications (user_id, type, from_user_id, target_type, target_id, content, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, datetime(\'now\'))'
+      ).bind(Number(userId), type, fromUserId || 0, targetType || '', targetId || 0, content || '').run();
+
+      const notification = await env.DB.prepare('SELECT * FROM notifications WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(notification, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '创建通知失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // GET /api/notifications — 获取用户通知
   if (method === 'GET' && pathname === '/api/notifications') {
     const userId = new URL(request.url).searchParams.get('userId');

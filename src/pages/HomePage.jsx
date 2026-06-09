@@ -170,6 +170,7 @@ export default function HomePage() {
       } catch {}
     };
     loadHomeData();
+    return () => { setError(null); setSearchError(null); };
   }, []);
 
   const [randomSubject, setRandomSubject] = useState(null);

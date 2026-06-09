@@ -172,7 +172,7 @@ export default function DockBar({ live2dVisible, onToggleLive2D, musicState, onM
               <div className="dock-panel-header"><h3>音乐</h3><button onClick={() => setActivePanel(null)}><X size={14} /></button></div>
               <div className="dock-music">
                 <div className="dock-music-info">
-                  <img src={musicState.cover || ''} alt="" className="dock-music-cover" onError={e => { e.target.style.display = 'none'; }} />
+                  <img src={musicState.cover || ''} alt="" className="dock-music-cover" loading="lazy" onError={e => { e.target.style.display = 'none'; }} />
                   <div className="dock-music-meta">
                     <span className="dock-music-name">{musicState.name || '未播放'}</span>
                     <span className="dock-music-artist">{musicState.artist || ''}</span>

@@ -199,7 +199,15 @@ export default function Amadeus() {
     }, 200); // 200ms淡出后切换
   }, [currentExpression]);
   const [showSettings, setShowSettings] = useState(false);
-  const [llmConfig, setLlmConfig] = useState(() => StorageService.get(LLM_CONFIG_KEY, DEFAULT_LLM_CONFIG));
+  const [llmConfig, setLlmConfig] = useState(() => {
+    // M-8: 使用 sessionStorage 替代 localStorage，避免 API Key 持久化泄露
+    try {
+      const saved = sessionStorage.getItem(LLM_CONFIG_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_LLM_CONFIG;
+    } catch {
+      return DEFAULT_LLM_CONFIG;
+    }
+  });
   const [configDraft, setConfigDraft] = useState(llmConfig);
   const [configSaved, setConfigSaved] = useState(false);
   const [llmError, setLlmError] = useState('');
@@ -269,7 +277,7 @@ export default function Amadeus() {
 
   const toggleListening = () => { if (!recognitionRef.current) return; isListening ? recognitionRef.current.stop() : (recognitionRef.current.start(), setIsListening(true)); };
   const clearChat = () => { setMessages([{ id: Date.now().toString(), role: 'assistant', content: '对话已重置。ふん、这次能聊点有深度的话题吗？', expression: 'normal', timestamp: new Date().toISOString() }]); switchExpression('normal'); };
-  const saveConfig = () => { setLlmConfig(configDraft); StorageService.set(LLM_CONFIG_KEY, configDraft); setConfigSaved(true); setTimeout(() => setConfigSaved(false), 2000); };
+  const saveConfig = () => { setLlmConfig(configDraft); sessionStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(configDraft)); setConfigSaved(true); setTimeout(() => setConfigSaved(false), 2000); };
   const handleEmojiSelect = (emoji) => { setInput(prev => prev + emoji); };
 
   const renderContent = (content) => content.split('\n').map((line, i) => {
@@ -285,7 +293,7 @@ export default function Amadeus() {
         <div className="amadeus-character-area" style={{ background: `linear-gradient(135deg, ${expr.color}22, ${expr.color}08)` }}>
           <div className="amadeus-character-portrait">
             <div className={`amadeus-character-silhouette ${expressionTransition ? 'transitioning' : ''}`} style={{ borderColor: expr.color }}>
-              <img src={amadeusImg} alt="Amadeus" className="amadeus-character-img" />
+              <img src={amadeusImg} alt="Amadeus" className="amadeus-character-img" loading="lazy" />
               <span className="amadeus-character-expr">{expr.emoji}</span>
             </div>
             <div className="amadeus-character-label">

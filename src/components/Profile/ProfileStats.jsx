@@ -368,7 +368,7 @@ export default function ProfileStats() {
               ) : (
                 stats.recentActivity.map((item, i) => (
                   <div key={i} className="activity-item">
-                    <img src={item.subjectImage || ''} alt="" className="activity-cover" />
+                    <img src={item.subjectImage || ''} alt="" className="activity-cover" loading="lazy" />
                     <div className="activity-info">
                       <span className="activity-name">{item.subjectName || `条目 #${item.subjectId}`}</span>
                       <span className="activity-meta">

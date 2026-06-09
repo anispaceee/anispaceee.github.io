@@ -71,7 +71,7 @@ export default function Wiki() {
     fetchRandomItem();
     fetchNews();
     rankTimerRef.current = setInterval(() => fetchRankings(true), RANK_CACHE_TTL);
-    return () => { if (rankTimerRef.current) clearInterval(rankTimerRef.current); };
+    return () => { if (rankTimerRef.current) clearInterval(rankTimerRef.current); setError(''); };
   }, []);
 
   const fetchRandomItem = async () => {
@@ -175,7 +175,7 @@ export default function Wiki() {
         localStorage.setItem(RANK_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
       } catch {}
     } catch (err) {
-      console.error('Failed to fetch rankings:', err);
+      console.error('Failed to fetch rankings');
     } finally {
       setRankLoading(false);
     }
@@ -358,9 +358,9 @@ export default function Wiki() {
                       onClick={() => { setShowLiveResults(false); if (isPerson) openMoegirl(name); }}
                     >
                       {isPerson ? (
-                        <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-avatar" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                       ) : (
-                        <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-cover" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                       )}
                       <div className="wiki-live-info">
                         <span className="wiki-live-name">{name}</span>
@@ -504,7 +504,7 @@ export default function Wiki() {
         {randomItem && (
           <div className="wiki-random-card">
             <Link to={`/info/${randomItem.type === 1 ? 'novel' : randomItem.type === 4 ? 'game' : 'anime'}/${randomItem.id}`} className="wiki-random-cover-link">
-              <img src={randomItem.image || randomItem.images?.common || FALLBACK_IMG} alt="" className="wiki-random-cover" onError={e => { e.target.src = FALLBACK_IMG; }} />
+              <img src={randomItem.image || randomItem.images?.common || FALLBACK_IMG} alt="" className="wiki-random-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
             </Link>
             <div className="wiki-random-info">
               <Link to={`/info/${randomItem.type === 1 ? 'novel' : randomItem.type === 4 ? 'game' : 'anime'}/${randomItem.id}`} className="wiki-random-name">{randomItem.name_cn || randomItem.name}</Link>
