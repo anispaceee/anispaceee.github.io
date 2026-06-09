@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ForumService, UserService } from '../../services/api';
+import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
 import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, Users, FileText, TrendingUp, Clock, Heart, Image, Video, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Upload, Loader2 } from 'lucide-react';
 import './Forum.css';
 
@@ -116,10 +117,15 @@ function RichTextEditor({ value, onChange, placeholder }) {
 function PostPreview({ title, content, images, videoUrl, category }) {
   const renderContent = (text) => {
     if (!text) return null;
-    let html = text
+    let html = sanitizeHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
+        safeUrl(url) ? `<img src="${safeUrl(url)}" alt="${alt}" style="max-width:100%;border-radius:8px;margin:8px 0" loading="lazy" />` : ''
+      )
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) =>
+        safeUrl(url) ? `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text
+      )
       .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/\n/g, '<br/>');

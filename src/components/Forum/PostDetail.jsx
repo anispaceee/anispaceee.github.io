@@ -1,8 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ForumService, UserService } from '../../services/api';
+import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
 import { MessageCircle, TrendingUp, Heart, Loader2, AlertCircle } from 'lucide-react';
 import './PostDetail.css';
+
+/** 将 Markdown 文本渲染为 HTML（与 Forum.jsx PostPreview 一致） */
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = sanitizeHtml(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // 图片语法 ![alt](url) 必须在链接语法之前处理
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
+      safeUrl(url) ? `<img src="${safeUrl(url)}" alt="${alt}" style="max-width:100%;border-radius:8px;margin:8px 0" loading="lazy" />` : ''
+    )
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, url) =>
+      safeUrl(url) ? `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${t}</a>` : t
+    )
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/\n/g, '<br/>');
+  html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+  return html;
+}
 
 export default function PostDetail() {
   const { id } = useParams();
@@ -99,7 +120,7 @@ export default function PostDetail() {
             </div>
           </div>
 
-          <div className="detail-content">{post.content}</div>
+          <div className="detail-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }} />
 
           <div className="detail-stats">
             <span>💬 {post.replies_count || 0} 回复</span>
@@ -123,7 +144,7 @@ export default function PostDetail() {
                       <span className="reply-name">{replyName}</span>
                       <span className="reply-time">{reply.created_at}</span>
                     </div>
-                    <div className="reply-content">{reply.content}</div>
+                    <div className="reply-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(reply.content) }} />
                   </div>
                 </div>
               );

@@ -1,8 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { UserService, FollowService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService, MailService } from '../../services/api';
+import { UserService, FollowService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService, MailService, BangumiService } from '../../services/api';
 import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Image as ImageIcon, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
+import { SubjectCard } from '../Common/CommonComponents';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import ProfileStats from './ProfileStats';
 import './Profile.css';
@@ -354,16 +355,28 @@ export default function Profile() {
           <div className="profile-tab-content">
             {activeTab === 'marks' && (
               userMarks.length > 0 ? (
-                <div className="profile-marks-list">
-                  {userMarks.map(mark => (
-                    <Link key={`${mark.user_id}_${mark.subject_id}`} to={`/info/${mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}/${mark.subject_id}`} className="profile-mark-item">
-                      <img src={mark.subject_image || FALLBACK_IMG} alt="" className="profile-mark-img" onError={e => { e.target.src = FALLBACK_IMG; }} />
-                      <div className="profile-mark-info">
-                        <span className="profile-mark-name">{mark.subject_name || `条目 #${mark.subject_id}`}</span>
-                        <span className={`profile-mark-badge mark-${mark.status}`}>{CollectionMarkService.MARK_LABELS[mark.status]}</span>
-                      </div>
-                    </Link>
-                  ))}
+                <div className="profile-marks-grid">
+                  {userMarks.map(mark => {
+                    const type = mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime';
+                    const item = {
+                      id: mark.subject_id,
+                      name: mark.subject_name || `条目 #${mark.subject_id}`,
+                      name_cn: mark.subject_name || '',
+                      image: mark.subject_image || '',
+                      images: mark.subject_image ? { common: mark.subject_image } : {},
+                      rating: { score: 0 },
+                      tags: [],
+                    };
+                    return (
+                      <SubjectCard
+                        key={`${mark.user_id}_${mark.subject_id}`}
+                        item={item}
+                        type={type}
+                        compact={true}
+                        linkTo={`/info/${type}/${mark.subject_id}`}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="profile-empty"><BookOpen size={48} /><p>暂无标记</p></div>
