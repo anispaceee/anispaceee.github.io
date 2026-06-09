@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BangumiService, UserService, ForumService, WorldChannelService, NewsService } from '../services/api';
 import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper } from 'lucide-react';
@@ -172,6 +172,9 @@ export default function HomePage() {
     loadHomeData();
   }, []);
 
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselTimerRef = useRef(null);
+
   // 横滑推荐：加载5个热门条目
   useEffect(() => {
     const loadCarousel = async () => {
@@ -185,6 +188,29 @@ export default function HomePage() {
     };
     loadCarousel();
   }, []);
+
+  // 自动轮播
+  useEffect(() => {
+    if (carouselItems.length <= 1) return;
+    const startTimer = () => {
+      carouselTimerRef.current = setInterval(() => {
+        setCarouselIndex(prev => (prev + 1) % carouselItems.length);
+      }, 5000);
+    };
+    startTimer();
+    return () => clearInterval(carouselTimerRef.current);
+  }, [carouselItems.length]);
+
+  const goToSlide = (idx) => {
+    setCarouselIndex(idx);
+    clearInterval(carouselTimerRef.current);
+    carouselTimerRef.current = setInterval(() => {
+      setCarouselIndex(prev => (prev + 1) % carouselItems.length);
+    }, 5000);
+  };
+
+  const prevSlide = () => goToSlide((carouselIndex - 1 + carouselItems.length) % carouselItems.length);
+  const nextSlide = () => goToSlide((carouselIndex + 1) % carouselItems.length);
 
   const [randomSubject, setRandomSubject] = useState(null);
   const [randomLoading, setRandomLoading] = useState(true);
@@ -225,72 +251,65 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
+      {/* 全宽大图 Banner 轮播 */}
+      <div className="home-banner-section">
+        {carouselLoading ? (
+          <div className="home-banner-loading">
+            <Loader2 size={32} className="spinning" />
+            <span>雨，何时才能停？</span>
+          </div>
+        ) : carouselItems.length > 0 ? (
+          <div className="home-banner-carousel">
+            <div className="home-banner-track" style={{ transform: `translateX(-${carouselIndex * 100}%)` }}>
+              {carouselItems.map((item, idx) => {
+                const img = item.images?.common || item.images?.large || item.images?.medium || item.image || '';
+                const score = item.rating?.score || item.rating?.value || item.score || 0;
+                const typeLabel = item.type === 1 ? '小说' : item.type === 4 ? '游戏' : '动画';
+                const typePath = item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime';
+                const title = item.name_cn || item.name || '';
+                const summary = item.summary || '';
+                return (
+                  <Link key={item.id} to={`/info/${typePath}/${item.id}`} className="home-banner-slide">
+                    <div className="home-banner-bg" style={{ backgroundImage: `url(${img})` }} />
+                    <div className="home-banner-gradient" />
+                    <div className="home-banner-content">
+                      <div className="home-banner-info">
+                        <div className="home-banner-badge">{idx === 0 ? '🌸 本周推荐' : '✨ 精选推荐'}</div>
+                        <h2 className="home-banner-title">{title}</h2>
+                        <div className="home-banner-meta">
+                          <span className="home-banner-type">{typeLabel}</span>
+                          {score > 0 && <span className="home-banner-score"><Star size={14} fill="#ffc107" style={{ color: '#ffc107' }} /> {score.toFixed(1)}</span>}
+                        </div>
+                        {summary && <p className="home-banner-summary">{summary.length > 80 ? summary.substring(0, 80) + '...' : summary}</p>}
+                        <div className="home-banner-actions">
+                          <span className="home-banner-btn-primary">♡ 想看</span>
+                          <span className="home-banner-btn-secondary">查看详情</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            <button className="home-banner-arrow home-banner-arrow-left" onClick={prevSlide}><ChevronLeft size={24} /></button>
+            <button className="home-banner-arrow home-banner-arrow-right" onClick={nextSlide}><ChevronRight size={24} /></button>
+            <div className="home-banner-dots">
+              {carouselItems.map((_, i) => (
+                <button key={i} className={`home-banner-dot ${i === carouselIndex ? 'active' : ''}`} onClick={() => goToSlide(i)} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="home-banner-empty">
+            <Sparkles size={32} />
+            <span>暂无推荐</span>
+          </div>
+        )}
+      </div>
+
       <div className="home-container">
         <div className="home-columns">
           <div className="home-main-col">
-            {/* 横滑推荐 */}
-            <div className="home-carousel-section">
-              <div className="home-section-title" style={{ marginBottom: 12 }}><Sparkles size={18} /> 本周推荐</div>
-              {carouselLoading ? (
-                <div className="home-carousel">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="home-carousel-card">
-                      <div className="home-carousel-cover">
-                        <div className="shimmer" style={{ width: '100%', height: '100%' }} />
-                      </div>
-                      <div className="home-carousel-body">
-                        <div className="shimmer" style={{ width: '60%', height: 14, borderRadius: 4, marginBottom: 8 }} />
-                        <div className="shimmer" style={{ width: '40%', height: 10, borderRadius: 4 }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : carouselItems.length > 0 ? (
-                <>
-                  <div className="home-carousel">
-                    {carouselItems.map((item, idx) => {
-                      const img = item.images?.common || item.images?.medium || item.image || '';
-                      const score = item.rating?.score || item.rating?.value || item.score || 0;
-                      const typeLabel = item.type === 1 ? '小说' : item.type === 4 ? '游戏' : '动画';
-                      const typePath = item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime';
-                      return (
-                        <Link key={item.id} to={`/info/${typePath}/${item.id}`} className="home-carousel-card">
-                          <div className="home-carousel-cover">
-                            {img ? <img src={img} alt="" className="home-carousel-cover-img" loading="lazy" /> : <div style={{ width: '100%', height: '100%', background: 'var(--primary-bg)' }} />}
-                            <div className="home-carousel-cover-gradient" />
-                            <div className="home-carousel-badge">{idx === 0 ? '🌸 本周推荐' : '✨ 精选'}</div>
-                            <div className="home-carousel-cover-info">
-                              <div className="home-carousel-cover-title">{item.name_cn || item.name}</div>
-                              <div className="home-carousel-cover-meta">⭐ {score > 0 ? score.toFixed(1) : '-'} · {typeLabel}</div>
-                            </div>
-                          </div>
-                          <div className="home-carousel-body">
-                            <div className="home-carousel-tags">
-                              <span className="home-carousel-tag home-carousel-tag-pink">{typeLabel}</span>
-                              {score > 8 && <span className="home-carousel-tag home-carousel-tag-green">高分</span>}
-                              <span className="home-carousel-tag home-carousel-tag-blue">推荐</span>
-                            </div>
-                            <div className="home-carousel-actions">
-                              <span className="home-carousel-btn-want">♡ 想看</span>
-                              <span className="home-carousel-btn-detail">详情</span>
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  <div className="home-carousel-dots">
-                    {carouselItems.map((_, i) => (
-                      <div key={i} className={`home-carousel-dot ${i === 0 ? 'active' : ''}`} />
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="home-carousel-empty">暂无推荐数据</div>
-              )}
-            </div>
-
-            {/* 随机推荐 */}
             <div className="home-random-section">
               <div className="home-random-header">
                 <h2 className="home-section-title"><Sparkles size={18} /> 随机推荐</h2>
