@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { FriendService, FollowService, CollectionMarkService, UserService } from '../../services/api';
-import { Calendar, MapPin, Heart, LinkIcon, Shield, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, ChevronDown, Star, Users } from 'lucide-react';
+import { Calendar, MapPin, Heart, LinkIcon, Shield, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, ChevronDown, Star, Users, Activity, MessageSquare, Loader2 } from 'lucide-react';
 import { SubjectCard } from '../Common/CommonComponents';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
+import ActivityHeatmap from './ActivityHeatmap';
 import './UserProfilePage.css';
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
@@ -26,6 +27,10 @@ export default function UserProfilePage() {
   const [requestMessage, setRequestMessage] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const [activityData, setActivityData] = useState([]);
+  const [userComments, setUserComments] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const isSelf = currentUser && currentUser.id === parseInt(userId);
 
@@ -77,6 +82,26 @@ export default function UserProfilePage() {
       } catch {}
     };
     loadMarks();
+  }, [userInfo, userId]);
+
+  // 加载活跃度热力图数据
+  useEffect(() => {
+    if (!userInfo?.allow_profile_view) return;
+    setActivityLoading(true);
+    UserService.getUserActivity(parseInt(userId))
+      .then(data => setActivityData(Array.isArray(data) ? data : []))
+      .catch(() => setActivityData([]))
+      .finally(() => setActivityLoading(false));
+  }, [userInfo, userId]);
+
+  // 加载用户评论
+  useEffect(() => {
+    if (!userInfo?.allow_profile_view) return;
+    setCommentsLoading(true);
+    UserService.getUserComments(parseInt(userId))
+      .then(data => setUserComments(Array.isArray(data) ? data : []))
+      .catch(() => setUserComments([]))
+      .finally(() => setCommentsLoading(false));
   }, [userInfo, userId]);
 
   const totalMarks = userMarks.length;
@@ -209,7 +234,7 @@ export default function UserProfilePage() {
                     <span className="user-profile-badge friend">
                       <UserCheck size={13} /> 已好友
                     </span>
-                    <Link to="/mailbox" className="user-profile-action-btn message">
+                    <Link to={`/mailbox?chat=${userId}`} className="user-profile-action-btn message">
                       <MessageCircle size={13} /> 发私信
                     </Link>
                     <div className="user-profile-dropdown-wrap">
@@ -319,7 +344,26 @@ export default function UserProfilePage() {
               <p>添加好友后即可查看 TA 的收藏和评分</p>
             </div>
           ) : (
-            ['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
+            <>
+              {/* 活跃度热力图 */}
+              <div className="user-profile-category-section">
+                <div className="user-profile-category-header">
+                  <Activity size={16} style={{ color: 'var(--primary)' }} />
+                  <span className="category-title">活跃度</span>
+                </div>
+                {activityLoading ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-quaternary)' }}>
+                    <Loader2 size={20} className="spin" />
+                  </div>
+                ) : activityData.length > 0 ? (
+                  <ActivityHeatmap data={activityData} />
+                ) : (
+                  <div className="category-empty">暂无活跃度数据</div>
+                )}
+              </div>
+
+              {/* 收藏分类列表 */}
+              {['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
               const items = userMarks.filter(m => m.status === status);
               const isCollapsed = (status === 'on_hold' || status === 'dropped') && expandedCategory !== status && items.length > 0;
 
@@ -368,7 +412,47 @@ export default function UserProfilePage() {
                   )}
                 </div>
               );
-            })
+            })}
+
+              {/* 评论列表 */}
+              <div className="user-profile-category-section">
+                <div className="user-profile-category-header">
+                  <MessageSquare size={16} style={{ color: 'var(--primary)' }} />
+                  <span className="category-title">评论</span>
+                  <span className="category-count">{userComments.length} 条</span>
+                </div>
+                {commentsLoading ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-quaternary)' }}>
+                    <Loader2 size={20} className="spin" />
+                  </div>
+                ) : userComments.length > 0 ? (
+                  <div className="user-profile-comments">
+                    {userComments.slice(0, 10).map(comment => (
+                      <div key={comment.id} className="user-profile-comment-item">
+                        <div className="comment-item-header">
+                          {comment.subject_name && (
+                            <Link to={`/info/2/${comment.subject_id}`} className="comment-subject-link">
+                              {comment.subject_name}
+                            </Link>
+                          )}
+                          {comment.score > 0 && (
+                            <span className="comment-score">
+                              <Star size={10} fill="var(--accent-warm)" style={{ color: 'var(--accent-warm)' }} /> {comment.score}
+                            </span>
+                          )}
+                        </div>
+                        {comment.content && (
+                          <p className="comment-item-content">{comment.content.length > 120 ? comment.content.substring(0, 120) + '...' : comment.content}</p>
+                        )}
+                        <span className="comment-item-time">{new Date(comment.created_at).toLocaleDateString('zh-CN')}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="category-empty">暂无评论</div>
+                )}
+              </div>
+            </>
           )}
         </main>
       </div>

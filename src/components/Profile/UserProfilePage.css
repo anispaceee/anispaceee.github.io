@@ -365,6 +365,60 @@
   margin: 0;
 }
 
+/* 评论列表 */
+.user-profile-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.user-profile-comment-item {
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+.user-profile-comment-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+.comment-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.comment-subject-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-link);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.comment-subject-link:hover {
+  color: var(--primary);
+}
+.comment-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-warm);
+  background: rgba(230, 162, 60, 0.1);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+.comment-item-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 4px 0;
+}
+.comment-item-time {
+  font-size: 11px;
+  color: var(--text-quaternary);
+}
+
 /* 加载骨架 */
 .user-profile-loading {
   display: flex;
