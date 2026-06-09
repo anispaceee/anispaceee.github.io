@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
 import { SubjectCard } from '../Common/CommonComponents';
-import { Search, BookOpen, Tv, Gamepad2, Music, ExternalLink, Star, Users, Calendar, Tag, Loader2, AlertCircle, RotateCw, ChevronRight, ChevronLeft, Play, Book, Trophy, Filter, Shuffle, Newspaper } from 'lucide-react';
+import { Search, BookOpen, Tv, Gamepad2, Music, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw } from 'lucide-react';
 import './Wiki.css';
 
 const TYPE_OPTIONS = [
@@ -14,27 +14,18 @@ const TYPE_OPTIONS = [
   { key: 'person', label: '人物', typeCode: 'person', icon: Users },
 ];
 
-const RANK_TABS = [
-  { key: 'anime', label: '动画', icon: Tv, color: '#409eff' },
-  { key: 'novel', label: '小说', icon: Book, color: '#67c23a' },
-  { key: 'game', label: '游戏', icon: Gamepad2, color: '#e6a23c' },
-];
-
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="280" fill="%23f9f3f5"%3E%3Crect width="200" height="280" rx="10"/%3E%3Ctext x="100" y="140" text-anchor="middle" fill="%23d4b8c0" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E';
-
-const RANK_PAGE_SIZE = 20;
-const RANK_CACHE_KEY = 'acg_wiki_rankings';
-const RANK_CACHE_TTL = 60 * 60 * 1000;
-const RANK_SORT_OPTIONS = [
-  { key: 'score', label: '评分', icon: Star },
-  { key: 'heat', label: '热度', icon: Trophy },
-  { key: 'date', label: '更新', icon: Calendar },
-];
 
 export default function Wiki() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
-  const [activeType, setActiveType] = useState('anime');
+  const [searchParams] = useSearchParams();
+
+  const [query, setQuery] = useState(() => searchParams.get('q') || '');
+  const [activeType, setActiveType] = useState(() => {
+    const typeParam = searchParams.get('type');
+    if (typeParam && TYPE_OPTIONS.some(t => t.key === typeParam)) return typeParam;
+    return 'anime';
+  });
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
@@ -50,59 +41,18 @@ export default function Wiki() {
   const searchWrapRef = useRef(null);
   const [suggestionIndex, setSuggestionIndex] = useState(-1);
 
-  // 排行榜状态 - 增大请求量以支持分页
-  const [rankings, setRankings] = useState({ anime: [], novel: [], game: [] });
-  const [activeRankTab, setActiveRankTab] = useState('anime');
-  const [rankLoading, setRankLoading] = useState(false);
-  const [rankPage, setRankPage] = useState(1);
-  const [rankSort, setRankSort] = useState('score');
-  const rankTimerRef = useRef(null);
+  const initialSearchDone = useRef(false);
 
-  // 随机推荐状态
-  const [randomItem, setRandomItem] = useState(null);
-  const [randomLoading, setRandomLoading] = useState(false);
-
-  // 资讯状态 - 区分资讯与条目
-  const [newsItems, setNewsItems] = useState([]);
-  const [newsLoading, setNewsLoading] = useState(false);
-
+  // 从 URL 参数初始化搜索
   useEffect(() => {
-    fetchRankings();
-    fetchRandomItem();
-    fetchNews();
-    rankTimerRef.current = setInterval(() => fetchRankings(true), RANK_CACHE_TTL);
-    return () => { if (rankTimerRef.current) clearInterval(rankTimerRef.current); setError(''); };
+    if (!initialSearchDone.current) {
+      initialSearchDone.current = true;
+      const q = searchParams.get('q');
+      if (q && q.trim()) {
+        handleSearch(1, q, searchParams.get('type') || activeType);
+      }
+    }
   }, []);
-
-  const fetchRandomItem = async () => {
-    setRandomLoading(true);
-    try {
-      const subject = await BangumiService.getRandomSubject();
-      setRandomItem(subject);
-    } catch {} finally {
-      setRandomLoading(false);
-    }
-  };
-
-  // 获取资讯 - 特指业界动态、新作发售、新番导视等文章内容
-  const fetchNews = async () => {
-    setNewsLoading(true);
-    try {
-      const result = await BangumiService.getPopular('anime', 6, 0);
-      const items = (result?.data || []).slice(0, 6);
-      setNewsItems(items.map(item => ({
-        id: item.id,
-        title: item.name_cn || item.name,
-        cover: item.image || item.images?.common || '',
-        summary: item.summary || '',
-        score: item.score || item.rating?.score || 0,
-        type: item.type || 2,
-        date: item.air_date || '',
-      })));
-    } catch {} finally {
-      setNewsLoading(false);
-    }
-  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -139,47 +89,6 @@ export default function Wiki() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [showLiveResults, suggestionIndex, liveResults]);
-
-  const fetchRankings = async (forceRefresh = false) => {
-    if (!forceRefresh) {
-      try {
-        const cached = localStorage.getItem(RANK_CACHE_KEY);
-        if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < RANK_CACHE_TTL) {
-            setRankings(data);
-            return;
-          }
-        }
-      } catch {}
-    }
-
-    setRankLoading(true);
-    try {
-      const [animeRes, novelRes, gameRes] = await Promise.allSettled([
-        BangumiService.searchSubjects('', 2, 50, 0),
-        BangumiService.searchSubjects('', 1, 50, 0),
-        BangumiService.searchSubjects('', 4, 50, 0),
-      ]);
-
-      const getData = (res) => res.status === 'fulfilled' ? (res.value?.list || []) : [];
-
-      const data = {
-        anime: getData(animeRes),
-        novel: getData(novelRes),
-        game: getData(gameRes),
-      };
-
-      setRankings(data);
-      try {
-        localStorage.setItem(RANK_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
-      } catch {}
-    } catch (err) {
-      console.error('Failed to fetch rankings');
-    } finally {
-      setRankLoading(false);
-    }
-  };
 
   const handleLiveSearch = useCallback((value) => {
     setQuery(value);
@@ -225,8 +134,10 @@ export default function Wiki() {
     }, 300);
   }, [activeType]);
 
-  const handleSearch = useCallback(async (p = 1) => {
-    if (!query.trim()) {
+  const handleSearch = useCallback(async (p = 1, searchQuery = null, searchType = null) => {
+    const q = searchQuery || query;
+    const type = searchType || activeType;
+    if (!q.trim()) {
       setResults([]);
       setTotal(0);
       return;
@@ -236,10 +147,10 @@ export default function Wiki() {
     setError('');
     const offset = (p - 1) * PAGE_SIZE;
     try {
-      const typeOption = TYPE_OPTIONS.find(t => t.key === activeType);
-      
+      const typeOption = TYPE_OPTIONS.find(t => t.key === type);
+
       if (typeOption?.typeCode === 'person') {
-        const res = await fetch(`https://api.bgm.tv/v0/persons?keyword=${encodeURIComponent(query)}&limit=${PAGE_SIZE}&offset=${offset}`);
+        const res = await fetch(`https://api.bgm.tv/v0/persons?keyword=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&offset=${offset}`);
         if (res.ok) {
           const data = await res.json();
           const results = data.data || [];
@@ -254,7 +165,7 @@ export default function Wiki() {
         }
       } else {
         const typeCode = typeOption?.typeCode || 0;
-        const result = await BangumiService.searchSubjects(query, typeCode, PAGE_SIZE, offset);
+        const result = await BangumiService.searchSubjects(q, typeCode, PAGE_SIZE, offset);
         setResults(result?.list || []);
         setTotal(result?.results || 0);
       }
@@ -273,7 +184,7 @@ export default function Wiki() {
   const handleWatchAction = (item) => {
     const typeCode = item.type || 2;
     const name = item.name_cn || item.name || '';
-    
+
     if (typeCode === 4) {
       window.open(`https://www.touchgal.top/search?keyword=${encodeURIComponent(name)}`, '_blank', 'noopener,noreferrer');
     } else if (typeCode === 2) {
@@ -284,21 +195,6 @@ export default function Wiki() {
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const allRankItems = (() => {
-    const items = [...(rankings[activeRankTab] || [])];
-    switch (rankSort) {
-      case 'score': items.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0)); break;
-      case 'heat': items.sort((a, b) => (b.rating?.total || 0) - (a.rating?.total || 0)); break;
-      case 'date': items.sort((a, b) => {
-        const da = a.air_date || '';
-        const db = b.air_date || '';
-        return db.localeCompare(da);
-      }); break;
-    }
-    return items;
-  })();
-  const rankTotalPages = Math.max(1, Math.ceil(allRankItems.length / RANK_PAGE_SIZE));
-  const currentRankings = allRankItems.slice((rankPage - 1) * RANK_PAGE_SIZE, rankPage * RANK_PAGE_SIZE);
 
   return (
     <div className="wiki-page">
@@ -313,10 +209,10 @@ export default function Wiki() {
       <div className="wiki-search" ref={searchWrapRef}>
         <div className="wiki-search-bar">
           <Search size={16} />
-          <input 
-            placeholder="搜索作品、角色..." 
-            value={query} 
-            onChange={e => handleLiveSearch(e.target.value)} 
+          <input
+            placeholder="搜索作品、角色..."
+            value={query}
+            onChange={e => handleLiveSearch(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch(1)}
             onFocus={() => { if (query.trim() && liveResults.length > 0) setShowLiveResults(true); }}
           />
@@ -351,8 +247,8 @@ export default function Wiki() {
                   const name = item.name_cn || item.name || '';
                   const isPerson = item.type === 'person';
                   return (
-                    <Link 
-                      key={item.id} 
+                    <Link
+                      key={item.id}
                       to={isPerson ? '#' : `/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
                       className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
                       onClick={() => { setShowLiveResults(false); if (isPerson) openMoegirl(name); }}
@@ -392,138 +288,15 @@ export default function Wiki() {
         </div>
       </div>
 
-      {/* 搜索有结果时隐藏排行榜 */}
-      {results.length === 0 && !query.trim() && (
-      <div className="wiki-rankings-section">
-        <div className="wiki-rankings-header">
-          <Trophy size={18} className="wiki-rankings-icon" />
-          <h2>排行榜</h2>
-          <div className="wiki-rank-sort">
-            {RANK_SORT_OPTIONS.map(opt => {
-              const Icon = opt.icon;
-              return (
-                <button key={opt.key} className={`wiki-rank-sort-btn ${rankSort === opt.key ? 'active' : ''}`} onClick={() => { setRankSort(opt.key); setRankPage(1); }}>
-                  <Icon size={12} /> {opt.label}
-                </button>
-              );
-            })}
-          </div>
-          <button className="wiki-rank-refresh" onClick={() => fetchRankings(true)} disabled={rankLoading} title="刷新排行榜">
-            <RotateCw size={14} className={rankLoading ? 'spinning' : ''} />
-          </button>
-        </div>
-        
-        <div className="wiki-rank-tabs">
-          {RANK_TABS.map(tab => (
-            <button 
-              key={tab.key} 
-              className={`wiki-rank-tab ${activeRankTab === tab.key ? 'active' : ''}`}
-              onClick={() => { setActiveRankTab(tab.key); setRankPage(1); }}
-              style={{ '--rank-color': tab.color }}
-            >
-              <tab.icon size={14} /> {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {rankLoading ? (
-          <div className="wiki-rank-loading"><Loader2 size={20} className="spinning" /> 加载排行榜...</div>
-        ) : (
-          <>
-            <div className="wiki-rank-list">
-              {currentRankings.map((item, index) => {
-                const globalIndex = (rankPage - 1) * RANK_PAGE_SIZE + index;
-                const cover = item.images?.common || item.images?.medium || '';
-                const name = item.name_cn || item.name || '';
-                const score = item.rating?.score || 0;
-                const typeCode = item.type || 2;
-                const rankIcon = globalIndex < 3 ? (
-                  <span className={`wiki-rank-icon wiki-rank-${globalIndex + 1}`}>{globalIndex + 1}</span>
-                ) : (
-                  <span className="wiki-rank-num">{globalIndex + 1}</span>
-                );
-                
-                return (
-                  <div key={item.id} className="wiki-rank-item">
-                    <div className="wiki-rank-index">{rankIcon}</div>
-                    <img src={cover || FALLBACK_IMG} alt={name} className="wiki-rank-cover" onError={e => { e.target.src = FALLBACK_IMG; }} loading="lazy" />
-                    <div className="wiki-rank-info">
-                      <div className="wiki-rank-name">{name}</div>
-                      <div className="wiki-rank-meta">
-                        <span className="wiki-rank-score"><Star size={10} fill="#ffc107" /> {score.toFixed(1)}</span>
-                        <span className="wiki-rank-count">{item.rating?.total || 0}人评分</span>
-                      </div>
-                    </div>
-                    <button 
-                      className={`wiki-rank-action wiki-rank-action-${typeCode}`}
-                      onClick={() => handleWatchAction(item)}
-                    >
-                      {typeCode === 4 ? (
-                        <><Gamepad2 size={12} /> 立即游玩</>
-                      ) : typeCode === 1 ? (
-                        <><Book size={12} /> 立即阅读</>
-                      ) : (
-                        <><Play size={12} /> 立即观看</>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            {/* 排行榜分页 */}
-            {rankTotalPages > 1 && (
-              <div className="wiki-rank-pagination">
-                <button className="wiki-rank-page-btn" disabled={rankPage <= 1} onClick={() => setRankPage(p => p - 1)}>
-                  <ChevronLeft size={14} />
-                </button>
-                {Array.from({ length: rankTotalPages }, (_, i) => i + 1).map(p => (
-                  <button key={p} className={`wiki-rank-page-btn ${rankPage === p ? 'active' : ''}`} onClick={() => setRankPage(p)}>
-                    {p}
-                  </button>
-                ))}
-                <button className="wiki-rank-page-btn" disabled={rankPage >= rankTotalPages} onClick={() => setRankPage(p => p + 1)}>
-                  <ChevronRight size={14} />
-                </button>
-                <span className="wiki-rank-page-info">第 {rankPage}/{rankTotalPages} 页</span>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      )}
-
-      {/* 随机推荐模块 */}
-      <div className="wiki-random-section">
-        <div className="wiki-random-header">
-          <Shuffle size={18} className="wiki-random-icon" />
-          <h2>随机推荐</h2>
-          <button className="wiki-random-refresh" onClick={fetchRandomItem} disabled={randomLoading}>
-            {randomLoading ? <Loader2 size={14} className="spinning" /> : <RotateCw size={14} />} 换一个
-          </button>
-        </div>
-        {randomItem && (
-          <div className="wiki-random-card">
-            <Link to={`/info/${randomItem.type === 1 ? 'novel' : randomItem.type === 4 ? 'game' : 'anime'}/${randomItem.id}`} className="wiki-random-cover-link">
-              <img src={randomItem.image || randomItem.images?.common || FALLBACK_IMG} alt="" className="wiki-random-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
-            </Link>
-            <div className="wiki-random-info">
-              <Link to={`/info/${randomItem.type === 1 ? 'novel' : randomItem.type === 4 ? 'game' : 'anime'}/${randomItem.id}`} className="wiki-random-name">{randomItem.name_cn || randomItem.name}</Link>
-              {randomItem.name && randomItem.name !== (randomItem.name_cn || randomItem.name) && <span className="wiki-random-name-jp">{randomItem.name}</span>}
-              <div className="wiki-random-meta">
-                {randomItem.score > 0 && <span className="wiki-random-score"><Star size={12} fill="#ffc107" /> {randomItem.score.toFixed(1)}</span>}
-                {randomItem.tags?.length > 0 && (
-                  <div className="wiki-random-tags">
-                    {randomItem.tags.slice(0, 4).map((tag, i) => <span key={i} className="wiki-random-tag">{tag}</span>)}
-                  </div>
-                )}
-              </div>
-              {randomItem.summary && <p className="wiki-random-summary">{randomItem.summary}</p>}
-            </div>
-          </div>
-        )}
-      </div>
-
       {error && <div className="wiki-error"><AlertCircle size={16} /> {error} <button onClick={() => handleSearch(page)}><RotateCw size={12} /> 重试</button></div>}
+
+      {/* 空状态提示 */}
+      {results.length === 0 && !searching && !error && !query.trim() && (
+        <div className="wiki-empty-state">
+          <Search size={48} className="wiki-empty-icon" />
+          <p className="wiki-empty-text">搜索你感兴趣的动画、小说、游戏...</p>
+        </div>
+      )}
 
       <div className="wiki-results">
         {results.length > 0 && <div className="wiki-results-header"><span>共 {total} 条结果</span></div>}
@@ -531,7 +304,7 @@ export default function Wiki() {
           {results.map(item => {
             const typeCode = item.type || 2;
             const isPerson = typeCode === 'person';
-            
+
             if (isPerson) {
               const name = item.name_cn || item.name || '';
               const cover = item.images?.common || item.images?.medium || '';
@@ -553,7 +326,7 @@ export default function Wiki() {
                 </div>
               );
             }
-            
+
             const typeKey = typeCode === 1 ? 'novel' : typeCode === 4 ? 'game' : 'anime';
             return (
               <SubjectCard

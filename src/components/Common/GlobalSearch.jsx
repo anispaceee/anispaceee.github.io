@@ -307,6 +307,14 @@ export default function GlobalSearch({ onClose }) {
                     </button>
                   );
                 })}
+                {list.length > 5 && (
+                  <button
+                    className="gs-view-more"
+                    onClick={() => { navigate('/wiki?q=' + encodeURIComponent(query) + '&type=' + type); onClose(); }}
+                  >
+                    查看更多 →
+                  </button>
+                )}
               </div>
             );
           })}

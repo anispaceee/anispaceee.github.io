@@ -41,91 +41,10 @@
 .wiki-type-tab { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: var(--radius-full); font-size: 13px; background: var(--bg-input); backdrop-filter: blur(var(--blur-sm)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(150%); color: var(--text-secondary); border: 1px solid var(--border-glass); transition: all var(--transition-glass); }
 .wiki-type-tab.active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
 
-.wiki-rankings-section { margin-bottom: 32px; background: var(--bg-card); backdrop-filter: blur(var(--blur-md)) saturate(180%); -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%); border-radius: var(--radius-glass); padding: 20px; border: 1px solid var(--border-glass); box-shadow: var(--shadow-glass); }
-.wiki-rankings-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-.wiki-rankings-icon { color: var(--primary); }
-.wiki-rankings-header h2 { font-size: 16px; font-weight: 700; }
-.wiki-rank-sort { display: flex; gap: 2px; margin-left: auto; background: var(--bg-input); border-radius: var(--radius-xs); padding: 2px; }
-.wiki-rank-sort-btn { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 3px; font-size: 11px; font-weight: 500; color: var(--text-secondary); transition: all var(--transition-fast); }
-.wiki-rank-sort-btn.active { background: var(--primary); color: #fff; }
-.wiki-rank-sort-btn:hover:not(.active) { color: var(--primary); }
-.wiki-rank-refresh { width: 28px; height: 28px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: var(--text-quaternary); transition: all var(--transition-fast); }
-.wiki-rank-refresh:hover { background: var(--primary-bg); color: var(--primary); }
-.wiki-rank-refresh:disabled { opacity: 0.5; }
-.wiki-rank-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-.wiki-rank-tab { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border-secondary); transition: all var(--transition-fast); }
-.wiki-rank-tab.active { background: var(--rank-color, var(--primary)); color: #fff; border-color: var(--rank-color, var(--primary)); }
-.wiki-rank-loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--text-tertiary); }
-.wiki-rank-list { display: flex; flex-direction: column; gap: 12px; }
-.wiki-rank-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-input); backdrop-filter: blur(var(--blur-sm)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(150%); border-radius: var(--radius-md); border: 1px solid var(--border-glass); transition: all var(--transition-glass); }
-.wiki-rank-item:hover { background: var(--bg-card-hover); box-shadow: var(--shadow-glass); transform: translateX(4px); }
-.wiki-rank-index { width: 24px; text-align: center; font-size: 14px; font-weight: 700; }
-.wiki-rank-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: 12px; font-weight: 800; color: #fff; }
-.wiki-rank-1 { background: linear-gradient(135deg, #ffd700, #ffed4e); }
-.wiki-rank-2 { background: linear-gradient(135deg, #c0c0c0, #e8e8e8); }
-.wiki-rank-3 { background: linear-gradient(135deg, #cd7f32, #e09856); }
-.wiki-rank-num { color: var(--text-quaternary); }
-.wiki-rank-cover { width: 48px; height: 64px; object-fit: cover; border-radius: var(--radius-sm); flex-shrink: 0; }
-.wiki-rank-info { flex: 1; min-width: 0; }
-.wiki-rank-name { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-.wiki-rank-meta { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-tertiary); }
-.wiki-rank-score { display: flex; align-items: center; gap: 2px; color: #ffc107; font-weight: 600; }
-.wiki-rank-count { }
-.wiki-rank-action { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; white-space: nowrap; transition: all var(--transition-fast); }
-.wiki-rank-action-2 { background: #409eff; color: #fff; }
-.wiki-rank-action-2:hover { background: #66b1ff; }
-.wiki-rank-action-1 { background: #67c23a; color: #fff; }
-.wiki-rank-action-1:hover { background: #85ce61; }
-.wiki-rank-action-4 { background: #e6a23c; color: #fff; }
-.wiki-rank-action-4:hover { background: #ebb563; }
-
-/* 排行榜分页 */
-.wiki-rank-pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-secondary); }
-.wiki-rank-page-btn { min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; background: var(--bg-input); color: var(--text-secondary); transition: all var(--transition-fast); }
-.wiki-rank-page-btn:hover:not(:disabled):not(.active) { background: var(--primary-bg); color: var(--primary); }
-.wiki-rank-page-btn.active { background: var(--primary); color: #fff; }
-.wiki-rank-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.wiki-rank-page-info { font-size: 12px; color: var(--text-quaternary); margin-left: 8px; }
-
-/* 随机推荐 */
-.wiki-random-section { margin-bottom: 32px; background: var(--bg-card); border-radius: var(--radius-lg); padding: 20px; border: 1px solid var(--border-secondary); }
-.wiki-random-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-.wiki-random-icon { color: var(--primary); }
-.wiki-random-header h2 { font-size: 16px; font-weight: 700; }
-.wiki-random-refresh { display: flex; align-items: center; gap: 4px; padding: 4px 12px; margin-left: auto; background: var(--primary-bg); color: var(--primary); border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; transition: all var(--transition-fast); }
-.wiki-random-refresh:hover { background: var(--primary); color: #fff; }
-.wiki-random-refresh:disabled { opacity: 0.5; }
-.wiki-random-card { display: flex; gap: 16px; }
-.wiki-random-cover-link { display: block; flex-shrink: 0; }
-.wiki-random-cover { width: 120px; height: 160px; object-fit: cover; border-radius: var(--radius-md); }
-.wiki-random-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.wiki-random-name { font-size: 16px; font-weight: 700; color: var(--text-primary); text-decoration: none; line-height: 1.4; }
-.wiki-random-name:hover { color: var(--primary); }
-.wiki-random-name-jp { font-size: 12px; color: var(--text-quaternary); }
-.wiki-random-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.wiki-random-score { display: flex; align-items: center; gap: 2px; font-size: 14px; color: #ffc107; font-weight: 700; }
-.wiki-random-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-.wiki-random-tag { padding: 2px 8px; background: var(--bg-input); border-radius: var(--radius-xs); font-size: 10px; color: var(--text-tertiary); }
-.wiki-random-summary { font-size: 13px; color: var(--text-secondary); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-
-/* 资讯模块 */
-.wiki-news-section { margin-bottom: 32px; background: var(--bg-card); border-radius: var(--radius-lg); padding: 20px; border: 1px solid var(--border-secondary); }
-.wiki-news-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-.wiki-news-icon { color: #ff9eb1; }
-.wiki-news-header h2 { font-size: 16px; font-weight: 700; }
-.wiki-news-desc { font-size: 12px; color: var(--text-quaternary); margin-left: 8px; }
-.wiki-news-loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--text-tertiary); }
-.wiki-news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.wiki-news-card { display: flex; gap: 12px; padding: 12px; background: var(--bg-input); border-radius: var(--radius-md); transition: all var(--transition-fast); text-decoration: none; color: inherit; }
-.wiki-news-card:hover { background: var(--primary-bg); transform: translateY(-2px); }
-.wiki-news-cover-wrap { position: relative; flex-shrink: 0; }
-.wiki-news-cover { width: 80px; height: 106px; object-fit: cover; border-radius: var(--radius-sm); }
-.wiki-news-score { position: absolute; bottom: 4px; left: 4px; display: flex; align-items: center; gap: 2px; padding: 2px 6px; background: rgba(0,0,0,0.75); color: #ffc107; border-radius: var(--radius-xs); font-size: 10px; font-weight: 700; backdrop-filter: blur(4px); }
-.wiki-news-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.wiki-news-title { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.wiki-news-card:hover .wiki-news-title { color: var(--primary); }
-.wiki-news-summary { font-size: 11px; color: var(--text-tertiary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.wiki-news-date { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-quaternary); margin-top: auto; }
+/* 空状态 */
+.wiki-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; gap: 16px; }
+.wiki-empty-icon { color: var(--text-quaternary); opacity: 0.4; }
+.wiki-empty-text { font-size: 16px; color: var(--text-quaternary); font-weight: 500; }
 
 .wiki-error { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(232,67,83,0.06); border: 1px solid rgba(232,67,83,0.15); border-radius: var(--radius-sm); color: var(--error); font-size: 13px; margin-bottom: 16px; }
 .wiki-error button { display: flex; align-items: center; gap: 4px; margin-left: auto; padding: 4px 10px; background: var(--error); color: #fff; border-radius: var(--radius-xs); font-size: 12px; }

@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { UserService, FollowService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService, MailService, BangumiService } from '../../services/api';
-import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Image as ImageIcon, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
+import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { SubjectCard } from '../Common/CommonComponents';
 import UserAvatar from '../Common/UserAvatar';
@@ -17,15 +17,6 @@ const GitHubIcon = ({ size = 16 }) => (
 );
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
-
-const BG_TEMPLATES = [
-  { id: 'default', color: 'var(--primary)' },
-  { id: 'ocean', color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-  { id: 'sunset', color: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-  { id: 'forest', color: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
-  { id: 'night', color: 'linear-gradient(135deg, #0c3483 0%, #a2b6df 100%)' },
-  { id: 'sakura', color: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)' },
-];
 
 const PRIVACY_OPTIONS = [
   { key: 'public', label: '公开', icon: Globe, desc: '所有人可见' },
@@ -43,24 +34,17 @@ export default function Profile() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState('profile');
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [bgPreview, setBgPreview] = useState(null);
-  const [profileBg, setProfileBg] = useState(() => {
-    const prefs = StorageService.get('acg_current_user')?.preferences;
-    return prefs?.profileBg || StorageService.get('acg_profile_bg') || 'default';
-  });
   const [privacySettings, setPrivacySettings] = useState(() => {
     const prefs = StorageService.get('acg_current_user')?.preferences;
     return prefs?.privacy || StorageService.get('acg_privacy') || { profile: 'public', marks: 'public', info: 'public' };
   });
   const avatarInputRef = useRef(null);
-  const bgInputRef = useRef(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [userMarks, setUserMarks] = useState([]);
   const [markCounts, setMarkCounts] = useState({ wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 });
   const [userFavorites, setUserFavorites] = useState([]);
   const [unreadMail, setUnreadMail] = useState(0);
 
-  // 新增状态
   const [activityData, setActivityData] = useState([]);
   const [userComments, setUserComments] = useState([]);
   const [expandedCategory, setExpandedCategory] = useState(null);
@@ -104,7 +88,6 @@ export default function Profile() {
     if (profileUser) loadMarks();
   }, [profileUser]);
 
-  // 加载活跃度和评论数据
   useEffect(() => {
     if (!profileUser?.id) return;
     UserService.getUserActivity(profileUser.id).then(data => {
@@ -156,40 +139,12 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
-  const handleBgChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!['image/jpeg', 'image/png'].includes(file.type)) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setBgPreview(ev.target.result);
-      setProfileBg('custom');
-      updateProfile({ preferences: { ...(currentUser?.preferences || {}), profileBg: 'custom', profileBgImg: ev.target.result } });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const selectBgTemplate = (template) => {
-    setProfileBg(template.id);
-    setBgPreview(null);
-    updateProfile({ preferences: { ...(currentUser?.preferences || {}), profileBg: template.id, profileBgImg: null } });
-  };
-
   const handlePrivacyChange = (key, value) => {
     const updated = { ...privacySettings, [key]: value };
     setPrivacySettings(updated);
     updateProfile({ preferences: { ...(currentUser?.preferences || {}), privacy: updated } });
   };
 
-  const bannerBgStyle = bgPreview
-    ? { backgroundImage: `url(${bgPreview})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-    : profileBg === 'custom'
-      ? { backgroundImage: `url(${currentUser?.preferences?.profileBgImg || StorageService.get('acg_profile_bg_img')})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-      : profileBg === 'default'
-        ? {}
-        : { background: BG_TEMPLATES.find(t => t.id === profileBg)?.color || 'var(--primary)' };
-
-  // 统计数字计算
   const animeCount = userMarks.filter(m => m.subject_type === 2).length;
   const gameCount = userMarks.filter(m => m.subject_type === 4).length;
   const novelCount = userMarks.filter(m => m.subject_type === 1).length;
@@ -199,7 +154,6 @@ export default function Profile() {
     return scores.length > 0 ? (scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1) : '-';
   }, [userMarks]);
 
-  // 标记进度条数据
   const progressData = useMemo(() => {
     const total = totalMarks || 1;
     return [
@@ -213,79 +167,55 @@ export default function Profile() {
 
   return (
     <div className="profile-page">
-      <div className="profile-banner">
-        <div className="banner-bg" style={bannerBgStyle}></div>
-        {isOwnProfile && (
-          <button className="banner-edit-btn" onClick={() => bgInputRef.current?.click()}>
-            <ImageIcon size={14} /> 更换封面
-          </button>
-        )}
-        <input ref={bgInputRef} type="file" accept="image/jpeg,image/png" onChange={handleBgChange} hidden />
-        <div className="banner-content">
-          <div className="profile-avatar-wrap">
-            <img src={avatarPreview || profileUser.avatar} alt="" className="profile-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
-            <span className="profile-level">Lv.{profileUser.level}</span>
-            {isOwnProfile && (
-              <button className="avatar-upload-btn" onClick={() => avatarInputRef.current?.click()}>
-                <Camera size={14} />
-              </button>
-            )}
-            <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png" onChange={handleAvatarChange} hidden />
-          </div>
-          <div className="profile-info">
-            <h1 className="profile-name">{profileUser.name}</h1>
-            <p className="profile-username">@{profileUser.username}</p>
-            {profileUser.sign && <p className="profile-sign">{profileUser.sign}</p>}
-          </div>
-          <div className="profile-actions">
-            {isOwnProfile ? (
-              <>
-                <button className="profile-btn edit-btn" onClick={handleEdit}>
-                  <Edit3 size={14} /> 编辑资料
-                </button>
-                <Link to="/mailbox" className="profile-btn mail-btn">
-                  <Mail size={14} /> 邮箱 {unreadMail > 0 && <span className="mail-badge">{unreadMail}</span>}
-                </Link>
-                <button className="profile-btn settings-btn" onClick={() => setShowSettings(true)}>
-                  <Settings size={14} /> 设置
-                </button>
-              </>
-            ) : (
-              <>
-                <button className={`profile-btn follow-btn ${isFollowing ? 'following' : ''}`}
-                  onClick={() => { if (!isAuthenticated) { openAuth(); return; } FollowService.toggleFollow(currentUser.id, profileUser.id); }}>
-                  {isFollowing ? '已关注' : '+ 关注'}
-                </button>
-                <Link to="/mailbox" className="profile-btn mail-btn">
-                  <Mail size={14} /> 私信
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
       <div className="profile-layout">
         {/* 左侧边栏 */}
         <aside className="profile-sidebar">
-          {/* 头像 + 编辑/设置入口 */}
           <div className="profile-sidebar-header">
             <div className="profile-avatar-wrap-sidebar">
               <img src={avatarPreview || profileUser.avatar || FALLBACK_IMG} alt="" className="profile-sidebar-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
               {isOwnProfile && (
-                <div className="profile-sidebar-actions">
-                  <button className="profile-action-btn" onClick={handleEdit} title="编辑资料"><Edit3 size={14} /></button>
-                  <button className="profile-action-btn" onClick={() => setShowSettings(true)} title="设置"><Settings size={14} /></button>
-                </div>
+                <button className="avatar-upload-btn-sidebar" onClick={() => avatarInputRef.current?.click()} title="更换头像">
+                  <Camera size={12} />
+                </button>
               )}
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png" onChange={handleAvatarChange} hidden />
             </div>
             <h2 className="profile-sidebar-name">{profileUser.name}</h2>
+            {profileUser.username && <p className="profile-sidebar-username">@{profileUser.username}</p>}
             {profileUser.sign && <p className="profile-sidebar-bio">{profileUser.sign}</p>}
             {profileUser.bio && (
               <div className="profile-sidebar-bio-md">
                 <MarkdownRenderer content={profileUser.bio} />
               </div>
             )}
+
+            {/* 操作按钮 */}
+            <div className="profile-sidebar-actions-row">
+              {isOwnProfile ? (
+                <>
+                  <button className="profile-action-pill edit" onClick={handleEdit}>
+                    <Edit3 size={13} /> 编辑
+                  </button>
+                  <Link to="/mailbox" className="profile-action-pill mail">
+                    <Mail size={13} /> 邮箱{unreadMail > 0 && <span className="mail-badge-small">{unreadMail}</span>}
+                  </Link>
+                  <button className="profile-action-pill settings" onClick={() => setShowSettings(true)}>
+                    <Settings size={13} /> 设置
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className={`profile-action-pill follow ${isFollowing ? 'following' : ''}`}
+                    onClick={() => { if (!isAuthenticated) { openAuth(); return; } FollowService.toggleFollow(currentUser.id, profileUser.id); }}>
+                    {isFollowing ? '已关注' : '+ 关注'}
+                  </button>
+                  <Link to="/mailbox" className="profile-action-pill mail">
+                    <Mail size={13} /> 私信
+                  </Link>
+                </>
+              )}
+            </div>
+
             {/* 个人信息 */}
             <div className="profile-meta-list">
               {profileUser.joinDate && <div className="profile-meta-item"><Calendar size={14} /> <span>加入于 {profileUser.joinDate}</span></div>}
@@ -305,6 +235,7 @@ export default function Profile() {
                 <div className="profile-meta-item"><LinkIcon size={14} /> <span>{profileUser.contact}</span></div>
               )}
             </div>
+
             {/* 关注/粉丝/帖子 */}
             <div className="profile-sidebar-social">
               <div className="sidebar-social-item"><span className="sidebar-social-num">{profileUser.postCount || 0}</span><span className="sidebar-social-label">帖子</span></div>
@@ -315,16 +246,16 @@ export default function Profile() {
 
           {/* 统计数字 */}
           <div className="profile-sidebar-stats">
-            <h3>📊 数据统计</h3>
-            <div className="sidebar-stat-row"><span>📺 动画</span><span className="stat-val anime">{animeCount}</span></div>
-            <div className="sidebar-stat-row"><span>🎮 游戏</span><span className="stat-val game">{gameCount}</span></div>
-            <div className="sidebar-stat-row"><span>📖 小说</span><span className="stat-val novel">{novelCount}</span></div>
-            <div className="sidebar-stat-row divider"><span>⭐ 均分</span><span className="stat-val score">{avgScore}</span></div>
+            <h3>数据统计</h3>
+            <div className="sidebar-stat-row"><span>动画</span><span className="stat-val anime">{animeCount}</span></div>
+            <div className="sidebar-stat-row"><span>游戏</span><span className="stat-val game">{gameCount}</span></div>
+            <div className="sidebar-stat-row"><span>小说</span><span className="stat-val novel">{novelCount}</span></div>
+            <div className="sidebar-stat-row divider"><span>均分</span><span className="stat-val score">{avgScore}</span></div>
           </div>
 
           {/* 标记进度 */}
           <div className="profile-sidebar-progress">
-            <h3>📋 标记进度</h3>
+            <h3>标记进度</h3>
             <div className="progress-bar-stack">
               {progressData.map(d => (
                 <div
@@ -350,7 +281,7 @@ export default function Profile() {
 
           {/* 活跃度热力图 */}
           <div className="profile-sidebar-heatmap">
-            <h3>🔥 活跃度</h3>
+            <h3>活跃度</h3>
             <ActivityHeatmap data={activityData} />
           </div>
         </aside>
@@ -411,10 +342,9 @@ export default function Profile() {
                     <div className="category-empty">暂无{CollectionMarkService.MARK_LABELS[status]}</div>
                   )
                 )}
-                {/* 看过后附评论 */}
                 {status === 'collect' && userComments.length > 0 && (
                   <div className="profile-recent-comments">
-                    <h4>💬 最近评论</h4>
+                    <h4>最近评论</h4>
                     {userComments.slice(0, 5).map(c => (
                       <div key={c.id} className="comment-item">
                         <img src={c.subject_image || FALLBACK_IMG} alt="" className="comment-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
@@ -442,7 +372,7 @@ export default function Profile() {
               <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
             </div>
             <div className="edit-field">
-              <label>个性签名 <Smile size={12} /></label>
+              <label>个性签名</label>
               <input value={editForm.sign} onChange={e => setEditForm({ ...editForm, sign: e.target.value })} placeholder="写点什么吧~" />
             </div>
             <div className="edit-field">
@@ -472,9 +402,6 @@ export default function Profile() {
               <h2>设置</h2>
               <button className={`settings-nav ${settingsTab === 'profile' ? 'active' : ''}`} onClick={() => setSettingsTab('profile')}>
                 <Edit3 size={14} /> 个人资料
-              </button>
-              <button className={`settings-nav ${settingsTab === 'background' ? 'active' : ''}`} onClick={() => setSettingsTab('background')}>
-                <ImageIcon size={14} /> 背景设置
               </button>
               <button className={`settings-nav ${settingsTab === 'privacy' ? 'active' : ''}`} onClick={() => setSettingsTab('privacy')}>
                 <Shield size={14} /> 隐私设置
@@ -510,9 +437,9 @@ export default function Profile() {
                   <p className="settings-desc">选择你喜欢的主题风格</p>
                   <div className="theme-options">
                     {[
-                      { key: '', label: '浅色模式', desc: '苹果银 · 清新明亮', color: '#F5F5F7' },
-                      { key: 'dark', label: '深色模式', desc: '暗夜粉 · 护眼舒适', color: '#1c1c1e' },
-                      { key: 'high-contrast', label: '高对比度', desc: '强对比 · 清晰易读', color: '#ffffff' },
+                      { key: '', label: '浅色模式', desc: '清新明亮', color: '#F5F5F7' },
+                      { key: 'dark', label: '深色模式', desc: '护眼舒适', color: '#1c1c1e' },
+                      { key: 'high-contrast', label: '高对比度', desc: '清晰易读', color: '#ffffff' },
                     ].map(t => (
                       <button key={t.key} className={`theme-option ${(document.documentElement.getAttribute('data-theme') || '') === t.key ? 'active' : ''}`}
                         onClick={() => {
@@ -527,23 +454,6 @@ export default function Profile() {
                         <span className="theme-desc">{t.desc}</span>
                       </button>
                     ))}
-                  </div>
-                </div>
-              )}
-              {settingsTab === 'background' && (
-                <div className="settings-section">
-                  <h3>背景设置</h3>
-                  <div className="bg-templates">
-                    {BG_TEMPLATES.map(t => (
-                      <button key={t.id} className={`bg-template ${profileBg === t.id ? 'active' : ''}`} onClick={() => selectBgTemplate(t)}>
-                        <div className="bg-preview" style={{ background: t.color }} />
-                        <span>{t.id === 'default' ? '默认' : t.id}</span>
-                      </button>
-                    ))}
-                    <button className="bg-template" onClick={() => bgInputRef.current?.click()}>
-                      <div className="bg-preview bg-upload-preview"><ImageIcon size={20} /></div>
-                      <span>自定义</span>
-                    </button>
                   </div>
                 </div>
               )}
