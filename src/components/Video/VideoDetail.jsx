@@ -136,7 +136,7 @@ export default function VideoDetail() {
     setCommentText('');
   }, [currentUser, commentText, sourceId, vodId, openAuth]);
 
-  if (loading) return <div className="vd-loading">加载中...</div>;
+  if (loading) return <div className="vd-loading">雨，何时才能停？</div>;
   if (error) return <div className="vd-error"><p>{error}</p><button onClick={() => navigate(-1)}>返回</button></div>;
   if (!detail) return <div className="vd-error"><p>未找到视频</p></div>;
 

@@ -1,0 +1,194 @@
+<h2>百科页面 UI 优化</h2>
+<p class="subtitle">当前布局：单栏搜索+结果网格 | 目标：图片驱动+二次元萌系风格</p>
+
+<div class="section">
+  <h3>当前问题</h3>
+  <ul>
+    <li>纯单栏布局，宽屏空间浪费</li>
+    <li>搜索区域视觉层级不够突出</li>
+    <li>空状态过于简陋（只有一个搜索图标+文字）</li>
+    <li>类型标签样式与首页风格不统一</li>
+    <li>分页样式过于朴素</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #f3e5f5); padding: 20px; border-radius: 8px; min-height: 280px; display: flex; gap: 16px;">
+        <!-- 方案A：双栏布局 -->
+        <div style="flex: 3; display: flex; flex-direction: column; gap: 12px;">
+          <!-- 搜索区 -->
+          <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+            <div style="display: flex; align-items: center; gap: 8px; background: #f5f5f5; border-radius: 24px; padding: 10px 16px; margin-bottom: 12px;">
+              <span style="color: #e8869f;">🔍</span>
+              <span style="color: #999; font-size: 13px;">搜索作品、角色...</span>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; background: #fce4ec; color: #e8869f; font-weight: 600;">📺 动画</span>
+              <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; background: #f5f5f5; color: #666;">📖 小说</span>
+              <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; background: #f5f5f5; color: #666;">🎮 游戏</span>
+              <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; background: #f5f5f5; color: #666;">🎵 音乐</span>
+              <span style="padding: 4px 12px; border-radius: 20px; font-size: 12px; background: #f5f5f5; color: #666;">👤 人物</span>
+            </div>
+          </div>
+          <!-- 结果网格 -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+            <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.05);">
+              <div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #ffcdd2, #f8bbd0);"></div>
+              <div style="padding: 6px 8px;"><div style="font-size: 11px; font-weight: 600;">作品名称</div><div style="font-size: 10px; color: #ffc107;">⭐ 8.5</div></div>
+            </div>
+            <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.05);">
+              <div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #e1bee7, #ce93d8);"></div>
+              <div style="padding: 6px 8px;"><div style="font-size: 11px; font-weight: 600;">作品名称</div><div style="font-size: 10px; color: #ffc107;">⭐ 9.1</div></div>
+            </div>
+            <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.05);">
+              <div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #b3e5fc, #81d4fa);"></div>
+              <div style="padding: 6px 8px;"><div style="font-size: 11px; font-weight: 600;">作品名称</div><div style="font-size: 10px; color: #ffc107;">⭐ 7.8</div></div>
+            </div>
+            <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.05);">
+              <div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #c8e6c9, #a5d6a7);"></div>
+              <div style="padding: 6px 8px;"><div style="font-size: 11px; font-weight: 600;">作品名称</div><div style="font-size: 10px; color: #ffc107;">⭐ 8.2</div></div>
+            </div>
+          </div>
+        </div>
+        <!-- 右侧边栏 -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
+          <div style="background: white; border-radius: 12px; padding: 14px; box-shadow: 0 1px 6px rgba(0,0,0,0.05);">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">🌸 热门搜索</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+              <span style="padding: 3px 8px; background: #fce4ec; border-radius: 10px; font-size: 10px; color: #e8869f;">进击的巨人</span>
+              <span style="padding: 3px 8px; background: #e8eaf6; border-radius: 10px; font-size: 10px; color: #7986cb;">鬼灭之刃</span>
+              <span style="padding: 3px 8px; background: #e0f7fa; border-radius: 10px; font-size: 10px; color: #4dd0e1;">咒术回战</span>
+              <span style="padding: 3px 8px; background: #fff3e0; border-radius: 10px; font-size: 10px; color: #ffb74d;">间谍过家家</span>
+            </div>
+          </div>
+          <div style="background: white; border-radius: 12px; padding: 14px; box-shadow: 0 1px 6px rgba(0,0,0,0.05);">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">📊 搜索统计</div>
+            <div style="font-size: 11px; color: #999;">共搜索 1,234 次</div>
+            <div style="font-size: 11px; color: #999;">收录 45,678 条</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: 双栏布局 + 侧边栏</h3>
+      <p>左侧搜索+结果网格，右侧热门搜索标签云+统计信息。与首页7:3分栏风格统一。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #e8eaf6); padding: 20px; border-radius: 8px; min-height: 280px; display: flex; flex-direction: column; gap: 12px;">
+        <!-- 方案B：沉浸式搜索 -->
+        <div style="text-align: center; padding: 20px 0;">
+          <div style="font-size: 24px; margin-bottom: 4px;">📚</div>
+          <div style="font-size: 16px; font-weight: 800; color: #e8869f;">ACG 百科</div>
+          <div style="font-size: 11px; color: #999; margin-top: 2px;">发现你的下一部番</div>
+        </div>
+        <!-- 大搜索框 -->
+        <div style="background: white; border-radius: 24px; padding: 12px 20px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 20px rgba(232,134,159,0.15); max-width: 500px; margin: 0 auto; width: 100%;">
+          <span style="color: #e8869f;">🔍</span>
+          <span style="color: #ccc; font-size: 13px; flex: 1;">搜索动画、小说、游戏、角色...</span>
+          <span style="background: #e8869f; color: white; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;">搜索</span>
+        </div>
+        <!-- 药丸标签 -->
+        <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 4px;">
+          <span style="padding: 5px 14px; border-radius: 20px; font-size: 12px; background: #fce4ec; color: #e8869f; font-weight: 600; border: 1px solid #e8869f;">📺 动画</span>
+          <span style="padding: 5px 14px; border-radius: 20px; font-size: 12px; background: white; color: #666; border: 1px solid #eee;">📖 小说</span>
+          <span style="padding: 5px 14px; border-radius: 20px; font-size: 12px; background: white; color: #666; border: 1px solid #eee;">🎮 游戏</span>
+          <span style="padding: 5px 14px; border-radius: 20px; font-size: 12px; background: white; color: #666; border: 1px solid #eee;">🎵 音乐</span>
+          <span style="padding: 5px 14px; border-radius: 20px; font-size: 12px; background: white; color: #666; border: 1px solid #eee;">👤 人物</span>
+        </div>
+        <!-- 热门标签云 -->
+        <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 12px;">
+          <span style="padding: 3px 10px; background: rgba(255,255,255,0.7); border-radius: 12px; font-size: 10px; color: #e8869f;">🔥 进击的巨人</span>
+          <span style="padding: 3px 10px; background: rgba(255,255,255,0.7); border-radius: 12px; font-size: 10px; color: #7986cb;">✨ 鬼灭之刃</span>
+          <span style="padding: 3px 10px; background: rgba(255,255,255,0.7); border-radius: 12px; font-size: 10px; color: #4dd0e1;">💎 咒术回战</span>
+        </div>
+        <!-- 搜索后结果区 -->
+        <div style="margin-top: 12px; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 12px;">
+          <div style="font-size: 11px; color: #999; margin-bottom: 8px;">共 128 条结果</div>
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
+            <div style="background: white; border-radius: 8px; overflow: hidden;"><div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #ffcdd2, #f8bbd0);"></div><div style="padding: 4px 6px;"><div style="font-size: 10px; font-weight: 600;">名称</div></div></div>
+            <div style="background: white; border-radius: 8px; overflow: hidden;"><div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #e1bee7, #ce93d8);"></div><div style="padding: 4px 6px;"><div style="font-size: 10px; font-weight: 600;">名称</div></div></div>
+            <div style="background: white; border-radius: 8px; overflow: hidden;"><div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #b3e5fc, #81d4fa);"></div><div style="padding: 4px 6px;"><div style="font-size: 10px; font-weight: 600;">名称</div></div></div>
+            <div style="background: white; border-radius: 8px; overflow: hidden;"><div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #c8e6c9, #a5d6a7);"></div><div style="padding: 4px 6px;"><div style="font-size: 10px; font-weight: 600;">名称</div></div></div>
+            <div style="background: white; border-radius: 8px; overflow: hidden;"><div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #fff9c4, #fff176);"></div><div style="padding: 4px 6px;"><div style="font-size: 10px; font-weight: 600;">名称</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: 沉浸式搜索首页 + 结果网格</h3>
+      <p>空状态时展示大搜索框+热门标签云，搜索后切换为结果网格。类似Google首页的沉浸感。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #f3e5f5); padding: 20px; border-radius: 8px; min-height: 280px; display: flex; flex-direction: column; gap: 12px;">
+        <!-- 方案C：卡片流 -->
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 18px;">📚</span>
+            <span style="font-size: 14px; font-weight: 800; color: #e8869f;">ACG 百科</span>
+          </div>
+        </div>
+        <!-- 搜索框 -->
+        <div style="background: white; border-radius: 16px; padding: 10px 16px; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 12px rgba(232,134,159,0.1);">
+          <span style="color: #e8869f;">🔍</span>
+          <span style="color: #ccc; font-size: 12px; flex: 1;">搜索...</span>
+          <span style="background: #e8869f; color: white; padding: 5px 14px; border-radius: 16px; font-size: 11px; font-weight: 600;">搜索</span>
+        </div>
+        <!-- 分类横滑 -->
+        <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+          <div style="min-width: 100px; background: white; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 20px;">📺</div>
+            <div style="font-size: 10px; font-weight: 600; color: #e8869f;">动画</div>
+          </div>
+          <div style="min-width: 100px; background: white; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 20px;">📖</div>
+            <div style="font-size: 10px; font-weight: 600; color: #7986cb;">小说</div>
+          </div>
+          <div style="min-width: 100px; background: white; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 20px;">🎮</div>
+            <div style="font-size: 10px; font-weight: 600; color: #4dd0e1;">游戏</div>
+          </div>
+          <div style="min-width: 100px; background: white; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 20px;">🎵</div>
+            <div style="font-size: 10px; font-weight: 600; color: #ffb74d;">音乐</div>
+          </div>
+        </div>
+        <!-- 瀑布流结果 -->
+        <div style="columns: 2; column-gap: 10px;">
+          <div style="background: white; border-radius: 10px; overflow: hidden; margin-bottom: 10px; break-inside: avoid; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="height: 120px; background: linear-gradient(135deg, #ffcdd2, #f8bbd0);"></div>
+            <div style="padding: 8px;"><div style="font-size: 11px; font-weight: 600;">作品A</div><div style="font-size: 10px; color: #ffc107;">⭐ 9.2</div><div style="font-size: 9px; color: #999; margin-top: 2px;">简介文字...</div></div>
+          </div>
+          <div style="background: white; border-radius: 10px; overflow: hidden; margin-bottom: 10px; break-inside: avoid; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="height: 80px; background: linear-gradient(135deg, #e1bee7, #ce93d8);"></div>
+            <div style="padding: 8px;"><div style="font-size: 11px; font-weight: 600;">作品B</div><div style="font-size: 10px; color: #ffc107;">⭐ 8.5</div></div>
+          </div>
+          <div style="background: white; border-radius: 10px; overflow: hidden; margin-bottom: 10px; break-inside: avoid; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="height: 100px; background: linear-gradient(135deg, #b3e5fc, #81d4fa);"></div>
+            <div style="padding: 8px;"><div style="font-size: 11px; font-weight: 600;">作品C</div><div style="font-size: 10px; color: #ffc107;">⭐ 7.8</div><div style="font-size: 9px; color: #999; margin-top: 2px;">更多信息...</div></div>
+          </div>
+          <div style="background: white; border-radius: 10px; overflow: hidden; margin-bottom: 10px; break-inside: avoid; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="height: 140px; background: linear-gradient(135deg, #c8e6c9, #a5d6a7);"></div>
+            <div style="padding: 8px;"><div style="font-size: 11px; font-weight: 600;">作品D</div><div style="font-size: 10px; color: #ffc107;">⭐ 8.9</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C: 分类卡片横滑 + 瀑布流</h3>
+      <p>分类用可横滑的emoji卡片展示，结果用Pinterest式瀑布流。视觉丰富但实现复杂。</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 20px;">
+  <div class="pros"><h4>推荐：方案B</h4><ul><li>空状态沉浸感强，符合"图片驱动"理念</li><li>搜索后自动切换到结果模式，交互自然</li><li>实现难度适中，与首页风格统一</li><li>热门标签云增加探索性</li></ul></div>
+  <div class="cons"><h4>方案A/B/C 对比</h4><ul><li>A：侧边栏信息量多但搜索场景下用处有限</li><li>B：沉浸感最好，但需要设计好状态切换</li><li>C：瀑布流视觉好但实现复杂，且封面比例不一致</li></ul></div>
+</div>

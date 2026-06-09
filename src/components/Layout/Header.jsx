@@ -66,7 +66,7 @@ export default function Header() {
                   <Bell size={18} />
                   {notifications.length > 0 && <span className="notification-dot">{notifications.length}</span>}
                 </Link>
-                <Link to="/mailbox" className="header-icon-btn" title="邮箱">
+                <Link to="/mailbox" className="header-icon-btn" title="D-Mail">
                   <Mail size={18} />
                 </Link>
                 <Link to="/profile" className="header-user">

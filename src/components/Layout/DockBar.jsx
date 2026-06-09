@@ -86,7 +86,7 @@ export default function DockBar({ live2dVisible, onToggleLive2D, musicState, onM
   const dockItems = [
     { key: 'launcher', icon: <ChevronUp size={16} />, label: '应用', active: showLauncher, onClick: () => { setShowLauncher(prev => !prev); setActivePanel(null); } },
     { key: 'touchgal', icon: <Gamepad2 size={16} />, label: 'TouchGal', active: windows.touchgal?.open && !windows.touchgal.minimized, onClick: () => handleAppClick('touchgal') },
-    { key: 'world', icon: <MessageCircle size={16} />, label: '世界频道', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
+    { key: 'world', icon: <MessageCircle size={16} />, label: '世界线', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
     { key: 'amadeus', icon: <Brain size={16} />, label: 'Amadeus', active: windows.amadeus?.open && !windows.amadeus.minimized, onClick: () => handleAppClick('amadeus') },
     { key: 'music', icon: <Music size={16} />, label: '音乐', active: windows.music?.open && !windows.music.minimized || activePanel === 'music', onClick: () => handleAppClick('music') },
     { key: 'friends', icon: <Users size={16} />, label: '好友空间', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },

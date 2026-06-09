@@ -207,7 +207,7 @@ export default function Mailbox() {
     <div className="mailbox-page">
       <div className="mailbox-header">
         <div className="mailbox-title-row">
-          <h1><Mail size={22} /> 邮箱 {unreadCount > 0 && <span className="mail-unread-badge">{unreadCount}</span>}</h1>
+          <h1><Mail size={22} /> D-Mail {unreadCount > 0 && <span className="mail-unread-badge">{unreadCount}</span>}</h1>
           <div className="mailbox-mode-switch">
             <button className={`mode-btn ${mode === 'mail' ? 'active' : ''}`} onClick={() => { setMode('mail'); setSelectedMail(null); }}>
               <FileText size={14} /> 邮箱模式
@@ -243,7 +243,7 @@ export default function Mailbox() {
               </div>
               <div className="mail-list">
                 {loading ? (
-                  <div className="mail-empty"><Loader2 size={20} className="spin" /> 加载中...</div>
+                  <div className="mail-empty"><Loader2 size={20} className="spin" /> 雨，何时才能停？</div>
                 ) : filteredMails.length === 0 ? (
                   <div className="mail-empty">暂无邮件</div>
                 ) : (

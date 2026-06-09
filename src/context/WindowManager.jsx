@@ -6,7 +6,7 @@ const DEFAULT_WINDOW_CONFIG = {
   music: { title: '音乐', icon: '🎵', width: 420, height: 560, minWidth: 300, minHeight: 400 },
   friends: { title: '好友空间', icon: '👥', width: 480, height: 600, minWidth: 300, minHeight: 400 },
   amadeus: { title: 'Amadeus', icon: '🧠', width: 680, height: 520, minWidth: 400, minHeight: 400 },
-  world: { title: '世界频道', icon: '💬', width: 450, height: 550, minWidth: 300, minHeight: 400 },
+  world: { title: '世界线', icon: '💬', width: 450, height: 550, minWidth: 300, minHeight: 400 },
   notifications: { title: '通知', icon: '🔔', width: 800, height: 600, minWidth: 400, minHeight: 400 },
   touchgal: { title: 'TouchGal', icon: '🎮', width: 1000, height: 700, minWidth: 600, minHeight: 500 },
 };

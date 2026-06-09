@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { BangumiService, UserService, ForumService, WorldChannelService } from '../services/api';
-import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp } from 'lucide-react';
+import { BangumiService, UserService, ForumService, WorldChannelService, NewsService } from '../services/api';
+import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import UserAvatar from '../components/Common/UserAvatar';
-import NewsZone from '../components/NewsZone/NewsZone';
 import './HomePage.css';
 
 const TYPE_OPTIONS = [
@@ -137,7 +136,7 @@ function RandomRecommendCard({ subject, loading, onRefresh }) {
           )}
           <button className="random-refresh-btn" onClick={handleRefresh} disabled={loading} title="换一个推荐">
             {loading ? <Loader2 size={14} className="spinning" /> : <Shuffle size={14} />}
-            {loading ? '加载中...' : '换一个'}
+            {loading ? '雨，何时才能停？' : '换一个'}
           </button>
         </div>
       </div>
@@ -152,6 +151,7 @@ export default function HomePage() {
   const [recentMessages, setRecentMessages] = useState([]);
   const [carouselItems, setCarouselItems] = useState([]);
   const [carouselLoading, setCarouselLoading] = useState(true);
+  const [newsItems, setNewsItems] = useState([]);
 
   useEffect(() => {
     const loadHomeData = async () => {
@@ -163,6 +163,10 @@ export default function HomePage() {
       try {
         const data = await WorldChannelService.getMessages(1, 5);
         setRecentMessages(data.messages || []);
+      } catch {}
+      try {
+        const data = await NewsService.getCustomNews(1, 5);
+        setNewsItems((data.news || []).slice(0, 5));
       } catch {}
     };
     loadHomeData();
@@ -226,7 +230,7 @@ export default function HomePage() {
           <div className="home-main-col">
             {/* 横滑推荐 */}
             <div className="home-carousel-section">
-              <div className="home-section-title" style={{ marginBottom: 12 }}><Sparkles size={18} /> 今日推荐</div>
+              <div className="home-section-title" style={{ marginBottom: 12 }}><Sparkles size={18} /> 本周推荐</div>
               {carouselLoading ? (
                 <div className="home-carousel">
                   {Array.from({ length: 3 }).map((_, i) => (
@@ -254,7 +258,7 @@ export default function HomePage() {
                           <div className="home-carousel-cover">
                             {img ? <img src={img} alt="" className="home-carousel-cover-img" loading="lazy" /> : <div style={{ width: '100%', height: '100%', background: 'var(--primary-bg)' }} />}
                             <div className="home-carousel-cover-gradient" />
-                            <div className="home-carousel-badge">{idx === 0 ? '🌸 今日推荐' : '✨ 精选'}</div>
+                            <div className="home-carousel-badge">{idx === 0 ? '🌸 本周推荐' : '✨ 精选'}</div>
                             <div className="home-carousel-cover-info">
                               <div className="home-carousel-cover-title">{item.name_cn || item.name}</div>
                               <div className="home-carousel-cover-meta">⭐ {score > 0 ? score.toFixed(1) : '-'} · {typeLabel}</div>
@@ -347,13 +351,31 @@ export default function HomePage() {
           </div>
 
           <div className="home-side-col">
-            {/* 行业资讯 */}
-            <NewsZone />
+            {/* 电波预览 */}
+            <div className="home-news-section">
+              <div className="home-news-header">
+                <h2 className="home-section-title"><Newspaper size={18} /> 电波</h2>
+                <Link to="/news" className="home-more-link">更多 <ArrowRight size={12} /></Link>
+              </div>
+              <div className="home-news-list">
+                {newsItems.length > 0 ? newsItems.map(news => (
+                  <div key={news.id} className="home-news-item">
+                    <div className="home-news-item-title">{news.title}</div>
+                    <div className="home-news-item-meta">
+                      <span className="home-news-item-source">{news.source || 'ANISpace'}</span>
+                      <span className="home-news-item-time">{news.date || (news.created_at && news.created_at.split('T')[0]) || ''}</span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="home-news-empty">暂无资讯</div>
+                )}
+              </div>
+            </div>
 
-            {/* 世界频道预览 */}
+            {/* 世界线预览 */}
             <div className="home-world-section">
               <div className="home-world-header">
-                <h2 className="home-section-title"><Globe size={18} /> 世界频道</h2>
+                <h2 className="home-section-title"><Globe size={18} /> 世界线</h2>
                 <Link to="/world" className="home-more-link">更多 <ArrowRight size={12} /></Link>
               </div>
               <div className="home-world-posts">

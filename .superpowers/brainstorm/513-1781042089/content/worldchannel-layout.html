@@ -1,0 +1,112 @@
+<h2>世界频道 UI 优化</h2>
+<p class="subtitle">当前布局：单栏时间线帖子 | 目标：图片驱动+二次元萌系风格</p>
+
+<div class="section">
+  <h3>当前问题</h3>
+  <ul>
+    <li>单栏布局，宽屏空间浪费</li>
+    <li>帖子卡片样式较朴素</li>
+    <li>缺少视觉层次感</li>
+    <li>发帖表单样式可以更精致</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #f3e5f5); padding: 16px; border-radius: 8px; min-height: 280px; display: flex; gap: 16px;">
+        <div style="flex: 7; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="font-size: 16px; font-weight: 800; color: #e8869f;">世界频道</h2>
+            <button style="padding: 6px 14px; background: #e8869f; color: white; border-radius: 20px; font-size: 11px; font-weight: 600;">+ 发帖</button>
+          </div>
+          <!-- 帖子卡片 -->
+          <div style="background: white; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="display: flex; gap: 8px; align-items: start;">
+              <div style="width: 36px; height: 36px; background: #fce4ec; border-radius: 50%; flex-shrink: 0;"></div>
+              <div style="flex: 1;">
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <span style="font-size: 12px; font-weight: 600;">用户A</span>
+                  <span style="font-size: 10px; color: #999;">2小时前</span>
+                </div>
+                <div style="font-size: 13px; color: #333; margin-top: 6px; line-height: 1.5;">今天看了新番，太棒了！强烈推荐大家去看！</div>
+                <div style="margin-top: 8px; height: 80px; background: linear-gradient(135deg, #ffcdd2, #f8bbd0); border-radius: 8px;"></div>
+                <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 11px; color: #999;">
+                  <span>♡ 12</span><span>💬 5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="background: white; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="display: flex; gap: 8px; align-items: start;">
+              <div style="width: 36px; height: 36px; background: #e8eaf6; border-radius: 50%; flex-shrink: 0;"></div>
+              <div style="flex: 1;">
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <span style="font-size: 12px; font-weight: 600;">用户B</span>
+                  <span style="font-size: 10px; color: #999;">5小时前</span>
+                </div>
+                <div style="font-size: 13px; color: #333; margin-top: 6px;">有人一起玩游戏吗？</div>
+                <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 11px; color: #999;">
+                  <span>♡ 3</span><span>💬 8</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 右侧 -->
+        <div style="flex: 3; display: flex; flex-direction: column; gap: 10px;">
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">🔥 热门话题</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-size: 11px; color: #333; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">1. 新番讨论</div>
+              <div style="font-size: 11px; color: #333; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">2. 游戏推荐</div>
+              <div style="font-size: 11px; color: #333; padding: 4px 0;">3. 动画推荐</div>
+            </div>
+          </div>
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">📊 频道统计</div>
+            <div style="font-size: 11px; color: #999;">今日 12 帖</div>
+            <div style="font-size: 11px; color: #999;">总计 256 帖</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: 7:3分栏 + 右侧热门话题（推荐）</h3>
+      <p>与首页和交流区风格统一，左侧帖子流+右侧热门话题和统计。改动适中。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #e8eaf6); padding: 16px; border-radius: 8px; min-height: 280px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="font-size: 16px; font-weight: 800; color: #e8869f;">世界频道</h2>
+          <button style="padding: 6px 14px; background: #e8869f; color: white; border-radius: 20px; font-size: 11px; font-weight: 600;">+ 发帖</button>
+        </div>
+        <!-- 大卡片样式 -->
+        <div style="background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+          <div style="height: 120px; background: linear-gradient(135deg, #ffcdd2, #f8bbd0); position: relative;">
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(transparent, rgba(0,0,0,0.5));">
+              <div style="font-size: 14px; font-weight: 700; color: white;">帖子标题/首句</div>
+            </div>
+          </div>
+          <div style="padding: 10px;">
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <div style="width: 24px; height: 24px; background: #fce4ec; border-radius: 50%;"></div>
+              <span style="font-size: 11px; font-weight: 600;">用户A</span>
+              <span style="font-size: 10px; color: #999; margin-left: auto;">2小时前</span>
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: 8px; font-size: 11px; color: #999;">
+              <span>♡ 12</span><span>💬 5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: 大卡片流</h3>
+      <p>帖子用大卡片展示，有图片的帖子展示图片横幅。视觉冲击力强，但信息密度低。</p>
+    </div>
+  </div>
+</div>

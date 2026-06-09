@@ -189,7 +189,7 @@ export default function WorldChannel() {
       <div className="wc-chat-header">
         <div className="wc-chat-header-left">
           <Globe size={20} className="wc-chat-header-icon" />
-          <h1 className="wc-chat-title">世界频道</h1>
+          <h1 className="wc-chat-title">世界线</h1>
           <span className="wc-online-badge"><UsersIcon size={12} /> {posts.length}+</span>
         </div>
       </div>
@@ -199,7 +199,7 @@ export default function WorldChannel() {
         {loading ? (
           <div className="wc-loading">
             <Loader2 size={28} className="spinning" />
-            <span>加载中...</span>
+            <span>雨，何时才能停？</span>
           </div>
         ) : posts.length === 0 ? (
           <div className="wc-empty">

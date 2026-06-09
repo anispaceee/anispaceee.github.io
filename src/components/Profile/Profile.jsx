@@ -226,7 +226,7 @@ export default function Profile() {
                     <Edit3 size={13} /> 编辑
                   </button>
                   <Link to="/mailbox" className="profile-action-pill mail">
-                    <Mail size={13} /> 邮箱{unreadMail > 0 && <span className="mail-badge-small">{unreadMail}</span>}
+                    <Mail size={13} /> D-Mail{unreadMail > 0 && <span className="mail-badge-small">{unreadMail}</span>}
                   </Link>
                   <button className="profile-action-pill settings" onClick={() => setShowSettings(true)}>
                     <Settings size={13} /> 设置

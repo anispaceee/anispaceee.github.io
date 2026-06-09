@@ -1,0 +1,152 @@
+<h2>交流区 UI 优化</h2>
+<p class="subtitle">当前布局：板块卡片网格 + 帖子列表 | 目标：图片驱动+二次元萌系风格</p>
+
+<div class="section">
+  <h3>当前问题</h3>
+  <ul>
+    <li>板块卡片样式较朴素，缺少视觉吸引力</li>
+    <li>帖子列表是纯文字列表，缺少封面图</li>
+    <li>分类标签样式与首页药丸风格不统一</li>
+    <li>搜索栏样式不够突出</li>
+    <li>排序按钮样式单调</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #f3e5f5); padding: 16px; border-radius: 8px; min-height: 280px; display: flex; flex-direction: column; gap: 12px;">
+        <!-- 方案A：卡片式论坛 -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="font-size: 16px; font-weight: 800; color: #e8869f;">交流区</h2>
+          <button style="padding: 6px 14px; background: #e8869f; color: white; border-radius: 20px; font-size: 11px; font-weight: 600;">+ 发帖</button>
+        </div>
+        <!-- 搜索 -->
+        <div style="display: flex; align-items: center; gap: 8px; background: white; border-radius: 20px; padding: 8px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+          <span style="color: #e8869f; font-size: 13px;">🔍</span>
+          <span style="color: #ccc; font-size: 12px;">搜索帖子...</span>
+        </div>
+        <!-- 板块卡片 -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border-left: 3px solid #e8869f;">
+            <div style="font-size: 13px; font-weight: 700; color: #e8869f;">动画</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">讨论新番、经典</div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">42帖 · 128回复</div>
+          </div>
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border-left: 3px solid #7986cb;">
+            <div style="font-size: 13px; font-weight: 700; color: #7986cb;">游戏</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">游戏攻略、推荐</div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">28帖 · 76回复</div>
+          </div>
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border-left: 3px solid #4dd0e1;">
+            <div style="font-size: 13px; font-weight: 700; color: #4dd0e1;">小说</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">轻小说、网文</div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">15帖 · 34回复</div>
+          </div>
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); border-left: 3px solid #ffb74d;">
+            <div style="font-size: 13px; font-weight: 700; color: #ffb74d;">吹水</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">闲聊灌水</div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">56帖 · 203回复</div>
+          </div>
+        </div>
+        <!-- 热门帖子 -->
+        <div style="font-size: 12px; font-weight: 700; color: #333; margin-top: 4px;">热门帖子</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="background: white; border-radius: 10px; padding: 10px; display: flex; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #ffcdd2, #f8bbd0); border-radius: 6px; flex-shrink: 0;"></div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 12px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">帖子标题帖子标题</div>
+              <div style="font-size: 10px; color: #999; margin-top: 2px;">用户名 · 💬 12 · 👁 56</div>
+            </div>
+            <span style="padding: 2px 6px; background: #fce4ec; border-radius: 8px; font-size: 9px; color: #e8869f; flex-shrink: 0;">动画</span>
+          </div>
+          <div style="background: white; border-radius: 10px; padding: 10px; display: flex; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #e1bee7, #ce93d8); border-radius: 6px; flex-shrink: 0;"></div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 12px; font-weight: 600; color: #333;">另一个帖子</div>
+              <div style="font-size: 10px; color: #999; margin-top: 2px;">用户B · 💬 5 · 👁 23</div>
+            </div>
+            <span style="padding: 2px 6px; background: #e8eaf6; border-radius: 8px; font-size: 9px; color: #7986cb; flex-shrink: 0;">游戏</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: 卡片式论坛（推荐）</h3>
+      <p>板块用彩色左边框卡片，帖子列表加缩略图，分类标签改药丸。与首页风格统一，改动适中。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #e8eaf6); padding: 16px; border-radius: 8px; min-height: 280px; display: flex; gap: 16px;">
+        <!-- 方案B：7:3分栏 -->
+        <div style="flex: 7; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="font-size: 16px; font-weight: 800; color: #e8869f;">交流区</h2>
+            <button style="padding: 6px 14px; background: #e8869f; color: white; border-radius: 20px; font-size: 11px; font-weight: 600;">+ 发帖</button>
+          </div>
+          <!-- 帖子流 -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+              <div style="display: flex; gap: 8px; align-items: start;">
+                <div style="width: 40px; height: 40px; background: #fce4ec; border-radius: 50%; flex-shrink: 0;"></div>
+                <div style="flex: 1;">
+                  <div style="display: flex; gap: 4px; align-items: center;">
+                    <span style="font-size: 12px; font-weight: 600;">用户A</span>
+                    <span style="padding: 1px 6px; background: #fce4ec; border-radius: 8px; font-size: 9px; color: #e8869f;">动画</span>
+                  </div>
+                  <div style="font-size: 13px; font-weight: 700; color: #333; margin-top: 4px;">帖子标题</div>
+                  <div style="font-size: 11px; color: #666; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; overflow: hidden;">帖子内容预览...</div>
+                  <div style="font-size: 10px; color: #999; margin-top: 4px;">💬 12 · 👁 56 · ❤ 8</div>
+                </div>
+              </div>
+            </div>
+            <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+              <div style="display: flex; gap: 8px; align-items: start;">
+                <div style="width: 40px; height: 40px; background: #e8eaf6; border-radius: 50%; flex-shrink: 0;"></div>
+                <div style="flex: 1;">
+                  <div style="display: flex; gap: 4px; align-items: center;">
+                    <span style="font-size: 12px; font-weight: 600;">用户B</span>
+                    <span style="padding: 1px 6px; background: #e8eaf6; border-radius: 8px; font-size: 9px; color: #7986cb;">游戏</span>
+                  </div>
+                  <div style="font-size: 13px; font-weight: 700; color: #333; margin-top: 4px;">另一个帖子</div>
+                  <div style="font-size: 11px; color: #666; margin-top: 2px;">内容预览...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 右侧边栏 -->
+        <div style="flex: 3; display: flex; flex-direction: column; gap: 10px;">
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">板块</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="padding: 6px 8px; background: #fce4ec; border-radius: 8px; font-size: 11px; color: #e8869f; font-weight: 600;">动画 (42)</div>
+              <div style="padding: 6px 8px; background: #f5f5f5; border-radius: 8px; font-size: 11px; color: #666;">游戏 (28)</div>
+              <div style="padding: 6px 8px; background: #f5f5f5; border-radius: 8px; font-size: 11px; color: #666;">小说 (15)</div>
+              <div style="padding: 6px 8px; background: #f5f5f5; border-radius: 8px; font-size: 11px; color: #666;">吹水 (56)</div>
+            </div>
+          </div>
+          <div style="background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+            <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">热门标签</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+              <span style="padding: 2px 8px; background: #fce4ec; border-radius: 10px; font-size: 10px; color: #e8869f;">推荐</span>
+              <span style="padding: 2px 8px; background: #e8eaf6; border-radius: 10px; font-size: 10px; color: #7986cb;">讨论</span>
+              <span style="padding: 2px 8px; background: #e0f7fa; border-radius: 10px; font-size: 10px; color: #4dd0e1;">新番</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: 7:3分栏布局</h3>
+      <p>左侧帖子流（类似微博/推特），右侧板块导航+热门标签。与首页7:3分栏统一，但需要去掉板块卡片网格。</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 20px;">
+  <div class="pros"><h4>推荐：方案A</h4><ul><li>保留板块卡片网格，用户可以直观选择分区</li><li>帖子列表加缩略图，视觉更丰富</li><li>改动适中，不破坏现有交互逻辑</li></ul></div>
+  <div class="cons"><h4>方案A/B 对比</h4><ul><li>A：板块+帖子两段式，需要点击进入板块</li><li>B：一屏看到所有内容，但板块入口不够直观</li></ul></div>
+</div>

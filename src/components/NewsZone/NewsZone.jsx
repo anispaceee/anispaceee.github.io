@@ -193,7 +193,7 @@ export default function NewsZone() {
       <div className="news-zone-header">
         <div className="news-zone-title">
           <Newspaper size={20} />
-          <h2>业界资讯</h2>
+          <h2>电波</h2>
           <span className="news-zone-subtitle">二次元业界动态 · 新作发售 · 新番导视</span>
         </div>
         <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
@@ -215,7 +215,7 @@ export default function NewsZone() {
       </div>
 
       {loading ? (
-        <div className="news-loading"><Loader2 size={16} className="spinning" /> 加载资讯中...</div>
+        <div className="news-loading"><Loader2 size={16} className="spinning" /> 雨，何时才能停？</div>
       ) : (
         <div className="news-list">
           {currentNews.length === 0 ? (

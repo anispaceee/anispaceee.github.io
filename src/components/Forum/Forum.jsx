@@ -510,7 +510,7 @@ export default function Forum() {
           {/* 帖子列表 */}
           <div className="forum-posts">
             {loadingPosts ? (
-              <div className="forum-loading"><Loader2 size={24} className="spin" /> 加载中...</div>
+              <div className="forum-loading"><Loader2 size={24} className="spin" /> 雨，何时才能停？</div>
             ) : filteredPosts.length === 0 ? (
               <div className="forum-empty"><p>没有找到相关帖子</p></div>
             ) : (

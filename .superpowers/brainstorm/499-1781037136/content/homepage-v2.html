@@ -1,0 +1,339 @@
+<h2>ANISpace 首页 UI 改版 — 精致方案</h2>
+<p class="subtitle">参考 Bilibili、小红书、Notion 的现代设计语言</p>
+
+<div class="cards">
+  <div class="card" data-choice="design1" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#fafafa;padding:16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+        <!-- 精致方案1: Bilibili 风格 -->
+        <div style="max-width:800px;margin:0 auto;">
+          <!-- 顶部 Banner 轮播 -->
+          <div style="background:linear-gradient(135deg,#fb7299,#ff9cad);border-radius:12px;padding:24px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;">
+            <div style="position:absolute;right:-20px;top:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
+            <div style="position:absolute;right:30px;bottom:-30px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+            <div style="width:72px;height:96px;background:rgba(255,255,255,0.3);border-radius:8px;flex-shrink:0;backdrop-filter:blur(4px);"></div>
+            <div style="color:#fff;">
+              <div style="font-size:18px;font-weight:700;">今日推荐</div>
+              <div style="font-size:13px;opacity:0.9;margin-top:4px;">葬送的芙莉莲 第二季</div>
+              <div style="font-size:11px;opacity:0.7;margin-top:2px;">⭐ 9.2 · 奇幻冒险 · 24集</div>
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <span style="font-size:11px;padding:4px 14px;background:rgba(255,255,255,0.25);border-radius:16px;backdrop-filter:blur(4px);">+ 想看</span>
+                <span style="font-size:11px;padding:4px 14px;background:rgba(255,255,255,0.15);border-radius:16px;">详情 →</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 两栏布局 -->
+          <div style="display:flex;gap:16px;">
+            <!-- 左栏 -->
+            <div style="flex:7;">
+              <!-- 每日放送 -->
+              <div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <span style="font-size:15px;font-weight:700;color:#18191c;">📺 每日放送</span>
+                  <div style="display:flex;gap:4px;">
+                    <span style="font-size:11px;padding:3px 10px;background:#fb7299;color:#fff;border-radius:12px;">周三</span>
+                    <span style="font-size:11px;padding:3px 10px;background:#f1f2f3;color:#9499a0;border-radius:12px;">周四</span>
+                    <span style="font-size:11px;padding:3px 10px;background:#f1f2f3;color:#9499a0;border-radius:12px;">周五</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#fce4ec,#f8bbd0);border-radius:8px;position:relative;overflow:hidden;">
+                      <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));">
+                        <span style="font-size:9px;color:#fff;font-weight:600;">9.2</span>
+                      </div>
+                    </div>
+                    <div style="font-size:11px;margin-top:6px;color:#18191c;font-weight:500;">葬送的芙莉莲</div>
+                    <div style="font-size:10px;color:#9499a0;">23:00</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#e3f2fd,#bbdefb);border-radius:8px;position:relative;overflow:hidden;">
+                      <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));">
+                        <span style="font-size:9px;color:#fff;font-weight:600;">8.7</span>
+                      </div>
+                    </div>
+                    <div style="font-size:11px;margin-top:6px;color:#18191c;font-weight:500;">药屋少女</div>
+                    <div style="font-size:10px;color:#9499a0;">00:00</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#e8f5e9,#c8e6c9);border-radius:8px;position:relative;overflow:hidden;">
+                      <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));">
+                        <span style="font-size:9px;color:#fff;font-weight:600;">8.5</span>
+                      </div>
+                    </div>
+                    <div style="font-size:11px;margin-top:6px;color:#18191c;font-weight:500;">迷宫饭</div>
+                    <div style="font-size:10px;color:#9499a0;">01:30</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#fff3e0,#ffe0b2);border-radius:8px;position:relative;overflow:hidden;">
+                      <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));">
+                        <span style="font-size:9px;color:#fff;font-weight:600;">8.1</span>
+                      </div>
+                    </div>
+                    <div style="font-size:11px;margin-top:6px;color:#18191c;font-weight:500;">我推的孩子</div>
+                    <div style="font-size:10px;color:#9499a0;">02:00</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#f3e5f5,#e1bee7);border-radius:8px;position:relative;overflow:hidden;">
+                      <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.6));">
+                        <span style="font-size:9px;color:#fff;font-weight:600;">7.9</span>
+                      </div>
+                    </div>
+                    <div style="font-size:11px;margin-top:6px;color:#18191c;font-weight:500;">异修罗</div>
+                    <div style="font-size:10px;color:#9499a0;">03:00</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 热门帖子 -->
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <span style="font-size:15px;font-weight:700;color:#18191c;">🔥 热门讨论</span>
+                  <span style="font-size:12px;color:#fb7299;cursor:pointer;">更多 →</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #f1f2f3;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#fb7299,#ff9cad);"></div>
+                      <div>
+                        <div style="font-size:12px;font-weight:600;color:#18191c;">用户A</div>
+                        <div style="font-size:10px;color:#9499a0;">2小时前</div>
+                      </div>
+                    </div>
+                    <div style="font-size:13px;color:#18191c;font-weight:500;line-height:1.4;">新番推荐：这季最值得看的5部动画</div>
+                    <div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:#9499a0;">
+                      <span>❤️ 89</span><span>💬 12</span>
+                    </div>
+                  </div>
+                  <div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #f1f2f3;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#00a1d6,#48c9e8);"></div>
+                      <div>
+                        <div style="font-size:12px;font-weight:600;color:#18191c;">用户B</div>
+                        <div style="font-size:10px;color:#9499a0;">5小时前</div>
+                      </div>
+                    </div>
+                    <div style="font-size:13px;color:#18191c;font-weight:500;line-height:1.4;">动画制作幕后分享：从分镜到成片</div>
+                    <div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:#9499a0;">
+                      <span>❤️ 56</span><span>💬 8</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右栏 -->
+            <div style="flex:3;">
+              <!-- 资讯 -->
+              <div style="margin-bottom:16px;">
+                <div style="font-size:15px;font-weight:700;color:#18191c;margin-bottom:10px;">📰 行业资讯</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #f1f2f3;border-left:3px solid #fb7299;">
+                    <div style="font-size:12px;font-weight:600;color:#18191c;">MAPPA 公布 2026 新作阵容</div>
+                    <div style="font-size:10px;color:#9499a0;margin-top:2px;">3小时前 · 动画新闻</div>
+                  </div>
+                  <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #f1f2f3;border-left:3px solid #00a1d6;">
+                    <div style="font-size:12px;font-weight:600;color:#18191c;">《鬼灭之刃》最终卷销量突破</div>
+                    <div style="font-size:10px;color:#9499a0;margin-top:2px;">5小时前 · 行业数据</div>
+                  </div>
+                  <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #f1f2f3;border-left:3px solid #02b340;">
+                    <div style="font-size:12px;font-weight:600;color:#18191c;">Crunchyroll 年度颁奖结果</div>
+                    <div style="font-size:10px;color:#9499a0;margin-top:2px;">1天前 · 活动资讯</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 世界频道 -->
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                  <span style="font-size:15px;font-weight:700;color:#18191c;">🌐 世界频道</span>
+                  <span style="font-size:12px;color:#fb7299;cursor:pointer;">进入 →</span>
+                </div>
+                <div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #f1f2f3;">
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;gap:8px;">
+                      <div style="width:24px;height:24px;border-radius:50%;background:#fb7299;flex-shrink:0;"></div>
+                      <div>
+                        <div style="font-size:11px;color:#9499a0;">用户D · 10分钟前</div>
+                        <div style="font-size:12px;color:#18191c;margin-top:2px;">刚看完最新一集，太精彩了！</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                      <div style="width:24px;height:24px;border-radius:50%;background:#00a1d6;flex-shrink:0;"></div>
+                      <div>
+                        <div style="font-size:11px;color:#9499a0;">用户E · 30分钟前</div>
+                        <div style="font-size:12px;color:#18191c;margin-top:2px;">有没有人一起组队去漫展？</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                      <div style="width:24px;height:24px;border-radius:50%;background:#02b340;flex-shrink:0;"></div>
+                      <div>
+                        <div style="font-size:11px;color:#9499a0;">用户F · 1小时前</div>
+                        <div style="font-size:12px;color:#18191c;margin-top:2px;">推荐一部冷门佳作给大家</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A：Bilibili 风格</h3>
+      <p>粉白配色、Hero Banner 轮播推荐、圆角卡片、评分角标、双列帖子卡片</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="design2" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f7f8fa;padding:16px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+        <!-- 精致方案2: Notion/小红书 风格 -->
+        <div style="max-width:800px;margin:0 auto;">
+          <!-- 简洁顶部 -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="font-size:20px;font-weight:800;color:#1a1a1a;">ANISpace</div>
+            <div style="display:flex;gap:8px;">
+              <div style="padding:6px 16px;background:#1a1a1a;color:#fff;border-radius:8px;font-size:12px;font-weight:600;">🔍 搜索</div>
+            </div>
+          </div>
+
+          <!-- 两栏 -->
+          <div style="display:flex;gap:20px;">
+            <!-- 左栏 -->
+            <div style="flex:7;">
+              <!-- 随机推荐 - 瀑布流 -->
+              <div style="margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <span style="font-size:14px;font-weight:700;color:#1a1a1a;">🎲 发现</span>
+                  <span style="font-size:12px;color:#999;cursor:pointer;">换一批</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+                  <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#fce4ec,#f8bbd0);"></div>
+                    <div style="padding:10px;">
+                      <div style="font-size:13px;font-weight:600;color:#1a1a1a;">葬送的芙莉莲</div>
+                      <div style="font-size:11px;color:#999;margin-top:2px;">⭐ 9.2 · 奇幻</div>
+                    </div>
+                  </div>
+                  <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#e3f2fd,#bbdefb);"></div>
+                    <div style="padding:10px;">
+                      <div style="font-size:13px;font-weight:600;color:#1a1a1a;">药屋少女呢</div>
+                      <div style="font-size:11px;color:#999;margin-top:2px;">⭐ 8.7 · 古风</div>
+                    </div>
+                  </div>
+                  <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#e8f5e9,#c8e6c9);"></div>
+                    <div style="padding:10px;">
+                      <div style="font-size:13px;font-weight:600;color:#1a1a1a;">迷宫饭</div>
+                      <div style="font-size:11px;color:#999;margin-top:2px;">⭐ 8.5 · 美食</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 每日放送 -->
+              <div style="margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <span style="font-size:14px;font-weight:700;color:#1a1a1a;">📺 今日放送</span>
+                  <div style="display:flex;gap:4px;">
+                    <span style="font-size:11px;padding:3px 10px;background:#1a1a1a;color:#fff;border-radius:6px;">周三</span>
+                    <span style="font-size:11px;padding:3px 10px;background:#f0f0f0;color:#999;border-radius:6px;">周四</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#fce4ec,#f8bbd0);border-radius:10px;"></div>
+                    <div style="font-size:11px;margin-top:6px;font-weight:500;">芙莉莲</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#e3f2fd,#bbdefb);border-radius:10px;"></div>
+                    <div style="font-size:11px;margin-top:6px;font-weight:500;">药屋少女</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#e8f5e9,#c8e6c9);border-radius:10px;"></div>
+                    <div style="font-size:11px;margin-top:6px;font-weight:500;">迷宫饭</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="aspect-ratio:3/4;background:linear-gradient(160deg,#fff3e0,#ffe0b2);border-radius:10px;"></div>
+                    <div style="font-size:11px;margin-top:6px;font-weight:500;">推しの子</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 社区动态 -->
+              <div>
+                <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">💬 社区动态</div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                      <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#fb7299,#ff9cad);"></div>
+                      <div>
+                        <div style="font-size:12px;font-weight:600;color:#1a1a1a;">用户A</div>
+                        <div style="font-size:10px;color:#bbb;">2小时前</div>
+                      </div>
+                    </div>
+                    <div style="font-size:13px;color:#333;line-height:1.5;">新番推荐：这季最值得看的5部动画，每一部都不容错过！</div>
+                    <div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:#bbb;">
+                      <span>❤️ 89</span><span>💬 12</span><span>🔗 分享</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右栏 -->
+            <div style="flex:3;">
+              <div style="position:sticky;top:20px;display:flex;flex-direction:column;gap:16px;">
+                <!-- 资讯 -->
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:10px;">📰 资讯</div>
+                  <div style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                      <div style="font-size:12px;font-weight:600;color:#1a1a1a;">MAPPA 2026 新作阵容</div>
+                      <div style="font-size:10px;color:#bbb;margin-top:2px;">3小时前</div>
+                    </div>
+                    <div style="background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                      <div style="font-size:12px;font-weight:600;color:#1a1a1a;">鬼灭最终卷销量突破</div>
+                      <div style="font-size:10px;color:#bbb;margin-top:2px;">5小时前</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 世界频道 -->
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:10px;">🌐 频道</div>
+                  <div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                      <div style="display:flex;gap:8px;">
+                        <div style="width:24px;height:24px;border-radius:50%;background:#fb7299;flex-shrink:0;"></div>
+                        <div>
+                          <div style="font-size:11px;color:#bbb;">用户D · 10m</div>
+                          <div style="font-size:12px;color:#333;margin-top:2px;">太精彩了！</div>
+                        </div>
+                      </div>
+                      <div style="display:flex;gap:8px;">
+                        <div style="width:24px;height:24px;border-radius:50%;background:#00a1d6;flex-shrink:0;"></div>
+                        <div>
+                          <div style="font-size:11px;color:#bbb;">用户E · 30m</div>
+                          <div style="font-size:12px;color:#333;margin-top:2px;">组队漫展？</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B：Notion/小红书 风格</h3>
+      <p>黑白极简、卡片阴影、无 Banner、瀑布流发现、大圆角、留白呼吸感</p>
+    </div>
+  </div>
+</div>

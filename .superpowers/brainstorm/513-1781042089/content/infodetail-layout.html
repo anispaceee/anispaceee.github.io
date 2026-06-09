@@ -1,0 +1,120 @@
+<h2>条目详情页 UI 优化</h2>
+<p class="subtitle">当前布局：双栏（左侧封面+评分+操作 | 右侧主内容）+ 背景模糊 | 目标：微调优化，保持现有架构</p>
+
+<div class="section">
+  <h3>当前问题</h3>
+  <ul>
+    <li>背景模糊图加载慢/可能失败，fallback 体验差</li>
+    <li>左侧评分区信息密度高但视觉层次不够清晰</li>
+    <li>标签区样式与首页药丸风格不统一</li>
+    <li>评论区样式较朴素，缺少交互反馈</li>
+    <li>Tab 切换（简介|角色|评论）样式可以更精致</li>
+    <li>移动端适配可能不够好</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #f3e5f5); padding: 16px; border-radius: 8px; min-height: 280px; display: flex; gap: 16px;">
+        <!-- 方案A：微调优化 -->
+        <div style="flex: 0 0 220px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="aspect-ratio: 3/4; background: linear-gradient(135deg, #ffcdd2, #f8bbd0); border-radius: 10px; overflow: hidden;"></div>
+          <div style="background: white; border-radius: 10px; padding: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.05);">
+            <div style="display: flex; align-items: baseline; gap: 6px;">
+              <span style="font-size: 28px; font-weight: 900; color: #ffc107;">8.5</span>
+              <span style="font-size: 11px; color: #999;">Bangumi</span>
+            </div>
+            <div style="display: flex; gap: 2px; margin-top: 4px;">
+              <span style="color: #ffc107; font-size: 12px;">★★★★☆</span>
+            </div>
+            <div style="font-size: 10px; color: #999; margin-top: 4px;">Rank #42 · 1,234人评分</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button style="padding: 8px; background: #e8869f; color: white; border-radius: 8px; font-size: 12px; font-weight: 600;">立即观看</button>
+            <div style="display: flex; gap: 4px;">
+              <span style="flex: 1; padding: 4px; text-align: center; background: #fce4ec; border-radius: 6px; font-size: 10px; color: #e8869f;">想看</span>
+              <span style="flex: 1; padding: 4px; text-align: center; background: #f5f5f5; border-radius: 6px; font-size: 10px; color: #666;">看过</span>
+              <span style="flex: 1; padding: 4px; text-align: center; background: #f5f5f5; border-radius: 6px; font-size: 10px; color: #666;">在看</span>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <span style="padding: 2px 8px; background: #e8869f; color: white; border-radius: 10px; font-size: 10px; font-weight: 600;">动画</span>
+            <span style="margin-left: 6px; padding: 2px 8px; background: #fff3e0; color: #ff9800; border-radius: 10px; font-size: 10px;">Rank #42</span>
+          </div>
+          <div style="font-size: 18px; font-weight: 800; color: #333;">作品名称</div>
+          <div style="font-size: 12px; color: #999;">Original Name</div>
+          <!-- 标签药丸 -->
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <span style="padding: 3px 8px; background: #fce4ec; border-radius: 12px; font-size: 10px; color: #e8869f;">标签1</span>
+            <span style="padding: 3px 8px; background: #e8eaf6; border-radius: 12px; font-size: 10px; color: #7986cb;">标签2</span>
+            <span style="padding: 3px 8px; background: #e0f7fa; border-radius: 12px; font-size: 10px; color: #4dd0e1;">标签3</span>
+          </div>
+          <!-- Tab -->
+          <div style="display: flex; gap: 0; border-bottom: 2px solid #f0f0f0; margin-top: 4px;">
+            <span style="padding: 6px 14px; font-size: 12px; font-weight: 600; color: #e8869f; border-bottom: 2px solid #e8869f; margin-bottom: -2px;">简介</span>
+            <span style="padding: 6px 14px; font-size: 12px; color: #999;">角色</span>
+            <span style="padding: 6px 14px; font-size: 12px; color: #999;">评论</span>
+          </div>
+          <div style="font-size: 11px; color: #666; line-height: 1.5;">简介内容区域...</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: 微调优化（推荐）</h3>
+      <p>保持现有双栏架构，优化视觉细节：标签改药丸、Tab加下划线指示器、评分区层次优化、收藏按钮改药丸样式。改动最小，效果明显。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #fce4ec, #e8eaf6); padding: 16px; border-radius: 8px; min-height: 280px; display: flex; flex-direction: column; gap: 12px;">
+        <!-- 方案B：封面沉浸式 -->
+        <div style="position: relative; border-radius: 12px; overflow: hidden; height: 160px; background: linear-gradient(135deg, #ffcdd2, #e1bee7);">
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px; background: linear-gradient(transparent, rgba(0,0,0,0.6));">
+            <div style="display: flex; align-items: end; gap: 12px;">
+              <div style="width: 80px; height: 110px; background: white; border-radius: 6px; flex-shrink: 0; margin-top: 40px;"></div>
+              <div>
+                <div style="font-size: 16px; font-weight: 800; color: white;">作品名称</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.7);">Original Name</div>
+                <div style="display: flex; gap: 4px; margin-top: 4px;">
+                  <span style="padding: 2px 6px; background: rgba(255,255,255,0.2); border-radius: 8px; font-size: 9px; color: white;">动画</span>
+                  <span style="padding: 2px 6px; background: rgba(255,193,7,0.3); border-radius: 8px; font-size: 9px; color: #ffc107;">⭐ 8.5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 操作栏 -->
+        <div style="display: flex; gap: 6px;">
+          <button style="flex: 1; padding: 8px; background: #e8869f; color: white; border-radius: 8px; font-size: 11px; font-weight: 600;">立即观看</button>
+          <button style="padding: 8px 12px; background: #f5f5f5; border-radius: 8px; font-size: 11px;">♡</button>
+          <button style="padding: 8px 12px; background: #f5f5f5; border-radius: 8px; font-size: 11px;">🔖</button>
+        </div>
+        <!-- 标签 -->
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <span style="padding: 3px 8px; background: white; border-radius: 12px; font-size: 10px; color: #e8869f; border: 1px solid #fce4ec;">标签1</span>
+          <span style="padding: 3px 8px; background: white; border-radius: 12px; font-size: 10px; color: #7986cb; border: 1px solid #e8eaf6;">标签2</span>
+        </div>
+        <!-- Tab -->
+        <div style="display: flex; gap: 0; border-bottom: 2px solid #f0f0f0;">
+          <span style="padding: 6px 14px; font-size: 12px; font-weight: 600; color: #e8869f; border-bottom: 2px solid #e8869f; margin-bottom: -2px;">简介</span>
+          <span style="padding: 6px 14px; font-size: 12px; color: #999;">角色</span>
+          <span style="padding: 6px 14px; font-size: 12px; color: #999;">评论</span>
+        </div>
+        <div style="font-size: 11px; color: #666; line-height: 1.5;">简介内容...</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: 封面沉浸式头部</h3>
+      <p>顶部大封面横幅+渐变遮罩，封面和标题融合。类似 MyAnimeList/AniList 风格。改动较大，但视觉效果好。</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 20px;">
+  <div class="pros"><h4>推荐：方案A</h4><ul><li>改动最小，风险低</li><li>现有架构已经完善，只需视觉微调</li><li>标签药丸+Tab下划线与首页风格统一</li></ul></div>
+  <div class="cons"><h4>方案A/B 对比</h4><ul><li>A：改动小但提升有限</li><li>B：视觉冲击力强，但需要重写布局，且背景图加载可能影响体验</li></ul></div>
+</div>
