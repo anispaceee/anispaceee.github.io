@@ -32,3 +32,13 @@
 .notif-delete { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-xs); color: var(--text-quaternary); opacity: 0; transition: all var(--transition-fast); flex-shrink: 0; align-self: flex-start; }
 .notif-item:hover .notif-delete { opacity: 1; }
 .notif-delete:hover { background: #fff5f5; color: var(--error); }
+
+/* 好友请求操作按钮 */
+.notif-friend-actions { display: flex; gap: 6px; margin-top: 8px; }
+.notif-friend-accept { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; background: var(--success); color: #fff; transition: all var(--transition-fast); }
+.notif-friend-accept:hover { opacity: 0.85; }
+.notif-friend-reject { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; background: var(--bg-input); color: var(--text-secondary); transition: all var(--transition-fast); }
+.notif-friend-reject:hover { background: var(--error); color: #fff; }
+
+.notif-user-link { color: var(--primary); text-decoration: none; }
+.notif-user-link:hover { text-decoration: underline; }

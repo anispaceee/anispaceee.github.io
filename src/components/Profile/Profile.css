@@ -500,6 +500,269 @@
 .profile-not-found span { font-size: 48px; }
 .back-link { color: var(--text-link); font-size: 14px; }
 
+/* ─── 标签页切换 ─── */
+.profile-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+  border: 1px solid var(--border-secondary);
+}
+
+.profile-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.profile-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+.profile-tab.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-primary);
+}
+
+.profile-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  background: var(--error);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  padding: 0 3px;
+  margin-left: 2px;
+}
+
+/* ─── 好友标签页 ─── */
+.profile-friends-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-friend-search {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  border: 1px solid var(--border-secondary);
+}
+
+.profile-friend-search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  transition: all var(--transition-fast);
+}
+
+.profile-friend-search-input-wrap:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.profile-friend-search-icon {
+  color: var(--text-quaternary);
+  flex-shrink: 0;
+}
+
+.profile-friend-search-input {
+  flex: 1;
+  padding: 8px 0;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.profile-friend-search-input::placeholder {
+  color: var(--text-quaternary);
+}
+
+.profile-friend-search-spinner {
+  color: var(--primary);
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.profile-friend-section {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  border: 1px solid var(--border-secondary);
+}
+
+.profile-friend-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-friend-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-bg);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.profile-friend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-friend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  color: inherit;
+}
+
+.profile-friend-item:hover {
+  background: var(--bg-input);
+}
+
+.profile-friend-item.with-actions {
+  flex-wrap: wrap;
+}
+
+.profile-friend-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.profile-friend-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid var(--border-primary);
+}
+
+.profile-friend-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.profile-friend-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-friend-sign {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-friend-sign.pending {
+  color: var(--accent-warm);
+}
+
+.profile-friend-request-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.profile-friend-accept-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--success);
+  color: #fff;
+  transition: all var(--transition-fast);
+}
+
+.profile-friend-accept-btn:hover { opacity: 0.85; }
+
+.profile-friend-reject-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.profile-friend-reject-btn:hover { background: var(--error); color: #fff; }
+
+.profile-friend-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  color: var(--text-quaternary);
+  gap: 8px;
+  text-align: center;
+}
+
+.profile-friend-empty p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.profile-friend-empty span {
+  font-size: 12px;
+}
+
 /* ─── 响应式 ─── */
 @media (max-width: 900px) {
   .profile-layout {

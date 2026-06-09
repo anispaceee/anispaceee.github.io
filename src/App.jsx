@@ -8,6 +8,7 @@ import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
 import InfoDetail from './components/Info/InfoDetail'
 import Profile from './components/Profile/Profile'
+import UserProfilePage from './components/Profile/UserProfilePage'
 import VideoZone from './components/Video/VideoZone'
 import VideoDetail from './components/Video/VideoDetail'
 import Mailbox from './components/Mailbox/Mailbox'
@@ -109,6 +110,7 @@ function AppInner() {
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/user/:userId" element={<UserProfilePage />} />
           <Route path="/video" element={<VideoZone />} />
           <Route path="/video/:sourceId/:vodId" element={<VideoDetail />} />
           <Route path="/mailbox" element={<Mailbox />} />

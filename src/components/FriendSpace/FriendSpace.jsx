@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { StorageService, UserService } from '../../services/api';
-import { Heart, MessageSquare, Share2, Lock, Globe, MoreHorizontal, Send, Image, X, Eye, Users, Plus, ChevronDown } from 'lucide-react';
+import { StorageService, UserService, FriendService } from '../../services/api';
+import { Heart, MessageSquare, Share2, Lock, Globe, MoreHorizontal, Send, Image, X, Eye, Users, Plus, ChevronDown, Search, Loader2 } from 'lucide-react';
 import './FriendSpace.css';
 
 const SPACE_STORAGE = 'acg_friend_space';
@@ -43,6 +44,7 @@ function getInitialPosts() {
 
 export default function FriendSpace() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState(getInitialPosts);
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('friends');
@@ -50,6 +52,12 @@ export default function FriendSpace() {
   const [expandedComments, setExpandedComments] = useState({});
   const [commentInputs, setCommentInputs] = useState({});
   const [filter, setFilter] = useState('all');
+
+  // 找好友搜索相关状态
+  const [showSearchDialog, setShowSearchDialog] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const savePosts = useCallback((newPosts) => {
     setPosts(newPosts);
@@ -114,6 +122,16 @@ export default function FriendSpace() {
 
   const filteredPosts = filter === 'all' ? posts : posts.filter(p => p.visibility === filter);
 
+  const handleSearchUsers = () => {
+    if (!searchKeyword.trim()) return;
+    setSearchLoading(true);
+    FriendService.searchUsers(searchKeyword.trim()).then(data => {
+      setSearchResults(Array.isArray(data) ? data : []);
+    }).catch(() => {
+      setSearchResults([]);
+    }).finally(() => setSearchLoading(false));
+  };
+
   return (
     <div className="friend-space-page">
       <div className="friend-space-header">
@@ -122,9 +140,14 @@ export default function FriendSpace() {
           <h1>好友空间</h1>
           <span className="friend-space-subtitle">仅好友可见的私密动态</span>
         </div>
-        <button className="friend-space-compose-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowComposer(!showComposer); }}>
-          <Plus size={16} /> 发动态
-        </button>
+        <div className="friend-space-header-actions">
+          <button className="friend-space-search-btn" onClick={() => setShowSearchDialog(true)}>
+            <Search size={16} /> 找好友
+          </button>
+          <button className="friend-space-compose-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowComposer(!showComposer); }}>
+            <Plus size={16} /> 发动态
+          </button>
+        </div>
       </div>
 
       {showComposer && (
@@ -219,6 +242,56 @@ export default function FriendSpace() {
           );
         })}
       </div>
+
+      {/* 找好友搜索弹窗 */}
+      {showSearchDialog && (
+        <div className="friend-search-overlay" onClick={() => setShowSearchDialog(false)}>
+          <div className="friend-search-dialog" onClick={e => e.stopPropagation()}>
+            <div className="friend-search-dialog-header">
+              <h2>找好友</h2>
+              <button className="friend-search-close" onClick={() => { setShowSearchDialog(false); setSearchResults([]); setSearchKeyword(''); }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="friend-search-input-wrap">
+              <Search size={16} className="friend-search-icon" />
+              <input
+                type="text"
+                placeholder="输入用户名搜索..."
+                value={searchKeyword}
+                onChange={e => setSearchKeyword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSearchUsers(); }}
+                className="friend-search-input"
+                autoFocus
+              />
+              {searchLoading && <Loader2 size={14} className="friend-search-spinner" />}
+            </div>
+            <div className="friend-search-results">
+              {searchResults.length > 0 ? (
+                searchResults.map(user => (
+                  <div key={user.id} className="friend-search-result-item" onClick={() => { navigate(`/user/${user.id}`); setShowSearchDialog(false); }}>
+                    <img src={user.avatar || FALLBACK_AVATAR} alt="" className="friend-search-result-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
+                    <div className="friend-search-result-info">
+                      <span className="friend-search-result-name">{user.name}</span>
+                      {user.sign && <span className="friend-search-result-sign">{user.sign}</span>}
+                    </div>
+                  </div>
+                ))
+              ) : searchKeyword && !searchLoading ? (
+                <div className="friend-search-empty">
+                  <Users size={24} />
+                  <p>未找到相关用户</p>
+                </div>
+              ) : !searchKeyword ? (
+                <div className="friend-search-empty">
+                  <Search size={24} />
+                  <p>输入关键词搜索用户</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

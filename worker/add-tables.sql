@@ -49,3 +49,17 @@ CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_mails_to ON mails(to_user_id, read);
 CREATE INDEX IF NOT EXISTS idx_mails_from ON mails(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_pm_conversation ON private_messages(from_user_id, to_user_id);
+
+-- 好友请求表
+CREATE TABLE IF NOT EXISTS friend_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_user_id INTEGER NOT NULL REFERENCES users(id),
+  to_user_id INTEGER NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'pending',
+  message TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(from_user_id, to_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_fr_from ON friend_requests(from_user_id);
+CREATE INDEX IF NOT EXISTS idx_fr_to ON friend_requests(to_user_id, status);

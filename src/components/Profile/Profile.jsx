@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { UserService, FollowService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService, MailService, BangumiService } from '../../services/api';
-import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
+import { UserService, FollowService, FriendService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService, MailService, BangumiService } from '../../services/api';
+import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity, UserPlus, Search, Loader2, UserX } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { SubjectCard } from '../Common/CommonComponents';
 import UserAvatar from '../Common/UserAvatar';
@@ -48,6 +48,15 @@ export default function Profile() {
   const [activityData, setActivityData] = useState([]);
   const [userComments, setUserComments] = useState([]);
   const [expandedCategory, setExpandedCategory] = useState(null);
+
+  // 好友标签页相关状态
+  const [activeTab, setActiveTab] = useState('collections');
+  const [friendList, setFriendList] = useState([]);
+  const [receivedRequests, setReceivedRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const profileUser = id ? UserService.getById(parseInt(id)) : currentUser;
   const isOwnProfile = !id || (currentUser && currentUser.id === parseInt(id));
@@ -97,6 +106,26 @@ export default function Profile() {
       setUserComments(Array.isArray(data) ? data : []);
     }).catch(() => {});
   }, [profileUser]);
+
+  // 加载好友列表和请求（仅自己的主页）
+  useEffect(() => {
+    if (!isOwnProfile || !currentUser) return;
+    const loadFriendData = async () => {
+      try {
+        const friends = await FriendService.getFriendList();
+        setFriendList(Array.isArray(friends) ? friends : (friends?.list || []));
+      } catch {}
+      try {
+        const received = await FriendService.getReceivedRequests();
+        setReceivedRequests(Array.isArray(received) ? received : []);
+      } catch {}
+      try {
+        const sent = await FriendService.getSentRequests();
+        setSentRequests(Array.isArray(sent) ? sent : []);
+      } catch {}
+    };
+    loadFriendData();
+  }, [isOwnProfile, currentUser]);
 
   if (!profileUser) {
     return (
@@ -288,77 +317,232 @@ export default function Profile() {
 
         {/* 右侧主内容 */}
         <main className="profile-main">
-          {['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
-            const items = userMarks.filter(m => m.status === status);
-            const isCollapsed = (status === 'on_hold' || status === 'dropped') && expandedCategory !== status && items.length > 0;
+          {/* 标签页切换 */}
+          <div className="profile-tabs">
+            <button className={`profile-tab ${activeTab === 'collections' ? 'active' : ''}`} onClick={() => setActiveTab('collections')}>
+              <BookOpen size={14} /> 收藏
+            </button>
+            {isOwnProfile && (
+              <button className={`profile-tab ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
+                <Users size={14} /> 好友
+                {receivedRequests.length > 0 && <span className="profile-tab-badge">{receivedRequests.length}</span>}
+              </button>
+            )}
+          </div>
 
-            return (
-              <div key={status} className="profile-category-section">
-                <div className="profile-category-header">
-                  <span className="category-indicator" style={{ background: MARK_COLORS[status] }} />
-                  <span className="category-title">{CollectionMarkService.MARK_LABELS[status]}</span>
-                  <span className="category-count">{items.length} 部</span>
-                  {(status === 'on_hold' || status === 'dropped') ? (
-                    isCollapsed && (
-                      <span className="category-more" onClick={() => setExpandedCategory(status)}>
-                        展开 ▼
-                      </span>
-                    )
-                  ) : (
-                    items.length > 5 && expandedCategory !== status && (
-                      <span className="category-more" onClick={() => setExpandedCategory(status)}>
-                        更多 →
-                      </span>
-                    )
-                  )}
-                  {expandedCategory === status && (
-                    <span className="category-more" onClick={() => setExpandedCategory(null)}>
-                      收起 ↑
-                    </span>
-                  )}
-                </div>
-                {!isCollapsed && (
-                  items.length > 0 ? (
-                    <div className="category-covers">
-                      {(expandedCategory === status ? items : items.slice(0, 6)).map(mark => (
-                        <SubjectCard
-                          key={`${mark.user_id}_${mark.subject_id}`}
-                          item={{
-                            id: mark.subject_id,
-                            name: mark.subject_name || `条目 #${mark.subject_id}`,
-                            name_cn: mark.subject_name || '',
-                            image: mark.subject_image || '',
-                            images: mark.subject_image ? { common: mark.subject_image } : {},
-                            rating: { score: 0 },
-                            tags: [],
-                          }}
-                          type={mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}
-                          linkTo={`/info/${mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}/${mark.subject_id}`}
-                        />
-                      ))}
+          {activeTab === 'collections' && (
+            <>
+              {['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
+                const items = userMarks.filter(m => m.status === status);
+                const isCollapsed = (status === 'on_hold' || status === 'dropped') && expandedCategory !== status && items.length > 0;
+
+                return (
+                  <div key={status} className="profile-category-section">
+                    <div className="profile-category-header">
+                      <span className="category-indicator" style={{ background: MARK_COLORS[status] }} />
+                      <span className="category-title">{CollectionMarkService.MARK_LABELS[status]}</span>
+                      <span className="category-count">{items.length} 部</span>
+                      {(status === 'on_hold' || status === 'dropped') ? (
+                        isCollapsed && (
+                          <span className="category-more" onClick={() => setExpandedCategory(status)}>
+                            展开 ▼
+                          </span>
+                        )
+                      ) : (
+                        items.length > 5 && expandedCategory !== status && (
+                          <span className="category-more" onClick={() => setExpandedCategory(status)}>
+                            更多 →
+                          </span>
+                        )
+                      )}
+                      {expandedCategory === status && (
+                        <span className="category-more" onClick={() => setExpandedCategory(null)}>
+                          收起 ↑
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    <div className="category-empty">暂无{CollectionMarkService.MARK_LABELS[status]}</div>
-                  )
-                )}
-                {status === 'collect' && userComments.length > 0 && (
-                  <div className="profile-recent-comments">
-                    <h4>最近评论</h4>
-                    {userComments.slice(0, 5).map(c => (
-                      <div key={c.id} className="comment-item">
-                        <img src={c.subject_image || FALLBACK_IMG} alt="" className="comment-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
-                        <div className="comment-info">
-                          <span className="comment-subject">{c.subject_name}</span>
-                          {c.score > 0 && <span className="comment-score">⭐ {c.score}</span>}
-                          <p className="comment-text">{c.content}</p>
+                    {!isCollapsed && (
+                      items.length > 0 ? (
+                        <div className="category-covers">
+                          {(expandedCategory === status ? items : items.slice(0, 6)).map(mark => (
+                            <SubjectCard
+                              key={`${mark.user_id}_${mark.subject_id}`}
+                              item={{
+                                id: mark.subject_id,
+                                name: mark.subject_name || `条目 #${mark.subject_id}`,
+                                name_cn: mark.subject_name || '',
+                                image: mark.subject_image || '',
+                                images: mark.subject_image ? { common: mark.subject_image } : {},
+                                rating: { score: 0 },
+                                tags: [],
+                              }}
+                              type={mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}
+                              linkTo={`/info/${mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}/${mark.subject_id}`}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="category-empty">暂无{CollectionMarkService.MARK_LABELS[status]}</div>
+                      )
+                    )}
+                    {status === 'collect' && userComments.length > 0 && (
+                      <div className="profile-recent-comments">
+                        <h4>最近评论</h4>
+                        {userComments.slice(0, 5).map(c => (
+                          <div key={c.id} className="comment-item">
+                            <img src={c.subject_image || FALLBACK_IMG} alt="" className="comment-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                            <div className="comment-info">
+                              <span className="comment-subject">{c.subject_name}</span>
+                              {c.score > 0 && <span className="comment-score">⭐ {c.score}</span>}
+                              <p className="comment-text">{c.content}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {activeTab === 'friends' && isOwnProfile && (
+            <div className="profile-friends-tab">
+              {/* 搜索用户 */}
+              <div className="profile-friend-search">
+                <div className="profile-friend-search-input-wrap">
+                  <Search size={16} className="profile-friend-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="搜索用户..."
+                    value={searchKeyword}
+                    onChange={e => setSearchKeyword(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && searchKeyword.trim()) {
+                        setSearchLoading(true);
+                        FriendService.searchUsers(searchKeyword.trim()).then(data => {
+                          setSearchResults(Array.isArray(data) ? data : []);
+                        }).catch(() => {
+                          setSearchResults([]);
+                        }).finally(() => setSearchLoading(false));
+                      }
+                    }}
+                    className="profile-friend-search-input"
+                  />
+                  {searchLoading && <Loader2 size={14} className="profile-friend-search-spinner" />}
+                </div>
+              </div>
+
+              {/* 搜索结果 */}
+              {searchResults.length > 0 && (
+                <div className="profile-friend-section">
+                  <h3 className="profile-friend-section-title">搜索结果</h3>
+                  <div className="profile-friend-list">
+                    {searchResults.map(user => (
+                      <Link key={user.id} to={`/user/${user.id}`} className="profile-friend-item">
+                        <img src={user.avatar || FALLBACK_IMG} alt="" className="profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <div className="profile-friend-info">
+                          <span className="profile-friend-name">{user.name}</span>
+                          {user.sign && <span className="profile-friend-sign">{user.sign}</span>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 收到的好友请求 */}
+              {receivedRequests.length > 0 && (
+                <div className="profile-friend-section">
+                  <h3 className="profile-friend-section-title">
+                    好友请求 <span className="profile-friend-count">{receivedRequests.length}</span>
+                  </h3>
+                  <div className="profile-friend-list">
+                    {receivedRequests.map(req => (
+                      <div key={req.id} className="profile-friend-item with-actions">
+                        <Link to={`/user/${req.fromUserId || req.userId}`} className="profile-friend-item-left">
+                          <img src={req.avatar || FALLBACK_IMG} alt="" className="profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          <div className="profile-friend-info">
+                            <span className="profile-friend-name">{req.name || req.fromUserName || '用户'}</span>
+                            {req.message && <span className="profile-friend-sign">{req.message}</span>}
+                          </div>
+                        </Link>
+                        <div className="profile-friend-request-actions">
+                          <button className="profile-friend-accept-btn" onClick={async () => {
+                            try {
+                              await FriendService.handleFriendRequest(req.id, 'accepted');
+                              setReceivedRequests(prev => prev.filter(r => r.id !== req.id));
+                              // 刷新好友列表
+                              const friends = await FriendService.getFriendList();
+                              setFriendList(Array.isArray(friends) ? friends : (friends?.list || []));
+                            } catch (err) {
+                              alert(err.message || '操作失败');
+                            }
+                          }}>
+                            <UserCheck size={12} /> 通过
+                          </button>
+                          <button className="profile-friend-reject-btn" onClick={async () => {
+                            try {
+                              await FriendService.handleFriendRequest(req.id, 'rejected');
+                              setReceivedRequests(prev => prev.filter(r => r.id !== req.id));
+                            } catch (err) {
+                              alert(err.message || '操作失败');
+                            }
+                          }}>
+                            <UserX size={12} /> 拒绝
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* 发出的好友请求 */}
+              {sentRequests.length > 0 && (
+                <div className="profile-friend-section">
+                  <h3 className="profile-friend-section-title">待通过请求</h3>
+                  <div className="profile-friend-list">
+                    {sentRequests.map(req => (
+                      <Link key={req.id} to={`/user/${req.toUserId || req.userId}`} className="profile-friend-item">
+                        <img src={req.avatar || FALLBACK_IMG} alt="" className="profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <div className="profile-friend-info">
+                          <span className="profile-friend-name">{req.name || req.toUserName || '用户'}</span>
+                          <span className="profile-friend-sign pending">等待通过</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 好友列表 */}
+              <div className="profile-friend-section">
+                <h3 className="profile-friend-section-title">
+                  好友列表 <span className="profile-friend-count">{friendList.length}</span>
+                </h3>
+                {friendList.length > 0 ? (
+                  <div className="profile-friend-list">
+                    {friendList.map(friend => (
+                      <Link key={friend.id || friend.userId} to={`/user/${friend.id || friend.userId}`} className="profile-friend-item">
+                        <img src={friend.avatar || FALLBACK_IMG} alt="" className="profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <div className="profile-friend-info">
+                          <span className="profile-friend-name">{friend.name || friend.username || '用户'}</span>
+                          {friend.sign && <span className="profile-friend-sign">{friend.sign}</span>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="profile-friend-empty">
+                    <Users size={32} />
+                    <p>暂无好友</p>
+                    <span>搜索并添加好友吧~</span>
+                  </div>
                 )}
               </div>
-            );
-          })}
+            </div>
+          )}
         </main>
       </div>
 

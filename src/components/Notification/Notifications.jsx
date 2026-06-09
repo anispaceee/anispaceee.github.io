@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { StorageService } from '../../services/api';
-import { Bell, MessageCircle, Heart, Star, Users, AtSign, Check, CheckCheck, Trash2, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { StorageService, FriendService } from '../../services/api';
+import { Bell, MessageCircle, Heart, Star, Users, AtSign, Check, CheckCheck, Trash2, Settings, UserPlus, UserCheck, UserX } from 'lucide-react';
 import './Notifications.css';
 
 const NOTIFICATIONS_KEY = 'acg_notifications';
@@ -12,6 +13,7 @@ const TYPE_CONFIG = {
   mention: { icon: AtSign, color: '#e6a23c', label: '提及' },
   favorite: { icon: Star, color: '#f5a623', label: '收藏' },
   system: { icon: Bell, color: '#909399', label: '系统' },
+  friend_request: { icon: UserPlus, color: '#e886a2', label: '好友请求' },
 };
 
 const DEFAULT_NOTIFICATIONS = [
@@ -111,6 +113,7 @@ export default function Notifications() {
           { key: 'like', label: '点赞' },
           { key: 'comment', label: '评论' },
           { key: 'follow', label: '关注' },
+          { key: 'friend_request', label: '好友请求' },
           { key: 'system', label: '系统' },
         ].map(f => (
           <button key={f.key} className={`notif-filter-btn ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
@@ -139,8 +142,40 @@ export default function Notifications() {
                     <span className="notif-type-tag" style={{ color: config.color }}>{config.label}</span>
                     {!notif.read && <span className="notif-unread-dot" />}
                   </div>
-                  <h4 className="notif-title">{notif.title}</h4>
+                  <h4 className="notif-title">
+                    {notif.type === 'friend_request' && notif.fromUserId ? (
+                      <Link to={`/user/${notif.fromUserId}`} className="notif-user-link">{notif.title}</Link>
+                    ) : notif.title}
+                  </h4>
                   <p className="notif-text">{notif.content}</p>
+                  {notif.type === 'friend_request' && notif.requestId && (
+                    <div className="notif-friend-actions">
+                      <button className="notif-friend-accept" onClick={async () => {
+                        try {
+                          await FriendService.handleFriendRequest(notif.requestId, 'accepted');
+                          const updated = notifications.map(n => n.id === notif.id ? { ...n, read: true, content: '已通过好友请求' } : n);
+                          setNotifications(updated);
+                          saveNotifications(updated);
+                        } catch (err) {
+                          alert(err.message || '操作失败');
+                        }
+                      }}>
+                        <UserCheck size={12} /> 通过
+                      </button>
+                      <button className="notif-friend-reject" onClick={async () => {
+                        try {
+                          await FriendService.handleFriendRequest(notif.requestId, 'rejected');
+                          const updated = notifications.map(n => n.id === notif.id ? { ...n, read: true, content: '已拒绝好友请求' } : n);
+                          setNotifications(updated);
+                          saveNotifications(updated);
+                        } catch (err) {
+                          alert(err.message || '操作失败');
+                        }
+                      }}>
+                        <UserX size={12} /> 拒绝
+                      </button>
+                    </div>
+                  )}
                   <span className="notif-time">{formatTime(notif.createdAt)}</span>
                 </div>
                 <button className="notif-delete" onClick={() => deleteNotification(notif.id)}>

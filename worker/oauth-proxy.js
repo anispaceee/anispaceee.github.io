@@ -525,14 +525,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
-  // GET /api/users/:id — 获取用户信息
+  // GET /api/users/:id — 获取用户公开信息
   const userMatch = pathname.match(/^\/api\/users\/(\d+)$/);
   if (userMatch) {
     const userId = Number(userMatch[1]);
     if (method === 'GET') {
-      const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+      const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, following_count, follower_count FROM users WHERE id = ?').bind(userId).first();
       if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
-      return jsonResponse(formatUser(user), 200, origin);
+      return jsonResponse(user, 200, origin);
     }
 
     // PUT /api/users/:id — 更新用户信息（需认证，仅本人可编辑）
@@ -629,6 +629,19 @@ async function handleApiRoutes(pathname, request, env, origin) {
       "SELECT DATE(created_at) as date, COUNT(*) as count FROM collections WHERE user_id = ? AND created_at >= DATE('now', '-1 year') GROUP BY DATE(created_at) ORDER BY date"
     ).bind(userId).all();
     return jsonResponse(rows.results || [], 200, origin);
+  }
+
+  // GET /api/users/search?q=keyword&limit=10 — 搜索用户
+  if (method === 'GET' && pathname === '/api/users/search') {
+    const q = new URL(request.url).searchParams.get('q') || '';
+    const limit = Math.min(50, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 10));
+    if (!q) return jsonResponse({ error: '缺少搜索关键词' }, 400, origin);
+
+    const users = await env.DB.prepare(
+      'SELECT id, username, name, avatar, bio, sign, join_date, following_count, follower_count FROM users WHERE username LIKE ? OR name LIKE ? LIMIT ?'
+    ).bind(`%${q}%`, `%${q}%`, limit).all();
+
+    return jsonResponse(users.results, 200, origin);
   }
 
   // GET /api/posts — 帖子列表（分页）
@@ -851,6 +864,260 @@ async function handleApiRoutes(pathname, request, env, origin) {
     ).bind(userId).all();
 
     return jsonResponse({ following: following.results, followers: followers.results }, 200, origin);
+  }
+
+  // DELETE /api/follows/:userId — 取消关注（需认证）
+  if (followMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const targetUserId = Number(followMatch[1]);
+
+    const existing = await env.DB.prepare(
+      'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+    ).bind(authUser.userId, targetUserId).first();
+
+    if (!existing) return jsonResponse({ error: '未关注该用户' }, 404, origin);
+
+    const batch = [
+      env.DB.prepare('DELETE FROM follows WHERE id = ?').bind(existing.id),
+      env.DB.prepare('UPDATE users SET following_count = MAX(0, following_count - 1) WHERE id = ?').bind(authUser.userId),
+      env.DB.prepare('UPDATE users SET follower_count = MAX(0, follower_count - 1) WHERE id = ?').bind(targetUserId),
+    ];
+    await env.DB.batch(batch);
+    return jsonResponse({ message: '已取消关注' }, 200, origin);
+  }
+
+  // GET /api/follows/following — 获取我关注的人（需认证）
+  if (method === 'GET' && pathname === '/api/follows/following') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const following = await env.DB.prepare(
+      'SELECT u.id, u.username, u.name, u.avatar, u.bio, u.sign FROM follows f JOIN users u ON f.to_user_id = u.id WHERE f.from_user_id = ?'
+    ).bind(authUser.userId).all();
+
+    return jsonResponse(following.results, 200, origin);
+  }
+
+  // GET /api/follows/followers — 获取关注我的人（需认证）
+  if (method === 'GET' && pathname === '/api/follows/followers') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const followers = await env.DB.prepare(
+      'SELECT u.id, u.username, u.name, u.avatar, u.bio, u.sign FROM follows f JOIN users u ON f.from_user_id = u.id WHERE f.to_user_id = ?'
+    ).bind(authUser.userId).all();
+
+    return jsonResponse(followers.results, 200, origin);
+  }
+
+  // ── Friends API ──
+
+  // POST /api/friends/request — 发送好友请求（需认证）
+  if (method === 'POST' && pathname === '/api/friends/request') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { to_user_id, message } = body;
+      if (!to_user_id) return jsonResponse({ error: '缺少 to_user_id' }, 400, origin);
+      if (Number(to_user_id) === authUser.userId) return jsonResponse({ error: '不能向自己发送好友请求' }, 400, origin);
+
+      // 检查目标用户是否存在
+      const targetUser = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(Number(to_user_id)).first();
+      if (!targetUser) return jsonResponse({ error: '目标用户不存在' }, 404, origin);
+
+      // 检查是否已有好友请求（双向检查）
+      const existing = await env.DB.prepare(
+        'SELECT id, status FROM friend_requests WHERE (from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)'
+      ).bind(authUser.userId, Number(to_user_id), Number(to_user_id), authUser.userId).first();
+      if (existing) {
+        if (existing.status === 'pending') return jsonResponse({ error: '已有待处理的好友请求' }, 409, origin);
+        if (existing.status === 'accepted') return jsonResponse({ error: '已经是好友' }, 409, origin);
+        // rejected 状态可以重新发送，先删除旧记录
+        await env.DB.prepare('DELETE FROM friend_requests WHERE id = ?').bind(existing.id).run();
+      }
+
+      const result = await env.DB.prepare(
+        "INSERT INTO friend_requests (from_user_id, to_user_id, status, message, created_at, updated_at) VALUES (?, ?, 'pending', ?, datetime('now'), datetime('now'))"
+      ).bind(authUser.userId, Number(to_user_id), message || '').run();
+
+      const requestId = result.meta.last_row_id;
+
+      // 创建通知
+      await env.DB.prepare(
+        "INSERT INTO notifications (user_id, type, from_user_id, target_type, target_id, content, is_read, created_at) VALUES (?, 'friend_request', ?, 'friend_request', ?, ?, 0, datetime('now'))"
+      ).bind(Number(to_user_id), authUser.userId, requestId, message || '').run();
+
+      const friendRequest = await env.DB.prepare('SELECT * FROM friend_requests WHERE id = ?').bind(requestId).first();
+      return jsonResponse(friendRequest, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '发送好友请求失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/friends/requests/sent — 获取发出的好友请求（需认证，需在 /requests 之前匹配）
+  if (method === 'GET' && pathname === '/api/friends/requests/sent') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const requests = await env.DB.prepare(
+      "SELECT fr.*, u.name AS to_user_name, u.avatar AS to_user_avatar, u.username AS to_user_username FROM friend_requests fr JOIN users u ON fr.to_user_id = u.id WHERE fr.from_user_id = ? ORDER BY fr.created_at DESC"
+    ).bind(authUser.userId).all();
+
+    return jsonResponse(requests.results, 200, origin);
+  }
+
+  // GET /api/friends/requests — 获取收到的好友请求（需认证）
+  if (method === 'GET' && pathname === '/api/friends/requests') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const requests = await env.DB.prepare(
+      "SELECT fr.*, u.name AS from_user_name, u.avatar AS from_user_avatar, u.username AS from_user_username FROM friend_requests fr JOIN users u ON fr.from_user_id = u.id WHERE fr.to_user_id = ? AND fr.status = 'pending' ORDER BY fr.created_at DESC"
+    ).bind(authUser.userId).all();
+
+    return jsonResponse(requests.results, 200, origin);
+  }
+
+  // PUT /api/friends/request/:id — 接受/拒绝好友请求（需认证）
+  const friendRequestMatch = pathname.match(/^\/api\/friends\/request\/(\d+)$/);
+  if (friendRequestMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const requestId = Number(friendRequestMatch[1]);
+
+    try {
+      const body = await request.json();
+      const { status } = body;
+      if (!['accepted', 'rejected'].includes(status)) return jsonResponse({ error: 'status 必须为 accepted 或 rejected' }, 400, origin);
+
+      const friendRequest = await env.DB.prepare('SELECT * FROM friend_requests WHERE id = ?').bind(requestId).first();
+      if (!friendRequest) return jsonResponse({ error: '好友请求不存在' }, 404, origin);
+      if (friendRequest.to_user_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+      if (friendRequest.status !== 'pending') return jsonResponse({ error: '该请求已处理' }, 400, origin);
+
+      if (status === 'accepted') {
+        // 检查双向关注是否已存在
+        const existingFollow1 = await env.DB.prepare(
+          'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+        ).bind(authUser.userId, friendRequest.from_user_id).first();
+
+        const existingFollow2 = await env.DB.prepare(
+          'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+        ).bind(friendRequest.from_user_id, authUser.userId).first();
+
+        const batch = [
+          env.DB.prepare("UPDATE friend_requests SET status = 'accepted', updated_at = datetime('now') WHERE id = ?").bind(requestId),
+        ];
+
+        // 我关注对方（如果尚未关注）
+        if (!existingFollow1) {
+          batch.push(
+            env.DB.prepare("INSERT INTO follows (from_user_id, to_user_id, created_at) VALUES (?, ?, datetime('now'))").bind(authUser.userId, friendRequest.from_user_id),
+            env.DB.prepare('UPDATE users SET following_count = following_count + 1 WHERE id = ?').bind(authUser.userId),
+            env.DB.prepare('UPDATE users SET follower_count = follower_count + 1 WHERE id = ?').bind(friendRequest.from_user_id),
+          );
+        }
+
+        // 对方关注我（如果尚未关注）
+        if (!existingFollow2) {
+          batch.push(
+            env.DB.prepare("INSERT INTO follows (from_user_id, to_user_id, created_at) VALUES (?, ?, datetime('now'))").bind(friendRequest.from_user_id, authUser.userId),
+            env.DB.prepare('UPDATE users SET following_count = following_count + 1 WHERE id = ?').bind(friendRequest.from_user_id),
+            env.DB.prepare('UPDATE users SET follower_count = follower_count + 1 WHERE id = ?').bind(authUser.userId),
+          );
+        }
+
+        await env.DB.batch(batch);
+      } else {
+        await env.DB.prepare("UPDATE friend_requests SET status = 'rejected', updated_at = datetime('now') WHERE id = ?").bind(requestId).run();
+      }
+
+      const updated = await env.DB.prepare('SELECT * FROM friend_requests WHERE id = ?').bind(requestId).first();
+      return jsonResponse(updated, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '处理好友请求失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/friends/status/:userId — 检查与某用户的关系（需认证，需在 DELETE /:userId 之前匹配）
+  const friendStatusMatch = pathname.match(/^\/api\/friends\/status\/(\d+)$/);
+  if (friendStatusMatch && method === 'GET') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const targetUserId = Number(friendStatusMatch[1]);
+
+    // 检查好友关系
+    const friendRequest = await env.DB.prepare(
+      'SELECT status, from_user_id FROM friend_requests WHERE (from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)'
+    ).bind(authUser.userId, targetUserId, targetUserId, authUser.userId).first();
+
+    // 检查关注关系
+    const isFollowing = !!(await env.DB.prepare(
+      'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+    ).bind(authUser.userId, targetUserId).first());
+
+    const isFollower = !!(await env.DB.prepare(
+      'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+    ).bind(targetUserId, authUser.userId).first());
+
+    let requestStatus = 'none';
+    let isFriend = false;
+    if (friendRequest) {
+      if (friendRequest.status === 'accepted') {
+        isFriend = true;
+        requestStatus = 'accepted';
+      } else if (friendRequest.status === 'pending') {
+        requestStatus = friendRequest.from_user_id === authUser.userId ? 'pending_sent' : 'pending_received';
+      } else if (friendRequest.status === 'rejected') {
+        requestStatus = 'rejected';
+      }
+    }
+
+    return jsonResponse({ isFriend, isFollowing, isFollower, requestStatus }, 200, origin);
+  }
+
+  // DELETE /api/friends/:userId — 删除好友（需认证）
+  const friendDeleteMatch = pathname.match(/^\/api\/friends\/(\d+)$/);
+  if (friendDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const targetUserId = Number(friendDeleteMatch[1]);
+
+    const friendRequest = await env.DB.prepare(
+      "SELECT id FROM friend_requests WHERE ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?)) AND status = 'accepted'"
+    ).bind(authUser.userId, targetUserId, targetUserId, authUser.userId).first();
+
+    if (!friendRequest) return jsonResponse({ error: '不是好友关系' }, 404, origin);
+
+    await env.DB.prepare('DELETE FROM friend_requests WHERE id = ?').bind(friendRequest.id).run();
+
+    return jsonResponse({ message: '已删除好友' }, 200, origin);
+  }
+
+  // GET /api/friends — 获取好友列表（需认证，分页）
+  if (method === 'GET' && pathname === '/api/friends') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const page = Math.max(1, Number(new URL(request.url).searchParams.get('page')) || 1);
+    const limit = Math.min(100, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 20));
+    const offset = (page - 1) * limit;
+
+    const friends = await env.DB.prepare(
+      "SELECT u.id, u.username, u.name, u.avatar, u.bio, u.sign, u.join_date, u.following_count, u.follower_count, fr.updated_at AS friend_since FROM friend_requests fr JOIN users u ON CASE WHEN fr.from_user_id = ? THEN fr.to_user_id ELSE fr.from_user_id END = u.id WHERE (fr.from_user_id = ? OR fr.to_user_id = ?) AND fr.status = 'accepted' ORDER BY fr.updated_at DESC LIMIT ? OFFSET ?"
+    ).bind(authUser.userId, authUser.userId, authUser.userId, limit, offset).all();
+
+    const countResult = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM friend_requests WHERE (from_user_id = ? OR to_user_id = ?) AND status = 'accepted'"
+    ).bind(authUser.userId, authUser.userId).first();
+
+    return jsonResponse({
+      friends: friends.results,
+      pagination: { page, limit, total: countResult.total },
+    }, 200, origin);
   }
 
   // POST /api/notifications — 创建通知
@@ -1364,6 +1631,7 @@ const RL_LIMITS = {
   '/api/follows': 20,
   '/api/ratings': 20,
   '/api/favorites': 20,
+  '/api/friends': 20,
 };
 
 const rlStore = new Map(); // key: `${ip}:${pathGroup}`, value: { count, resetAt }
@@ -1429,7 +1697,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }

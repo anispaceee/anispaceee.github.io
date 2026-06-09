@@ -363,6 +363,63 @@ export const FollowService = {
   },
 };
 
+// ─── FriendService ───
+// 好友系统，走后端 API
+export const FriendService = {
+  // 搜索用户
+  async searchUsers(keyword, limit = 10) {
+    return apiRequest(`/api/friends/search?keyword=${encodeURIComponent(keyword)}&limit=${limit}`);
+  },
+
+  // 获取用户公开信息
+  async getUserPublic(userId) {
+    return apiRequest(`/api/users/${userId}/public`);
+  },
+
+  // 发送好友请求
+  async sendFriendRequest(toUserId, message = '') {
+    return apiRequest('/api/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ toUserId, message }),
+    });
+  },
+
+  // 获取收到的好友请求
+  async getReceivedRequests() {
+    return apiRequest('/api/friends/requests/received');
+  },
+
+  // 获取发出的好友请求
+  async getSentRequests() {
+    return apiRequest('/api/friends/requests/sent');
+  },
+
+  // 处理好友请求（接受/拒绝）
+  async handleFriendRequest(requestId, status) {
+    return apiRequest(`/api/friends/request/${requestId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  // 删除好友
+  async removeFriend(userId) {
+    return apiRequest(`/api/friends/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // 获取好友列表
+  async getFriendList(page = 1, limit = 20) {
+    return apiRequest(`/api/friends?page=${page}&limit=${limit}`);
+  },
+
+  // 获取与某用户的好友状态
+  async getFriendStatus(userId) {
+    return apiRequest(`/api/friends/status?userId=${userId}`);
+  },
+};
+
 // ─── ForumService ───
 // 帖子、回复、点赞，走后端 API
 export const ForumService = {
