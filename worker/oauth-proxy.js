@@ -784,6 +784,342 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(newsItem, 200, origin);
   }
 
+  // ── Ratings API ──
+
+  // GET /api/ratings?subjectId=xxx — 获取某条目的所有评分
+  if (method === 'GET' && pathname === '/api/ratings') {
+    const subjectId = new URL(request.url).searchParams.get('subjectId');
+    if (!subjectId) return jsonResponse({ error: '缺少 subjectId 参数' }, 400, origin);
+
+    const ratings = await env.DB.prepare(
+      'SELECT r.*, u.name AS user_name, u.avatar AS user_avatar FROM ratings r JOIN users u ON r.user_id = u.id WHERE r.subject_id = ? ORDER BY r.created_at DESC'
+    ).bind(Number(subjectId)).all();
+
+    return jsonResponse(ratings.results, 200, origin);
+  }
+
+  // GET /api/ratings/user?userId=xxx&subjectId=xxx — 获取用户对某条目的评分
+  if (method === 'GET' && pathname === '/api/ratings/user') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    const subjectId = new URL(request.url).searchParams.get('subjectId');
+    if (!userId || !subjectId) return jsonResponse({ error: '缺少 userId 或 subjectId 参数' }, 400, origin);
+
+    const rating = await env.DB.prepare(
+      'SELECT * FROM ratings WHERE user_id = ? AND subject_id = ?'
+    ).bind(Number(userId), Number(subjectId)).first();
+
+    return jsonResponse(rating || null, 200, origin);
+  }
+
+  // POST /api/ratings — 新增/更新评分（需认证）
+  if (method === 'POST' && pathname === '/api/ratings') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { subjectId, subjectType, score, content } = body;
+      if (!subjectId || score === undefined) return jsonResponse({ error: '缺少 subjectId 或 score' }, 400, origin);
+
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO ratings (user_id, subject_id, subject_type, score, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))'
+      ).bind(authUser.userId, subjectId, subjectType ?? 2, score, content || '').run();
+
+      const rating = await env.DB.prepare(
+        'SELECT * FROM ratings WHERE user_id = ? AND subject_id = ?'
+      ).bind(authUser.userId, subjectId).first();
+
+      return jsonResponse(rating, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '评分操作失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ── Favorites API ──
+
+  // GET /api/favorites/check?userId=xxx&targetType=info&targetId=xxx — 检查是否已收藏
+  if (method === 'GET' && pathname === '/api/favorites/check') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    const targetType = new URL(request.url).searchParams.get('targetType');
+    const targetId = new URL(request.url).searchParams.get('targetId');
+    if (!userId || !targetType || !targetId) return jsonResponse({ error: '缺少参数' }, 400, origin);
+
+    const existing = await env.DB.prepare(
+      'SELECT id FROM favorites WHERE user_id = ? AND target_type = ? AND target_id = ?'
+    ).bind(Number(userId), targetType, Number(targetId)).first();
+
+    return jsonResponse({ favorited: !!existing }, 200, origin);
+  }
+
+  // GET /api/favorites?userId=xxx&targetType=info — 获取用户收藏列表
+  if (method === 'GET' && pathname === '/api/favorites') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    const targetType = new URL(request.url).searchParams.get('targetType') || 'info';
+    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+
+    const favorites = await env.DB.prepare(
+      'SELECT * FROM favorites WHERE user_id = ? AND target_type = ? ORDER BY created_at DESC'
+    ).bind(Number(userId), targetType).all();
+
+    return jsonResponse(favorites.results, 200, origin);
+  }
+
+  // POST /api/favorites/toggle — 切换收藏状态（需认证）
+  if (method === 'POST' && pathname === '/api/favorites/toggle') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { userId, targetType, targetId } = body;
+      if (!targetType || !targetId) return jsonResponse({ error: '缺少 targetType 或 targetId' }, 400, origin);
+      if (userId && Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+      const existing = await env.DB.prepare(
+        'SELECT id FROM favorites WHERE user_id = ? AND target_type = ? AND target_id = ?'
+      ).bind(authUser.userId, targetType, Number(targetId)).first();
+
+      if (existing) {
+        await env.DB.prepare('DELETE FROM favorites WHERE id = ?').bind(existing.id).run();
+        return jsonResponse({ favorited: false }, 200, origin);
+      } else {
+        await env.DB.prepare(
+          'INSERT INTO favorites (user_id, target_type, target_id, created_at) VALUES (?, ?, ?, datetime(\'now\'))'
+        ).bind(authUser.userId, targetType, Number(targetId)).run();
+        return jsonResponse({ favorited: true }, 200, origin);
+      }
+    } catch (err) {
+      return jsonResponse({ error: '收藏操作失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ── Mails API ──
+
+  // GET /api/mails/unread?userId=xxx — 未读邮件数
+  if (method === 'GET' && pathname === '/api/mails/unread') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+
+    const result = await env.DB.prepare(
+      'SELECT COUNT(*) AS unread FROM mails WHERE to_user_id = ? AND read = 0 AND deleted_by_receiver = 0'
+    ).bind(Number(userId)).first();
+
+    return jsonResponse({ unread: result.unread }, 200, origin);
+  }
+
+  // GET /api/mails/inbox?userId=xxx — 收件箱
+  if (method === 'GET' && pathname === '/api/mails/inbox') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+
+    const mails = await env.DB.prepare(
+      'SELECT m.*, u.name AS from_user_name, u.avatar AS from_user_avatar FROM mails m JOIN users u ON m.from_user_id = u.id WHERE m.to_user_id = ? AND m.deleted_by_receiver = 0 ORDER BY m.created_at DESC'
+    ).bind(Number(userId)).all();
+
+    return jsonResponse(mails.results, 200, origin);
+  }
+
+  // GET /api/mails/sent?userId=xxx — 发件箱
+  if (method === 'GET' && pathname === '/api/mails/sent') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+
+    const mails = await env.DB.prepare(
+      'SELECT m.*, u.name AS to_user_name, u.avatar AS to_user_avatar FROM mails m JOIN users u ON m.to_user_id = u.id WHERE m.from_user_id = ? AND m.deleted_by_sender = 0 ORDER BY m.created_at DESC'
+    ).bind(Number(userId)).all();
+
+    return jsonResponse(mails.results, 200, origin);
+  }
+
+  // GET /api/mails/conversation?userId=xxx&otherUserId=yyy — 两人之间的邮件
+  if (method === 'GET' && pathname === '/api/mails/conversation') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    const otherUserId = new URL(request.url).searchParams.get('otherUserId');
+    if (!userId || !otherUserId) return jsonResponse({ error: '缺少 userId 或 otherUserId 参数' }, 400, origin);
+
+    const mails = await env.DB.prepare(
+      'SELECT m.*, u1.name AS from_user_name, u2.name AS to_user_name FROM mails m JOIN users u1 ON m.from_user_id = u1.id JOIN users u2 ON m.to_user_id = u2.id WHERE ((m.from_user_id = ? AND m.to_user_id = ? AND m.deleted_by_sender = 0) OR (m.from_user_id = ? AND m.to_user_id = ? AND m.deleted_by_receiver = 0)) ORDER BY m.created_at ASC'
+    ).bind(Number(userId), Number(otherUserId), Number(otherUserId), Number(userId)).all();
+
+    return jsonResponse(mails.results, 200, origin);
+  }
+
+  // PUT /api/mails/:id/read — 标记已读（需认证）
+  const mailReadMatch = pathname.match(/^\/api\/mails\/(\d+)\/read$/);
+  if (mailReadMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const mailId = Number(mailReadMatch[1]);
+
+    await env.DB.prepare(
+      'UPDATE mails SET read = 1 WHERE id = ? AND to_user_id = ?'
+    ).bind(mailId, authUser.userId).run();
+
+    return jsonResponse({ message: '已标记为已读' }, 200, origin);
+  }
+
+  // PUT /api/mails/:id/star — 切换星标（需认证）
+  const mailStarMatch = pathname.match(/^\/api\/mails\/(\d+)\/star$/);
+  if (mailStarMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const mailId = Number(mailStarMatch[1]);
+
+    const mail = await env.DB.prepare('SELECT starred FROM mails WHERE id = ? AND (from_user_id = ? OR to_user_id = ?)').bind(mailId, authUser.userId, authUser.userId).first();
+    if (!mail) return jsonResponse({ error: '邮件不存在' }, 404, origin);
+
+    await env.DB.prepare('UPDATE mails SET starred = ? WHERE id = ?').bind(mail.starred ? 0 : 1, mailId).run();
+
+    return jsonResponse({ starred: !mail.starred }, 200, origin);
+  }
+
+  // DELETE /api/mails/:id?userId=xxx — 删除邮件（软删除，需认证）
+  const mailDeleteMatch = pathname.match(/^\/api\/mails\/(\d+)$/);
+  if (mailDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const mailId = Number(mailDeleteMatch[1]);
+    const userId = new URL(request.url).searchParams.get('userId');
+    if (!userId || Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    const mail = await env.DB.prepare('SELECT from_user_id, to_user_id FROM mails WHERE id = ?').bind(mailId).first();
+    if (!mail) return jsonResponse({ error: '邮件不存在' }, 404, origin);
+
+    if (mail.from_user_id === authUser.userId) {
+      await env.DB.prepare('UPDATE mails SET deleted_by_sender = 1 WHERE id = ?').bind(mailId).run();
+    } else if (mail.to_user_id === authUser.userId) {
+      await env.DB.prepare('UPDATE mails SET deleted_by_receiver = 1 WHERE id = ?').bind(mailId).run();
+    } else {
+      return jsonResponse({ error: '无权操作' }, 403, origin);
+    }
+
+    return jsonResponse({ message: '已删除邮件' }, 200, origin);
+  }
+
+  // POST /api/mails — 发送邮件（需认证）
+  if (method === 'POST' && pathname === '/api/mails') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { toUserId, subject, content, attachments } = body;
+      if (!toUserId || !content) return jsonResponse({ error: '缺少 toUserId 或 content' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO mails (from_user_id, to_user_id, subject, content, attachments, created_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))'
+      ).bind(authUser.userId, Number(toUserId), subject || '', content, attachments ? JSON.stringify(attachments) : '[]').run();
+
+      const mail = await env.DB.prepare('SELECT * FROM mails WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(mail, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '发送邮件失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ── Private Messages API ──
+
+  // GET /api/private-messages/conversations?userId=xxx — 获取会话列表
+  if (method === 'GET' && pathname === '/api/private-messages/conversations') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+
+    const conversations = await env.DB.prepare(
+      'SELECT u.id AS other_user_id, u.name AS other_user_name, u.avatar AS other_user_avatar, pm.content AS last_message, pm.created_at AS last_message_at, (SELECT COUNT(*) FROM private_messages WHERE to_user_id = ? AND from_user_id = u.id AND read = 0) AS unread_count FROM private_messages pm JOIN users u ON (CASE WHEN pm.from_user_id = ? THEN pm.to_user_id ELSE pm.from_user_id END) = u.id WHERE pm.id IN (SELECT MAX(id) FROM private_messages WHERE from_user_id = ? OR to_user_id = ? GROUP BY CASE WHEN from_user_id = ? THEN to_user_id ELSE from_user_id END) ORDER BY pm.created_at DESC'
+    ).bind(Number(userId), Number(userId), Number(userId), Number(userId), Number(userId)).all();
+
+    return jsonResponse(conversations.results, 200, origin);
+  }
+
+  // GET /api/private-messages/conversation?userId=xxx&otherUserId=yyy — 获取两人之间的消息
+  if (method === 'GET' && pathname === '/api/private-messages/conversation') {
+    const userId = new URL(request.url).searchParams.get('userId');
+    const otherUserId = new URL(request.url).searchParams.get('otherUserId');
+    if (!userId || !otherUserId) return jsonResponse({ error: '缺少 userId 或 otherUserId 参数' }, 400, origin);
+
+    const messages = await env.DB.prepare(
+      'SELECT pm.*, u.name AS from_user_name, u.avatar AS from_user_avatar FROM private_messages pm JOIN users u ON pm.from_user_id = u.id WHERE (pm.from_user_id = ? AND pm.to_user_id = ?) OR (pm.from_user_id = ? AND pm.to_user_id = ?) ORDER BY pm.created_at ASC'
+    ).bind(Number(userId), Number(otherUserId), Number(otherUserId), Number(userId)).all();
+
+    return jsonResponse(messages.results, 200, origin);
+  }
+
+  // PUT /api/private-messages/read?userId=xxx&otherUserId=yyy — 标记已读（需认证）
+  if (method === 'PUT' && pathname === '/api/private-messages/read') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const userId = new URL(request.url).searchParams.get('userId');
+    const otherUserId = new URL(request.url).searchParams.get('otherUserId');
+    if (!userId || !otherUserId) return jsonResponse({ error: '缺少 userId 或 otherUserId 参数' }, 400, origin);
+    if (Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare(
+      'UPDATE private_messages SET read = 1 WHERE to_user_id = ? AND from_user_id = ? AND read = 0'
+    ).bind(authUser.userId, Number(otherUserId)).run();
+
+    return jsonResponse({ message: '已标记为已读' }, 200, origin);
+  }
+
+  // POST /api/private-messages — 发送私信（需认证）
+  if (method === 'POST' && pathname === '/api/private-messages') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { toUserId, content } = body;
+      if (!toUserId || !content) return jsonResponse({ error: '缺少 toUserId 或 content' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO private_messages (from_user_id, to_user_id, content, created_at) VALUES (?, ?, ?, datetime(\'now\'))'
+      ).bind(authUser.userId, Number(toUserId), content).run();
+
+      const message = await env.DB.prepare('SELECT * FROM private_messages WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(message, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '发送私信失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ── Follow check API ──
+
+  // GET /api/follows/check?fromUserId=xxx&toUserId=yyy — 检查是否关注
+  if (method === 'GET' && pathname === '/api/follows/check') {
+    const fromUserId = new URL(request.url).searchParams.get('fromUserId');
+    const toUserId = new URL(request.url).searchParams.get('toUserId');
+    if (!fromUserId || !toUserId) return jsonResponse({ error: '缺少 fromUserId 或 toUserId 参数' }, 400, origin);
+
+    const existing = await env.DB.prepare(
+      'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+    ).bind(Number(fromUserId), Number(toUserId)).first();
+
+    return jsonResponse({ following: !!existing }, 200, origin);
+  }
+
+  // ── Notification add API ──
+
+  // POST /api/notifications — 创建通知（需认证）
+  if (method === 'POST' && pathname === '/api/notifications') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { userId, type, fromUserId, targetType, targetId, content } = body;
+      if (!userId || !type) return jsonResponse({ error: '缺少 userId 或 type' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO notifications (user_id, type, from_user_id, target_type, target_id, content, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, datetime(\'now\'))'
+      ).bind(Number(userId), type, fromUserId || 0, targetType || '', targetId || 0, content || '').run();
+
+      const notification = await env.DB.prepare('SELECT * FROM notifications WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(notification, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '创建通知失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // 未匹配的 API 路由
   return null;
 }
@@ -807,7 +1143,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows/') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }

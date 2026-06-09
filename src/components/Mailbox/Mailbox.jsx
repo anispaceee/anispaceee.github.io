@@ -1,7 +1,7 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { MailService, UserService } from '../../services/api';
-import { Mail, Send, Star, Trash2, Search, Inbox, ArrowRight, MessageCircle, FileText, Paperclip, X, ChevronLeft, Bold, Italic, Underline, Smile, LinkIcon, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Mail, Send, Star, Trash2, Search, Inbox, ArrowRight, MessageCircle, FileText, Paperclip, X, ChevronLeft, Bold, Italic, Underline, Smile, LinkIcon, Image as ImageIcon, Eye, EyeOff, Loader2 } from 'lucide-react';
 import './Mailbox.css';
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
@@ -46,34 +46,56 @@ export default function Mailbox() {
   const chatEndRef = useRef(null);
   const contentRef = useRef(null);
 
+  const [inbox, setInbox] = useState([]);
+  const [sent, setSent] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [chatMails, setChatMails] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
+    if (!currentUser) return;
+    setLoading(true);
+    try {
+      const inboxData = await MailService.fetchInbox(currentUser.id);
+      setInbox(Array.isArray(inboxData) ? inboxData : []);
+    } catch { setInbox([]); }
+    try {
+      const sentData = await MailService.fetchSent(currentUser.id);
+      setSent(Array.isArray(sentData) ? sentData : []);
+    } catch { setSent([]); }
+    try {
+      const unreadData = await MailService.getUnreadCountAsync(currentUser.id);
+      setUnreadCount(typeof unreadData === 'object' ? unreadData.count : (unreadData || 0));
+    } catch { /* no-op */ }
+    setLoading(false);
+  }, [currentUser]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (currentUser) loadData();
+  }, [loadData, currentUser]);
+
+  useEffect(() => {
+    if (!selectedChat || !currentUser) return;
+    let cancelled = false;
+    MailService.fetchConversation(currentUser.id, selectedChat)
+      .then(data => { if (!cancelled) setChatMails(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setChatMails([]); });
+    return () => { cancelled = true; };
+  }, [selectedChat, currentUser, inbox, sent]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedChat]);
-
-  if (!isAuthenticated || !currentUser) {
-    return (
-      <div className="mailbox-page">
-        <div className="mailbox-auth-prompt">
-          <Mail size={48} />
-          <h2>请先登录</h2>
-          <p>登录后即可使用邮箱功能</p>
-          <button className="mailbox-auth-btn" onClick={() => openAuth()}>登录</button>
-        </div>
-      </div>
-    );
-  }
-
-  const inbox = MailService.getInbox(currentUser.id);
-  const sent = MailService.getSent(currentUser.id);
-  const unreadCount = MailService.getUnreadCount(currentUser.id);
+  }, [selectedChat, chatMails]);
 
   const filteredMails = useMemo(() => {
     let mails = folder === 'inbox' ? inbox : folder === 'sent' ? sent : [...inbox, ...sent].filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
     if (searchQuery.trim()) {
-      mails = MailService.searchMails(currentUser.id, searchQuery);
+      const q = searchQuery.toLowerCase();
+      mails = mails.filter(m => m.subject?.toLowerCase().includes(q) || m.content?.toLowerCase().includes(q));
     }
     return mails;
-  }, [folder, inbox, sent, searchQuery, currentUser.id]);
+  }, [folder, inbox, sent, searchQuery]);
 
   const chatList = useMemo(() => {
     const allMails = [...inbox, ...sent];
@@ -90,33 +112,51 @@ export default function Mailbox() {
     return Object.values(convMap).sort((a, b) => new Date(b.lastMail.createdAt) - new Date(a.lastMail.createdAt));
   }, [inbox, sent, currentUser.id]);
 
-  const chatMails = useMemo(() => {
-    if (!selectedChat) return [];
-    return MailService.getConversationMails(currentUser.id, selectedChat);
-  }, [selectedChat, currentUser.id, inbox, sent]);
+  if (!isAuthenticated || !currentUser) {
+    return (
+      <div className="mailbox-page">
+        <div className="mailbox-auth-prompt">
+          <Mail size={48} />
+          <h2>请先登录</h2>
+          <p>登录后即可使用邮箱功能</p>
+          <button className="mailbox-auth-btn" onClick={() => openAuth()}>登录</button>
+        </div>
+      </div>
+    );
+  }
 
-  const handleSendMail = () => {
+  const handleSendMail = async () => {
     const toUser = UserService.search(composeForm.to);
     const target = toUser.find(u => u.username === composeForm.to || u.name === composeForm.to);
     if (!target) { alert('未找到该用户'); return; }
     if (!composeForm.content.trim()) return;
-    const result = MailService.send(currentUser.id, target.id, composeForm.subject, composeForm.content, attachments);
-    if (result.error) { alert(result.error); return; }
+    try {
+      const result = await MailService.sendAsync(currentUser.id, target.id, composeForm.subject, composeForm.content, attachments);
+      if (result.error) { alert(result.error); return; }
+    } catch (err) { alert('发送失败：' + (err.message || '未知错误')); return; }
     setComposing(false);
     setComposeForm({ to: '', subject: '', content: '' });
     setAttachments([]);
+    loadData();
   };
 
-  const handleSendChat = () => {
+  const handleSendChat = async () => {
     if (!chatInput.trim() || !selectedChat) return;
-    MailService.send(currentUser.id, selectedChat, '', chatInput);
+    try {
+      await MailService.sendAsync(currentUser.id, selectedChat, '', chatInput);
+    } catch { /* no-op */ }
     setChatInput('');
     setShowEmoji(false);
+    loadData();
   };
 
-  const handleSelectMail = (mail) => {
+  const handleSelectMail = async (mail) => {
     if (!mail.read && mail.toUserId === currentUser.id) {
-      MailService.markAsRead(mail.id);
+      try {
+        await MailService.markAsReadAsync(mail.id);
+        setInbox(prev => prev.map(m => m.id === mail.id ? { ...m, read: true } : m));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch { /* no-op */ }
     }
     setSelectedMail(mail);
   };
@@ -205,7 +245,9 @@ export default function Mailbox() {
                 <input placeholder="搜索邮件..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               </div>
               <div className="mail-list">
-                {filteredMails.length === 0 ? (
+                {loading ? (
+                  <div className="mail-empty"><Loader2 size={20} className="spin" /> 加载中...</div>
+                ) : filteredMails.length === 0 ? (
                   <div className="mail-empty">暂无邮件</div>
                 ) : (
                   filteredMails.map(mail => {
@@ -283,10 +325,10 @@ export default function Mailbox() {
                   <div className="mail-detail-header">
                     <button className="mail-back-btn" onClick={() => setSelectedMail(null)}><ChevronLeft size={16} /> 返回</button>
                     <div className="mail-detail-actions">
-                      <button className="detail-action-btn" onClick={() => MailService.toggleStar(selectedMail.id)} title="星标">
+                      <button className="detail-action-btn" onClick={async () => { try { await MailService.toggleStarAsync(selectedMail.id); setSelectedMail(prev => prev ? { ...prev, starred: !prev.starred } : prev); loadData(); } catch { /* no-op */ } }} title="星标">
                         <Star size={14} fill={selectedMail.starred ? 'var(--accent-warm)' : 'none'} />
                       </button>
-                      <button className="detail-action-btn" onClick={() => { MailService.deleteMail(selectedMail.id, currentUser.id); setSelectedMail(null); }} title="删除">
+                      <button className="detail-action-btn" onClick={async () => { try { await MailService.deleteMailAsync(selectedMail.id, currentUser.id); } catch { /* no-op */ } setSelectedMail(null); loadData(); }} title="删除">
                         <Trash2 size={14} />
                       </button>
                     </div>

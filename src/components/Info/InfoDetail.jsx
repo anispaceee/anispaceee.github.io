@@ -142,6 +142,7 @@ export default function InfoDetail() {
   const [charsLoading, setCharsLoading] = useState(false);
 
   const [userScore, setUserScore] = useState(0);
+  const [avgScore, setAvgScore] = useState(0);
   const [hoverScore, setHoverScore] = useState(0);
   const [isFav, setIsFav] = useState(false);
   const [collectionMark, setCollectionMark] = useState(null);
@@ -171,9 +172,14 @@ export default function InfoDetail() {
       if (!data || !data.id) throw new ApiError('请求的内容不存在', 404, 'NOT_FOUND');
       setSubject(data); setProgress(90);
       if (currentUser) {
-        const rating = RatingService.getUserRating(currentUser.id, parseInt(id));
-        if (rating) setUserScore(rating.score);
-        setIsFav(FavoriteService.isFavorited(currentUser.id, 'info', parseInt(id)));
+        try {
+          const ratingData = await RatingService.fetchUserRating(currentUser.id, parseInt(id));
+          if (ratingData) setUserScore(ratingData.score);
+        } catch {}
+        try {
+          const favResult = await FavoriteService.isFavoritedAsync(currentUser.id, 'info', parseInt(id));
+          if (favResult) setIsFav(favResult.favorited);
+        } catch {}
         // 从后端 API 获取收藏状态
         try {
           const marks = await CollectionMarkService.getByUserId(currentUser.id);
@@ -254,18 +260,27 @@ export default function InfoDetail() {
 
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
   useEffect(() => { fetchBgmComments(1); }, [fetchBgmComments]);
+  useEffect(() => {
+    RatingService.getAverageScoreAsync(parseInt(id)).then(score => {
+      setAvgScore(score);
+    }).catch(() => {});
+  }, [id]);
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [id]);
 
-  const handleRate = (score) => {
+  const handleRate = async (score) => {
     if (!isAuthenticated) { openAuth(); return; }
-    RatingService.addRating(currentUser.id, parseInt(id), subject?.type || 2, score);
-    setUserScore(score);
+    try {
+      await RatingService.addRatingAsync(currentUser.id, parseInt(id), subject?.type || 2, score);
+      setUserScore(score);
+    } catch {}
   };
 
-  const toggleFav = () => {
+  const toggleFav = async () => {
     if (!isAuthenticated) { openAuth(); return; }
-    FavoriteService.toggle(currentUser.id, 'info', parseInt(id));
-    setIsFav(!isFav);
+    try {
+      const result = await FavoriteService.toggleAsync(currentUser.id, 'info', parseInt(id));
+      setIsFav(result.favorited);
+    } catch {}
   };
 
   const handleComment = () => {
@@ -462,7 +477,6 @@ export default function InfoDetail() {
   const score = subject.rating?.score || 0;
   const totalRatings = subject.rating?.total || 0;
   const rank = subject.rank;
-  const avgScore = RatingService.getAverageScore(parseInt(id));
   const allChars = characters;
   const mainChars = characters.filter(c => c.role === '主角').slice(0, 8);
   const supportChars = characters.filter(c => c.role !== '主角').slice(0, 12);

@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { BangumiService, ApiError, StorageService, UserService } from '../services/api';
+import { BangumiService, ApiError, StorageService, UserService, ForumService, WorldChannelService } from '../services/api';
 import { ArrowRight, TrendingUp, MessageCircle, Flame, Eye, Heart, MessageSquare, Clock, Search, Calendar, RefreshCw, Star, ExternalLink, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Send, Image, Smile, X, Minus, Maximize2, Sparkles, Loader2, Play, Tv, BookOpen, Gamepad2, AlertCircle, RotateCw } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import NewsZone from '../components/NewsZone/NewsZone';
@@ -154,8 +154,23 @@ export default function HomePage() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const hotPosts = [...StorageService.get('acg_forum_posts', [])].sort((a, b) => b.likes - a.likes).slice(0, 6);
-  const recentMessages = StorageService.get('acg_world_messages', []).slice(0, 8);
+  const [hotPosts, setHotPosts] = useState([]);
+  const [recentMessages, setRecentMessages] = useState([]);
+
+  useEffect(() => {
+    const loadHomeData = async () => {
+      try {
+        const data = await ForumService.getPosts(1, 100);
+        const posts = (data.posts || []).sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 6);
+        setHotPosts(posts);
+      } catch {}
+      try {
+        const data = await WorldChannelService.getMessages(1, 8);
+        setRecentMessages(data.messages || []);
+      } catch {}
+    };
+    loadHomeData();
+  }, []);
 
   const [randomSubject, setRandomSubject] = useState(null);
   const [randomLoading, setRandomLoading] = useState(true);
@@ -291,13 +306,21 @@ export default function HomePage() {
     handleSearch(searchCurrentPage);
   }, [handleSearch, searchCurrentPage]);
 
-  const handleWorldSend = () => {
+  const handleWorldSend = async () => {
     if (!isAuthenticated) { openAuth(); return; }
     if (!newMessage.trim()) return;
-    setWorldMessages(prev => [...prev, {
-      id: Date.now(), userId: currentUser.id, content: newMessage.trim(),
-      timestamp: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-    }]);
+    try {
+      const sent = await WorldChannelService.sendMessage(newMessage.trim());
+      setWorldMessages(prev => [...prev, {
+        id: sent.id || Date.now(), author_id: currentUser.id, author_name: currentUser.name || currentUser.username, author_avatar: currentUser.avatar, content: newMessage.trim(),
+        created_at: sent.created_at || new Date().toISOString(),
+      }]);
+    } catch {
+      // 降级：本地添加
+      setWorldMessages(prev => [...prev, {
+        id: Date.now(), author_id: currentUser.id, content: newMessage.trim(),
+      }]);
+    }
     setNewMessage('');
   };
 
@@ -446,7 +469,8 @@ export default function HomePage() {
               <div className="home-window-body">
                 <div className="home-hot-posts">
                   {hotPosts.map((post, index) => {
-                    const author = getUserById(post.userId);
+                    const authorName = post.author_name || getUserById(post.author_id)?.name || '未知';
+                    const authorAvatar = post.author_avatar || getUserById(post.author_id)?.avatar || '';
                     return (
                       <Link to={`/forum/post/${post.id}`} key={post.id} className="home-hot-post">
                         <span className="home-hot-rank">{index + 1}</span>
@@ -457,12 +481,12 @@ export default function HomePage() {
                           </div>
                           <div className="home-hot-meta">
                             <span className="home-hot-author">
-                              <AvatarWithFallback src={author?.avatar} alt={author?.name} className="home-hot-avatar" />
-                              {author?.name}
+                              <AvatarWithFallback src={authorAvatar} alt={authorName} className="home-hot-avatar" />
+                              {authorName}
                             </span>
                             <div className="home-hot-stats">
-                              <span><Heart size={11} /> {post.likes}</span>
-                              <span><MessageSquare size={11} /> {post.replies}</span>
+                              <span><Heart size={11} /> {post.likes || 0}</span>
+                              <span><MessageSquare size={11} /> {post.replies_count || 0}</span>
                             </div>
                           </div>
                         </div>
@@ -489,13 +513,14 @@ export default function HomePage() {
                 <div className="home-world-chat">
                   <div className="home-chat-messages">
                     {worldMessages.map(msg => {
-                      const user = getUserById(msg.userId);
-                      const isSelf = currentUser && msg.userId === currentUser.id;
+                      const msgUserName = msg.author_name || getUserById(msg.author_id)?.name || '未知';
+                      const msgUserAvatar = msg.author_avatar || getUserById(msg.author_id)?.avatar || '';
+                      const isSelf = currentUser && msg.author_id === currentUser.id;
                       return (
                         <div key={msg.id} className={`home-chat-msg ${isSelf ? 'self' : 'other'}`}>
-                          <AvatarWithFallback src={user?.avatar} alt={user?.name} className="home-chat-avatar" />
+                          <AvatarWithFallback src={msgUserAvatar} alt={msgUserName} className="home-chat-avatar" />
                           <div className="home-chat-bubble-wrap">
-                            <span className="home-chat-name">{user?.name}</span>
+                            <span className="home-chat-name">{msgUserName}</span>
                             <div className={`home-chat-bubble ${isSelf ? 'bubble-self' : 'bubble-other'}`}>
                               {msg.content}
                             </div>

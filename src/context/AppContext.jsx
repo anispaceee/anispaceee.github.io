@@ -11,8 +11,9 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (currentUser) {
-      const unread = NotificationService.getUnread(currentUser.id);
-      setNotifications(unread);
+      NotificationService.getUnreadAsync(currentUser.id).then(unread => {
+        setNotifications(Array.isArray(unread) ? unread : []);
+      }).catch(() => {});
     }
   }, [currentUser]);
 

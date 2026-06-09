@@ -286,6 +286,12 @@ export const FollowService = {
     const follows = StorageService.get(SK.FOLLOWS, []);
     return follows.some(f => f.from === currentUserId && f.to === targetUserId);
   },
+
+  // ── 异步方法（走后端 API） ──
+  async isFollowingAsync(fromUserId, toUserId) {
+    const result = await apiRequest(`/api/follows/check?fromUserId=${fromUserId}&toUserId=${toUserId}`);
+    return result.following === true;
+  },
 };
 
 // ─── ForumService ───
@@ -396,6 +402,17 @@ export const NotificationService = {
   getAll(userId) { return StorageService.get(SK.NOTIFICATIONS, []).filter(n => n.userId === userId); },
   markRead(id) { const n = StorageService.get(SK.NOTIFICATIONS, []); const item = n.find(x => x.id === id); if (item) item.read = true; StorageService.set(SK.NOTIFICATIONS, n); },
   markAllRead(userId) { const n = StorageService.get(SK.NOTIFICATIONS, []); n.forEach(x => { if (x.userId === userId) x.read = true; }); StorageService.set(SK.NOTIFICATIONS, n); },
+
+  // ── 异步方法（走后端 API） ──
+  async addAsync(userId, type, fromUserId, targetType, targetId, content) {
+    return apiRequest('/api/notifications', {
+      method: 'POST',
+      body: JSON.stringify({ userId, type, fromUserId: fromUserId || 0, targetType: targetType || '', targetId: targetId || 0, content: content || '' }),
+    });
+  },
+  async getUnreadAsync(userId) {
+    return apiRequest(`/api/notifications?userId=${userId}&unread=true`);
+  },
 };
 
 // ─── WorldChannelService ───
@@ -733,6 +750,26 @@ export const RatingService = {
   getRatings(subjectId) { return StorageService.get(SK.RATINGS, []).filter(r => r.subjectId === subjectId); },
   getAverageScore(subjectId) { const r = this.getRatings(subjectId); return r.length === 0 ? 0 : (r.reduce((s, x) => s + x.score, 0) / r.length).toFixed(1); },
   getUserRating(userId, subjectId) { return StorageService.get(SK.RATINGS, []).find(r => r.userId === userId && r.subjectId === subjectId); },
+
+  // ── 异步方法（走后端 API） ──
+  async fetchRatings(subjectId) {
+    return apiRequest(`/api/ratings?subjectId=${subjectId}`);
+  },
+  async fetchUserRating(userId, subjectId) {
+    return apiRequest(`/api/ratings/user?userId=${userId}&subjectId=${subjectId}`);
+  },
+  async addRatingAsync(userId, subjectId, subjectType, score, content = '') {
+    return apiRequest('/api/ratings', {
+      method: 'POST',
+      body: JSON.stringify({ subjectId, subjectType, score, content }),
+    });
+  },
+  async getAverageScoreAsync(subjectId) {
+    const ratings = await this.fetchRatings(subjectId);
+    const list = Array.isArray(ratings) ? ratings : [];
+    if (list.length === 0) return '0.0';
+    return (list.reduce((s, r) => s + r.score, 0) / list.length).toFixed(1);
+  },
 };
 
 // ─── LikeService ───
@@ -763,6 +800,20 @@ export const FavoriteService = {
   },
   isFavorited(userId, targetType, targetId) { return StorageService.get(SK.FAVORITES, []).some(f => f.key === `${userId}_${targetType}_${targetId}`); },
   getUserFavorites(userId, targetType) { return StorageService.get(SK.FAVORITES, []).filter(f => f.userId === userId && (!targetType || f.targetType === targetType)); },
+
+  // ── 异步方法（走后端 API） ──
+  async toggleAsync(userId, targetType, targetId) {
+    return apiRequest('/api/favorites/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ userId, targetType, targetId }),
+    });
+  },
+  async isFavoritedAsync(userId, targetType, targetId) {
+    return apiRequest(`/api/favorites/check?userId=${userId}&targetType=${targetType}&targetId=${targetId}`);
+  },
+  async getUserFavoritesAsync(userId, targetType) {
+    return apiRequest(`/api/favorites?userId=${userId}&targetType=${targetType}`);
+  },
 };
 
 // ─── PrivateMessageService ───
@@ -803,6 +854,23 @@ export const PrivateMessageService = {
 
   getUnreadCount(userId) {
     return StorageService.get(SK.PRIVATE_MESSAGES, []).filter(m => m.toUserId === userId && !m.read).length;
+  },
+
+  // ── 异步方法（走后端 API） ──
+  async fetchConversations(userId) {
+    return apiRequest(`/api/private-messages/conversations?userId=${userId}`);
+  },
+  async fetchConversation(userId, otherUserId) {
+    return apiRequest(`/api/private-messages/conversation?userId=${userId}&otherUserId=${otherUserId}`);
+  },
+  async sendAsync(fromUserId, toUserId, content) {
+    return apiRequest('/api/private-messages', {
+      method: 'POST',
+      body: JSON.stringify({ toUserId, content }),
+    });
+  },
+  async markAsReadAsync(userId, otherUserId) {
+    return apiRequest(`/api/private-messages/read?userId=${userId}&otherUserId=${otherUserId}`, { method: 'PUT' });
   },
 };
 
@@ -906,6 +974,35 @@ export const MailService = {
       seen.add(m.id);
       return m.subject.toLowerCase().includes(q) || m.content.toLowerCase().includes(q);
     });
+  },
+
+  // ── 异步方法（走后端 API） ──
+  async fetchInbox(userId) {
+    return apiRequest(`/api/mails/inbox?userId=${userId}`);
+  },
+  async fetchSent(userId) {
+    return apiRequest(`/api/mails/sent?userId=${userId}`);
+  },
+  async fetchConversation(userId, otherUserId) {
+    return apiRequest(`/api/mails/conversation?userId=${userId}&otherUserId=${otherUserId}`);
+  },
+  async sendAsync(fromUserId, toUserId, subject, content, attachments = []) {
+    return apiRequest('/api/mails', {
+      method: 'POST',
+      body: JSON.stringify({ toUserId, subject, content, attachments }),
+    });
+  },
+  async markAsReadAsync(mailId) {
+    return apiRequest(`/api/mails/${mailId}/read`, { method: 'PUT' });
+  },
+  async toggleStarAsync(mailId) {
+    return apiRequest(`/api/mails/${mailId}/star`, { method: 'PUT' });
+  },
+  async deleteMailAsync(mailId, userId) {
+    return apiRequest(`/api/mails/${mailId}?userId=${userId}`, { method: 'DELETE' });
+  },
+  async getUnreadCountAsync(userId) {
+    return apiRequest(`/api/mails/unread?userId=${userId}`);
   },
 };
 

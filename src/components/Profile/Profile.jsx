@@ -101,31 +101,46 @@ export default function Profile() {
   const [settingsTab, setSettingsTab] = useState('profile');
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [bgPreview, setBgPreview] = useState(null);
-  const [profileBg, setProfileBg] = useState(() => StorageService.get('acg_profile_bg') || 'default');
-  const [privacySettings, setPrivacySettings] = useState(() => StorageService.get('acg_privacy') || { profile: 'public', marks: 'public', info: 'public' });
+  const [profileBg, setProfileBg] = useState(() => {
+    const prefs = StorageService.get('acg_current_user')?.preferences;
+    return prefs?.profileBg || StorageService.get('acg_profile_bg') || 'default';
+  });
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    const prefs = StorageService.get('acg_current_user')?.preferences;
+    return prefs?.privacy || StorageService.get('acg_privacy') || { profile: 'public', marks: 'public', info: 'public' };
+  });
   const avatarInputRef = useRef(null);
   const bgInputRef = useRef(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [userMarks, setUserMarks] = useState([]);
+  const [markCounts, setMarkCounts] = useState({ wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 });
+  const [userFavorites, setUserFavorites] = useState([]);
+  const [unreadMail, setUnreadMail] = useState(0);
 
   const profileUser = id ? UserService.getById(parseInt(id)) : currentUser;
   const isOwnProfile = !id || (currentUser && currentUser.id === parseInt(id));
 
-  if (!profileUser) {
-    return (
-      <div className="profile-page">
-        <div className="profile-not-found">
-          <span>👤</span>
-          <h2>用户不存在</h2>
-          <Link to="/" className="back-link">返回首页</Link>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (isAuthenticated && currentUser && profileUser) {
+      FollowService.isFollowingAsync(currentUser.id, profileUser.id).then(setIsFollowing).catch(() => {});
+    }
+  }, [isAuthenticated, currentUser, profileUser]);
 
-  const isFollowing = isAuthenticated && currentUser ? FollowService.isFollowing(currentUser.id, profileUser.id) : false;
-  const [userMarks, setUserMarks] = useState([]);
-  const [markCounts, setMarkCounts] = useState({ wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 });
-  const userFavorites = isAuthenticated ? FavoriteService.getUserFavorites(profileUser.id, 'info') : [];
-  const unreadMail = currentUser ? MailService.getUnreadCount(currentUser.id) : 0;
+  useEffect(() => {
+    if (profileUser) {
+      FavoriteService.getUserFavoritesAsync(profileUser.id, 'info').then(data => {
+        setUserFavorites(Array.isArray(data) ? data : []);
+      }).catch(() => {});
+    }
+  }, [profileUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      MailService.getUnreadCountAsync(currentUser.id).then(data => {
+        setUnreadMail(typeof data === 'object' ? data.count : (data || 0));
+      }).catch(() => {});
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const loadMarks = async () => {
@@ -140,6 +155,18 @@ export default function Profile() {
     };
     if (profileUser) loadMarks();
   }, [profileUser]);
+
+  if (!profileUser) {
+    return (
+      <div className="profile-page">
+        <div className="profile-not-found">
+          <span>👤</span>
+          <h2>用户不存在</h2>
+          <Link to="/" className="back-link">返回首页</Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleEdit = () => {
     setEditForm({
@@ -178,8 +205,7 @@ export default function Profile() {
     reader.onload = (ev) => {
       setBgPreview(ev.target.result);
       setProfileBg('custom');
-      StorageService.set('acg_profile_bg', 'custom');
-      StorageService.set('acg_profile_bg_img', ev.target.result);
+      updateProfile({ preferences: { ...(currentUser?.preferences || {}), profileBg: 'custom', profileBgImg: ev.target.result } });
     };
     reader.readAsDataURL(file);
   };
@@ -187,20 +213,19 @@ export default function Profile() {
   const selectBgTemplate = (template) => {
     setProfileBg(template.id);
     setBgPreview(null);
-    StorageService.set('acg_profile_bg', template.id);
-    StorageService.remove('acg_profile_bg_img');
+    updateProfile({ preferences: { ...(currentUser?.preferences || {}), profileBg: template.id, profileBgImg: null } });
   };
 
   const handlePrivacyChange = (key, value) => {
     const updated = { ...privacySettings, [key]: value };
     setPrivacySettings(updated);
-    StorageService.set('acg_privacy', updated);
+    updateProfile({ preferences: { ...(currentUser?.preferences || {}), privacy: updated } });
   };
 
   const bannerBgStyle = bgPreview
     ? { backgroundImage: `url(${bgPreview})`, backgroundSize: 'cover', backgroundPosition: 'center' }
     : profileBg === 'custom'
-      ? { backgroundImage: `url(${StorageService.get('acg_profile_bg_img')})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      ? { backgroundImage: `url(${currentUser?.preferences?.profileBgImg || StorageService.get('acg_profile_bg_img')})`, backgroundSize: 'cover', backgroundPosition: 'center' }
       : profileBg === 'default'
         ? {}
         : { background: BG_TEMPLATES.find(t => t.id === profileBg)?.color || 'var(--primary)' };
@@ -450,7 +475,7 @@ export default function Profile() {
                         onClick={() => {
                           if (t.key) document.documentElement.setAttribute('data-theme', t.key);
                           else document.documentElement.removeAttribute('data-theme');
-                          StorageService.set('acg_theme', t.key);
+                          updateProfile({ preferences: { ...(currentUser?.preferences || {}), theme: t.key } });
                         }}>
                         <div className="theme-preview" style={{ background: t.color, border: '1px solid var(--border-primary)' }}>
                           <div className="theme-preview-bar" style={{ background: t.key === 'dark' ? '#f09bb3' : t.key === 'high-contrast' ? '#d63384' : '#e886a2' }} />
