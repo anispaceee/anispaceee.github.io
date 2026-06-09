@@ -28,9 +28,9 @@ export function AppProvider({ children }) {
     setIsAuthenticated(false);
   }, []);
 
-  const updateProfile = useCallback((updates) => {
+  const updateProfile = useCallback(async (updates) => {
     if (!currentUser) return;
-    const result = AuthService.updateProfile(currentUser.id, updates);
+    const result = await AuthService.updateProfile(currentUser.id, updates);
     if (result.user) setCurrentUser(result.user);
     return result;
   }, [currentUser]);

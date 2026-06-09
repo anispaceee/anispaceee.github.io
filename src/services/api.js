@@ -3,6 +3,22 @@ import oauthConfig from '../../oauth.config.js';
 
 const { STORAGE_KEYS: SK } = StorageService;
 
+// ─── Cloudflare Worker 后端 API 基础地址 ───
+const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
+
+// ─── 后端 API 请求辅助函数 ───
+async function apiRequest(path, options = {}) {
+  const token = localStorage.getItem('acg_jwt_token');
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || `API error ${res.status}`);
+  }
+  return res.json();
+}
+
 const CACHE_TTL = 30 * 60 * 1000;
 const REQUEST_TIMEOUT = 10000;
 const MAX_RETRIES = 3;
@@ -155,80 +171,273 @@ function generateId(items) {
 export { ApiError, CacheManager, isOnline, validateSubject, normalizeSubject };
 export { StorageService } from './storage';
 
+// ─── AuthService ───
+// 登录/登出/当前用户：通过后端 API 创建或查找用户，JWT 存 localStorage
 export const AuthService = {
-  loginWithOAuth(provider, oauthUser) {
-    const users = StorageService.get(SK.USERS, []);
-    // 查找已有用户（按 provider + providerId）
-    const existing = users.find(u => u.provider === provider && u.providerId === String(oauthUser.id));
-    if (existing) {
-      if (existing.status === 'disabled') return { error: '账户已被禁用' };
-      existing.lastLogin = new Date().toISOString().split('T')[0];
-      if (oauthUser.nickname && existing.name !== oauthUser.nickname) existing.name = oauthUser.nickname;
-      if (oauthUser.avatar) existing.avatar = oauthUser.avatar;
-      if (oauthUser.bio && !existing.bio) existing.bio = oauthUser.bio;
-      StorageService.set(SK.USERS, users);
-      const token = `token_${existing.id}_${Date.now()}`;
-      StorageService.set(SK.AUTH_TOKEN, token);
-      StorageService.set(SK.CURRENT_USER, existing);
-      return { user: existing, token };
-    }
-    // 创建新用户
-    const newUser = {
-      id: generateId(users),
-      username: oauthUser.username || `user_${Date.now()}`,
+  async loginWithOAuth(provider, oauthUser) {
+    const body = {
       provider,
       providerId: String(oauthUser.id),
+      username: oauthUser.username || `user_${Date.now()}`,
       name: oauthUser.nickname || oauthUser.username || '新用户',
       avatar: oauthUser.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${oauthUser.username || Date.now()}`,
-      level: 1, sign: '', gender: 'other', birthday: '', bio: oauthUser.bio || '',
-      followingCount: 0, followerCount: 0, postCount: 0,
-      joinDate: new Date().toISOString().split('T')[0],
-      lastLogin: new Date().toISOString().split('T')[0],
-      status: 'active',
-      preferences: { worldChannel: 'all', theme: 'light', emailNotifications: true },
+      bio: oauthUser.bio || '',
     };
-    users.push(newUser);
-    StorageService.set(SK.USERS, users);
-    const token = `token_${newUser.id}_${Date.now()}`;
-    StorageService.set(SK.AUTH_TOKEN, token);
-    StorageService.set(SK.CURRENT_USER, newUser);
-    return { user: newUser, token };
+    const data = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    // 后端返回 { token, user }
+    if (data.token) {
+      localStorage.setItem('acg_jwt_token', data.token);
+    }
+    if (data.user) {
+      StorageService.set(SK.CURRENT_USER, data.user);
+    }
+    return { user: data.user, token: data.token };
   },
-  logout() { StorageService.remove(SK.AUTH_TOKEN); StorageService.remove(SK.CURRENT_USER); },
-  getCurrentUser() { return StorageService.get(SK.CURRENT_USER); },
-  isAuthenticated() { return !!StorageService.get(SK.AUTH_TOKEN); },
-  updateProfile(userId, updates) {
-    const users = StorageService.get(SK.USERS, []);
-    const idx = users.findIndex(u => u.id === userId);
-    if (idx === -1) return { error: '用户不存在' };
-    users[idx] = { ...users[idx], ...updates };
-    StorageService.set(SK.USERS, users);
+
+  logout() {
+    localStorage.removeItem('acg_jwt_token');
+    StorageService.remove(SK.AUTH_TOKEN);
+    StorageService.remove(SK.CURRENT_USER);
+  },
+
+  getCurrentUser() {
+    return StorageService.get(SK.CURRENT_USER);
+  },
+
+  isAuthenticated() {
+    return !!localStorage.getItem('acg_jwt_token') || !!StorageService.get(SK.AUTH_TOKEN);
+  },
+
+  async updateProfile(userId, updates) {
+    const user = await apiRequest(`/api/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+    // 同步更新本地缓存
     const cur = StorageService.get(SK.CURRENT_USER);
-    if (cur && cur.id === userId) StorageService.set(SK.CURRENT_USER, users[idx]);
-    return { user: users[idx] };
+    if (cur && cur.id === userId) {
+      StorageService.set(SK.CURRENT_USER, user);
+    }
+    return { user };
   },
 };
 
+// ─── UserService ───
+// getById 保留同步版本（从本地缓存读取）以兼容大量调用处；fetchById 走后端 API
 export const UserService = {
-  getById(id) { return StorageService.get(SK.USERS, []).find(u => u.id === id); },
-  search(query) { return StorageService.get(SK.USERS, []).filter(u => u.name.includes(query) || u.username.includes(query)); },
-  follow(currentUserId, targetUserId) {
-    let follows = StorageService.get(SK.FOLLOWS, []);
-    const existing = follows.find(f => f.from === currentUserId && f.to === targetUserId);
-    if (existing) { follows = follows.filter(f => f !== existing); StorageService.set(SK.FOLLOWS, follows); return { following: false }; }
-    follows.push({ from: currentUserId, to: targetUserId, date: new Date().toISOString() });
-    StorageService.set(SK.FOLLOWS, follows); return { following: true };
+  getById(id) {
+    // 优先从当前用户匹配
+    const cur = StorageService.get(SK.CURRENT_USER);
+    if (cur && cur.id === id) return cur;
+    // 其次从用户缓存中查找
+    const users = StorageService.get(SK.USERS, []);
+    return users.find(u => u.id === id) || null;
   },
-  isFollowing(currentUserId, targetUserId) { return StorageService.get(SK.FOLLOWS, []).some(f => f.from === currentUserId && f.to === targetUserId); },
+
+  async fetchById(id) {
+    const user = await apiRequest(`/api/users/${id}`);
+    // 更新本地缓存
+    const users = StorageService.get(SK.USERS, []);
+    const idx = users.findIndex(u => u.id === id);
+    if (idx !== -1) users[idx] = user;
+    else users.push(user);
+    StorageService.set(SK.USERS, users);
+    return user;
+  },
+
+  search(query) {
+    const users = StorageService.get(SK.USERS, []);
+    const cur = StorageService.get(SK.CURRENT_USER);
+    // 将当前用户也纳入搜索范围
+    const pool = cur ? [cur, ...users.filter(u => u.id !== cur.id)] : users;
+    return pool.filter(u => u.name?.includes(query) || u.username?.includes(query));
+  },
+
+  // 保留 getAll 以兼容，返回当前用户
+  getAll() {
+    const cur = StorageService.get(SK.CURRENT_USER);
+    return cur ? [cur] : [];
+  },
 };
 
+// ─── FollowService ───
+// 从原 UserService 拆出，走后端 API
+export const FollowService = {
+  async toggleFollow(fromUserId, toUserId) {
+    return await apiRequest(`/api/follows/${toUserId}`, {
+      method: 'POST',
+      body: JSON.stringify({ fromUserId }),
+    });
+  },
+
+  async getFollowers(userId) {
+    return await apiRequest(`/api/follows/${userId}?type=followers`);
+  },
+
+  async getFollowing(userId) {
+    return await apiRequest(`/api/follows/${userId}?type=following`);
+  },
+
+  // 保留同步方法签名兼容旧代码（从本地缓存读取）
+  isFollowing(currentUserId, targetUserId) {
+    const follows = StorageService.get(SK.FOLLOWS, []);
+    return follows.some(f => f.from === currentUserId && f.to === targetUserId);
+  },
+};
+
+// ─── ForumService ───
+// 帖子、回复、点赞，走后端 API
+export const ForumService = {
+  async getPosts(page = 1, limit = 50) {
+    return await apiRequest(`/api/posts?page=${page}&limit=${limit}`);
+  },
+
+  async getPostById(id) {
+    return await apiRequest(`/api/posts/${id}`);
+  },
+
+  async createPost(data) {
+    return await apiRequest('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async addReply(postId, content) {
+    return await apiRequest(`/api/posts/${postId}/replies`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  async toggleLike(postId) {
+    return await apiRequest(`/api/posts/${postId}/like`, {
+      method: 'POST',
+    });
+  },
+};
+
+// ─── CollectionMarkService ───
+// 收藏标记，走后端 API
+export const CollectionMarkService = {
+  MARKS: { WISH: 'wish', COLLECT: 'collect', DOING: 'doing', ON_HOLD: 'on_hold', DROPPED: 'dropped' },
+  MARK_LABELS: { wish: '想看', collect: '看过', doing: '在看', on_hold: '搁置', dropped: '抛弃' },
+  MARK_COLORS: { wish: 'var(--secondary)', collect: 'var(--success)', doing: 'var(--accent-warm)', on_hold: 'var(--tag-novel)', dropped: 'var(--error)' },
+
+  async getByUserId(userId) {
+    return await apiRequest(`/api/collections?userId=${userId}`);
+  },
+
+  async upsert(data) {
+    return await apiRequest('/api/collections', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async remove(userId, subjectId) {
+    return await apiRequest(`/api/collections/${subjectId}?userId=${userId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // 保留兼容旧代码的同步方法（从本地缓存读取）
+  getMark(userId, subjectId) {
+    const marks = StorageService.get(SK.COLLECTION_MARKS, []);
+    return marks.find(m => m.key === `${userId}_${subjectId}`) || null;
+  },
+
+  getUserMarks(userId, markType = null) {
+    const marks = StorageService.get(SK.COLLECTION_MARKS, []);
+    return marks.filter(m => m.userId === userId && (!markType || m.mark === markType));
+  },
+
+  getMarkCounts(userId) {
+    const marks = this.getUserMarks(userId);
+    const counts = { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 };
+    marks.forEach(m => { if (counts[m.mark] !== undefined) counts[m.mark]++; });
+    return counts;
+  },
+};
+
+// ─── NotificationService ───
+// 通知，走后端 API
+export const NotificationService = {
+  async getByUserId(userId) {
+    return await apiRequest(`/api/notifications?userId=${userId}`);
+  },
+
+  async markAsRead(userId, ids) {
+    return await apiRequest('/api/notifications/read', {
+      method: 'PUT',
+      body: JSON.stringify({ userId, ids }),
+    });
+  },
+
+  async markAllAsRead(userId) {
+    return await apiRequest('/api/notifications/read', {
+      method: 'PUT',
+      body: JSON.stringify({ userId, all: true }),
+    });
+  },
+
+  // 保留 add 方法用于本地即时通知（非持久化）
+  add(userId, type, title, content, link = '') {
+    const n = StorageService.get(SK.NOTIFICATIONS, []);
+    n.unshift({ id: generateId(n), userId, type, title, content, link, read: false, createdAt: new Date().toISOString() });
+    StorageService.set(SK.NOTIFICATIONS, n);
+  },
+
+  // 保留同步方法兼容旧代码
+  getUnread(userId) { return StorageService.get(SK.NOTIFICATIONS, []).filter(n => n.userId === userId && !n.read); },
+  getAll(userId) { return StorageService.get(SK.NOTIFICATIONS, []).filter(n => n.userId === userId); },
+  markRead(id) { const n = StorageService.get(SK.NOTIFICATIONS, []); const item = n.find(x => x.id === id); if (item) item.read = true; StorageService.set(SK.NOTIFICATIONS, n); },
+  markAllRead(userId) { const n = StorageService.get(SK.NOTIFICATIONS, []); n.forEach(x => { if (x.userId === userId) x.read = true; }); StorageService.set(SK.NOTIFICATIONS, n); },
+};
+
+// ─── WorldChannelService ───
+// 世界频道消息，走后端 API
+export const WorldChannelService = {
+  async getMessages(page = 1, limit = 50) {
+    return await apiRequest(`/api/world-messages?page=${page}&limit=${limit}`);
+  },
+
+  async sendMessage(userId, content) {
+    return await apiRequest('/api/world-messages', {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+};
+
+// ─── NewsService ───
+// 自定义新闻，走后端 API
+export const NewsService = {
+  async getCustomNews(page = 1, limit = 20) {
+    return await apiRequest(`/api/news?page=${page}&limit=${limit}`);
+  },
+
+  async createNews(data) {
+    return await apiRequest('/api/news', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getNewsById(id) {
+    return await apiRequest(`/api/news/${id}`);
+  },
+};
+
+// ─── BangumiService ───
+// 保持不变，仍使用 Bangumi API 代理
 export const BangumiService = {
   BASE_URL: 'https://api.bgm.tv',
   USER_AGENT: 'ANISpace/1.0 (https://github.com/anispace)',
 
-  // 获取代理后的请求 URL
-  // 生产环境：通过 Cloudflare Worker 代理（proxyUrl + /api/bangumi + 路径）
-  // 开发环境：直连 api.bgm.tv
   _proxyUrl(url) {
     const proxyBase = oauthConfig.proxyUrl;
     if (!proxyBase) return url;
@@ -453,7 +662,6 @@ export const BangumiService = {
     const MAX_RETRIES = 3;
     const FALLBACK_IDS = [12,323,590,1142,1319,1840,2001,2692,3228,4312,5033,6487,7662,8733,9914,10659,11661,12661,13761,15061];
 
-    // Load recent history from localStorage
     const loadHistory = () => {
       try {
         const raw = localStorage.getItem(HISTORY_KEY);
@@ -461,7 +669,6 @@ export const BangumiService = {
       } catch { return []; }
     };
 
-    // Save history to localStorage (keep last MAX_HISTORY IDs)
     const saveHistory = (ids) => {
       const trimmed = ids.slice(-MAX_HISTORY);
       try { localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed)); } catch {}
@@ -472,7 +679,6 @@ export const BangumiService = {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        // Use random offset with the browse endpoint for true randomness
         const randomOffset = Math.floor(Math.random() * 500);
         const url = `${this.BASE_URL}/browse?subjectType=2&type=1&limit=25&offset=${randomOffset}&sort=rank`;
         const result = await this._request(url, null, false);
@@ -487,7 +693,6 @@ export const BangumiService = {
 
         const selected = candidates[Math.floor(Math.random() * candidates.length)];
 
-        // Update history
         history.push(selected.id);
         saveHistory(history);
 
@@ -497,7 +702,6 @@ export const BangumiService = {
       }
     }
 
-    // Fallback: pick from hardcoded IDs
     const available = FALLBACK_IDS.filter(id => !allExcluded.includes(id));
     const pool = available.length > 0 ? available : FALLBACK_IDS;
     const pickId = pool[Math.floor(Math.random() * pool.length)];
@@ -516,6 +720,8 @@ export const BangumiService = {
   },
 };
 
+// ─── RatingService ───
+// 保持 localStorage 实现（暂无后端端点）
 export const RatingService = {
   addRating(userId, subjectId, subjectType, score, content = '') {
     const ratings = StorageService.get(SK.RATINGS, []);
@@ -529,6 +735,8 @@ export const RatingService = {
   getUserRating(userId, subjectId) { return StorageService.get(SK.RATINGS, []).find(r => r.userId === userId && r.subjectId === subjectId); },
 };
 
+// ─── LikeService ───
+// 保持 localStorage 实现（暂无后端端点）
 export const LikeService = {
   toggle(userId, targetType, targetId) {
     let likes = StorageService.get(SK.LIKES, []);
@@ -542,6 +750,8 @@ export const LikeService = {
   getCount(targetType, targetId) { return StorageService.get(SK.LIKES, []).filter(l => l.targetType === targetType && l.targetId === targetId).length; },
 };
 
+// ─── FavoriteService ───
+// 保持 localStorage 实现（暂无后端端点）
 export const FavoriteService = {
   toggle(userId, targetType, targetId) {
     let favs = StorageService.get(SK.FAVORITES, []);
@@ -549,67 +759,14 @@ export const FavoriteService = {
     const existing = favs.find(f => f.key === key);
     if (existing) { favs = favs.filter(f => f !== existing); StorageService.set(SK.FAVORITES, favs); return { favorited: false }; }
     favs.push({ key, userId, targetType, targetId, date: new Date().toISOString() });
-    StorageService.set(SK.FAVORITES, favs); return { favorited: true }; 
+    StorageService.set(SK.FAVORITES, favs); return { favorited: true };
   },
   isFavorited(userId, targetType, targetId) { return StorageService.get(SK.FAVORITES, []).some(f => f.key === `${userId}_${targetType}_${targetId}`); },
   getUserFavorites(userId, targetType) { return StorageService.get(SK.FAVORITES, []).filter(f => f.userId === userId && (!targetType || f.targetType === targetType)); },
 };
 
-export const NotificationService = {
-  add(userId, type, title, content, link = '') {
-    const n = StorageService.get(SK.NOTIFICATIONS, []);
-    n.unshift({ id: generateId(n), userId, type, title, content, link, read: false, createdAt: new Date().toISOString() });
-    StorageService.set(SK.NOTIFICATIONS, n);
-  },
-  getUnread(userId) { return StorageService.get(SK.NOTIFICATIONS, []).filter(n => n.userId === userId && !n.read); },
-  getAll(userId) { return StorageService.get(SK.NOTIFICATIONS, []).filter(n => n.userId === userId); },
-  markRead(id) { const n = StorageService.get(SK.NOTIFICATIONS, []); const item = n.find(x => x.id === id); if (item) item.read = true; StorageService.set(SK.NOTIFICATIONS, n); },
-  markAllRead(userId) { const n = StorageService.get(SK.NOTIFICATIONS, []); n.forEach(x => { if (x.userId === userId) x.read = true; }); StorageService.set(SK.NOTIFICATIONS, n); },
-};
-
-export const CollectionMarkService = {
-  MARKS: { WISH: 'wish', COLLECT: 'collect', DOING: 'doing', ON_HOLD: 'on_hold', DROPPED: 'dropped' },
-  MARK_LABELS: { wish: '想看', collect: '看过', doing: '在看', on_hold: '搁置', dropped: '抛弃' },
-  MARK_COLORS: { wish: 'var(--secondary)', collect: 'var(--success)', doing: 'var(--accent-warm)', on_hold: 'var(--tag-novel)', dropped: 'var(--error)' },
-
-  setMark(userId, subjectId, subjectType, mark, subjectName = '', subjectImage = '') {
-    const marks = StorageService.get(SK.COLLECTION_MARKS, []);
-    const key = `${userId}_${subjectId}`;
-    const idx = marks.findIndex(m => m.key === key);
-    if (idx !== -1) {
-      if (marks[idx].mark === mark) { marks.splice(idx, 1); }
-      else { marks[idx] = { ...marks[idx], mark, updatedAt: new Date().toISOString() }; }
-    } else {
-      marks.push({ key, userId, subjectId, subjectType, mark, subjectName, subjectImage, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-    }
-    StorageService.set(SK.COLLECTION_MARKS, marks);
-    return marks.find(m => m.key === key) || null;
-  },
-
-  getMark(userId, subjectId) {
-    const marks = StorageService.get(SK.COLLECTION_MARKS, []);
-    return marks.find(m => m.key === `${userId}_${subjectId}`) || null;
-  },
-
-  getUserMarks(userId, markType = null) {
-    const marks = StorageService.get(SK.COLLECTION_MARKS, []);
-    return marks.filter(m => m.userId === userId && (!markType || m.mark === markType));
-  },
-
-  getMarkCounts(userId) {
-    const marks = this.getUserMarks(userId);
-    const counts = { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 };
-    marks.forEach(m => { if (counts[m.mark] !== undefined) counts[m.mark]++; });
-    return counts;
-  },
-
-  removeMark(userId, subjectId) {
-    let marks = StorageService.get(SK.COLLECTION_MARKS, []);
-    marks = marks.filter(m => m.key !== `${userId}_${subjectId}`);
-    StorageService.set(SK.COLLECTION_MARKS, marks);
-  },
-};
-
+// ─── PrivateMessageService ───
+// 保持 localStorage 实现（暂无后端端点）
 export const PrivateMessageService = {
   send(fromUserId, toUserId, content) {
     const msgs = StorageService.get(SK.PRIVATE_MESSAGES, []);
@@ -649,10 +806,12 @@ export const PrivateMessageService = {
   },
 };
 
+// ─── MailService ───
+// 保持 localStorage 实现（暂无后端端点）
 export const MailService = {
   send(fromUserId, toUserId, subject, content, attachments = []) {
     const mails = StorageService.get(SK.MAILBOX, []);
-    const toUser = UserService.getById(toUserId);
+    const toUser = StorageService.get(SK.USERS, []).find(u => u.id === toUserId);
     if (!toUser) return { error: '收件人不存在' };
     if (content.length > 5000) return { error: '邮件内容不能超过5000字' };
     for (const att of attachments) {
@@ -675,7 +834,7 @@ export const MailService = {
     };
     mails.push(mail);
     StorageService.set(SK.MAILBOX, mails);
-    NotificationService.add(toUserId, 'mail', '收到新邮件', `${UserService.getById(fromUserId)?.name || '用户'} 给你发了一封邮件`, `/mailbox`);
+    NotificationService.add(toUserId, 'mail', '收到新邮件', `${StorageService.get(SK.USERS, []).find(u => u.id === fromUserId)?.name || '用户'} 给你发了一封邮件`, `/mailbox`);
     return { success: true, mail };
   },
 
@@ -750,6 +909,8 @@ export const MailService = {
   },
 };
 
+// ─── NetEaseMusicService ───
+// 保持不变，仍使用网易云 API
 export const NetEaseMusicService = {
   METING_API: 'https://api.injahow.cn/meting/',
   _cache: {},
@@ -842,6 +1003,9 @@ export const NetEaseMusicService = {
   },
 };
 
+// ─── BangumiAuthService ───
+// 保持不变，仍使用 OAuth 代理流程
+// 但 OAuth 回调后调用 AuthService.loginWithOAuth() 在 D1 中创建/查找用户
 export const BangumiAuthService = {
   buildAuthUrl() {
     const redirectUri = `${window.location.origin}${oauthConfig.bangumi.redirectPath}`;
@@ -873,13 +1037,12 @@ export const BangumiAuthService = {
     const oauthResult = await this.handleOAuthCallback(code);
     if (oauthResult.error) return { error: oauthResult.error };
 
-    // 保存 Bangumi token 和用户信息
     StorageService.set('acg_bangumi_token', oauthResult.access_token);
     if (oauthResult.refresh_token) StorageService.set('acg_bangumi_refresh', oauthResult.refresh_token);
     StorageService.set('acg_bangumi_user', oauthResult.user);
 
-    // 通过 AuthService 创建或登录本地用户
-    const result = AuthService.loginWithOAuth('bangumi', oauthResult.user);
+    // 通过 AuthService 创建或登录用户（现在走后端 API）
+    const result = await AuthService.loginWithOAuth('bangumi', oauthResult.user);
     return result;
   },
 
@@ -898,6 +1061,9 @@ export const BangumiAuthService = {
   },
 };
 
+// ─── GitHubAuthService ───
+// 保持不变，仍使用 OAuth 代理流程
+// 但 OAuth 回调后调用 AuthService.loginWithOAuth() 在 D1 中创建/查找用户
 export const GitHubAuthService = {
   buildAuthUrl() {
     const redirectUri = `${window.location.origin}${oauthConfig.github.redirectPath}`;
@@ -932,12 +1098,11 @@ export const GitHubAuthService = {
     const oauthResult = await this.handleOAuthCallback(code);
     if (oauthResult.error) return { error: oauthResult.error };
 
-    // 保存 GitHub token 和用户信息
     StorageService.set(SK.GITHUB_TOKEN, oauthResult.access_token);
     StorageService.set(SK.GITHUB_USER, oauthResult.user);
 
-    // 通过 AuthService 创建或登录本地用户
-    const result = AuthService.loginWithOAuth('github', oauthResult.user);
+    // 通过 AuthService 创建或登录用户（现在走后端 API）
+    const result = await AuthService.loginWithOAuth('github', oauthResult.user);
     return result;
   },
 
@@ -955,6 +1120,8 @@ export const GitHubAuthService = {
   },
 };
 
+// ─── QQMusicService ───
+// 保持不变，仍使用 QQ 音乐 API
 export const QQMusicService = {
   METING_API: 'https://api.injahow.cn/meting/',
   _cache: {},

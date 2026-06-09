@@ -6,3 +6,8 @@ account_id = "e3859153513e18ee3e56cc9345846356"
 [vars]
 ALLOWED_ORIGIN = "https://afterrain-2005.github.io"
 # 敏感信息（CLIENT_SECRET）请在 Cloudflare Dashboard 中配置为 Secrets
+
+[[d1_databases]]
+binding = "DB"
+database_name = "anispace-db"
+database_id = "30523091-5d5d-449d-9e22-abe26bf2233b"

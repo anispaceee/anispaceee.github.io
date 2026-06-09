@@ -570,10 +570,15 @@ export default function InfoDetail() {
               <div className="detail-mark-group">
                 {Object.entries(CollectionMarkService.MARK_LABELS).map(([key, label]) => (
                   <button key={key} className={`detail-mark-btn ${collectionMark === key ? `active mark-${key}` : ''}`}
-                    onClick={() => {
+                    onClick={async () => {
                       if (!isAuthenticated) { openAuth(); return; }
-                      CollectionMarkService.setMark(currentUser.id, parseInt(id), subject?.type || 2, key, subject?.name_cn || subject?.name || '', subject?.images?.common || '');
-                      setCollectionMark(prev => prev === key ? null : key);
+                      if (collectionMark === key) {
+                        await CollectionMarkService.remove(currentUser.id, parseInt(id));
+                        setCollectionMark(null);
+                      } else {
+                        await CollectionMarkService.upsert({ subjectId: parseInt(id), subjectType: subject?.type || 2, status: key, rating: 0, comment: '' });
+                        setCollectionMark(key);
+                      }
                     }}>{label}</button>
                 ))}
               </div>
