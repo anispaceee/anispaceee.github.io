@@ -1,18 +1,73 @@
-.wiki-page { max-width: var(--max-content); margin: 0 auto; padding: 0 20px 40px; }
-.wiki-header { margin-bottom: 20px; }
-.wiki-title { display: flex; align-items: center; gap: 10px; }
-.wiki-title h1 { font-size: 20px; font-weight: 800; }
-.wiki-desc { font-size: 13px; color: var(--text-quaternary); margin-top: 4px; }
+/* ─── Wiki 沉浸式搜索首页 ─── */
+.wiki-immersive {
+  max-width: var(--max-content);
+  margin: 0 auto;
+  padding: 0 20px 40px;
+  min-height: calc(100vh - var(--header-height));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wiki-immersive-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 600px;
+}
+.wiki-immersive-title {
+  font-size: 36px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), #ff6b9d, #c44dff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  letter-spacing: -0.5px;
+}
+.wiki-immersive-subtitle {
+  font-size: 16px;
+  color: var(--text-quaternary);
+  text-align: center;
+  margin-top: -8px;
+}
+.wiki-immersive-search {
+  width: 100%;
+  position: relative;
+}
 
-.wiki-search { margin-bottom: 20px; position: relative; }
-.wiki-search-bar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-input); backdrop-filter: blur(var(--blur-sm)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(150%); border: 1px solid var(--border-glass); border-radius: var(--radius-lg); margin-bottom: 10px; transition: all var(--transition-glass); box-shadow: var(--shadow-glass); }
+/* ─── 搜索栏 ─── */
+.wiki-page { max-width: var(--max-content); margin: 0 auto; padding: 0 20px 40px; }
+.wiki-top-bar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.wiki-search { position: relative; }
+.wiki-search-bar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-input); backdrop-filter: blur(var(--blur-sm)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(150%); border: 1px solid var(--border-glass); border-radius: 28px; transition: all var(--transition-glass); box-shadow: var(--shadow-glass); }
+.wiki-search-bar-large { padding: 12px 18px; border-radius: 28px; }
+.wiki-search-bar-large input { font-size: 16px; }
 .wiki-search-bar:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg), var(--shadow-glass); background: var(--bg-input-focus); }
 .wiki-search-bar input { flex: 1; background: none; border: none; font-size: 14px; color: var(--text-primary); outline: none; }
-.wiki-search-btn { padding: 6px 16px; background: var(--primary); color: #fff; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; }
+.wiki-search-btn { padding: 6px 16px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 13px; font-weight: 600; }
 .wiki-search-btn:disabled { opacity: 0.5; }
 
-/* 实时搜索下拉 */
-.wiki-live-results { position: absolute; top: 44px; left: 0; right: 0; background: var(--bg-elevated, var(--bg-card)); border: 1px solid var(--border-secondary); border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 100; max-height: 400px; overflow-y: auto; }
+/* ─── 类型标签 Pills ─── */
+.wiki-type-tabs-pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.wiki-type-tab-pill { padding: 6px 16px; border-radius: 20px; font-size: 13px; background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border-glass); transition: all var(--transition-fast); }
+.wiki-type-tab-pill.active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
+.wiki-type-tab-pill:hover:not(.active) { background: var(--primary-bg); color: var(--primary); }
+
+/* ─── 搜索历史 ─── */
+.wiki-history-section { width: 100%; margin-top: 8px; }
+.wiki-history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.wiki-history-title { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-quaternary); font-weight: 600; }
+.wiki-history-clear { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-quaternary); padding: 4px 10px; border-radius: 12px; transition: all var(--transition-fast); }
+.wiki-history-clear:hover { background: var(--primary-bg); color: var(--primary); }
+.wiki-history-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.wiki-history-tag { padding: 5px 14px; border-radius: 16px; font-size: 12px; background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border-glass); transition: all var(--transition-fast); }
+.wiki-history-tag:hover { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); }
+
+/* ─── 实时搜索下拉 ─── */
+.wiki-live-results { position: absolute; top: 52px; left: 0; right: 0; background: var(--bg-elevated, var(--bg-card)); border: 1px solid var(--border-secondary); border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 100; max-height: 400px; overflow-y: auto; }
+.wiki-search-bar-large + .wiki-live-results { top: 56px; }
 .wiki-live-skeleton { padding: 8px 0; }
 .wiki-live-skeleton-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
 .wiki-skeleton-cover { width: 36px; height: 48px; border-radius: var(--radius-xs); background: var(--border-secondary); flex-shrink: 0; }
@@ -37,23 +92,16 @@
 .wiki-live-summary { font-size: 11px; color: var(--text-quaternary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wiki-live-more { display: block; width: 100%; padding: 10px; text-align: center; font-size: 12px; color: var(--primary); font-weight: 600; border-top: 1px solid var(--border-secondary); transition: background var(--transition-fast); }
 .wiki-live-more:hover { background: var(--primary-bg); }
-.wiki-type-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-.wiki-type-tab { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: var(--radius-full); font-size: 13px; background: var(--bg-input); backdrop-filter: blur(var(--blur-sm)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(150%); color: var(--text-secondary); border: 1px solid var(--border-glass); transition: all var(--transition-glass); }
-.wiki-type-tab.active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
 
-/* 空状态 */
-.wiki-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; gap: 16px; }
-.wiki-empty-icon { color: var(--text-quaternary); opacity: 0.4; }
-.wiki-empty-text { font-size: 16px; color: var(--text-quaternary); font-weight: 500; }
-
+/* ─── 错误 ─── */
 .wiki-error { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(232,67,83,0.06); border: 1px solid rgba(232,67,83,0.15); border-radius: var(--radius-sm); color: var(--error); font-size: 13px; margin-bottom: 16px; }
 .wiki-error button { display: flex; align-items: center; gap: 4px; margin-left: auto; padding: 4px 10px; background: var(--error); color: #fff; border-radius: var(--radius-xs); font-size: 12px; }
 
+/* ─── 搜索结果 ─── */
 .wiki-results-header { font-size: 13px; color: var(--text-quaternary); margin-bottom: 12px; }
 .wiki-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
 .wiki-card { background: var(--bg-card); backdrop-filter: blur(var(--blur-md)) saturate(180%); -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%); border-radius: var(--radius-md); border: 1px solid var(--border-glass); overflow: hidden; transition: all var(--transition-glass); box-shadow: var(--shadow-glass); }
 .wiki-card:hover { border-color: var(--primary); box-shadow: var(--shadow-glass-hover); transform: translateY(-4px); background: var(--bg-card-hover); }
-.wiki-card-person { }
 .wiki-card-person .wiki-card-cover { aspect-ratio: 1; object-fit: cover; }
 .wiki-card-person .wiki-card-avatar { border-radius: 50%; width: 80%; max-width: 120px; height: auto; aspect-ratio: 1; margin: 20px auto 0; display: block; }
 .wiki-card-person .wiki-card-summary { font-size: 11px; color: var(--text-quaternary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; }
@@ -69,8 +117,13 @@
 .wiki-card-moegirl { display: flex; align-items: center; gap: 4px; padding: 4px 8px; background: var(--bg-input); border-radius: var(--radius-xs); font-size: 11px; color: var(--text-tertiary); margin-top: 4px; transition: all var(--transition-fast); align-self: flex-start; }
 .wiki-card-moegirl:hover { background: var(--primary-bg); color: var(--primary); }
 
+/* ─── 分页 ─── */
 .wiki-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-secondary); }
-.wiki-pagination button { padding: 6px 14px; background: var(--bg-input); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); }
+.wiki-pagination button { padding: 6px 14px; background: var(--bg-input); border-radius: 20px; font-size: 13px; color: var(--text-secondary); }
 .wiki-pagination button:disabled { opacity: 0.4; }
 .wiki-pagination button:hover:not(:disabled) { background: var(--primary-bg); color: var(--primary); }
 .wiki-pagination span { font-size: 13px; color: var(--text-quaternary); }
+
+/* ─── 旋转动画 ─── */
+.spinning { animation: wiki-spin 0.8s linear infinite; }
+@keyframes wiki-spin { to { transform: rotate(360deg); } }

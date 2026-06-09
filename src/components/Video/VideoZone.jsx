@@ -68,7 +68,7 @@ export default function VideoZone() {
   return (
     <div className="video-zone">
       <div className="vz-header">
-        <h1><Film size={24} /> 影视区</h1>
+        <h1>影视区</h1>
         <p className="vz-desc">聚合多源搜索，一键播放</p>
       </div>
 
@@ -89,7 +89,7 @@ export default function VideoZone() {
           {loading ? <Loader2 size={18} className="vz-spinning" /> : '搜索'}
         </button>
         <button className="vz-source-btn" onClick={() => setShowSourceManager(true)} title="源管理">
-          <Settings size={18} />
+          <Settings size={16} /> 源管理
         </button>
       </div>
 

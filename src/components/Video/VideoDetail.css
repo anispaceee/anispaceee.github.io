@@ -147,7 +147,7 @@
 
 .vd-ep-btn {
   padding: 6px 14px;
-  border-radius: var(--radius-sm);
+  border-radius: 20px;
   background: var(--bg-input);
   color: var(--text-secondary);
   font-size: 13px;
@@ -298,6 +298,20 @@
   line-height: 1.6;
 }
 
+.vd-comment-input button {
+  width: 38px;
+  height: 38px;
+  border-radius: 20px;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
 /* Loading & Error states */
 .vd-loading,
 .vd-error {
@@ -321,7 +335,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border-radius: var(--radius-md);
+  border-radius: 20px;
   background: var(--bg-card);
   color: var(--text-secondary);
   font-size: 13px;

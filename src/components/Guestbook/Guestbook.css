@@ -1,4 +1,4 @@
-.guestbook-page { max-width: 720px; margin: 0 auto; padding: 0 20px 40px; }
+.guestbook-page { max-width: 720px; margin: 0 auto; padding: 24px 20px 40px; }
 
 .guestbook-header { margin-bottom: 24px; }
 .guestbook-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
@@ -51,7 +51,7 @@
 .gb-emoji-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 16px; }
 .gb-emoji-btn:hover { background: var(--primary-bg); transform: scale(1.15); }
 .guestbook-char-count { font-size: 11px; color: var(--text-quaternary); margin-left: auto; }
-.guestbook-submit { display: flex; align-items: center; gap: 6px; padding: 8px 20px; background: var(--primary); color: #fff; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; box-shadow: var(--shadow-primary); }
+.guestbook-submit { display: flex; align-items: center; gap: 6px; padding: 8px 20px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow-primary); }
 .guestbook-submit:hover:not(:disabled) { background: var(--primary-active); }
 .guestbook-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -59,8 +59,9 @@
 .guestbook-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 60px 20px; color: var(--text-quaternary); }
 .guestbook-empty p { font-size: 14px; }
 
-.guestbook-msg { display: flex; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--border-secondary); position: relative; }
-.guestbook-msg:last-child { border-bottom: none; }
+.guestbook-msg { display: flex; gap: 12px; padding: 16px; border-radius: 12px; margin-bottom: 8px; position: relative; background: var(--bg-card); border: 1px solid var(--border-secondary); transition: all var(--transition-fast); }
+.guestbook-msg:hover { transform: translateY(-1px); box-shadow: var(--shadow-xs); }
+.guestbook-msg:last-child { margin-bottom: 0; }
 .gb-msg-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border-secondary); }
 .gb-msg-body { flex: 1; min-width: 0; }
 .gb-msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -79,7 +80,7 @@
 .gb-confirm-no { padding: 4px 12px; background: var(--bg-input); color: var(--text-secondary); border-radius: 4px; font-size: 12px; }
 
 .guestbook-pagination { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 20px 0; }
-.gb-page-btn { min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--text-secondary); transition: all var(--transition-fast); }
+.gb-page-btn { min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 20px; font-size: 13px; font-weight: 500; color: var(--text-secondary); transition: all var(--transition-fast); }
 .gb-page-btn:hover:not(:disabled) { background: var(--primary-bg); color: var(--primary); }
 .gb-page-btn.active { background: var(--primary); color: #fff; font-weight: 700; }
 .gb-page-btn:disabled { opacity: 0.3; cursor: not-allowed; }

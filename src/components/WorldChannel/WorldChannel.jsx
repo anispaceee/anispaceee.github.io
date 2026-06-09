@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { WorldChannelService, UserService } from '../../services/api';
-import { Globe, Plus, Heart, MessageCircle, Clock, TrendingUp, Image, X, Send, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Globe, Image, X, Send, Loader2, Users as UsersIcon } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './WorldChannel.css';
@@ -14,7 +14,6 @@ export default function WorldChannel() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [sortBy, setSortBy] = useState('latest');
   const [showNewPost, setShowNewPost] = useState(false);
   const [newContent, setNewContent] = useState('');
   const [newImages, setNewImages] = useState([]);
@@ -25,6 +24,7 @@ export default function WorldChannel() {
   const [replySubmitting, setReplySubmitting] = useState({});
   const [fullscreenImg, setFullscreenImg] = useState(null);
   const imageInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   const getUser = (userId) => UserService.getById(userId);
 
@@ -56,11 +56,6 @@ export default function WorldChannel() {
     loadPosts(nextPage, true);
   };
 
-  const sortedPosts = [...posts].sort((a, b) => {
-    if (sortBy === 'hot') return (b.likes || 0) - (a.likes || 0);
-    return 0;
-  });
-
   const handleNewPost = async () => {
     if (!isAuthenticated) { openAuth(); return; }
     if (!newContent.trim() && newImages.length === 0) return;
@@ -83,7 +78,6 @@ export default function WorldChannel() {
       setNewImages([]);
       setShowNewPost(false);
     } catch {
-      // 降级：本地添加
       const newPost = {
         id: Date.now(),
         author_id: currentUser.id,
@@ -146,7 +140,6 @@ export default function WorldChannel() {
     setReplySubmitting(prev => ({ ...prev, [postId]: true }));
     try {
       await WorldChannelService.sendMessage(content);
-      // 添加回复到本地状态
       const newReply = {
         id: Date.now(),
         author_id: currentUser.id,
@@ -186,160 +179,110 @@ export default function WorldChannel() {
     }
   };
 
+  const isOwnMessage = (post) => {
+    return currentUser && post.author_id === currentUser.id;
+  };
+
   return (
     <div className="world-channel">
-      <div className="wc-header">
-        <div className="wc-header-info">
-          <Globe size={20} className="wc-header-icon" />
-          <h1 className="wc-title">世界频道</h1>
-        </div>
-        <div className="wc-header-actions">
-          <div className="wc-sort">
-            <button className={`wc-sort-btn ${sortBy === 'latest' ? 'active' : ''}`} onClick={() => setSortBy('latest')}>
-              <Clock size={14} /> 最新
-            </button>
-            <button className={`wc-sort-btn ${sortBy === 'hot' ? 'active' : ''}`} onClick={() => setSortBy('hot')}>
-              <TrendingUp size={14} /> 最热
-            </button>
-          </div>
-          <button className="wc-new-post-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowNewPost(!showNewPost); }}>
-            <Plus size={16} /> 发帖
-          </button>
+      {/* 聊天头部 */}
+      <div className="wc-chat-header">
+        <div className="wc-chat-header-left">
+          <Globe size={20} className="wc-chat-header-icon" />
+          <h1 className="wc-chat-title">世界频道</h1>
+          <span className="wc-online-badge"><UsersIcon size={12} /> {posts.length}+</span>
         </div>
       </div>
 
-      {showNewPost && (
-        <div className="wc-new-post-form">
-          <div className="wc-form-header">
-            <UserAvatar userId={currentUser?.id} src={currentUser?.avatar} alt={currentUser?.name} size={36} />
-            <span className="wc-form-author">{currentUser?.name || currentUser?.username}</span>
-          </div>
-          <textarea
-            className="wc-form-textarea"
-            placeholder="分享你的想法...（支持 Markdown 语法）"
-            value={newContent}
-            onChange={e => setNewContent(e.target.value)}
-            rows={4}
-          />
-          {newImages.length > 0 && (
-            <div className="wc-form-images">
-              {newImages.map((img, i) => (
-                <div key={i} className="wc-form-image-thumb">
-                  <img src={img.preview} alt="" loading="lazy" />
-                  <button className="wc-form-image-remove" onClick={() => removeImage(i)}><X size={12} /></button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="wc-form-actions">
-            <div className="wc-form-tools">
-              <button className="wc-form-tool-btn" onClick={() => imageInputRef.current?.click()} disabled={newImages.length >= 5}>
-                <Image size={16} /> 图片
-              </button>
-              <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/gif" multiple onChange={handleImageSelect} hidden />
-              <span className="wc-form-hint">{newImages.length}/5</span>
-            </div>
-            <div className="wc-form-submit-row">
-              <button className="wc-form-cancel" onClick={() => { setShowNewPost(false); setNewContent(''); setNewImages([]); }}>取消</button>
-              <button className="wc-form-submit" onClick={handleNewPost} disabled={(!newContent.trim() && newImages.length === 0) || submitting}>
-                {submitting ? <><Loader2 size={14} className="spinning" /> 发布中...</> : '发布'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="wc-timeline">
+      {/* 消息区域 */}
+      <div className="wc-messages-area">
         {loading ? (
           <div className="wc-loading">
             <Loader2 size={28} className="spinning" />
             <span>加载中...</span>
           </div>
-        ) : sortedPosts.length === 0 ? (
+        ) : posts.length === 0 ? (
           <div className="wc-empty">
             <Globe size={48} />
             <p>还没有人发帖，来发第一条吧！</p>
           </div>
         ) : (
-          sortedPosts.map(post => {
+          posts.map(post => {
             const author = post.author_name ? { name: post.author_name, avatar: post.author_avatar } : getUser(post.author_id);
+            const isOwn = isOwnMessage(post);
             const isExpanded = expandedPost === post.id;
             const replies = repliesMap[post.id] || [];
 
             return (
-              <div key={post.id} className="wc-post-card">
-                <div className="wc-post-main">
-                  <div className="wc-post-left">
-                    <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={42} className="wc-post-avatar" />
-                    <div className="wc-post-timeline-line" />
+              <div key={post.id} className={`wc-message ${isOwn ? 'wc-message-self' : 'wc-message-other'}`}>
+                {!isOwn && (
+                  <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={36} className="wc-msg-avatar" />
+                )}
+                <div className="wc-msg-body">
+                  <div className="wc-msg-header">
+                    {!isOwn && <span className="wc-msg-name">{author?.name || '未知用户'}</span>}
+                    <span className="wc-msg-time">{formatTime(post.created_at)}</span>
                   </div>
-                  <div className="wc-post-body">
-                    <div className="wc-post-header">
-                      <span className="wc-post-author">{author?.name || '未知用户'}</span>
-                      <span className="wc-post-time">{formatTime(post.created_at)}</span>
-                    </div>
-                    <div className="wc-post-content">
+                  <div className={`wc-msg-bubble ${isOwn ? 'wc-bubble-self' : 'wc-bubble-other'}`}>
+                    <div className="wc-msg-content">
                       <MarkdownRenderer content={post.content} />
                     </div>
                     {post.images && post.images.length > 0 && (
-                      <div className="wc-post-images">
+                      <div className="wc-msg-images">
                         {post.images.map((img, i) => (
-                          <img key={i} src={img} alt="" className="wc-post-img" onClick={() => setFullscreenImg(img)} loading="lazy" />
+                          <img key={i} src={img} alt="" className="wc-msg-img" onClick={() => setFullscreenImg(img)} loading="lazy" />
                         ))}
                       </div>
                     )}
-                    <div className="wc-post-actions">
-                      <button className={`wc-action-btn ${post.liked ? 'liked' : ''}`} onClick={() => handleLike(post.id)}>
-                        <Heart size={14} fill={post.liked ? 'currentColor' : 'none'} /> {post.likes || 0}
-                      </button>
-                      <button className="wc-action-btn" onClick={() => toggleExpand(post.id)}>
-                        <MessageCircle size={14} /> {post.replies_count || 0}
-                        {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                      </button>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="wc-replies-section">
-                        {replies.length > 0 && (
-                          <div className="wc-replies-list">
-                            {replies.map(reply => {
-                              const replyAuthor = reply.author_name ? { name: reply.author_name, avatar: reply.author_avatar } : getUser(reply.author_id);
-                              return (
-                                <div key={reply.id} className="wc-reply-item">
-                                  <UserAvatar userId={reply.author_id} src={replyAuthor?.avatar} alt={replyAuthor?.name} size={28} className="wc-reply-avatar" />
-                                  <div className="wc-reply-body">
-                                    <div className="wc-reply-header">
-                                      <span className="wc-reply-author">{replyAuthor?.name || '未知用户'}</span>
-                                      <span className="wc-reply-time">{formatTime(reply.created_at)}</span>
-                                    </div>
-                                    <div className="wc-reply-content">{reply.content}</div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <div className="wc-reply-form">
-                          <input
-                            type="text"
-                            placeholder={isAuthenticated ? '写下你的回复...' : '登录后回复'}
-                            value={replyInputs[post.id] || ''}
-                            onChange={e => setReplyInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
-                            onKeyDown={e => e.key === 'Enter' && handleReply(post.id)}
-                            disabled={!isAuthenticated}
-                            className="wc-reply-input"
-                          />
-                          <button
-                            className="wc-reply-send"
-                            onClick={() => handleReply(post.id)}
-                            disabled={!replyInputs[post.id]?.trim() || replySubmitting[post.id] || !isAuthenticated}
-                          >
-                            {replySubmitting[post.id] ? <Loader2 size={14} className="spinning" /> : <Send size={14} />}
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
+                  <div className="wc-msg-actions">
+                    <button className={`wc-msg-action-btn ${post.liked ? 'liked' : ''}`} onClick={() => handleLike(post.id)}>
+                      ❤ {post.likes || 0}
+                    </button>
+                    <button className="wc-msg-action-btn" onClick={() => toggleExpand(post.id)}>
+                      💬 {post.replies_count || 0}
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="wc-replies-section">
+                      {replies.length > 0 && (
+                        <div className="wc-replies-list">
+                          {replies.map(reply => {
+                            const replyAuthor = reply.author_name ? { name: reply.author_name, avatar: reply.author_avatar } : getUser(reply.author_id);
+                            const isReplyOwn = currentUser && reply.author_id === currentUser.id;
+                            return (
+                              <div key={reply.id} className={`wc-reply-msg ${isReplyOwn ? 'wc-reply-self' : ''}`}>
+                                {!isReplyOwn && <UserAvatar userId={reply.author_id} src={replyAuthor?.avatar} alt={replyAuthor?.name} size={24} className="wc-reply-avatar" />}
+                                <div className={`wc-reply-bubble ${isReplyOwn ? 'wc-bubble-self' : 'wc-bubble-other'}`}>
+                                  {!isReplyOwn && <span className="wc-reply-name">{replyAuthor?.name || '未知用户'}</span>}
+                                  <span className="wc-reply-text">{reply.content}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="wc-reply-form">
+                        <input
+                          type="text"
+                          placeholder={isAuthenticated ? '回复...' : '登录后回复'}
+                          value={replyInputs[post.id] || ''}
+                          onChange={e => setReplyInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                          onKeyDown={e => e.key === 'Enter' && handleReply(post.id)}
+                          disabled={!isAuthenticated}
+                          className="wc-reply-input"
+                        />
+                        <button
+                          className="wc-reply-send"
+                          onClick={() => handleReply(post.id)}
+                          disabled={!replyInputs[post.id]?.trim() || replySubmitting[post.id] || !isAuthenticated}
+                        >
+                          {replySubmitting[post.id] ? <Loader2 size={14} className="spinning" /> : <Send size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -351,8 +294,78 @@ export default function WorldChannel() {
             <button className="wc-load-more-btn" onClick={handleLoadMore}>加载更多</button>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
+      {/* 输入区域 */}
+      <div className="wc-input-area">
+        {showNewPost ? (
+          <div className="wc-input-expanded">
+            <textarea
+              className="wc-input-textarea"
+              placeholder="分享你的想法...（支持 Markdown 语法）"
+              value={newContent}
+              onChange={e => setNewContent(e.target.value)}
+              rows={3}
+              autoFocus
+            />
+            {newImages.length > 0 && (
+              <div className="wc-input-images">
+                {newImages.map((img, i) => (
+                  <div key={i} className="wc-input-image-thumb">
+                    <img src={img.preview} alt="" loading="lazy" />
+                    <button className="wc-input-image-remove" onClick={() => removeImage(i)}><X size={10} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="wc-input-actions">
+              <div className="wc-input-tools">
+                <button className="wc-input-tool-btn" onClick={() => imageInputRef.current?.click()} disabled={newImages.length >= 5}>
+                  <Image size={16} />
+                </button>
+                <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/gif" multiple onChange={handleImageSelect} hidden />
+                <span className="wc-input-hint">{newImages.length}/5</span>
+              </div>
+              <div className="wc-input-submit-row">
+                <button className="wc-input-cancel" onClick={() => { setShowNewPost(false); setNewContent(''); setNewImages([]); }}>取消</button>
+                <button className="wc-input-send" onClick={handleNewPost} disabled={(!newContent.trim() && newImages.length === 0) || submitting}>
+                  {submitting ? <Loader2 size={14} className="spinning" /> : <Send size={14} />} 发送
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="wc-input-bar">
+            <button className="wc-input-img-btn" onClick={() => imageInputRef.current?.click()}>
+              <Image size={18} />
+            </button>
+            <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/gif" multiple onChange={handleImageSelect} hidden />
+            <input
+              type="text"
+              className="wc-input-pill"
+              placeholder={isAuthenticated ? '说点什么...' : '登录后发言'}
+              value={newContent}
+              onChange={e => setNewContent(e.target.value)}
+              onFocus={() => { if (newContent.trim() || newImages.length > 0) setShowNewPost(true); }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!isAuthenticated) { openAuth(); return; }
+                  setShowNewPost(true);
+                }
+              }}
+              readOnly={!isAuthenticated}
+              onClick={() => { if (!isAuthenticated) openAuth(); }}
+            />
+            <button className="wc-input-send-pill" onClick={() => { if (!isAuthenticated) { openAuth(); return; } if (newContent.trim()) { setShowNewPost(true); } else setShowNewPost(true); }}>
+              <Send size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 全屏图片 */}
       {fullscreenImg && (
         <div className="wc-fullscreen-overlay" onClick={() => setFullscreenImg(null)}>
           <img src={fullscreenImg} alt="" className="wc-fullscreen-img" onClick={e => e.stopPropagation()} />

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ForumService, UserService } from '../../services/api';
 import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
-import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, Users, FileText, TrendingUp, Clock, Heart, Image, Video, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Upload, Loader2 } from 'lucide-react';
+import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, Users, FileText, TrendingUp, Clock, Heart, Image, Video, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Upload, Loader2, Flame, Hash } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import './Forum.css';
 
@@ -215,7 +215,6 @@ export default function Forum() {
   }, [activeBoard, sortBy, searchQuery, posts]);
 
   const getUser = (userId) => UserService.getById(userId);
-  // 从后端帖子数据中获取作者信息（后端 JOIN 返回 author_name/author_avatar）
   const getPostAuthor = (post) => {
     if (post.author_name) return { name: post.author_name, avatar: post.author_avatar };
     return getUser(post.author_id);
@@ -330,7 +329,6 @@ export default function Forum() {
         tags,
       });
 
-      // 将后端返回的帖子添加到列表顶部
       setPosts(prev => [created, ...prev]);
 
       setShowNewPost(false);
@@ -372,259 +370,226 @@ export default function Forum() {
     );
   };
 
+  // 计算热门帖子（按浏览量前5）
+  const hotPosts = useMemo(() => {
+    return [...posts].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5);
+  }, [posts]);
+
+  // 计算热门标签
+  const hotTags = useMemo(() => {
+    const tagMap = {};
+    posts.forEach(p => {
+      if (p.tags) p.tags.forEach(t => { tagMap[t] = (tagMap[t] || 0) + 1; });
+    });
+    return Object.entries(tagMap).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([tag]) => tag);
+  }, [posts]);
+
   return (
     <div className="forum-page">
-      <div className="forum-container">
-        <div className="forum-header">
-          <h1 className="forum-title"><MessageCircle size={22} /> 交流区</h1>
-          <button className="new-post-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowNewPost(!showNewPost); }}>
-            <Plus size={16} /> 发帖
-          </button>
-        </div>
+      <div className="forum-layout">
+        {/* 左栏 7fr */}
+        <div className="forum-main">
+          <div className="forum-header">
+            <h1 className="forum-title"><MessageCircle size={22} /> 交流区</h1>
+            <button className="new-post-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowNewPost(!showNewPost); }}>
+              <Plus size={16} /> 发帖
+            </button>
+          </div>
 
-        {showNewPost && (
-          <div className="new-post-form">
-            <div className="form-header">
-              <h3>发布新帖</h3>
-              <div className="form-mode-tabs">
-                <button className={`form-mode-tab ${!showPreview ? 'active' : ''}`} onClick={() => setShowPreview(false)}>编辑</button>
-                <button className={`form-mode-tab ${showPreview ? 'active' : ''}`} onClick={() => setShowPreview(true)}>
-                  <Eye size={12} /> 预览
+          {/* 搜索栏 pill */}
+          <div className="forum-search-bar-pill">
+            <Search size={16} />
+            <input type="text" placeholder="搜索帖子..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+          </div>
+
+          {/* 排序 pills */}
+          <div className="forum-sort-pills">
+            {sortOptions.map(opt => {
+              const Icon = opt.icon;
+              return (
+                <button key={opt.key} className={`sort-pill ${sortBy === opt.key ? 'active' : ''}`} onClick={() => setSortBy(opt.key)}>
+                  <Icon size={13} /> {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {showNewPost && (
+            <div className="new-post-form">
+              <div className="form-header">
+                <h3>发布新帖</h3>
+                <div className="form-mode-tabs">
+                  <button className={`form-mode-tab ${!showPreview ? 'active' : ''}`} onClick={() => setShowPreview(false)}>编辑</button>
+                  <button className={`form-mode-tab ${showPreview ? 'active' : ''}`} onClick={() => setShowPreview(true)}>
+                    <Eye size={12} /> 预览
+                  </button>
+                </div>
+              </div>
+
+              {submitError && submitError.length > 0 && (
+                <div className="form-errors">
+                  {submitError.map((err, i) => renderError(err, i))}
+                </div>
+              )}
+
+              {!showPreview ? (
+                <>
+                  <div className="form-row">
+                    <select value={newPost.category} onChange={e => setNewPost({ ...newPost, category: e.target.value })} className="form-select">
+                      {BOARDS.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
+                    </select>
+                  </div>
+                  <input type="text" placeholder="帖子标题（最多100字）" value={newPost.title} onChange={e => setNewPost({ ...newPost, title: e.target.value })} className="form-input" maxLength={100} />
+                  <span className="form-char-count">{newPost.title.length}/100</span>
+                  <RichTextEditor
+                    value={newPost.content}
+                    onChange={val => setNewPost({ ...newPost, content: val })}
+                    placeholder="帖子内容（支持 Markdown 格式：**粗体** *斜体* [链接](url) > 引用 - 列表）"
+                  />
+
+                  <div className="form-media-section">
+                    <div className="form-media-row">
+                      <div className="form-media-upload">
+                        <button type="button" className="media-upload-btn" onClick={() => imageInputRef.current?.click()} disabled={newPost.images.length >= MAX_IMAGES}>
+                          <Image size={16} /> 添加图片 ({newPost.images.length}/{MAX_IMAGES})
+                        </button>
+                        <input ref={imageInputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handleImageSelect} hidden />
+                        <span className="media-hint">JPG/PNG，单张≤10MB</span>
+                      </div>
+                      <div className="form-media-upload">
+                        <button type="button" className="media-upload-btn" onClick={() => videoInputRef.current?.click()} disabled={!!newPost.videoUrl}>
+                          <Video size={16} /> 添加视频
+                        </button>
+                        <input ref={videoInputRef} type="file" accept="video/mp4,video/webm" onChange={handleVideoSelect} hidden />
+                        <span className="media-hint">MP4/WebM，≤200MB</span>
+                      </div>
+                    </div>
+
+                    {newPost.images.length > 0 && (
+                      <div className="form-image-previews">
+                        {newPost.images.map((img, i) => (
+                          <div key={i} className="form-image-thumb">
+                            <img src={img.preview} alt="" loading="lazy" />
+                            <button className="form-image-remove" onClick={() => removeImage(i)}><X size={10} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {newPost.videoUrl && (
+                      <div className="form-video-preview">
+                        <video src={newPost.videoUrl} className="form-video-thumb" muted />
+                        <button className="form-video-remove" onClick={removeVideo}><X size={14} /> 移除视频</button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-row">
+                    <input type="text" placeholder="标签（空格分隔，如：推荐 讨论 新番）" value={newPost.tags} onChange={e => setNewPost({ ...newPost, tags: e.target.value })} className="form-input" />
+                  </div>
+                </>
+              ) : (
+                <PostPreview
+                  title={newPost.title}
+                  content={newPost.content}
+                  images={newPost.images}
+                  videoUrl={newPost.videoUrl}
+                  category={newPost.category}
+                />
+              )}
+
+              <div className="form-actions">
+                <button className="form-cancel" onClick={resetForm}>取消</button>
+                <button className="form-submit" onClick={handleNewPost} disabled={submitting}>
+                  {submitting ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
                 </button>
               </div>
             </div>
+          )}
 
-            {submitError && submitError.length > 0 && (
-              <div className="form-errors">
-                {submitError.map((err, i) => renderError(err, i))}
-              </div>
-            )}
-
-            {!showPreview ? (
-              <>
-                <div className="form-row">
-                  <select value={newPost.category} onChange={e => setNewPost({ ...newPost, category: e.target.value })} className="form-select">
-                    {BOARDS.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
-                  </select>
-                </div>
-                <input type="text" placeholder="帖子标题（最多100字）" value={newPost.title} onChange={e => setNewPost({ ...newPost, title: e.target.value })} className="form-input" maxLength={100} />
-                <span className="form-char-count">{newPost.title.length}/100</span>
-                <RichTextEditor
-                  value={newPost.content}
-                  onChange={val => setNewPost({ ...newPost, content: val })}
-                  placeholder="帖子内容（支持 Markdown 格式：**粗体** *斜体* [链接](url) > 引用 - 列表）"
-                />
-
-                <div className="form-media-section">
-                  <div className="form-media-row">
-                    <div className="form-media-upload">
-                      <button type="button" className="media-upload-btn" onClick={() => imageInputRef.current?.click()} disabled={newPost.images.length >= MAX_IMAGES}>
-                        <Image size={16} /> 添加图片 ({newPost.images.length}/{MAX_IMAGES})
-                      </button>
-                      <input ref={imageInputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handleImageSelect} hidden />
-                      <span className="media-hint">JPG/PNG，单张≤10MB</span>
-                    </div>
-                    <div className="form-media-upload">
-                      <button type="button" className="media-upload-btn" onClick={() => videoInputRef.current?.click()} disabled={!!newPost.videoUrl}>
-                        <Video size={16} /> 添加视频
-                      </button>
-                      <input ref={videoInputRef} type="file" accept="video/mp4,video/webm" onChange={handleVideoSelect} hidden />
-                      <span className="media-hint">MP4/WebM，≤200MB</span>
-                    </div>
-                  </div>
-
-                  {newPost.images.length > 0 && (
-                    <div className="form-image-previews">
-                      {newPost.images.map((img, i) => (
-                        <div key={i} className="form-image-thumb">
-                          <img src={img.preview} alt="" loading="lazy" />
-                          <button className="form-image-remove" onClick={() => removeImage(i)}><X size={10} /></button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {newPost.videoUrl && (
-                    <div className="form-video-preview">
-                      <video src={newPost.videoUrl} className="form-video-thumb" muted />
-                      <button className="form-video-remove" onClick={removeVideo}><X size={14} /> 移除视频</button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-row">
-                  <input type="text" placeholder="标签（空格分隔，如：推荐 讨论 新番）" value={newPost.tags} onChange={e => setNewPost({ ...newPost, tags: e.target.value })} className="form-input" />
-                </div>
-              </>
+          {/* 帖子列表 */}
+          <div className="forum-posts">
+            {loadingPosts ? (
+              <div className="forum-loading"><Loader2 size={24} className="spin" /> 加载中...</div>
+            ) : filteredPosts.length === 0 ? (
+              <div className="forum-empty"><p>没有找到相关帖子</p></div>
             ) : (
-              <PostPreview
-                title={newPost.title}
-                content={newPost.content}
-                images={newPost.images}
-                videoUrl={newPost.videoUrl}
-                category={newPost.category}
-              />
-            )}
-
-            <div className="form-actions">
-              <button className="form-cancel" onClick={resetForm}>取消</button>
-              <button className="form-submit" onClick={handleNewPost} disabled={submitting}>
-                {submitting ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!activeBoard ? (
-          <div className="forum-boards">
-            <div className="forum-search-bar">
-              <Search size={16} />
-              <input type="text" placeholder="搜索帖子..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            </div>
-
-            <div className="forum-board-grid">
-              {BOARDS.map(board => {
-                const Icon = board.icon;
-                const boardPosts = posts.filter(p => p.category === board.key);
-                const latestPost = boardPosts[0];
+              filteredPosts.map(post => {
+                const author = getPostAuthor(post);
                 return (
-                  <div key={board.key} className="forum-board-card" onClick={() => setActiveBoard(board.key)}>
-                    <div className="board-card-header">
-                      <div className="board-icon" style={{ background: board.color }}>
-                        <Icon size={22} />
+                  <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-post-card">
+                    <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={40} className="post-user-avatar" />
+                    <div className="post-card-body">
+                      <div className="post-card-header">
+                        <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
+                        <h3 className="post-card-title">{post.title}</h3>
                       </div>
-                      <div className="board-card-info">
-                        <h2 className="board-card-title">{board.label}</h2>
-                        <p className="board-card-desc">{board.description}</p>
+                      <p className="post-card-content">{post.content}</p>
+                      <div className="post-card-footer">
+                        <span className="post-author">{author?.name}</span>
+                        <span className="post-time">{post.created_at}</span>
+                        <span className="post-stat"><MessageCircle size={11} /> {post.replies_count || 0}</span>
+                        <span className="post-stat"><Eye size={11} /> {post.views || 0}</span>
+                        <span className="post-stat"><Heart size={11} /> {post.likes || 0}</span>
                       </div>
                     </div>
-                    <div className="board-card-stats">
-                      <span><FileText size={12} /> {boardPosts.length} 帖</span>
-                      <span><Users size={12} /> {boardPosts.reduce((s, p) => s + (p.replies_count || 0), 0)} 回复</span>
-                    </div>
-                    {latestPost && (
-                      <div className="board-card-latest">
-                        <span className="latest-label">最新：</span>
-                        <span className="latest-title">{latestPost.title}</span>
-                        <span className="latest-author">by {getPostAuthor(latestPost)?.name}</span>
-                      </div>
-                    )}
-                    <div className="board-subs">
-                      {board.subs.map(sub => (
-                        <span key={sub.key} className="board-sub-tag" onClick={e => { e.stopPropagation(); setActiveBoard(board.key); setActiveSub(sub.key); }}>
-                          {sub.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  </Link>
                 );
-              })}
-            </div>
-
-            <div className="forum-latest-posts">
-              <div className="forum-latest-header">
-                <h2 className="forum-section-title"><Clock size={18} /> 最新帖子</h2>
-                <div className="forum-latest-sort">
-                  {sortOptions.map(opt => {
-                    const Icon = opt.icon;
-                    return (
-                      <button key={opt.key} className={`sort-btn ${sortBy === opt.key ? 'active' : ''}`} onClick={() => setSortBy(opt.key)}>
-                        <Icon size={13} /> {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="forum-latest-list">
-                {filteredPosts.slice(0, 8).map(post => {
-                  const author = getPostAuthor(post);
-                  return (
-                    <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-latest-item">
-                      <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={32} className="latest-item-avatar" />
-                      <div className="latest-item-body">
-                        <div className="latest-item-top">
-                          <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
-                          <span className="latest-item-title">{post.title}</span>
-                        </div>
-                        <div className="latest-item-meta">
-                          <span className="latest-item-author">{author?.name}</span>
-                          <span><MessageCircle size={10} /> {post.replies_count || 0}</span>
-                          <span><TrendingUp size={10} /> {post.views || 0}</span>
-                          <span><Heart size={10} /> {post.likes || 0}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+              })
+            )}
           </div>
-        ) : (
-          <div className="forum-board-view">
-            <div className="board-view-header">
-              <button className="board-back-btn" onClick={() => { setActiveBoard(null); setActiveSub(null); }}>
-                ← 返回板块列表
-              </button>
-              <h2 className="board-view-title" style={{ color: BOARDS.find(b => b.key === activeBoard)?.color }}>
-                {BOARDS.find(b => b.key === activeBoard)?.label}
-              </h2>
-              <div className="board-sub-tabs">
-                <button className={`board-sub-tab ${!activeSub ? 'active' : ''}`} onClick={() => setActiveSub(null)}>全部</button>
-                {BOARDS.find(b => b.key === activeBoard)?.subs.map(sub => (
-                  <button key={sub.key} className={`board-sub-tab ${activeSub === sub.key ? 'active' : ''}`}
-                    onClick={() => setActiveSub(sub.key)}>{sub.label}</button>
+        </div>
+
+        {/* 右栏 3fr sticky */}
+        <div className="forum-sidebar">
+          {/* 板块列表 */}
+          <div className="sidebar-section">
+            <h3 className="sidebar-section-title">板块</h3>
+            {BOARDS.map(board => {
+              const Icon = board.icon;
+              const boardPosts = posts.filter(p => p.category === board.key);
+              return (
+                <div key={board.key} className="sidebar-board-item" style={{ '--board-color': board.color }} onClick={() => setActiveBoard(activeBoard === board.key ? null : board.key)}>
+                  <div className="sidebar-board-color" />
+                  <Icon size={16} />
+                  <div className="sidebar-board-info">
+                    <span className="sidebar-board-name">{board.label}</span>
+                    <span className="sidebar-board-count">{boardPosts.length} 帖</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 热门帖子 */}
+          <div className="sidebar-section">
+            <h3 className="sidebar-section-title"><Flame size={14} /> 热门帖子</h3>
+            {hotPosts.map((post, idx) => {
+              const author = getPostAuthor(post);
+              return (
+                <Link to={`/forum/post/${post.id}`} key={post.id} className="sidebar-hot-item">
+                  <span className="sidebar-hot-rank">{idx + 1}</span>
+                  <div className="sidebar-hot-info">
+                    <span className="sidebar-hot-title">{post.title}</span>
+                    <span className="sidebar-hot-meta"><Eye size={10} /> {post.views || 0}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* 热门标签 */}
+          {hotTags.length > 0 && (
+            <div className="sidebar-section">
+              <h3 className="sidebar-section-title"><Hash size={14} /> 热门标签</h3>
+              <div className="sidebar-tag-cloud">
+                {hotTags.map(tag => (
+                  <button key={tag} className="sidebar-tag-pill" onClick={() => setSearchQuery(tag)}>{tag}</button>
                 ))}
               </div>
             </div>
-
-            <div className="forum-toolbar">
-              <div className="forum-search-inline">
-                <Search size={14} />
-                <input type="text" placeholder="搜索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-              </div>
-              <div className="forum-sort">
-                {sortOptions.map(opt => {
-                  const Icon = opt.icon;
-                  return (
-                    <button key={opt.key} className={`sort-btn ${sortBy === opt.key ? 'active' : ''}`} onClick={() => setSortBy(opt.key)}>
-                      <Icon size={13} /> {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="forum-posts">
-              {filteredPosts.length === 0 ? (
-                <div className="forum-empty"><p>没有找到相关帖子</p></div>
-              ) : (
-                filteredPosts.map(post => {
-                  const author = getPostAuthor(post);
-                  return (
-                    <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-post-card">
-                      <div className="post-card-left">
-                        <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={40} className="post-user-avatar" />
-                        <div className="post-card-body">
-                          <div className="post-card-header">
-                            <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
-                            <h3 className="post-card-title">{post.title}</h3>
-                          </div>
-                          <p className="post-card-content">{post.content}</p>
-                          <div className="post-card-footer">
-                            <span className="post-author">{author?.name}</span>
-                            <span className="post-time">{post.created_at}</span>
-                            <span className="post-stat"><MessageCircle size={11} /> {post.replies_count || 0}</span>
-                            <span className="post-stat"><TrendingUp size={11} /> {post.views || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

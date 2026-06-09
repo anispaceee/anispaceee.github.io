@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
 import { SubjectCard } from '../Common/CommonComponents';
-import { Search, BookOpen, Tv, Gamepad2, Music, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw } from 'lucide-react';
+import { Search, BookOpen, Tv, Gamepad2, Music, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2 } from 'lucide-react';
 import './Wiki.css';
 
 const TYPE_OPTIONS = [
@@ -15,6 +15,26 @@ const TYPE_OPTIONS = [
 ];
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="280" fill="%23f9f3f5"%3E%3Crect width="200" height="280" rx="10"/%3E%3Ctext x="100" y="140" text-anchor="middle" fill="%23d4b8c0" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E';
+
+const HISTORY_KEY = 'anispace_search_history';
+const MAX_HISTORY = 12;
+
+function getSearchHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch { return []; }
+}
+
+function addSearchHistory(keyword) {
+  if (!keyword.trim()) return;
+  const history = getSearchHistory().filter(h => h !== keyword.trim());
+  history.unshift(keyword.trim());
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+}
+
+function clearSearchHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+}
 
 export default function Wiki() {
   const navigate = useNavigate();
@@ -40,6 +60,9 @@ export default function Wiki() {
   const liveSearchTimer = useRef(null);
   const searchWrapRef = useRef(null);
   const [suggestionIndex, setSuggestionIndex] = useState(-1);
+
+  const [hasSearched, setHasSearched] = useState(() => !!searchParams.get('q'));
+  const [searchHistory, setSearchHistory] = useState(getSearchHistory);
 
   const initialSearchDone = useRef(false);
 
@@ -145,6 +168,9 @@ export default function Wiki() {
     setShowLiveResults(false);
     setSearching(true);
     setError('');
+    setHasSearched(true);
+    addSearchHistory(q.trim());
+    setSearchHistory(getSearchHistory());
     const offset = (p - 1) * PAGE_SIZE;
     try {
       const typeOption = TYPE_OPTIONS.find(t => t.key === type);
@@ -194,109 +220,215 @@ export default function Wiki() {
     }
   };
 
+  const handleHistoryClick = (keyword) => {
+    setQuery(keyword);
+    handleSearch(1, keyword);
+  };
+
+  const handleClearHistory = () => {
+    clearSearchHistory();
+    setSearchHistory([]);
+  };
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  return (
-    <div className="wiki-page">
-      <div className="wiki-header">
-        <div className="wiki-title">
-          <BookOpen size={22} />
-          <h1>百科 & 数据库</h1>
-        </div>
-        <p className="wiki-desc">搜索动画、小说、游戏作品，点击角色名跳转萌娘百科</p>
-      </div>
-
-      <div className="wiki-search" ref={searchWrapRef}>
-        <div className="wiki-search-bar">
-          <Search size={16} />
-          <input
-            placeholder="搜索作品、角色..."
-            value={query}
-            onChange={e => handleLiveSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch(1)}
-            onFocus={() => { if (query.trim() && liveResults.length > 0) setShowLiveResults(true); }}
-          />
-          <button className="wiki-search-btn" onClick={() => handleSearch(1)} disabled={searching}>
-            {searching ? <Loader2 size={14} className="spinning" /> : '搜索'}
-          </button>
-        </div>
-        {showLiveResults && query.trim() && (
-          <div className="wiki-live-results">
-            {liveSearching ? (
-              <div className="wiki-live-skeleton">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="wiki-live-skeleton-item">
-                    <div className="wiki-skeleton-cover shimmer" />
-                    <div className="wiki-skeleton-info">
-                      <div className="wiki-skeleton-line wiki-skeleton-title shimmer" />
-                      <div className="wiki-skeleton-line wiki-skeleton-sub shimmer" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : liveError ? (
-              <div className="wiki-live-error">
-                <AlertCircle size={16} />
-                <span>搜索失败，请重试</span>
-                <button className="wiki-live-retry" onClick={() => handleLiveSearch(query)}>重试</button>
-              </div>
-            ) : liveResults.length > 0 ? (
-              <>
-                {liveResults.map((item, idx) => {
-                  const cover = item.images?.common || item.images?.medium || '';
-                  const name = item.name_cn || item.name || '';
-                  const isPerson = item.type === 'person';
-                  return (
-                    <Link
-                      key={item.id}
-                      to={isPerson ? '#' : `/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
-                      className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
-                      onClick={() => { setShowLiveResults(false); if (isPerson) openMoegirl(name); }}
-                    >
-                      {isPerson ? (
-                        <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
-                      ) : (
-                        <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
-                      )}
-                      <div className="wiki-live-info">
-                        <span className="wiki-live-name">{name}</span>
-                        <div className="wiki-live-meta">
-                          {isPerson && <span className="wiki-live-type-badge"><Users size={9} /> 人物</span>}
-                          {item.rating?.score > 0 && <span className="wiki-live-score"><Star size={10} fill="#ffc107" /> {item.rating.score.toFixed(1)}</span>}
-                          {isPerson && item.short_summary && <span className="wiki-live-summary">{item.short_summary.slice(0, 30)}...</span>}
+  // 沉浸式首页模式
+  if (!hasSearched) {
+    return (
+      <div className="wiki-immersive">
+        <div className="wiki-immersive-center">
+          <h1 className="wiki-immersive-title">ANISpace</h1>
+          <p className="wiki-immersive-subtitle">发现你的下一部番</p>
+          <div className="wiki-immersive-search" ref={searchWrapRef}>
+            <div className="wiki-search-bar wiki-search-bar-large">
+              <Search size={18} />
+              <input
+                placeholder="搜索作品、角色..."
+                value={query}
+                onChange={e => handleLiveSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSearch(1)}
+                onFocus={() => { if (query.trim() && liveResults.length > 0) setShowLiveResults(true); }}
+                autoFocus
+              />
+              <button className="wiki-search-btn" onClick={() => handleSearch(1)} disabled={searching}>
+                {searching ? <Loader2 size={14} className="spinning" /> : '搜索'}
+              </button>
+            </div>
+            {showLiveResults && query.trim() && (
+              <div className="wiki-live-results">
+                {liveSearching ? (
+                  <div className="wiki-live-skeleton">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="wiki-live-skeleton-item">
+                        <div className="wiki-skeleton-cover shimmer" />
+                        <div className="wiki-skeleton-info">
+                          <div className="wiki-skeleton-line wiki-skeleton-title shimmer" />
+                          <div className="wiki-skeleton-line wiki-skeleton-sub shimmer" />
                         </div>
                       </div>
-                    </Link>
-                  );
-                })}
-                <button className="wiki-live-more" onClick={() => handleSearch(1)}>查看全部结果...</button>
-              </>
-            ) : (
-              <div className="wiki-live-empty">
-                <Search size={20} />
-                <span>未找到相关内容</span>
+                    ))}
+                  </div>
+                ) : liveError ? (
+                  <div className="wiki-live-error">
+                    <AlertCircle size={16} />
+                    <span>搜索失败，请重试</span>
+                    <button className="wiki-live-retry" onClick={() => handleLiveSearch(query)}>重试</button>
+                  </div>
+                ) : liveResults.length > 0 ? (
+                  <>
+                    {liveResults.map((item, idx) => {
+                      const cover = item.images?.common || item.images?.medium || '';
+                      const name = item.name_cn || item.name || '';
+                      const isPerson = item.type === 'person';
+                      return (
+                        <Link
+                          key={item.id}
+                          to={isPerson ? '#' : `/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
+                          className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
+                          onClick={() => { setShowLiveResults(false); if (isPerson) openMoegirl(name); }}
+                        >
+                          {isPerson ? (
+                            <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          ) : (
+                            <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          )}
+                          <div className="wiki-live-info">
+                            <span className="wiki-live-name">{name}</span>
+                            <div className="wiki-live-meta">
+                              {isPerson && <span className="wiki-live-type-badge"><Users size={9} /> 人物</span>}
+                              {item.rating?.score > 0 && <span className="wiki-live-score"><Star size={10} fill="#ffc107" /> {item.rating.score.toFixed(1)}</span>}
+                              {isPerson && item.short_summary && <span className="wiki-live-summary">{item.short_summary.slice(0, 30)}...</span>}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                    <button className="wiki-live-more" onClick={() => handleSearch(1)}>查看全部结果...</button>
+                  </>
+                ) : (
+                  <div className="wiki-live-empty">
+                    <Search size={20} />
+                    <span>未找到相关内容</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-        <div className="wiki-type-tabs">
+          <div className="wiki-type-tabs wiki-type-tabs-pills">
+            {TYPE_OPTIONS.map(t => (
+              <button key={t.key} className={`wiki-type-tab-pill ${activeType === t.key ? 'active' : ''}`} onClick={() => setActiveType(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {searchHistory.length > 0 && (
+            <div className="wiki-history-section">
+              <div className="wiki-history-header">
+                <span className="wiki-history-title"><Clock size={14} /> 搜索历史</span>
+                <button className="wiki-history-clear" onClick={handleClearHistory}><Trash2 size={12} /> 清空</button>
+              </div>
+              <div className="wiki-history-tags">
+                {searchHistory.map((keyword, idx) => (
+                  <button key={idx} className="wiki-history-tag" onClick={() => handleHistoryClick(keyword)}>
+                    {keyword}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // 搜索结果模式
+  return (
+    <div className="wiki-page">
+      <div className="wiki-top-bar">
+        <div className="wiki-search" ref={searchWrapRef}>
+          <div className="wiki-search-bar">
+            <Search size={16} />
+            <input
+              placeholder="搜索作品、角色..."
+              value={query}
+              onChange={e => handleLiveSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch(1)}
+              onFocus={() => { if (query.trim() && liveResults.length > 0) setShowLiveResults(true); }}
+            />
+            <button className="wiki-search-btn" onClick={() => handleSearch(1)} disabled={searching}>
+              {searching ? <Loader2 size={14} className="spinning" /> : '搜索'}
+            </button>
+          </div>
+          {showLiveResults && query.trim() && (
+            <div className="wiki-live-results">
+              {liveSearching ? (
+                <div className="wiki-live-skeleton">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="wiki-live-skeleton-item">
+                      <div className="wiki-skeleton-cover shimmer" />
+                      <div className="wiki-skeleton-info">
+                        <div className="wiki-skeleton-line wiki-skeleton-title shimmer" />
+                        <div className="wiki-skeleton-line wiki-skeleton-sub shimmer" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : liveError ? (
+                <div className="wiki-live-error">
+                  <AlertCircle size={16} />
+                  <span>搜索失败，请重试</span>
+                  <button className="wiki-live-retry" onClick={() => handleLiveSearch(query)}>重试</button>
+                </div>
+              ) : liveResults.length > 0 ? (
+                <>
+                  {liveResults.map((item, idx) => {
+                    const cover = item.images?.common || item.images?.medium || '';
+                    const name = item.name_cn || item.name || '';
+                    const isPerson = item.type === 'person';
+                    return (
+                      <Link
+                        key={item.id}
+                        to={isPerson ? '#' : `/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
+                        className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
+                        onClick={() => { setShowLiveResults(false); if (isPerson) openMoegirl(name); }}
+                      >
+                        {isPerson ? (
+                          <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        ) : (
+                          <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        )}
+                        <div className="wiki-live-info">
+                          <span className="wiki-live-name">{name}</span>
+                          <div className="wiki-live-meta">
+                            {isPerson && <span className="wiki-live-type-badge"><Users size={9} /> 人物</span>}
+                            {item.rating?.score > 0 && <span className="wiki-live-score"><Star size={10} fill="#ffc107" /> {item.rating.score.toFixed(1)}</span>}
+                            {isPerson && item.short_summary && <span className="wiki-live-summary">{item.short_summary.slice(0, 30)}...</span>}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  <button className="wiki-live-more" onClick={() => handleSearch(1)}>查看全部结果...</button>
+                </>
+              ) : (
+                <div className="wiki-live-empty">
+                  <Search size={20} />
+                  <span>未找到相关内容</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="wiki-type-tabs wiki-type-tabs-pills">
           {TYPE_OPTIONS.map(t => (
-            <button key={t.key} className={`wiki-type-tab ${activeType === t.key ? 'active' : ''}`} onClick={() => setActiveType(t.key)}>
-              <t.icon size={14} /> {t.label}
+            <button key={t.key} className={`wiki-type-tab-pill ${activeType === t.key ? 'active' : ''}`} onClick={() => setActiveType(t.key)}>
+              {t.label}
             </button>
           ))}
         </div>
       </div>
 
       {error && <div className="wiki-error"><AlertCircle size={16} /> {error} <button onClick={() => handleSearch(page)}><RotateCw size={12} /> 重试</button></div>}
-
-      {/* 空状态提示 */}
-      {results.length === 0 && !searching && !error && !query.trim() && (
-        <div className="wiki-empty-state">
-          <Search size={48} className="wiki-empty-icon" />
-          <p className="wiki-empty-text">搜索你感兴趣的动画、小说、游戏...</p>
-        </div>
-      )}
 
       <div className="wiki-results">
         {results.length > 0 && <div className="wiki-results-header"><span>共 {total} 条结果</span></div>}

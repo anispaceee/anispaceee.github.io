@@ -1,4 +1,4 @@
-.friend-space-page { max-width: var(--max-content); margin: 0 auto; padding: 0 20px 40px; }
+.friend-space-page { max-width: var(--max-content); margin: 0 auto; padding: 24px 20px 40px; }
 .friend-space-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .friend-space-title { display: flex; align-items: center; gap: 10px; }
 .friend-space-title h1 { font-size: 20px; font-weight: 800; }
@@ -17,18 +17,19 @@
 .composer-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .composer-tool { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--text-tertiary); transition: all var(--transition-fast); }
 .composer-tool:hover { background: var(--bg-input); color: var(--primary); }
-.composer-submit { padding: 6px 20px; background: var(--primary); color: #fff; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; }
+.composer-submit { padding: 6px 20px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 13px; font-weight: 600; }
 .composer-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .friend-space-filters { display: flex; gap: 6px; margin-bottom: 16px; }
-.filter-btn { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: var(--radius-full); font-size: 13px; background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-secondary); transition: all var(--transition-fast); }
+.filter-btn { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 20px; font-size: 13px; background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-secondary); transition: all var(--transition-fast); }
 .filter-btn.active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); }
 
 .friend-space-feed { display: flex; flex-direction: column; gap: 12px; }
 .friend-space-empty { text-align: center; padding: 48px 20px; color: var(--text-quaternary); display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .friend-space-empty p { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin: 0; }
 
-.space-post { background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; border: 1px solid var(--border-secondary); box-shadow: var(--shadow-xs); }
+.space-post { background: var(--bg-card); border-radius: 12px; padding: 16px; border: 1px solid var(--border-secondary); box-shadow: var(--shadow-xs); transition: all var(--transition-fast); }
+.space-post:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .space-post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .space-post-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .space-post-author { display: flex; flex-direction: column; }
@@ -53,4 +54,4 @@
 .space-comment-input { display: flex; gap: 6px; margin-top: 8px; }
 .space-comment-input input { flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-secondary); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-primary); }
 .space-comment-input input:focus { border-color: var(--primary); outline: none; }
-.space-comment-input button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); background: var(--primary); color: #fff; }
+.space-comment-input button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 20px; background: var(--primary); color: #fff; }
