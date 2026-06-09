@@ -319,8 +319,8 @@ export default function Profile() {
                 </div>
                 {!isCollapsed && (
                   items.length > 0 ? (
-                    <div className={`category-covers ${expandedCategory === status ? 'expanded' : 'single-row'}`}>
-                      {items.map(mark => (
+                    <div className="category-covers">
+                      {(expandedCategory === status ? items : items.slice(0, 6)).map(mark => (
                         <SubjectCard
                           key={`${mark.user_id}_${mark.subject_id}`}
                           item={{
@@ -333,7 +333,6 @@ export default function Profile() {
                             tags: [],
                           }}
                           type={mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}
-                          compact={true}
                           linkTo={`/info/${mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}/${mark.subject_id}`}
                         />
                       ))}

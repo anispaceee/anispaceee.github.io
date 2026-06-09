@@ -331,20 +331,9 @@
 .category-more:hover { opacity: 0.8; }
 
 .category-covers {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.category-covers.single-row {
-  flex-wrap: nowrap;
-}
-
-.category-covers.expanded {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  overflow: visible;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 .category-empty {
@@ -494,6 +483,7 @@
   .settings-sidebar h2 { display: none; }
   .settings-nav { white-space: nowrap; }
   .privacy-options { flex-wrap: wrap; }
+  .category-covers { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
 
 @media (max-width: 480px) {
