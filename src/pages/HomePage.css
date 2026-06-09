@@ -37,6 +37,7 @@
 .home-carousel-dots { display: flex; justify-content: center; gap: 4px; margin-top: 10px; }
 .home-carousel-dot { width: 6px; height: 4px; border-radius: 2px; background: var(--border-primary); transition: all 0.2s; }
 .home-carousel-dot.active { width: 16px; background: var(--primary); }
+.home-carousel-empty { text-align: center; padding: 40px 20px; color: var(--text-quaternary); font-size: 14px; }
 
 /* 随机推荐 */
 .home-random-section { background: var(--bg-card); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-xs); border: 1px solid var(--border-secondary); }

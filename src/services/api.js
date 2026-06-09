@@ -677,14 +677,29 @@ export const BangumiService = {
   },
 
   async getPopular(type, limit = 10, offset = 0) {
+    // /browse 端点已废弃(404)，改用 calendar 数据提取高分条目
     const typeMap = { anime: 2, novel: 1, game: 4 };
     const subjectType = typeMap[type] || 2;
-    const url = `${this.BASE_URL}/browse?subjectType=${subjectType}&limit=${limit}&offset=${offset}&sort=rank`;
-    const result = await this._request(url, this._cacheKey('popular', `${type}_${limit}_${offset}`));
-    if (result && result.data) {
-      result.data = result.data.map(normalizeSubject);
+    try {
+      const calendarData = await this.getCalendar();
+      if (!Array.isArray(calendarData)) return { data: [] };
+      // 收集所有条目，按类型筛选
+      const allItems = calendarData.flatMap(day => day.items || []);
+      const filtered = allItems.filter(item => item.type === subjectType);
+      // 按评分降序排列
+      const sorted = filtered.sort((a, b) => (b.rating?.score || b.score || 0) - (a.rating?.score || a.score || 0));
+      // 去重（同一 ID 可能出现在不同星期）
+      const seen = new Set();
+      const unique = sorted.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+      const paged = unique.slice(offset, offset + limit);
+      return { data: paged, total: unique.length };
+    } catch {
+      return { data: [] };
     }
-    return result;
   },
 
   async getSubjectsByTag(tag, type = 2, limit = 10, offset = 0) {
@@ -750,7 +765,6 @@ export const BangumiService = {
   async getRandomSubject(excludeIds = []) {
     const HISTORY_KEY = 'acg_random_history';
     const MAX_HISTORY = 50;
-    const MAX_RETRIES = 3;
     const FALLBACK_IDS = [12,323,590,1142,1319,1840,2001,2692,3228,4312,5033,6487,7662,8733,9914,10659,11661,12661,13761,15061];
 
     const loadHistory = () => {
@@ -768,31 +782,23 @@ export const BangumiService = {
     const history = loadHistory();
     const allExcluded = [...new Set([...excludeIds, ...history])];
 
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        const randomOffset = Math.floor(Math.random() * 500);
-        const url = `${this.BASE_URL}/browse?subjectType=2&type=1&limit=25&offset=${randomOffset}&sort=rank`;
-        const result = await this._request(url, null, false);
-
-        if (!result?.data || result.data.length === 0) continue;
-
-        const candidates = result.data
-          .map(normalizeSubject)
+    // /browse 端点已废弃(404)，改用 calendar 数据
+    try {
+      const calendarData = await this.getCalendar();
+      if (Array.isArray(calendarData)) {
+        const allItems = calendarData.flatMap(day => day.items || []);
+        const candidates = allItems
           .filter(s => s && s.id && !allExcluded.includes(s.id) && (s.rating?.score || s.score || 0) > 6);
-
-        if (candidates.length === 0) continue;
-
-        const selected = candidates[Math.floor(Math.random() * candidates.length)];
-
-        history.push(selected.id);
-        saveHistory(history);
-
-        return selected;
-      } catch (err) {
-        if (attempt === MAX_RETRIES - 1) break;
+        if (candidates.length > 0) {
+          const selected = candidates[Math.floor(Math.random() * candidates.length)];
+          history.push(selected.id);
+          saveHistory(history);
+          return selected;
+        }
       }
-    }
+    } catch {}
 
+    // fallback: 使用固定 ID 列表
     const available = FALLBACK_IDS.filter(id => !allExcluded.includes(id));
     const pool = available.length > 0 ? available : FALLBACK_IDS;
     const pickId = pool[Math.floor(Math.random() * pool.length)];
