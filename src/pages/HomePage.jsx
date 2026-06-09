@@ -308,41 +308,18 @@ export default function HomePage() {
   const isSearchActive = searchResults !== null;
   const toggleMinimize = (key) => setMinimized(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const calendarScrollRef = useRef(null);
-
-  const scrollCalendar = (direction) => {
-    if (!calendarScrollRef.current) return;
-    const scrollAmount = 220;
-    calendarScrollRef.current.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
-  };
-
   return (
     <div className="home-page">
       <div className="home-container">
 
-        <div className="home-calendar-section">
-          <div className="home-calendar-header">
-            <h2 className="home-section-title"><Calendar size={18} /> 每日放送</h2>
-            <button className="home-refresh-btn" onClick={fetchCalendar} title="刷新"><RefreshCw size={14} className={calendarLoading ? 'spinning' : ''} /></button>
+        <div className="home-random-section">
+          <div className="home-random-header">
+            <h2 className="home-section-title"><Sparkles size={18} /> 随机推荐</h2>
           </div>
-          <div className="home-calendar-weekdays">
-            {WEEKDAYS.map((day, i) => (
-              <button key={i} className={`home-weekday-btn ${activeWeekday === i ? 'active' : ''}`} onClick={() => setActiveWeekday(i)}>{day}</button>
-            ))}
-          </div>
-          <div className="home-calendar-scroll-wrapper">
-            <button className="home-calendar-scroll-btn left" onClick={() => scrollCalendar(-1)} title="向左滚动"><ChevronLeft size={18} /></button>
-            <div className="home-calendar-scroll" ref={calendarScrollRef}>
-              {calendarLoading ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />) :
-                calendarItems.slice(0, 12).map(item => (
-                  <div key={item.id} className="home-calendar-scroll-item">
-                    <SubjectCard item={item} type="anime" linkTo={`/info/anime/${item.id}`} compact />
-                  </div>
-                ))}
-            </div>
-            <button className="home-calendar-scroll-btn right" onClick={() => scrollCalendar(1)} title="向右滚动"><ChevronRight size={18} /></button>
-          </div>
+          <RandomRecommendCard subject={randomSubject} loading={randomLoading} onRefresh={fetchRandom} />
         </div>
+
+        <NewsZone />
 
         <div className="home-search-section">
           <div className="home-search-bar">
@@ -405,17 +382,21 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className="home-side-by-side">
-          <div className="home-side-random">
-            <div className="home-random-section">
-              <div className="home-random-header">
-                <h2 className="home-section-title"><Sparkles size={18} /> 随机推荐</h2>
-              </div>
-              <RandomRecommendCard subject={randomSubject} loading={randomLoading} onRefresh={fetchRandom} />
-            </div>
+        <div className="home-calendar-section">
+          <div className="home-calendar-header">
+            <h2 className="home-section-title"><Calendar size={18} /> 每日放送</h2>
+            <button className="home-refresh-btn" onClick={fetchCalendar} title="刷新"><RefreshCw size={14} className={calendarLoading ? 'spinning' : ''} /></button>
           </div>
-          <div className="home-side-news">
-            <NewsZone />
+          <div className="home-calendar-weekdays">
+            {WEEKDAYS.map((day, i) => (
+              <button key={i} className={`home-weekday-btn ${activeWeekday === i ? 'active' : ''}`} onClick={() => setActiveWeekday(i)}>{day}</button>
+            ))}
+          </div>
+          <div className="home-calendar-grid">
+            {calendarLoading ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />) :
+              calendarItems.slice(0, 6).map(item => (
+                <SubjectCard key={item.id} item={item} type="anime" linkTo={`/info/anime/${item.id}`} />
+              ))}
           </div>
         </div>
 
