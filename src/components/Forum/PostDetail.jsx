@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ForumService, UserService } from '../../services/api';
 import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
 import { MessageCircle, TrendingUp, Heart, Loader2, AlertCircle } from 'lucide-react';
+import UserAvatar from '../Common/UserAvatar';
 import './PostDetail.css';
 
 /** 将 Markdown 文本渲染为 HTML（与 Forum.jsx PostPreview 一致） */
@@ -113,7 +114,7 @@ export default function PostDetail() {
           </div>
 
           <div className="detail-author">
-            <img src={authorAvatar} alt="" className="detail-author-avatar" loading="lazy" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+            <UserAvatar userId={post.author_id} src={authorAvatar} alt={authorName} size={40} className="detail-author-avatar" />
             <div className="detail-author-info">
               <span className="detail-author-name">{authorName}</span>
               <span className="detail-time">{post.created_at}</span>
@@ -138,7 +139,7 @@ export default function PostDetail() {
               const replyAvatar = reply.author_avatar || '';
               return (
                 <div key={reply.id} className="reply-item">
-                  <img src={replyAvatar} alt="" className="reply-avatar" loading="lazy" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%23f9f3f5"%3E%3Crect width="36" height="36" rx="18"/%3E%3Ctext x="18" y="22" text-anchor="middle" fill="%23c8bfcc" font-size="10"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+                  <UserAvatar userId={reply.author_id} src={replyAvatar} alt={replyName} size={32} className="reply-avatar" />
                   <div className="reply-body">
                     <div className="reply-header">
                       <span className="reply-name">{replyName}</span>

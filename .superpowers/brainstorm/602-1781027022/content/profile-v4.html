@@ -1,0 +1,270 @@
+<h2>个人主页完整布局 v4</h2>
+<p class="subtitle">左侧边栏（含热力图）+ 右侧分类标记网格</p>
+
+<div class="mockup">
+  <div class="mockup-header">完整布局预览</div>
+  <div class="mockup-body" style="display:flex; gap:20px; padding:20px; background:var(--bg-card); min-height:700px; overflow-x:auto;">
+    <!-- 左侧边栏 -->
+    <div style="width:220px; flex-shrink:0; display:flex; flex-direction:column; gap:14px;">
+      <!-- 头像 + 编辑/设置 -->
+      <div style="text-align:center; position:relative;">
+        <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#e8d5e0,#d5e0e8);margin:0 auto 8px;"></div>
+        <div style="position:absolute; top:0; right:30px; display:flex; gap:6px;">
+          <div style="width:26px;height:26px;border-radius:50%;background:#409eff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="编辑资料">✏️</div>
+          <div style="width:26px;height:26px;border-radius:50%;background:#909399;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="设置">⚙️</div>
+        </div>
+        <div style="font-weight:700;font-size:14px;">用户名</div>
+        <div style="font-size:11px;color:#999;margin-top:2px;">一个无聊的宅宅</div>
+      </div>
+      
+      <!-- 统计数字 -->
+      <div style="background:#f5f7fa;border-radius:10px;padding:10px;">
+        <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:#666;">📊 数据统计</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:#666;">📺 动画</span><span style="font-size:13px;font-weight:700;color:#409eff;">12</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:#666;">🎮 游戏</span><span style="font-size:13px;font-weight:700;color:#e6a23c;">5</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:#666;">📖 小说</span><span style="font-size:13px;font-weight:700;color:#67c23a;">3</span></div>
+          <div style="border-top:1px solid #eee;padding-top:6px;display:flex;justify-content:space-between;"><span style="font-size:11px;color:#666;">⭐ 均分</span><span style="font-size:13px;font-weight:700;color:#f56c6c;">7.5</span></div>
+        </div>
+      </div>
+
+      <!-- 标记进度 -->
+      <div style="background:#f5f7fa;border-radius:10px;padding:10px;">
+        <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:#666;">📋 标记进度</div>
+        <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:#e8e8e8;">
+          <div style="background:#409eff;width:30%;"></div>
+          <div style="background:#67c23a;width:25%;"></div>
+          <div style="background:#e6a23c;width:20%;"></div>
+          <div style="background:#909399;width:15%;"></div>
+          <div style="background:#f56c6c;width:10%;"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;font-size:10px;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:#409eff;">● 想看</span><span style="font-weight:600;">6</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:#67c23a;">● 在看</span><span style="font-weight:600;">5</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:#e6a23c;">● 看过</span><span style="font-weight:600;">4</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:#909399;">● 搁置</span><span style="font-weight:600;">3</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:#f56c6c;">● 抛弃</span><span style="font-weight:600;">2</span></div>
+        </div>
+      </div>
+
+      <!-- 登录活跃度热力图 -->
+      <div style="background:#f5f7fa;border-radius:10px;padding:10px;">
+        <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:#666;">🔥 活跃度 · 2026</div>
+        <div style="display:grid; grid-template-columns:repeat(12,1fr); grid-template-rows:repeat(7,1fr); gap:1.5px;">
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#216e39;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#216e39;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:8px;color:#999;">
+          <span>1月</span><span>4月</span><span>7月</span><span>10月</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:3px;margin-top:4px;justify-content:flex-end;font-size:8px;color:#999;">
+          <span>少</span>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#ebedf0;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#9be9a8;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#40c463;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#30a14e;"></div>
+          <div style="width:7px;height:7px;border-radius:1.5px;background:#216e39;"></div>
+          <span>多</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧主内容 -->
+    <div style="flex:1; display:flex; flex-direction:column; gap:20px; min-width:0;">
+      <!-- 想看 -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="display:inline-block;width:4px;height:14px;border-radius:2px;background:#409eff;"></span>
+          <span style="font-weight:700;font-size:13px;">想看</span>
+          <span style="font-size:11px;color:#999;">6 部</span>
+          <span style="font-size:11px;color:#409eff;cursor:pointer;margin-left:auto;">更多 →</span>
+        </div>
+        <div style="display:flex;gap:8px;overflow:hidden;">
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#e8d5e0,#f0e0e8);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">进击的巨人</div>
+          </div>
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#d5e0e8,#e0e8f0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">鬼灭之刃</div>
+          </div>
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#e0e8d5,#e8f0e0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">咒术回战</div>
+          </div>
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#e8e0d5,#f0e8e0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">间谍过家家</div>
+          </div>
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#d5d8e8,#e0e0f0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">电锯人</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 在看 -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="display:inline-block;width:4px;height:14px;border-radius:2px;background:#67c23a;"></span>
+          <span style="font-weight:700;font-size:13px;">在看</span>
+          <span style="font-size:11px;color:#999;">5 部</span>
+          <span style="font-size:11px;color:#67c23a;cursor:pointer;margin-left:auto;">更多 →</span>
+        </div>
+        <div style="display:flex;gap:8px;overflow:hidden;">
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#d5e8d5,#e0f0e0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">葬送的芙莉莲</div>
+          </div>
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#d5e0e8,#e0e8f0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">药屋少女的呢喃</div>
+          </div>
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#e8e0d5,#f0e8e0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">迷宫饭</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 看过 + 最近评论 -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="display:inline-block;width:4px;height:14px;border-radius:2px;background:#e6a23c;"></span>
+          <span style="font-weight:700;font-size:13px;">看过</span>
+          <span style="font-size:11px;color:#999;">4 部</span>
+          <span style="font-size:11px;color:#e6a23c;cursor:pointer;margin-left:auto;">更多 →</span>
+        </div>
+        <div style="display:flex;gap:8px;overflow:hidden;margin-bottom:10px;">
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#e8e0d5,#f0e8e0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">钢之炼金术师</div>
+          </div>
+          <div style="flex-shrink:0;width:90px;border-radius:8px;overflow:hidden;">
+            <div style="aspect-ratio:3/4;background:linear-gradient(135deg,#d5d8e8,#e0e0f0);border-radius:8px;"></div>
+            <div style="padding:3px 2px;font-size:9px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">命运石之门</div>
+          </div>
+        </div>
+        <!-- 最近评论 -->
+        <div style="background:#fafafa;border-radius:8px;padding:10px;border-left:3px solid #e6a23c;">
+          <div style="font-size:11px;font-weight:600;color:#666;margin-bottom:6px;">💬 最近评论</div>
+          <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #eee;">
+            <div style="width:30px;height:40px;border-radius:3px;background:linear-gradient(135deg,#e8e0d5,#f0e8e0);flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;font-weight:600;">钢之炼金术师</div>
+              <div style="font-size:10px;color:#999;">⭐ 9.0</div>
+              <div style="font-size:10px;color:#666;margin-top:2px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">神作！剧情紧凑，人物塑造丰满...</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;padding:6px 0;">
+            <div style="width:30px;height:40px;border-radius:3px;background:linear-gradient(135deg,#d5d8e8,#e0e0f0);flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;font-weight:600;">命运石之门</div>
+              <div style="font-size:10px;color:#999;">⭐ 8.5</div>
+              <div style="font-size:10px;color:#666;margin-top:2px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">前期节奏较慢，但中后期反转令人震撼...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 搁置（折叠） -->
+      <div style="opacity:0.6;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="display:inline-block;width:4px;height:14px;border-radius:2px;background:#909399;"></span>
+          <span style="font-weight:700;font-size:13px;">搁置</span>
+          <span style="font-size:11px;color:#999;">3 部</span>
+          <span style="font-size:11px;color:#909399;cursor:pointer;margin-left:auto;">展开 ▼</span>
+        </div>
+      </div>
+
+      <!-- 抛弃（折叠） -->
+      <div style="opacity:0.6;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="display:inline-block;width:4px;height:14px;border-radius:2px;background:#f56c6c;"></span>
+          <span style="font-weight:700;font-size:13px;">抛弃</span>
+          <span style="font-size:11px;color:#999;">2 部</span>
+          <span style="font-size:11px;color:#f56c6c;cursor:pointer;margin-left:auto;">展开 ▼</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -302,6 +302,25 @@ export const UserService = {
     const cur = StorageService.get(SK.CURRENT_USER);
     return cur ? [cur] : [];
   },
+
+  async getProfile(userId) {
+    return apiRequest(`/api/users/${userId}/profile`);
+  },
+
+  async updateSettings(userId, settings) {
+    return apiRequest(`/api/users/${userId}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  async getUserComments(userId) {
+    return apiRequest(`/api/users/${userId}/comments`);
+  },
+
+  async getUserActivity(userId) {
+    return apiRequest(`/api/users/${userId}/activity`);
+  },
 };
 
 // ─── FollowService ───

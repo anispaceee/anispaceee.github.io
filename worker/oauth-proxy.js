@@ -560,6 +560,77 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
+  // GET /api/users/:id/profile — 获取用户公开信息（受隐私设置控制）
+  const userProfileMatch = pathname.match(/^\/api\/users\/(\d+)\/profile$/);
+  if (userProfileMatch && method === 'GET') {
+    const userId = Number(userProfileMatch[1]);
+    const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, allow_profile_view, allow_comments_public, follower_count, following_count FROM users WHERE id = ?').bind(userId).first();
+    if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+    const authUser = await getAuthUser(request, env);
+    if (!authUser || authUser.userId !== userId) {
+      if (!user.allow_profile_view) {
+        // 只返回基本信息，不返回标记等详细数据
+        return jsonResponse({ id: user.id, name: user.name, avatar: user.avatar, private: true }, 200, origin);
+      }
+    }
+    return jsonResponse(user, 200, origin);
+  }
+
+  // PUT /api/users/:id/settings — 更新用户隐私设置
+  const userSettingsMatch = pathname.match(/^\/api\/users\/(\d+)\/settings$/);
+  if (userSettingsMatch && method === 'PUT') {
+    const userId = Number(userSettingsMatch[1]);
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (authUser.userId !== userId) return jsonResponse({ error: '无权限' }, 403, origin);
+    try {
+      const body = await request.json();
+      const { allow_profile_view, allow_comments_public } = body;
+      await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ? WHERE id = ?')
+        .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, userId).run();
+      return jsonResponse({ success: true }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/users/:id/comments — 获取用户对条目的评论
+  const userCommentsMatch = pathname.match(/^\/api\/users\/(\d+)\/comments$/);
+  if (userCommentsMatch && method === 'GET') {
+    const userId = Number(userCommentsMatch[1]);
+    const user = await env.DB.prepare('SELECT allow_comments_public FROM users WHERE id = ?').bind(userId).first();
+    if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+    const authUser = await getAuthUser(request, env);
+    if (!authUser || authUser.userId !== userId) {
+      if (!user.allow_comments_public) {
+        return jsonResponse({ error: '该用户已设置评论不公开' }, 403, origin);
+      }
+    }
+    const comments = await env.DB.prepare(
+      'SELECT r.id, r.subject_id, r.score, r.content, r.created_at, c.subject_name, c.subject_image FROM ratings r LEFT JOIN collections c ON r.subject_id = c.subject_id AND r.user_id = c.user_id WHERE r.user_id = ? AND r.content IS NOT NULL AND r.content != \'\' ORDER BY r.created_at DESC LIMIT 10'
+    ).bind(userId).all();
+    return jsonResponse(comments.results || [], 200, origin);
+  }
+
+  // GET /api/users/:id/activity — 获取用户活跃度数据（用于热力图）
+  const userActivityMatch = pathname.match(/^\/api\/users\/(\d+)\/activity$/);
+  if (userActivityMatch && method === 'GET') {
+    const userId = Number(userActivityMatch[1]);
+    const user = await env.DB.prepare('SELECT allow_profile_view FROM users WHERE id = ?').bind(userId).first();
+    if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+    const authUser = await getAuthUser(request, env);
+    if (!authUser || authUser.userId !== userId) {
+      if (!user.allow_profile_view) {
+        return jsonResponse({ error: '该用户已设置隐私保护' }, 403, origin);
+      }
+    }
+    // 获取过去一年的每日活跃度
+    const rows = await env.DB.prepare(
+      "SELECT DATE(created_at) as date, COUNT(*) as count FROM collections WHERE user_id = ? AND created_at >= DATE('now', '-1 year') GROUP BY DATE(created_at) ORDER BY date"
+    ).bind(userId).all();
+    return jsonResponse(rows.results || [], 200, origin);
+  }
+
   // GET /api/posts — 帖子列表（分页）
   if (method === 'GET' && pathname === '/api/posts') {
     const page = Math.max(1, Number(new URL(request.url).searchParams.get('page')) || 1);

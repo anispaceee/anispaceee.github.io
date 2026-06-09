@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
   last_login TEXT NOT NULL,
   status TEXT DEFAULT 'active',
   preferences TEXT DEFAULT '{}',
+  allow_profile_view INTEGER DEFAULT 1,
+  allow_comments_public INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   UNIQUE(provider, provider_id)

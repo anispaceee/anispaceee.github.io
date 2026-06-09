@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { ForumService, UserService } from '../../services/api';
 import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
 import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, Users, FileText, TrendingUp, Clock, Heart, Image, Video, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Upload, Loader2 } from 'lucide-react';
+import UserAvatar from '../Common/UserAvatar';
 import './Forum.css';
 
 const MAX_IMAGES = 5;
@@ -539,7 +540,7 @@ export default function Forum() {
                   const author = getPostAuthor(post);
                   return (
                     <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-latest-item">
-                      <img src={author?.avatar} alt="" className="latest-item-avatar" loading="lazy" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="%23f9f3f5"%3E%3Crect width="36" height="36" rx="18"/%3E%3Ctext x="18" y="22" text-anchor="middle" fill="%23c8bfcc" font-size="10"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+                      <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={32} className="latest-item-avatar" />
                       <div className="latest-item-body">
                         <div className="latest-item-top">
                           <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
@@ -602,7 +603,7 @@ export default function Forum() {
                   return (
                     <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-post-card">
                       <div className="post-card-left">
-                        <img src={author?.avatar} alt="" className="post-user-avatar" loading="lazy" onError={e => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E'; }} />
+                        <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={40} className="post-user-avatar" />
                         <div className="post-card-body">
                           <div className="post-card-header">
                             <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>

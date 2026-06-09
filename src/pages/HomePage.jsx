@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { BangumiService, ApiError, StorageService, UserService, ForumService, WorldChannelService } from '../services/api';
 import { ArrowRight, TrendingUp, MessageCircle, Flame, Eye, Heart, MessageSquare, Clock, Search, Calendar, RefreshCw, Star, ExternalLink, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Send, Image, Smile, X, Minus, Maximize2, Sparkles, Loader2, Play, Tv, BookOpen, Gamepad2, AlertCircle, RotateCw } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
+import UserAvatar from '../components/Common/UserAvatar';
 import NewsZone from '../components/NewsZone/NewsZone';
 import './HomePage.css';
 
@@ -15,13 +16,7 @@ const TYPE_OPTIONS = [
 ];
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const PAGE_SIZE = 12;
-const FALLBACK_AVATAR = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
 const FALLBACK_COVER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="450" fill="%23f9f3f5"%3E%3Crect width="800" height="450" rx="12"/%3E%3Ctext x="400" y="215" text-anchor="middle" fill="%23d4b8c0" font-size="40"%3E🌸%3C/text%3E%3Ctext x="400" y="260" text-anchor="middle" fill="%23d4b8c0" font-size="14"%3E发现你的下一部番%3C/text%3E%3C/svg%3E';
-
-function AvatarWithFallback({ src, alt, className }) {
-  const [failed, setFailed] = useState(false);
-  return <img src={failed ? FALLBACK_AVATAR : src} alt={alt} className={className} onError={() => setFailed(true)} loading="lazy" />;
-}
 
 function Pagination({ currentPage, totalPages, totalItems, onPageChange, loading }) {
   if (totalPages <= 1) return null;
@@ -482,7 +477,7 @@ export default function HomePage() {
                           </div>
                           <div className="home-hot-meta">
                             <span className="home-hot-author">
-                              <AvatarWithFallback src={authorAvatar} alt={authorName} className="home-hot-avatar" />
+                              <UserAvatar userId={post.author_id} src={authorAvatar} alt={authorName} size={24} className="home-hot-avatar" />
                               {authorName}
                             </span>
                             <div className="home-hot-stats">
@@ -519,7 +514,7 @@ export default function HomePage() {
                       const isSelf = currentUser && msg.author_id === currentUser.id;
                       return (
                         <div key={msg.id} className={`home-chat-msg ${isSelf ? 'self' : 'other'}`}>
-                          <AvatarWithFallback src={msgUserAvatar} alt={msgUserName} className="home-chat-avatar" />
+                          <UserAvatar userId={msg.author_id} src={msgUserAvatar} alt={msgUserName} size={32} className="home-chat-avatar" />
                           <div className="home-chat-bubble-wrap">
                             <span className="home-chat-name">{msgUserName}</span>
                             <div className={`home-chat-bubble ${isSelf ? 'bubble-self' : 'bubble-other'}`}>

@@ -4,8 +4,10 @@ import { UserService, FollowService, CollectionMarkService, RatingService, Favor
 import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Image as ImageIcon, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { SubjectCard } from '../Common/CommonComponents';
+import UserAvatar from '../Common/UserAvatar';
+import ActivityHeatmap from './ActivityHeatmap';
+import ProfileSettings from './ProfileSettings';
 import { useState, useRef, useMemo, useEffect } from 'react';
-import ProfileStats from './ProfileStats';
 import './Profile.css';
 
 const GitHubIcon = ({ size = 16 }) => (
@@ -31,71 +33,11 @@ const PRIVACY_OPTIONS = [
   { key: 'private', label: '私密', icon: Lock, desc: '仅自己可见' },
 ];
 
-function ContributionGrid({ userId }) {
-  const [viewMode, setViewMode] = useState('week');
-  const loginData = useMemo(() => {
-    const data = StorageService.get('acg_login_history') || {};
-    const userLogins = data[userId] || {};
-    const today = new Date();
-    const days = viewMode === 'week' ? 7 : viewMode === 'month' ? 30 : 365;
-    const result = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().split('T')[0];
-      const hours = userLogins[key] || 0;
-      result.push({ date: key, hours, day: d.getDay() });
-    }
-    return result;
-  }, [userId, viewMode]);
-
-  const getColor = (hours) => {
-    if (hours === 0) return 'var(--bg-input)';
-    if (hours < 1) return 'var(--primary-bg)';
-    if (hours < 2) return 'rgba(232, 134, 162, 0.4)';
-    if (hours < 4) return 'rgba(232, 134, 162, 0.65)';
-    return 'var(--primary)';
-  };
-
-  const totalHours = loginData.reduce((s, d) => s + d.hours, 0);
-  const activeDays = loginData.filter(d => d.hours > 0).length;
-
-  return (
-    <div className="contribution-grid">
-      <div className="contrib-header">
-        <span className="contrib-title">登录活跃度</span>
-        <div className="contrib-view-tabs">
-          {['week', 'month', 'year'].map(m => (
-            <button key={m} className={`contrib-view-btn ${viewMode === m ? 'active' : ''}`} onClick={() => setViewMode(m)}>
-              {m === 'week' ? '周' : m === 'month' ? '月' : '年'}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="contrib-stats">
-        <span>活跃 {activeDays} 天</span>
-        <span>累计 {totalHours.toFixed(1)} 小时</span>
-      </div>
-      <div className={`contrib-cells ${viewMode}`}>
-        {loginData.map((d, i) => (
-          <div key={i} className="contrib-cell" style={{ background: getColor(d.hours) }} title={`${d.date}: ${d.hours}h`} />
-        ))}
-      </div>
-      <div className="contrib-legend">
-        <span>少</span>
-        {[0, 1, 2, 3, 4].map(level => (
-          <div key={level} className="contrib-cell" style={{ background: getColor(level * 1.2) }} />
-        ))}
-        <span>多</span>
-      </div>
-    </div>
-  );
-}
+const MARK_COLORS = { wish: '#409eff', collect: '#e6a23c', doing: '#67c23a', on_hold: '#909399', dropped: '#f56c6c' };
 
 export default function Profile() {
   const { id } = useParams();
   const { currentUser, isAuthenticated, openAuth, updateProfile } = useApp();
-  const [activeTab, setActiveTab] = useState('marks');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [showSettings, setShowSettings] = useState(false);
@@ -117,6 +59,11 @@ export default function Profile() {
   const [markCounts, setMarkCounts] = useState({ wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 });
   const [userFavorites, setUserFavorites] = useState([]);
   const [unreadMail, setUnreadMail] = useState(0);
+
+  // 新增状态
+  const [activityData, setActivityData] = useState([]);
+  const [userComments, setUserComments] = useState([]);
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   const profileUser = id ? UserService.getById(parseInt(id)) : currentUser;
   const isOwnProfile = !id || (currentUser && currentUser.id === parseInt(id));
@@ -155,6 +102,17 @@ export default function Profile() {
       } catch {}
     };
     if (profileUser) loadMarks();
+  }, [profileUser]);
+
+  // 加载活跃度和评论数据
+  useEffect(() => {
+    if (!profileUser?.id) return;
+    UserService.getUserActivity(profileUser.id).then(data => {
+      setActivityData(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+    UserService.getUserComments(profileUser.id).then(data => {
+      setUserComments(Array.isArray(data) ? data : []);
+    }).catch(() => {});
   }, [profileUser]);
 
   if (!profileUser) {
@@ -231,13 +189,27 @@ export default function Profile() {
         ? {}
         : { background: BG_TEMPLATES.find(t => t.id === profileBg)?.color || 'var(--primary)' };
 
-  const tabs = [
-    { key: 'marks', label: '标记', icon: <BookOpen size={16} /> },
-    { key: 'ratings', label: '评分', icon: <Star size={16} /> },
-    { key: 'favorites', label: '收藏', icon: <Heart size={16} /> },
-    { key: 'following', label: '关注', icon: <Users size={16} /> },
-    { key: 'followers', label: '粉丝', icon: <Users size={16} /> },
-  ];
+  // 统计数字计算
+  const animeCount = userMarks.filter(m => m.subject_type === 2).length;
+  const gameCount = userMarks.filter(m => m.subject_type === 4).length;
+  const novelCount = userMarks.filter(m => m.subject_type === 1).length;
+  const totalMarks = userMarks.length;
+  const avgScore = useMemo(() => {
+    const scores = userMarks.filter(m => m.user_score > 0).map(m => m.user_score);
+    return scores.length > 0 ? (scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1) : '-';
+  }, [userMarks]);
+
+  // 标记进度条数据
+  const progressData = useMemo(() => {
+    const total = totalMarks || 1;
+    return [
+      { key: 'wish', count: markCounts.wish, color: MARK_COLORS.wish, label: '想看' },
+      { key: 'collect', count: markCounts.collect, color: MARK_COLORS.collect, label: '看过' },
+      { key: 'doing', count: markCounts.doing, color: MARK_COLORS.doing, label: '在看' },
+      { key: 'on_hold', count: markCounts.on_hold, color: MARK_COLORS.on_hold, label: '搁置' },
+      { key: 'dropped', count: markCounts.dropped, color: MARK_COLORS.dropped, label: '抛弃' },
+    ].filter(d => d.count > 0);
+  }, [markCounts, totalMarks]);
 
   return (
     <div className="profile-page">
@@ -293,15 +265,30 @@ export default function Profile() {
         </div>
       </div>
 
-      <ProfileStats />
-
-      <div className="profile-body">
-        <div className="profile-sidebar">
-          <div className="profile-card">
-            <h3>个人信息</h3>
-            {profileUser.bio && <div className="profile-bio-md"><MarkdownRenderer content={profileUser.bio} /></div>}
+      <div className="profile-layout">
+        {/* 左侧边栏 */}
+        <aside className="profile-sidebar">
+          {/* 头像 + 编辑/设置入口 */}
+          <div className="profile-sidebar-header">
+            <div className="profile-avatar-wrap-sidebar">
+              <img src={avatarPreview || profileUser.avatar || FALLBACK_IMG} alt="" className="profile-sidebar-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+              {isOwnProfile && (
+                <div className="profile-sidebar-actions">
+                  <button className="profile-action-btn" onClick={handleEdit} title="编辑资料"><Edit3 size={14} /></button>
+                  <button className="profile-action-btn" onClick={() => setShowSettings(true)} title="设置"><Settings size={14} /></button>
+                </div>
+              )}
+            </div>
+            <h2 className="profile-sidebar-name">{profileUser.name}</h2>
+            {profileUser.sign && <p className="profile-sidebar-bio">{profileUser.sign}</p>}
+            {profileUser.bio && (
+              <div className="profile-sidebar-bio-md">
+                <MarkdownRenderer content={profileUser.bio} />
+              </div>
+            )}
+            {/* 个人信息 */}
             <div className="profile-meta-list">
-              <div className="profile-meta-item"><Calendar size={14} /> <span>加入于 {profileUser.joinDate}</span></div>
+              {profileUser.joinDate && <div className="profile-meta-item"><Calendar size={14} /> <span>加入于 {profileUser.joinDate}</span></div>}
               {profileUser.provider && (
                 <div className="profile-meta-item">
                   {profileUser.provider === 'bangumi' ? <BookOpen size={14} /> : profileUser.provider === 'github' ? <GitHubIcon size={14} /> : <Shield size={14} />}
@@ -318,89 +305,132 @@ export default function Profile() {
                 <div className="profile-meta-item"><LinkIcon size={14} /> <span>{profileUser.contact}</span></div>
               )}
             </div>
-          </div>
-          <div className="profile-card">
-            <h3>条目标记</h3>
-            <div className="profile-marks-summary">
-              <div className="mark-summary-item wish"><span className="mark-summary-num">{markCounts.wish}</span><span className="mark-summary-label">想看</span></div>
-              <div className="mark-summary-item collect"><span className="mark-summary-num">{markCounts.collect}</span><span className="mark-summary-label">看过</span></div>
-              <div className="mark-summary-item doing"><span className="mark-summary-num">{markCounts.doing}</span><span className="mark-summary-label">在看</span></div>
-              <div className="mark-summary-item on-hold"><span className="mark-summary-num">{markCounts.on_hold}</span><span className="mark-summary-label">搁置</span></div>
-              <div className="mark-summary-item dropped"><span className="mark-summary-num">{markCounts.dropped}</span><span className="mark-summary-label">抛弃</span></div>
+            {/* 关注/粉丝/帖子 */}
+            <div className="profile-sidebar-social">
+              <div className="sidebar-social-item"><span className="sidebar-social-num">{profileUser.postCount || 0}</span><span className="sidebar-social-label">帖子</span></div>
+              <div className="sidebar-social-item"><span className="sidebar-social-num">{profileUser.followingCount || 0}</span><span className="sidebar-social-label">关注</span></div>
+              <div className="sidebar-social-item"><span className="sidebar-social-num">{profileUser.followerCount || 0}</span><span className="sidebar-social-label">粉丝</span></div>
             </div>
           </div>
-          <div className="profile-card">
-            <h3>数据统计</h3>
-            <div className="profile-stats-grid">
-              <div className="stat-item"><span className="stat-num">{profileUser.postCount || 0}</span><span className="stat-label">帖子</span></div>
-              <div className="stat-item"><span className="stat-num">{profileUser.followingCount || 0}</span><span className="stat-label">关注</span></div>
-              <div className="stat-item"><span className="stat-num">{profileUser.followerCount || 0}</span><span className="stat-label">粉丝</span></div>
-            </div>
-          </div>
-          {isOwnProfile && (
-            <div className="profile-card contrib-card">
-              <ContributionGrid userId={profileUser.id} />
-            </div>
-          )}
-        </div>
 
-        <div className="profile-main">
-          <div className="profile-tabs">
-            {tabs.map(tab => (
-              <button key={tab.key} className={`profile-tab ${activeTab === tab.key ? 'active' : ''}`} onClick={() => setActiveTab(tab.key)}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+          {/* 统计数字 */}
+          <div className="profile-sidebar-stats">
+            <h3>📊 数据统计</h3>
+            <div className="sidebar-stat-row"><span>📺 动画</span><span className="stat-val anime">{animeCount}</span></div>
+            <div className="sidebar-stat-row"><span>🎮 游戏</span><span className="stat-val game">{gameCount}</span></div>
+            <div className="sidebar-stat-row"><span>📖 小说</span><span className="stat-val novel">{novelCount}</span></div>
+            <div className="sidebar-stat-row divider"><span>⭐ 均分</span><span className="stat-val score">{avgScore}</span></div>
           </div>
-          <div className="profile-tab-content">
-            {activeTab === 'marks' && (
-              userMarks.length > 0 ? (
-                <div className="profile-marks-grid">
-                  {userMarks.map(mark => {
-                    const type = mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime';
-                    const item = {
-                      id: mark.subject_id,
-                      name: mark.subject_name || `条目 #${mark.subject_id}`,
-                      name_cn: mark.subject_name || '',
-                      image: mark.subject_image || '',
-                      images: mark.subject_image ? { common: mark.subject_image } : {},
-                      rating: { score: 0 },
-                      tags: [],
-                    };
-                    return (
-                      <SubjectCard
-                        key={`${mark.user_id}_${mark.subject_id}`}
-                        item={item}
-                        type={type}
-                        compact={true}
-                        linkTo={`/info/${type}/${mark.subject_id}`}
-                      />
-                    );
-                  })}
+
+          {/* 标记进度 */}
+          <div className="profile-sidebar-progress">
+            <h3>📋 标记进度</h3>
+            <div className="progress-bar-stack">
+              {progressData.map(d => (
+                <div
+                  key={d.key}
+                  className="progress-bar-segment"
+                  style={{ width: `${(d.count / totalMarks) * 100}%`, background: d.color }}
+                  title={`${d.label}: ${d.count}`}
+                />
+              ))}
+            </div>
+            <div className="progress-legend">
+              {progressData.map(d => (
+                <div key={d.key} className="progress-legend-item">
+                  <span className="progress-legend-left">
+                    <span className="progress-legend-dot" style={{ background: d.color }} />
+                    {d.label}
+                  </span>
+                  <span className="progress-legend-count">{d.count}</span>
                 </div>
-              ) : (
-                <div className="profile-empty"><BookOpen size={48} /><p>暂无标记</p></div>
-              )
-            )}
-            {activeTab === 'ratings' && <div className="profile-empty"><Star size={48} /><p>暂无评分</p></div>}
-            {activeTab === 'favorites' && (
-              userFavorites.length > 0 ? (
-                <div className="profile-marks-list">
-                  {userFavorites.map(fav => (
-                    <div key={fav.key} className="profile-mark-item">
-                      <div className="profile-mark-info">
-                        <span className="profile-mark-name">条目 #{fav.targetId}</span>
-                        <span className="profile-mark-badge mark-collect">已收藏</span>
-                      </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 活跃度热力图 */}
+          <div className="profile-sidebar-heatmap">
+            <h3>🔥 活跃度</h3>
+            <ActivityHeatmap data={activityData} />
+          </div>
+        </aside>
+
+        {/* 右侧主内容 */}
+        <main className="profile-main">
+          {['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
+            const items = userMarks.filter(m => m.status === status);
+            const isCollapsed = (status === 'on_hold' || status === 'dropped') && expandedCategory !== status && items.length > 0;
+
+            return (
+              <div key={status} className="profile-category-section">
+                <div className="profile-category-header">
+                  <span className="category-indicator" style={{ background: MARK_COLORS[status] }} />
+                  <span className="category-title">{CollectionMarkService.MARK_LABELS[status]}</span>
+                  <span className="category-count">{items.length} 部</span>
+                  {(status === 'on_hold' || status === 'dropped') ? (
+                    isCollapsed && (
+                      <span className="category-more" onClick={() => setExpandedCategory(status)}>
+                        展开 ▼
+                      </span>
+                    )
+                  ) : (
+                    items.length > 5 && expandedCategory !== status && (
+                      <span className="category-more" onClick={() => setExpandedCategory(status)}>
+                        更多 →
+                      </span>
+                    )
+                  )}
+                  {expandedCategory === status && (
+                    <span className="category-more" onClick={() => setExpandedCategory(null)}>
+                      收起 ↑
+                    </span>
+                  )}
+                </div>
+                {!isCollapsed && (
+                  items.length > 0 ? (
+                    <div className={`category-covers ${expandedCategory === status ? 'expanded' : 'single-row'}`}>
+                      {items.map(mark => (
+                        <SubjectCard
+                          key={`${mark.user_id}_${mark.subject_id}`}
+                          item={{
+                            id: mark.subject_id,
+                            name: mark.subject_name || `条目 #${mark.subject_id}`,
+                            name_cn: mark.subject_name || '',
+                            image: mark.subject_image || '',
+                            images: mark.subject_image ? { common: mark.subject_image } : {},
+                            rating: { score: 0 },
+                            tags: [],
+                          }}
+                          type={mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}
+                          compact={true}
+                          linkTo={`/info/${mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}/${mark.subject_id}`}
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : <div className="profile-empty"><Heart size={48} /><p>暂无收藏</p></div>
-            )}
-            {activeTab === 'following' && <div className="profile-empty"><Users size={48} /><p>暂无关注</p></div>}
-            {activeTab === 'followers' && <div className="profile-empty"><Users size={48} /><p>暂无粉丝</p></div>}
-          </div>
-        </div>
+                  ) : (
+                    <div className="category-empty">暂无{CollectionMarkService.MARK_LABELS[status]}</div>
+                  )
+                )}
+                {/* 看过后附评论 */}
+                {status === 'collect' && userComments.length > 0 && (
+                  <div className="profile-recent-comments">
+                    <h4>💬 最近评论</h4>
+                    {userComments.slice(0, 5).map(c => (
+                      <div key={c.id} className="comment-item">
+                        <img src={c.subject_image || FALLBACK_IMG} alt="" className="comment-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                        <div className="comment-info">
+                          <span className="comment-subject">{c.subject_name}</span>
+                          {c.score > 0 && <span className="comment-score">⭐ {c.score}</span>}
+                          <p className="comment-text">{c.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </main>
       </div>
 
       {isEditing && (

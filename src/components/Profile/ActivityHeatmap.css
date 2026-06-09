@@ -1,0 +1,54 @@
+.activity-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.heatmap-months {
+  display: flex;
+  font-size: 9px;
+  color: var(--text-quaternary);
+  padding-left: 0;
+  height: 14px;
+}
+.heatmap-month-label {
+  white-space: nowrap;
+}
+.heatmap-grid {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+.heatmap-week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.heatmap-cell {
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+  transition: transform 0.1s;
+}
+.heatmap-cell:hover {
+  transform: scale(1.5);
+}
+.heatmap-cell-empty {
+  width: 7px;
+  height: 7px;
+}
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+.heatmap-legend-text {
+  font-size: 8px;
+  color: var(--text-quaternary);
+}
+.heatmap-legend-cell {
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+}

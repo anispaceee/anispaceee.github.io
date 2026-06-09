@@ -2,14 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StorageService, UserService } from '../../services/api';
 import { Send, Image, Smile, Clock, TrendingUp, Eye, X } from 'lucide-react';
+import UserAvatar from '../Common/UserAvatar';
 import './WorldChannel.css';
-
-const FALLBACK_AVATAR = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
-
-function Avatar({ src, alt, size = 40 }) {
-  const [failed, setFailed] = useState(false);
-  return <img src={failed ? FALLBACK_AVATAR : src} alt={alt} className="chat-avatar" style={{ width: size, height: size }} loading="lazy" onError={() => setFailed(true)} />;
-}
 
 export default function WorldChannel() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
@@ -97,7 +91,7 @@ export default function WorldChannel() {
           const isSelf = currentUser && msg.userId === currentUser.id;
           return (
             <div key={msg.id} className={`chat-message ${isSelf ? 'self' : 'other'} ${msg.isOfficial ? 'official' : ''}`}>
-              <Avatar src={user?.avatar} alt={user?.name} size={40} />
+              <UserAvatar userId={msg.userId} src={user?.avatar} alt={user?.name} size={40} className="chat-avatar" />
               <div className="chat-bubble-wrap">
                 <div className="chat-bubble-header">
                   <span className="chat-bubble-name" style={{ color: isSelf ? 'var(--primary)' : 'var(--secondary)' }}>
