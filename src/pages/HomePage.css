@@ -91,8 +91,9 @@
 .home-calendar-scroll::-webkit-scrollbar { height: 6px; }
 .home-calendar-scroll::-webkit-scrollbar-track { background: var(--bg-input); border-radius: 3px; }
 .home-calendar-scroll::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 3px; }
-.home-calendar-scroll-item { flex: 0 0 160px; scroll-snap-align: start; height: 280px; }
+.home-calendar-scroll-item { flex: 0 0 160px; scroll-snap-align: start; }
 .home-calendar-scroll-item .subject-card { height: 100%; }
+.home-calendar-scroll-item .subject-card-cover { flex-shrink: 0; }
 .home-calendar-scroll-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-card); border: 1px solid var(--border-secondary); color: var(--text-secondary); box-shadow: var(--shadow-xs); transition: all var(--transition-fast); flex-shrink: 0; z-index: 1; }
 .home-calendar-scroll-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
@@ -194,7 +195,7 @@
 }
 
 @media (max-width: 768px) {
-  .home-calendar-scroll-item { flex: 0 0 130px; height: 240px; }
+  .home-calendar-scroll-item { flex: 0 0 130px; }
   .home-items-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .home-search-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .home-creation-grid { grid-template-columns: repeat(2, 1fr); }
@@ -207,7 +208,7 @@
 @media (max-width: 480px) {
   .home-container { padding: 16px 12px 32px; gap: 16px; }
   .home-items-grid { grid-template-columns: repeat(2, 1fr); }
-  .home-calendar-scroll-item { flex: 0 0 110px; height: 220px; }
+  .home-calendar-scroll-item { flex: 0 0 110px; }
   .home-search-grid { grid-template-columns: repeat(2, 1fr); }
   .home-search-bar { flex-direction: column; }
   .home-search-btn { width: 100%; height: 38px; }

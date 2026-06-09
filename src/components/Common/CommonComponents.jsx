@@ -105,7 +105,7 @@ export function LazyImage({ src, alt, className = '', fallbackSrc = '' }) {
   );
 }
 
-export function SubjectCard({ item, type, onFavorite, isFavorited, linkTo }) {
+export function SubjectCard({ item, type, onFavorite, isFavorited, linkTo, compact = false }) {
   const name = item.name_cn || item.nameCn || item.name || '未知标题';
   const originalName = item.name || '';
   const image = item.images?.common || item.images?.medium || item.image || '';
@@ -139,19 +139,19 @@ export function SubjectCard({ item, type, onFavorite, isFavorited, linkTo }) {
       </div>
       <div className="subject-card-body">
         <h3 className="subject-card-name" title={name}>{name}</h3>
-        {originalName !== name && <p className="subject-card-original" title={originalName}>{originalName}</p>}
-        {summary && <p className="subject-card-summary">{summary}</p>}
-        {tags.length > 0 && (
+        {!compact && originalName !== name && <p className="subject-card-original" title={originalName}>{originalName}</p>}
+        {!compact && summary && <p className="subject-card-summary">{summary}</p>}
+        {!compact && tags.length > 0 && (
           <div className="subject-card-tags">
             {tags.slice(0, 3).map(tag => <span key={tag} className="subject-tag">{tag}</span>)}
           </div>
         )}
-        <div className="subject-card-footer">
+        {!compact && <div className="subject-card-footer">
           <span className="subject-card-bangumi" role="button" tabIndex={0}
             onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(`https://bgm.tv/subject/${bangumiId}`, '_blank'); }}>
             <ExternalLink size={11} /> Bangumi
           </span>
-        </div>
+        </div>}
       </div>
     </div>
   );

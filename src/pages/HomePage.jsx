@@ -336,7 +336,7 @@ export default function HomePage() {
               {calendarLoading ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />) :
                 calendarItems.slice(0, 12).map(item => (
                   <div key={item.id} className="home-calendar-scroll-item">
-                    <SubjectCard item={item} type="anime" linkTo={`/info/anime/${item.id}`} />
+                    <SubjectCard item={item} type="anime" linkTo={`/info/anime/${item.id}`} compact />
                   </div>
                 ))}
             </div>
