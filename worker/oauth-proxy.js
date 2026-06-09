@@ -434,11 +434,12 @@ async function handleGithubToken(code, redirectUri, env) {
     return { error: tokenData.error_description || tokenData.error || 'GitHub 授权失败' };
   }
 
-  // 获取用户信息
+  // 获取用户信息（GitHub 要求 User-Agent 头，否则返回 403）
   const userRes = await fetch(`${GITHUB_API_URL}/user`, {
     headers: {
       'Accept': 'application/json',
       'Authorization': `Bearer ${tokenData.access_token}`,
+      'User-Agent': 'ANISpace/1.0',
     },
   });
   const userText = await userRes.text();
@@ -458,6 +459,7 @@ async function handleGithubToken(code, redirectUri, env) {
         headers: {
           'Accept': 'application/json',
           'Authorization': `Bearer ${tokenData.access_token}`,
+          'User-Agent': 'ANISpace/1.0',
         },
       });
       const emailText = await emailRes.text();
