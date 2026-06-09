@@ -565,12 +565,12 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     try {
       const body = await request.json();
-      const { subjectId, subjectType, status, rating, comment } = body;
+      const { subjectId, subjectType, subjectName, subjectImage, status, rating, comment } = body;
       if (!subjectId) return jsonResponse({ error: '缺少 subjectId' }, 400, origin);
 
       await env.DB.prepare(
-        'INSERT OR REPLACE INTO collections (user_id, subject_id, subject_type, status, rating, comment, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime(\'now\'))'
-      ).bind(authUser.userId, subjectId, subjectType || null, status || null, rating ?? null, comment || null).run();
+        'INSERT OR REPLACE INTO collections (user_id, subject_id, subject_type, subject_name, subject_image, status, rating, comment, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
+      ).bind(authUser.userId, subjectId, subjectType || null, subjectName || null, subjectImage || null, status || null, rating ?? null, comment || null).run();
 
       const collection = await env.DB.prepare(
         'SELECT * FROM collections WHERE user_id = ? AND subject_id = ?'

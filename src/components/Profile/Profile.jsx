@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { UserService, FollowService, CollectionMarkService, RatingService, FavoriteService, StorageService, BangumiAuthService, GitHubAuthService, MailService } from '../../services/api';
 import { Settings, Edit3, Users, FileText, Heart, MessageCircle, Calendar, MapPin, BookOpen, Star, Eye, Camera, Mail, Shield, Image as ImageIcon, Smile, LinkIcon, Lock, Globe, UserCheck, ChevronRight, Download, Activity } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import ProfileStats from './ProfileStats';
 import './Profile.css';
 
@@ -122,10 +122,24 @@ export default function Profile() {
   }
 
   const isFollowing = isAuthenticated && currentUser ? FollowService.isFollowing(currentUser.id, profileUser.id) : false;
-  const markCounts = CollectionMarkService.getMarkCounts(profileUser.id);
-  const userMarks = CollectionMarkService.getUserMarks(profileUser.id);
+  const [userMarks, setUserMarks] = useState([]);
+  const [markCounts, setMarkCounts] = useState({ wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 });
   const userFavorites = isAuthenticated ? FavoriteService.getUserFavorites(profileUser.id, 'info') : [];
   const unreadMail = currentUser ? MailService.getUnreadCount(currentUser.id) : 0;
+
+  useEffect(() => {
+    const loadMarks = async () => {
+      try {
+        const marks = await CollectionMarkService.getByUserId(profileUser.id);
+        const list = Array.isArray(marks) ? marks : [];
+        setUserMarks(list);
+        const counts = { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 };
+        list.forEach(m => { if (counts[m.status] !== undefined) counts[m.status]++; });
+        setMarkCounts(counts);
+      } catch {}
+    };
+    if (profileUser) loadMarks();
+  }, [profileUser]);
 
   const handleEdit = () => {
     setEditForm({
@@ -317,11 +331,11 @@ export default function Profile() {
               userMarks.length > 0 ? (
                 <div className="profile-marks-list">
                   {userMarks.map(mark => (
-                    <Link key={mark.key} to={`/info/${mark.subjectType === 1 ? 'novel' : mark.subjectType === 4 ? 'game' : 'anime'}/${mark.subjectId}`} className="profile-mark-item">
-                      <img src={mark.subjectImage || FALLBACK_IMG} alt="" className="profile-mark-img" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                    <Link key={`${mark.user_id}_${mark.subject_id}`} to={`/info/${mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}/${mark.subject_id}`} className="profile-mark-item">
+                      <img src={mark.subject_image || FALLBACK_IMG} alt="" className="profile-mark-img" onError={e => { e.target.src = FALLBACK_IMG; }} />
                       <div className="profile-mark-info">
-                        <span className="profile-mark-name">{mark.subjectName || `条目 #${mark.subjectId}`}</span>
-                        <span className={`profile-mark-badge mark-${mark.mark}`}>{CollectionMarkService.MARK_LABELS[mark.mark]}</span>
+                        <span className="profile-mark-name">{mark.subject_name || `条目 #${mark.subject_id}`}</span>
+                        <span className={`profile-mark-badge mark-${mark.status}`}>{CollectionMarkService.MARK_LABELS[mark.status]}</span>
                       </div>
                     </Link>
                   ))}

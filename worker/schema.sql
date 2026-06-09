@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS collections (
   user_id INTEGER NOT NULL REFERENCES users(id),
   subject_id INTEGER NOT NULL,
   subject_type TEXT DEFAULT '',
+  subject_name TEXT DEFAULT '',
+  subject_image TEXT DEFAULT '',
   status TEXT NOT NULL,
   rating INTEGER DEFAULT 0,
   comment TEXT DEFAULT '',

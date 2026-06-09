@@ -174,8 +174,12 @@ export default function InfoDetail() {
         const rating = RatingService.getUserRating(currentUser.id, parseInt(id));
         if (rating) setUserScore(rating.score);
         setIsFav(FavoriteService.isFavorited(currentUser.id, 'info', parseInt(id)));
-        const mark = CollectionMarkService.getMark(currentUser.id, parseInt(id));
-        if (mark) setCollectionMark(mark.mark);
+        // 从后端 API 获取收藏状态
+        try {
+          const marks = await CollectionMarkService.getByUserId(currentUser.id);
+          const myMark = (Array.isArray(marks) ? marks : []).find(m => String(m.subject_id) === String(id));
+          if (myMark) setCollectionMark(myMark.status);
+        } catch {}
       }
       setProgress(100);
       setCharsLoading(true);
@@ -576,7 +580,15 @@ export default function InfoDetail() {
                         await CollectionMarkService.remove(currentUser.id, parseInt(id));
                         setCollectionMark(null);
                       } else {
-                        await CollectionMarkService.upsert({ subjectId: parseInt(id), subjectType: subject?.type || 2, status: key, rating: 0, comment: '' });
+                        await CollectionMarkService.upsert({
+                          subjectId: parseInt(id),
+                          subjectType: subject?.type || 2,
+                          subjectName: subject?.name_cn || subject?.name || '',
+                          subjectImage: subject?.images?.common || subject?.images?.medium || '',
+                          status: key,
+                          rating: 0,
+                          comment: '',
+                        });
                         setCollectionMark(key);
                       }
                     }}>{label}</button>
