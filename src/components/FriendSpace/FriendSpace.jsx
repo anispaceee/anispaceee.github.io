@@ -1,127 +1,177 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { StorageService, UserService, FriendService } from '../../services/api';
-import { Heart, MessageSquare, Share2, Lock, Globe, MoreHorizontal, Send, Image, X, Eye, Users, Plus, ChevronDown, Search, Loader2 } from 'lucide-react';
+import { FriendPostService, FriendService } from '../../services/api';
+import { Heart, MessageSquare, Share2, Lock, Globe, MoreHorizontal, Send, Image, X, Eye, Users, Plus, ChevronDown, Search, Loader2, Trash2 } from 'lucide-react';
 import './FriendSpace.css';
 
-const SPACE_STORAGE = 'acg_friend_space';
 const FALLBACK_AVATAR = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
 
-const VISIBILITY = { friends: 'friends', public: 'public' };
-const VISIBILITY_LABELS = { friends: '仅好友', public: '公开' };
+const VISIBILITY = { friends: 'friends', public: 'public', private: 'private' };
+const VISIBILITY_LABELS = { friends: '仅好友', public: '公开', private: '仅自己' };
 
-function getInitialPosts() {
-  const saved = StorageService.get(SPACE_STORAGE, null);
-  if (saved) return saved;
-  return [
-    {
-      id: '1',
-      userId: 'user1',
-      content: '今天看了《葬送的芙莉莲》最新一集，真的太感动了！芙莉莲对时间的理解让人深思...',
-      images: [],
-      visibility: 'friends',
-      likes: ['user2', 'user3'],
-      comments: [
-        { id: 'c1', userId: 'user2', content: '我也看了！最后那段真的催泪', createdAt: new Date().toISOString() },
-      ],
-      views: 42,
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: '2',
-      userId: 'user2',
-      content: '新买的命运石之门手办到了！El Psy Kongroo！',
-      images: [],
-      visibility: 'public',
-      likes: ['user1'],
-      comments: [],
-      views: 28,
-      createdAt: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ];
+function formatTime(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+  return Math.floor(diff / 86400000) + '天前';
 }
 
 export default function FriendSpace() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
   const navigate = useNavigate();
-  const [posts, setPosts] = useState(getInitialPosts);
+
+  // 动态列表
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // 发动态
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('friends');
   const [showComposer, setShowComposer] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // 评论
   const [expandedComments, setExpandedComments] = useState({});
   const [commentInputs, setCommentInputs] = useState({});
+  const [commentsData, setCommentsData] = useState({}); // { postId: [comments] }
+  const [commentSubmitting, setCommentSubmitting] = useState({});
+
+  // 筛选
   const [filter, setFilter] = useState('all');
 
-  // 找好友搜索相关状态
+  // 找好友搜索
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  const savePosts = useCallback((newPosts) => {
-    setPosts(newPosts);
-    StorageService.set(SPACE_STORAGE, newPosts);
+  // 删除菜单
+  const [showMenu, setShowMenu] = useState(null);
+  const menuRef = useRef(null);
+
+  // 加载动态
+  const loadPosts = useCallback(async (pageNum = 1, append = false) => {
+    if (!isAuthenticated) { setLoading(false); return; }
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
+
+    try {
+      const data = await FriendPostService.getFeed(pageNum, 20);
+      const newPosts = data.posts || [];
+      const total = data.pagination?.total || 0;
+
+      if (append) {
+        setPosts(prev => [...prev, ...newPosts]);
+      } else {
+        setPosts(newPosts);
+      }
+      setHasMore(newPosts.length >= 20 && (append ? posts.length + newPosts.length : newPosts.length) < total);
+      setPage(pageNum);
+    } catch {
+      if (!append) setPosts([]);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadPosts(1);
+  }, [loadPosts]);
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handlePost = () => {
+  // 发动态
+  const handlePost = async () => {
     if (!isAuthenticated) { openAuth(); return; }
-    if (!newContent.trim()) return;
-    const post = {
-      id: Date.now().toString(),
-      userId: currentUser.id,
-      content: newContent.trim(),
-      images: [],
-      visibility: newVisibility,
-      likes: [],
-      comments: [],
-      views: 0,
-      createdAt: new Date().toISOString(),
-    };
-    savePosts([post, ...posts]);
-    setNewContent('');
-    setShowComposer(false);
+    if (!newContent.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await FriendPostService.createPost(newContent.trim(), newVisibility);
+      setNewContent('');
+      setShowComposer(false);
+      loadPosts(1);
+    } catch (err) {
+      alert('发布失败：' + (err.message || '未知错误'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const toggleLike = (postId) => {
+  // 点赞
+  const toggleLike = async (postId) => {
     if (!isAuthenticated) { openAuth(); return; }
-    savePosts(posts.map(p => {
-      if (p.id !== postId) return p;
-      const liked = p.likes.includes(currentUser.id);
-      return { ...p, likes: liked ? p.likes.filter(id => id !== currentUser.id) : [...p.likes, currentUser.id] };
-    }));
+    try {
+      const result = await FriendPostService.toggleLike(postId);
+      setPosts(prev => prev.map(p => {
+        if (p.id !== postId) return p;
+        return {
+          ...p,
+          liked_by_me: result.liked,
+          likes_count: (p.likes_count || 0) + (result.liked ? 1 : -1),
+        };
+      }));
+    } catch { /* no-op */ }
   };
 
-  const addComment = (postId) => {
+  // 加载评论
+  const loadComments = async (postId) => {
+    if (expandedComments[postId]) {
+      setExpandedComments(prev => ({ ...prev, [postId]: false }));
+      return;
+    }
+    try {
+      const comments = await FriendPostService.getComments(postId);
+      setCommentsData(prev => ({ ...prev, [postId]: Array.isArray(comments) ? comments : [] }));
+      setExpandedComments(prev => ({ ...prev, [postId]: true }));
+    } catch {
+      setExpandedComments(prev => ({ ...prev, [postId]: true }));
+    }
+  };
+
+  // 发评论
+  const addComment = async (postId) => {
     if (!isAuthenticated) { openAuth(); return; }
     const content = commentInputs[postId]?.trim();
-    if (!content) return;
-    savePosts(posts.map(p => {
-      if (p.id !== postId) return p;
-      return { ...p, comments: [...p.comments, { id: Date.now().toString(), userId: currentUser.id, content, createdAt: new Date().toISOString() }] };
-    }));
-    setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+    if (!content || commentSubmitting[postId]) return;
+    setCommentSubmitting(prev => ({ ...prev, [postId]: true }));
+    try {
+      await FriendPostService.addComment(postId, content);
+      setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+      // 刷新评论
+      const comments = await FriendPostService.getComments(postId);
+      setCommentsData(prev => ({ ...prev, [postId]: Array.isArray(comments) ? comments : [] }));
+      // 更新评论计数
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p));
+    } catch { /* no-op */ }
+    setCommentSubmitting(prev => ({ ...prev, [postId]: false }));
   };
 
-  const toggleComments = (postId) => {
-    setExpandedComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+  // 删除动态
+  const handleDeletePost = async (postId) => {
+    if (!confirm('确定删除这条动态吗？')) return;
+    try {
+      await FriendPostService.deletePost(postId);
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      setShowMenu(null);
+    } catch (err) {
+      alert('删除失败：' + (err.message || '未知错误'));
+    }
   };
 
-  const getUserById = (id) => {
-    if (currentUser && id === currentUser.id) return currentUser;
-    return UserService.getById(id) || { name: '用户' + String(id).slice(-4), avatar: FALLBACK_AVATAR };
-  };
-
-  const formatTime = (ts) => {
-    const diff = Date.now() - new Date(ts).getTime();
-    if (diff < 60000) return '刚刚';
-    if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-    if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
-    return Math.floor(diff / 86400000) + '天前';
-  };
-
-  const filteredPosts = filter === 'all' ? posts : posts.filter(p => p.visibility === filter);
-
+  // 搜索用户
   const handleSearchUsers = () => {
     if (!searchKeyword.trim()) return;
     setSearchLoading(true);
@@ -132,19 +182,36 @@ export default function FriendSpace() {
     }).finally(() => setSearchLoading(false));
   };
 
+  // 筛选
+  const filteredPosts = filter === 'all' ? posts : posts.filter(p => p.visibility === filter);
+
+  // 未登录
+  if (!isAuthenticated) {
+    return (
+      <div className="friend-space-page">
+        <div className="friend-space-empty">
+          <Users size={48} />
+          <p>请先登录</p>
+          <span>登录后即可查看好友动态</span>
+          <button className="friend-space-compose-btn" style={{ marginTop: 12 }} onClick={() => openAuth()}>登录</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="friend-space-page">
       <div className="friend-space-header">
         <div className="friend-space-title">
           <Users size={22} />
           <h1>好友空间</h1>
-          <span className="friend-space-subtitle">仅好友可见的私密动态</span>
+          <span className="friend-space-subtitle">好友间的私密动态</span>
         </div>
         <div className="friend-space-header-actions">
           <button className="friend-space-search-btn" onClick={() => setShowSearchDialog(true)}>
             <Search size={16} /> 找好友
           </button>
-          <button className="friend-space-compose-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowComposer(!showComposer); }}>
+          <button className="friend-space-compose-btn" onClick={() => setShowComposer(!showComposer)}>
             <Plus size={16} /> 发动态
           </button>
         </div>
@@ -167,7 +234,9 @@ export default function FriendSpace() {
           <textarea className="composer-input" placeholder="分享你的想法..." value={newContent} onChange={e => setNewContent(e.target.value)} rows={3} />
           <div className="composer-actions">
             <button className="composer-tool" title="添加图片"><Image size={16} /></button>
-            <button className="composer-submit" onClick={handlePost} disabled={!newContent.trim()}>发布</button>
+            <button className="composer-submit" onClick={handlePost} disabled={!newContent.trim() || submitting}>
+              {submitting ? <Loader2 size={14} className="spin" /> : '发布'}
+            </button>
           </div>
         </div>
       )}
@@ -179,68 +248,121 @@ export default function FriendSpace() {
       </div>
 
       <div className="friend-space-feed">
-        {filteredPosts.length === 0 ? (
+        {loading ? (
+          <div className="friend-space-empty">
+            <Loader2 size={32} className="spin" />
+            <p>雨，何时才能停？</p>
+          </div>
+        ) : filteredPosts.length === 0 ? (
           <div className="friend-space-empty">
             <Users size={32} />
             <p>暂无动态</p>
             <span>发布第一条动态吧~</span>
           </div>
-        ) : filteredPosts.map(post => {
-          const author = getUserById(post.userId);
-          const isLiked = isAuthenticated && post.likes.includes(currentUser?.id);
-          return (
-            <div key={post.id} className="space-post">
-              <div className="space-post-header">
-                <img src={author.avatar || FALLBACK_AVATAR} alt="" className="space-post-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
-                <div className="space-post-author">
-                  <span className="space-post-name">{author.name}</span>
-                  <span className="space-post-meta">
-                    {formatTime(post.createdAt)} · {post.visibility === 'friends' ? <><Lock size={10} /> 仅好友</> : <><Globe size={10} /> 公开</>}
-                  </span>
-                </div>
-              </div>
-              <div className="space-post-content">{post.content}</div>
-              {post.images?.length > 0 && (
-                <div className="space-post-images">
-                  {post.images.map((img, i) => <img key={i} src={img} alt="" className="space-post-img" loading="lazy" />)}
-                </div>
-              )}
-              <div className="space-post-stats">
-                <span><Eye size={12} /> {post.views}</span>
-              </div>
-              <div className="space-post-actions">
-                <button className={`space-action ${isLiked ? 'liked' : ''}`} onClick={() => toggleLike(post.id)}>
-                  <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /> {post.likes.length}
-                </button>
-                <button className="space-action" onClick={() => toggleComments(post.id)}>
-                  <MessageSquare size={14} /> {post.comments.length}
-                </button>
-                <button className="space-action"><Share2 size={14} /> 分享</button>
-              </div>
-              {expandedComments[post.id] && (
-                <div className="space-post-comments">
-                  {post.comments.map(c => {
-                    const commenter = getUserById(c.userId);
-                    return (
-                      <div key={c.id} className="space-comment">
-                        <img src={commenter.avatar || FALLBACK_AVATAR} alt="" className="space-comment-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
-                        <div className="space-comment-body">
-                          <span className="space-comment-name">{commenter.name}</span>
-                          <span className="space-comment-text">{c.content}</span>
-                          <span className="space-comment-time">{formatTime(c.createdAt)}</span>
-                        </div>
+        ) : (
+          <>
+            {filteredPosts.map(post => {
+              const isMine = currentUser && post.user_id === currentUser.id;
+              const isLiked = post.liked_by_me;
+              const postComments = commentsData[post.id] || [];
+              return (
+                <div key={post.id} className="space-post">
+                  <div className="space-post-header">
+                    <img
+                      src={post.author_avatar || FALLBACK_AVATAR}
+                      alt=""
+                      className="space-post-avatar"
+                      loading="lazy"
+                      onError={e => { e.target.src = FALLBACK_AVATAR; }}
+                      onClick={() => post.user_id !== currentUser?.id && navigate(`/user/${post.user_id}`)}
+                      style={{ cursor: post.user_id !== currentUser?.id ? 'pointer' : 'default' }}
+                    />
+                    <div className="space-post-author">
+                      <span
+                        className="space-post-name"
+                        onClick={() => post.user_id !== currentUser?.id && navigate(`/user/${post.user_id}`)}
+                        style={{ cursor: post.user_id !== currentUser?.id ? 'pointer' : 'default' }}
+                      >
+                        {post.author_name || '未知用户'}
+                      </span>
+                      <span className="space-post-meta">
+                        {formatTime(post.created_at)} · {post.visibility === 'friends' ? <><Lock size={10} /> 仅好友</> : post.visibility === 'private' ? <><Lock size={10} /> 仅自己</> : <><Globe size={10} /> 公开</>}
+                      </span>
+                    </div>
+                    {isMine && (
+                      <div style={{ position: 'relative', marginLeft: 'auto' }} ref={menuRef}>
+                        <button className="space-action" onClick={() => setShowMenu(showMenu === post.id ? null : post.id)}>
+                          <MoreHorizontal size={16} />
+                        </button>
+                        {showMenu === post.id && (
+                          <div style={{ position: 'absolute', right: 0, top: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border-secondary)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-md)', zIndex: 10, minWidth: 100 }}>
+                            <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', width: '100%', color: 'var(--error)', fontSize: 13 }} onClick={() => handleDeletePost(post.id)}>
+                              <Trash2 size={14} /> 删除
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                  <div className="space-comment-input">
-                    <input placeholder="写评论..." value={commentInputs[post.id] || ''} onChange={e => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))} onKeyDown={e => e.key === 'Enter' && addComment(post.id)} />
-                    <button onClick={() => addComment(post.id)}><Send size={14} /></button>
+                    )}
                   </div>
+                  <div className="space-post-content">{post.content}</div>
+                  {post.images && Array.isArray(post.images) && post.images.length > 0 && (
+                    <div className="space-post-images">
+                      {post.images.map((img, i) => <img key={i} src={img} alt="" className="space-post-img" loading="lazy" />)}
+                    </div>
+                  )}
+                  <div className="space-post-stats">
+                    <span><Eye size={12} /> {post.views || 0}</span>
+                  </div>
+                  <div className="space-post-actions">
+                    <button className={`space-action ${isLiked ? 'liked' : ''}`} onClick={() => toggleLike(post.id)}>
+                      <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /> {post.likes_count || 0}
+                    </button>
+                    <button className="space-action" onClick={() => loadComments(post.id)}>
+                      <MessageSquare size={14} /> {post.comments_count || 0}
+                    </button>
+                    <button className="space-action"><Share2 size={14} /> 分享</button>
+                  </div>
+                  {expandedComments[post.id] && (
+                    <div className="space-post-comments">
+                      {postComments.map(c => (
+                        <div key={c.id} className="space-comment">
+                          <img src={c.author_avatar || FALLBACK_AVATAR} alt="" className="space-comment-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} />
+                          <div className="space-comment-body">
+                            <span className="space-comment-name">{c.author_name || '未知'}</span>
+                            <span className="space-comment-text">{c.content}</span>
+                            <span className="space-comment-time">{formatTime(c.created_at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="space-comment-input">
+                        <input
+                          placeholder="写评论..."
+                          value={commentInputs[post.id] || ''}
+                          onChange={e => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                          onKeyDown={e => e.key === 'Enter' && addComment(post.id)}
+                        />
+                        <button onClick={() => addComment(post.id)} disabled={commentSubmitting[post.id]}>
+                          {commentSubmitting[post.id] ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+            {hasMore && (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <button
+                  className="filter-btn"
+                  onClick={() => loadPosts(page + 1, true)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? <Loader2 size={14} className="spin" /> : <><ChevronDown size={14} /> 加载更多</>}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* 找好友搜索弹窗 */}

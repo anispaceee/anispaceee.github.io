@@ -368,7 +368,7 @@ export const FollowService = {
 export const FriendService = {
   // 搜索用户
   async searchUsers(keyword, limit = 10) {
-    return apiRequest(`/api/friends/search?keyword=${encodeURIComponent(keyword)}&limit=${limit}`);
+    return apiRequest(`/api/users/search?q=${encodeURIComponent(keyword)}&limit=${limit}`);
   },
 
   // 获取用户公开信息
@@ -416,7 +416,45 @@ export const FriendService = {
 
   // 获取与某用户的好友状态
   async getFriendStatus(userId) {
-    return apiRequest(`/api/friends/status?userId=${userId}`);
+    return apiRequest(`/api/friends/status/${userId}`);
+  },
+};
+
+// ─── FriendPostService ───
+// 好友空间动态，走后端 API
+export const FriendPostService = {
+  async getFeed(page = 1, limit = 20) {
+    return apiRequest(`/api/friend-posts?page=${page}&limit=${limit}`);
+  },
+
+  async createPost(content, visibility = 'friends', images = []) {
+    return apiRequest('/api/friend-posts', {
+      method: 'POST',
+      body: JSON.stringify({ content, visibility, images }),
+    });
+  },
+
+  async toggleLike(postId) {
+    return apiRequest(`/api/friend-posts/${postId}/like`, {
+      method: 'POST',
+    });
+  },
+
+  async addComment(postId, content) {
+    return apiRequest(`/api/friend-posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  async getComments(postId) {
+    return apiRequest(`/api/friend-posts/${postId}/comments`);
+  },
+
+  async deletePost(postId) {
+    return apiRequest(`/api/friend-posts/${postId}`, {
+      method: 'DELETE',
+    });
   },
 };
 

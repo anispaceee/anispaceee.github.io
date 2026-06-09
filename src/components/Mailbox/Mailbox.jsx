@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { MailService, UserService } from '../../services/api';
+import { MailService, PrivateMessageService, UserService } from '../../services/api';
 import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
 import { Mail, Send, Star, Trash2, Search, Inbox, ArrowRight, MessageCircle, FileText, Paperclip, X, ChevronLeft, Bold, Italic, Underline, Smile, LinkIcon, Image as ImageIcon, Eye, EyeOff, Loader2 } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
@@ -44,6 +44,7 @@ export default function Mailbox() {
   const [sent, setSent] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [chatMails, setChatMails] = useState([]);
+  const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -64,6 +65,14 @@ export default function Mailbox() {
     setLoading(false);
   }, [currentUser]);
 
+  const loadConversations = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const data = await PrivateMessageService.fetchConversations(currentUser.id);
+      setConversations(Array.isArray(data) ? data : []);
+    } catch { setConversations([]); }
+  }, [currentUser]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (currentUser) loadData();
@@ -71,13 +80,18 @@ export default function Mailbox() {
   }, [loadData, currentUser]);
 
   useEffect(() => {
-    if (!selectedChat || !currentUser) return;
+    if (currentUser && mode === 'chat') loadConversations();
+  }, [loadConversations, currentUser, mode, chatInput]);
+
+  useEffect(() => {
+    if (!selectedChat || !currentUser || mode !== 'chat') return;
     let cancelled = false;
-    MailService.fetchConversation(currentUser.id, selectedChat)
+    PrivateMessageService.fetchConversation(currentUser.id, selectedChat)
       .then(data => { if (!cancelled) setChatMails(Array.isArray(data) ? data : []); })
       .catch(() => { if (!cancelled) setChatMails([]); });
+    PrivateMessageService.markAsReadAsync(currentUser.id, selectedChat).catch(() => {});
     return () => { cancelled = true; };
-  }, [selectedChat, currentUser, inbox, sent]);
+  }, [selectedChat, currentUser, mode]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -91,21 +105,6 @@ export default function Mailbox() {
     }
     return mails;
   }, [folder, inbox, sent, searchQuery]);
-
-  const chatList = useMemo(() => {
-    const allMails = [...inbox, ...sent];
-    const convMap = {};
-    allMails.forEach(m => {
-      const otherId = m.fromUserId === currentUser.id ? m.toUserId : m.fromUserId;
-      if (!convMap[otherId] || new Date(m.createdAt) > new Date(convMap[otherId].lastMail.createdAt)) {
-        convMap[otherId] = { otherUserId: otherId, lastMail: m, unread: 0 };
-      }
-    });
-    inbox.forEach(m => {
-      if (!m.read && convMap[m.fromUserId]) convMap[m.fromUserId].unread++;
-    });
-    return Object.values(convMap).sort((a, b) => new Date(b.lastMail.createdAt) - new Date(a.lastMail.createdAt));
-  }, [inbox, sent, currentUser.id]);
 
   if (!isAuthenticated || !currentUser) {
     return (
@@ -138,11 +137,15 @@ export default function Mailbox() {
   const handleSendChat = async () => {
     if (!chatInput.trim() || !selectedChat) return;
     try {
-      await MailService.sendAsync(currentUser.id, selectedChat, '', chatInput);
+      await PrivateMessageService.sendAsync(currentUser.id, selectedChat, chatInput);
     } catch { /* no-op */ }
     setChatInput('');
     setShowEmoji(false);
-    loadData();
+    loadConversations();
+    try {
+      const data = await PrivateMessageService.fetchConversation(currentUser.id, selectedChat);
+      setChatMails(Array.isArray(data) ? data : []);
+    } catch { /* no-op */ }
   };
 
   const handleSelectMail = async (mail) => {
@@ -372,24 +375,22 @@ export default function Mailbox() {
                 <input placeholder="搜索对话..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               </div>
               <div className="chat-list">
-                {chatList.length === 0 ? (
+                {conversations.length === 0 ? (
                   <div className="mail-empty">暂无对话</div>
                 ) : (
-                  chatList.map(conv => {
-                    const otherUser = UserService.getById(conv.otherUserId);
-                    if (!otherUser) return null;
-                    if (searchQuery && !otherUser.name.includes(searchQuery) && !otherUser.username.includes(searchQuery)) return null;
+                  conversations.map(conv => {
+                    if (searchQuery && !conv.other_user_name?.includes(searchQuery)) return null;
                     return (
-                      <div key={conv.otherUserId} className={`chat-item ${selectedChat === conv.otherUserId ? 'selected' : ''}`} onClick={() => setSelectedChat(conv.otherUserId)}>
-                        <UserAvatar userId={conv.otherUserId} src={otherUser.avatar} alt={otherUser.name} size={40} className="chat-item-avatar" />
+                      <div key={conv.other_user_id} className={`chat-item ${selectedChat === conv.other_user_id ? 'selected' : ''}`} onClick={() => setSelectedChat(conv.other_user_id)}>
+                        <UserAvatar userId={conv.other_user_id} src={conv.other_user_avatar} alt={conv.other_user_name} size={40} className="chat-item-avatar" />
                         <div className="chat-item-content">
                           <div className="chat-item-top">
-                            <span className="chat-item-name">{otherUser.name}</span>
-                            <span className="chat-item-time">{formatTime(conv.lastMail.createdAt)}</span>
+                            <span className="chat-item-name">{conv.other_user_name || '未知用户'}</span>
+                            <span className="chat-item-time">{formatTime(conv.last_message_at)}</span>
                           </div>
-                          <span className="chat-item-preview">{conv.lastMail.content.substring(0, 40)}</span>
+                          <span className="chat-item-preview">{(conv.last_message || '').substring(0, 40)}</span>
                         </div>
-                        {conv.unread > 0 && <span className="chat-unread-dot">{conv.unread}</span>}
+                        {conv.unread_count > 0 && <span className="chat-unread-dot">{conv.unread_count}</span>}
                       </div>
                     );
                   })
@@ -401,21 +402,29 @@ export default function Mailbox() {
               {selectedChat ? (
                 <>
                   <div className="chat-header">
-                    <UserAvatar userId={selectedChat} src={UserService.getById(selectedChat)?.avatar} alt={UserService.getById(selectedChat)?.name} size={40} className="chat-header-avatar" />
-                    <span className="chat-header-name">{UserService.getById(selectedChat)?.name || '未知'}</span>
-                    <span className="chat-header-status">@{UserService.getById(selectedChat)?.username}</span>
+                    {conversations.find(c => c.other_user_id === selectedChat) ? (
+                      <>
+                        <UserAvatar userId={selectedChat} src={conversations.find(c => c.other_user_id === selectedChat).other_user_avatar} alt={conversations.find(c => c.other_user_id === selectedChat).other_user_name} size={40} className="chat-header-avatar" />
+                        <span className="chat-header-name">{conversations.find(c => c.other_user_id === selectedChat).other_user_name || '未知'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserAvatar userId={selectedChat} src={UserService.getById(selectedChat)?.avatar} alt={UserService.getById(selectedChat)?.name} size={40} className="chat-header-avatar" />
+                        <span className="chat-header-name">{UserService.getById(selectedChat)?.name || '未知'}</span>
+                      </>
+                    )}
                   </div>
                   <div className="chat-messages">
-                    {chatMails.map(mail => {
-                      const isMine = mail.fromUserId === currentUser.id;
+                    {chatMails.map(msg => {
+                      const isMine = msg.from_user_id === currentUser.id;
                       return (
-                        <div key={mail.id} className={`chat-msg ${isMine ? 'mine' : 'other'}`}>
-                          {!isMine && <UserAvatar userId={mail.fromUserId} src={UserService.getById(mail.fromUserId)?.avatar} alt={UserService.getById(mail.fromUserId)?.name} size={32} className="chat-msg-avatar" />}
+                        <div key={msg.id} className={`chat-msg ${isMine ? 'mine' : 'other'}`}>
+                          {!isMine && <UserAvatar userId={msg.from_user_id} src={msg.from_user_avatar} alt={msg.from_user_name} size={32} className="chat-msg-avatar" />}
                           <div className="chat-msg-bubble">
-                            <div className="chat-msg-text" dangerouslySetInnerHTML={{ __html: renderMailContent(mail.content) }} />
+                            <div className="chat-msg-text">{msg.content}</div>
                             <div className="chat-msg-meta">
-                              <span className="chat-msg-time">{formatTime(mail.createdAt)}</span>
-                              {isMine && <span className="chat-msg-read">{mail.read ? <Eye size={10} /> : <EyeOff size={10} />}</span>}
+                              <span className="chat-msg-time">{formatTime(msg.created_at)}</span>
+                              {isMine && <span className="chat-msg-read">{msg.read ? <Eye size={10} /> : <EyeOff size={10} />}</span>}
                             </div>
                           </div>
                           {isMine && <UserAvatar userId={currentUser.id} src={currentUser.avatar} alt={currentUser.name} size={32} className="chat-msg-avatar" />}

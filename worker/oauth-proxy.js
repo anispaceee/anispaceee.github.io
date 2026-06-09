@@ -1611,6 +1611,197 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
+  // ── Friend Posts API (好友空间动态) ──
+
+  // GET /api/friend-posts — 获取好友动态 feed（需认证）
+  if (method === 'GET' && pathname === '/api/friend-posts') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const page = Math.max(1, Number(new URL(request.url).searchParams.get('page')) || 1);
+    const limit = Math.min(100, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 20));
+    const offset = (page - 1) * limit;
+
+    try {
+      // 获取好友 ID 列表
+      const friends = await env.DB.prepare(
+        "SELECT CASE WHEN from_user_id = ? THEN to_user_id ELSE from_user_id END AS friend_id FROM friend_requests WHERE (from_user_id = ? OR to_user_id = ?) AND status = 'accepted'"
+      ).bind(authUser.userId, authUser.userId, authUser.userId).all();
+      const friendIds = friends.results.map(f => f.friend_id);
+
+      let posts;
+      if (friendIds.length > 0) {
+        const placeholders = friendIds.map(() => '?').join(',');
+        posts = await env.DB.prepare(
+          `SELECT fp.*, u.name AS author_name, u.avatar AS author_avatar FROM friend_posts fp JOIN users u ON fp.user_id = u.id WHERE (fp.visibility = 'public') OR (fp.visibility = 'friends' AND fp.user_id IN (${placeholders})) OR (fp.user_id = ?) ORDER BY fp.created_at DESC LIMIT ? OFFSET ?`
+        ).bind(...friendIds, authUser.userId, limit, offset).all();
+      } else {
+        posts = await env.DB.prepare(
+          "SELECT fp.*, u.name AS author_name, u.avatar AS author_avatar FROM friend_posts fp JOIN users u ON fp.user_id = u.id WHERE fp.visibility = 'public' OR fp.user_id = ? ORDER BY fp.created_at DESC LIMIT ? OFFSET ?"
+        ).bind(authUser.userId, limit, offset).all();
+      }
+
+      // 批量检查当前用户是否已点赞
+      const postIds = posts.results.map(p => p.id);
+      if (postIds.length > 0) {
+        const likePlaceholders = postIds.map(() => '?').join(',');
+        const likes = await env.DB.prepare(
+          `SELECT post_id FROM friend_post_likes WHERE user_id = ? AND post_id IN (${likePlaceholders})`
+        ).bind(authUser.userId, ...postIds).all();
+        const likedSet = new Set(likes.results.map(l => l.post_id));
+        posts.results.forEach(p => { p.liked_by_me = likedSet.has(p.id); });
+      } else {
+        posts.results.forEach(p => { p.liked_by_me = false; });
+      }
+
+      // 获取总数
+      let countResult;
+      if (friendIds.length > 0) {
+        const placeholders = friendIds.map(() => '?').join(',');
+        countResult = await env.DB.prepare(
+          `SELECT COUNT(*) AS total FROM friend_posts WHERE (visibility = 'public') OR (visibility = 'friends' AND user_id IN (${placeholders})) OR (user_id = ?)`
+        ).bind(...friendIds, authUser.userId).first();
+      } else {
+        countResult = await env.DB.prepare(
+          "SELECT COUNT(*) AS total FROM friend_posts WHERE visibility = 'public' OR user_id = ?"
+        ).bind(authUser.userId).first();
+      }
+
+      return jsonResponse({
+        posts: posts.results,
+        pagination: { page, limit, total: countResult.total },
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '获取好友动态失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/friend-posts — 创建好友动态（需认证）
+  if (method === 'POST' && pathname === '/api/friend-posts') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { content, images, visibility } = body;
+      if (!content) return jsonResponse({ error: '内容不能为空' }, 400, origin);
+      if (visibility && !['public', 'friends', 'private'].includes(visibility)) {
+        return jsonResponse({ error: 'visibility 必须为 public、friends 或 private' }, 400, origin);
+      }
+
+      const result = await env.DB.prepare(
+        "INSERT INTO friend_posts (user_id, content, images, visibility, likes_count, comments_count, views, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 0, 0, datetime('now'), datetime('now'))"
+      ).bind(authUser.userId, content, images ? JSON.stringify(images) : '[]', visibility || 'friends').run();
+
+      const post = await env.DB.prepare(
+        'SELECT fp.*, u.name AS author_name, u.avatar AS author_avatar FROM friend_posts fp JOIN users u ON fp.user_id = u.id WHERE fp.id = ?'
+      ).bind(result.meta.last_row_id).first();
+
+      return jsonResponse(post, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '创建动态失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/friend-posts/:id/like — 切换点赞（需认证）
+  const fpLikeMatch = pathname.match(/^\/api\/friend-posts\/(\d+)\/like$/);
+  if (fpLikeMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const postId = Number(fpLikeMatch[1]);
+
+    try {
+      const post = await env.DB.prepare('SELECT id FROM friend_posts WHERE id = ?').bind(postId).first();
+      if (!post) return jsonResponse({ error: '动态不存在' }, 404, origin);
+
+      const existing = await env.DB.prepare(
+        'SELECT id FROM friend_post_likes WHERE post_id = ? AND user_id = ?'
+      ).bind(postId, authUser.userId).first();
+
+      if (existing) {
+        await env.DB.prepare('DELETE FROM friend_post_likes WHERE id = ?').bind(existing.id).run();
+        await env.DB.prepare('UPDATE friend_posts SET likes_count = MAX(likes_count - 1, 0) WHERE id = ?').bind(postId).run();
+        return jsonResponse({ liked: false }, 200, origin);
+      } else {
+        await env.DB.prepare(
+          "INSERT INTO friend_post_likes (post_id, user_id, created_at) VALUES (?, ?, datetime('now'))"
+        ).bind(postId, authUser.userId).run();
+        await env.DB.prepare('UPDATE friend_posts SET likes_count = likes_count + 1 WHERE id = ?').bind(postId).run();
+        return jsonResponse({ liked: true }, 200, origin);
+      }
+    } catch (err) {
+      return jsonResponse({ error: '点赞操作失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/friend-posts/:id/comments — 添加评论（需认证）
+  const fpCommentMatch = pathname.match(/^\/api\/friend-posts\/(\d+)\/comments$/);
+  if (fpCommentMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const postId = Number(fpCommentMatch[1]);
+
+    try {
+      const body = await request.json();
+      const { content } = body;
+      if (!content) return jsonResponse({ error: '评论内容不能为空' }, 400, origin);
+
+      const post = await env.DB.prepare('SELECT id FROM friend_posts WHERE id = ?').bind(postId).first();
+      if (!post) return jsonResponse({ error: '动态不存在' }, 404, origin);
+
+      await env.DB.prepare(
+        "INSERT INTO friend_post_comments (post_id, user_id, content, created_at) VALUES (?, ?, ?, datetime('now'))"
+      ).bind(postId, authUser.userId, content).run();
+
+      await env.DB.prepare('UPDATE friend_posts SET comments_count = comments_count + 1 WHERE id = ?').bind(postId).run();
+
+      const comment = await env.DB.prepare(
+        'SELECT fpc.*, u.name AS author_name, u.avatar AS author_avatar FROM friend_post_comments fpc JOIN users u ON fpc.user_id = u.id WHERE fpc.post_id = ? ORDER BY fpc.created_at DESC LIMIT 1'
+      ).bind(postId).first();
+
+      return jsonResponse(comment, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '评论失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/friend-posts/:id/comments — 获取动态评论
+  if (fpCommentMatch && method === 'GET') {
+    const postId = Number(fpCommentMatch[1]);
+
+    const comments = await env.DB.prepare(
+      'SELECT fpc.*, u.name AS author_name, u.avatar AS author_avatar FROM friend_post_comments fpc JOIN users u ON fpc.user_id = u.id WHERE fpc.post_id = ? ORDER BY fpc.created_at ASC'
+    ).bind(postId).all();
+
+    return jsonResponse(comments.results, 200, origin);
+  }
+
+  // DELETE /api/friend-posts/:id — 删除动态（需认证，仅本人）
+  const fpDeleteMatch = pathname.match(/^\/api\/friend-posts\/(\d+)$/);
+  if (fpDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const postId = Number(fpDeleteMatch[1]);
+
+    try {
+      const post = await env.DB.prepare('SELECT user_id FROM friend_posts WHERE id = ?').bind(postId).first();
+      if (!post) return jsonResponse({ error: '动态不存在' }, 404, origin);
+      if (post.user_id !== authUser.userId) return jsonResponse({ error: '无权删除他人动态' }, 403, origin);
+
+      // 删除评论、点赞、动态
+      const batch = [
+        env.DB.prepare('DELETE FROM friend_post_comments WHERE post_id = ?').bind(postId),
+        env.DB.prepare('DELETE FROM friend_post_likes WHERE post_id = ?').bind(postId),
+        env.DB.prepare('DELETE FROM friend_posts WHERE id = ?').bind(postId),
+      ];
+      await env.DB.batch(batch);
+
+      return jsonResponse({ message: '已删除动态' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '删除动态失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // 未匹配的 API 路由
   return null;
 }
@@ -1632,6 +1823,7 @@ const RL_LIMITS = {
   '/api/ratings': 20,
   '/api/favorites': 20,
   '/api/friends': 20,
+  '/api/friend-posts': 20,
 };
 
 const rlStore = new Map(); // key: `${ip}:${pathGroup}`, value: { count, resetAt }
@@ -1697,7 +1889,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }
