@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth
 
 // ─── 后端 API 请求辅助函数 ───
 async function apiRequest(path, options = {}) {
-  const token = localStorage.getItem('acg_jwt_token');
+  const token = sessionStorage.getItem('acg_jwt_token');
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
@@ -175,6 +175,11 @@ export { StorageService } from './storage';
 // 登录/登出/当前用户：通过后端 API 创建或查找用户，JWT 存 localStorage
 export const AuthService = {
   async loginWithOAuth(provider, oauthUser) {
+    // 防御性校验：确保 OAuth 用户 ID 存在
+    if (!oauthUser || !oauthUser.id) {
+      console.error('[AuthService] loginWithOAuth: oauthUser.id is missing', oauthUser);
+      return { error: 'OAuth 用户信息不完整，请重试' };
+    }
     const body = {
       provider,
       providerId: String(oauthUser.id),
@@ -189,7 +194,7 @@ export const AuthService = {
     });
     // 后端返回 { token, user }
     if (data.token) {
-      localStorage.setItem('acg_jwt_token', data.token);
+      sessionStorage.setItem('acg_jwt_token', data.token);
     }
     if (data.user) {
       StorageService.set(SK.CURRENT_USER, data.user);
@@ -198,7 +203,7 @@ export const AuthService = {
   },
 
   logout() {
-    localStorage.removeItem('acg_jwt_token');
+    sessionStorage.removeItem('acg_jwt_token');
     StorageService.remove(SK.AUTH_TOKEN);
     StorageService.remove(SK.CURRENT_USER);
   },
@@ -208,7 +213,7 @@ export const AuthService = {
   },
 
   isAuthenticated() {
-    return !!localStorage.getItem('acg_jwt_token') || !!StorageService.get(SK.AUTH_TOKEN);
+    return !!sessionStorage.getItem('acg_jwt_token') || !!StorageService.get(SK.AUTH_TOKEN);
   },
 
   async updateProfile(userId, updates) {
@@ -1106,10 +1111,14 @@ export const NetEaseMusicService = {
 export const BangumiAuthService = {
   buildAuthUrl() {
     const redirectUri = `${window.location.origin}${oauthConfig.bangumi.redirectPath}`;
+    // H-1: 生成随机 state 防 CSRF
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('oauth_state_bangumi', state);
     const params = new URLSearchParams({
       client_id: oauthConfig.bangumi.clientId,
       response_type: 'code',
       redirect_uri: redirectUri,
+      state,
     });
     return `${oauthConfig.bangumi.authUrl}?${params.toString()}`;
   },
@@ -1164,10 +1173,14 @@ export const BangumiAuthService = {
 export const GitHubAuthService = {
   buildAuthUrl() {
     const redirectUri = `${window.location.origin}${oauthConfig.github.redirectPath}`;
+    // H-1: 生成随机 state 防 CSRF
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('oauth_state_github', state);
     const params = new URLSearchParams({
       client_id: oauthConfig.github.clientId,
       redirect_uri: redirectUri,
       scope: oauthConfig.github.scope,
+      state,
     });
     return `${oauthConfig.github.authUrl}?${params.toString()}`;
   },

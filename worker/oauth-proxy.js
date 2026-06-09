@@ -15,6 +15,52 @@
  *   JWT_SECRET             - JWT 签名密钥
  */
 
+// ─── SSRF 防护 ───────────────────────────────────────────
+
+/**
+ * 校验目标 URL 是否安全，防止 SSRF 攻击
+ * - 仅允许 https:// 协议
+ * - 禁止 IP 地址、loopback、内网段
+ * - 禁止元数据地址
+ */
+function isSafeTargetUrl(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    // 仅允许 HTTPS
+    if (u.protocol !== 'https:') return false;
+
+    const hostname = u.hostname.toLowerCase();
+
+    // 禁止 IP 地址（IPv4 和 IPv6）
+    const ipRe = /^(?:[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|\[?[0-9a-fA-F:]+\]?)$/;
+    if (ipRe.test(hostname)) return false;
+
+    // 禁止 loopback
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return false;
+
+    // 禁止内网段
+    if (hostname.startsWith('10.') || hostname.startsWith('172.16.') ||
+        hostname.startsWith('172.17.') || hostname.startsWith('172.18.') ||
+        hostname === '172.16.0.0' || hostname.startsWith('172.19.') ||
+        hostname.startsWith('172.20.') || hostname.startsWith('172.21.') ||
+        hostname.startsWith('172.22.') || hostname.startsWith('172.23.') ||
+        hostname.startsWith('172.24.') || hostname.startsWith('172.25.') ||
+        hostname.startsWith('172.26.') || hostname.startsWith('172.27.') ||
+        hostname.startsWith('172.28.') || hostname.startsWith('172.29.') ||
+        hostname.startsWith('172.30.') || hostname.startsWith('172.31.') ||
+        hostname.startsWith('192.168.')) return false;
+
+    // 禁止云元数据地址和保留域名
+    if (hostname === '169.254.169.254' ||
+        hostname === 'metadata.google.internal' ||
+        hostname === 'metadata.google.internal.') return false;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── JWT 辅助函数 ───────────────────────────────────────────
 
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 天，单位秒
@@ -63,10 +109,20 @@ async function signJWT(payload, secret) {
 }
 
 async function verifyJWT(token, secret) {
+  // M-3: 限制 token 长度防 DoS
+  if (!token || token.length > 4096) return null;
+
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
   const [headerB64, payloadB64, signatureB64] = parts;
+
+  // M-3: 校验 base64url 字符集
+  const base64UrlRe = /^[A-Za-z0-9_-]+$/;
+  if (!base64UrlRe.test(headerB64) || !base64UrlRe.test(payloadB64) || !base64UrlRe.test(signatureB64)) {
+    return null;
+  }
+
   const signingInput = `${headerB64}.${payloadB64}`;
 
   const encoder = new TextEncoder();
@@ -78,9 +134,15 @@ async function verifyJWT(token, secret) {
     ['verify']
   );
 
-  const signatureStr = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
-  while (signatureStr.length % 4) signatureStr + '=';
-  const signatureBytes = Uint8Array.from(atob(signatureStr), c => c.charCodeAt(0));
+  let signatureStr = signatureB64.replace(/-/g, '+').replace(/_/g, '/');
+  while (signatureStr.length % 4) signatureStr += '=';
+  // M-3: 捕获 atob 非法的 base64 字符异常
+  let signatureBytes;
+  try {
+    signatureBytes = Uint8Array.from(atob(signatureStr), c => c.charCodeAt(0));
+  } catch {
+    return null;
+  }
 
   const valid = await crypto.subtle.verify('HMAC', key, signatureBytes, encoder.encode(signingInput));
   if (!valid) return null;
@@ -124,6 +186,37 @@ const CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 };
 
+/**
+ * H-2: 判断 origin 是否被允许，精确匹配防止前缀绕过
+ */
+function isAllowedOrigin(origin, allowedOrigin) {
+  if (!allowedOrigin || !origin) return true; // 无配置允许任何来源
+  try {
+    const o = new URL(origin);
+    const a = new URL(allowedOrigin);
+    return o.origin === a.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * H-3: 校验 OAuth redirect_uri，仅允许白名单路径
+ */
+function validateRedirectUri(uri, allowedOrigin) {
+  if (!uri) return false;
+  try {
+    const u = new URL(uri);
+    // 检验 origin 部分必须匹配
+    if (!isAllowedOrigin(u.origin, allowedOrigin)) return false;
+    // 仅允许 /auth/bangumi 和 /auth/github 路径
+    if (!['/auth/bangumi', '/auth/github'].includes(u.pathname)) return false;
+    return u.toString();
+  } catch {
+    return false;
+  }
+}
+
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
@@ -139,6 +232,23 @@ function jsonResponse(data, status = 200, origin = '*') {
       ...corsHeaders(origin),
     },
   });
+}
+
+// ─── 用户数据格式化 (M-5) ──────────────────────────────────
+
+/**
+ * M-5: 解析 preferences JSON 字段，确保前端收到对象而非字符串
+ */
+function formatUser(user) {
+  if (!user) return user;
+  if (user.preferences && typeof user.preferences === 'string') {
+    try {
+      user.preferences = JSON.parse(user.preferences);
+    } catch {
+      user.preferences = {};
+    }
+  }
+  return user;
 }
 
 // ─── Bangumi API 代理 ────────────────────────────────────────
@@ -257,12 +367,18 @@ async function handleBangumiToken(code, redirectUri, env) {
 
   const userData = await userRes.json();
 
+  // 校验 Bangumi 用户 ID 是否存在
+  const bangumiUserId = userData.id || tokenData.user_id;
+  if (!bangumiUserId) {
+    return { error: 'Bangumi 用户信息获取失败' };
+  }
+
   return {
     access_token: tokenData.access_token,
     refresh_token: tokenData.refresh_token,
     user_id: tokenData.user_id,
     user: {
-      id: userData.id || tokenData.user_id,
+      id: bangumiUserId,
       username: userData.username || '',
       nickname: userData.nickname || userData.username || '',
       avatar: userData.avatar?.large || userData.avatar?.medium || '',
@@ -327,7 +443,12 @@ async function handleGithubToken(code, redirectUri, env) {
   });
   const userText = await userRes.text();
   let userData;
-  try { userData = JSON.parse(userText); } catch { userData = {}; }
+  try { userData = JSON.parse(userText); } catch { userData = {} }
+
+  // 校验 GitHub 用户 ID 是否存在
+  if (!userData.id) {
+    return { error: `GitHub 用户信息获取失败 (HTTP ${userRes.status}): ${userText.substring(0, 200)}` };
+  }
 
   // 获取用户邮箱
   let email = userData.email || '';
@@ -396,7 +517,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       }
 
       const token = await signJWT({ userId: user.id, provider: user.provider, providerId: user.provider_id }, jwtSecret);
-      return jsonResponse({ token, user }, 200, origin);
+      return jsonResponse({ token, user: formatUser(user) }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '登录失败: ' + err.message }, 500, origin);
     }
@@ -409,7 +530,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
     if (method === 'GET') {
       const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
       if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
-      return jsonResponse(user, 200, origin);
+      return jsonResponse(formatUser(user), 200, origin);
     }
 
     // PUT /api/users/:id — 更新用户信息（需认证，仅本人可编辑）
@@ -619,12 +740,24 @@ async function handleApiRoutes(pathname, request, env, origin) {
       ).bind(authUser.userId, targetUserId).first();
 
       if (existing) {
-        await env.DB.prepare('DELETE FROM follows WHERE id = ?').bind(existing.id).run();
+        // M-4: 批量原子操作 — 取消关注 + 更新计数
+        const batch = [
+          env.DB.prepare('DELETE FROM follows WHERE id = ?').bind(existing.id),
+          env.DB.prepare('UPDATE users SET following_count = MAX(0, following_count - 1) WHERE id = ?').bind(authUser.userId),
+          env.DB.prepare('UPDATE users SET follower_count = MAX(0, follower_count - 1) WHERE id = ?').bind(targetUserId),
+        ];
+        await env.DB.batch(batch);
         return jsonResponse({ following: false }, 200, origin);
       } else {
-        await env.DB.prepare(
-          'INSERT INTO follows (from_user_id, to_user_id, created_at) VALUES (?, ?, datetime(\'now\'))'
-        ).bind(authUser.userId, targetUserId).run();
+        // M-4: 批量原子操作 — 关注 + 更新计数
+        const batch = [
+          env.DB.prepare(
+            'INSERT INTO follows (from_user_id, to_user_id, created_at) VALUES (?, ?, datetime(\'now\'))'
+          ).bind(authUser.userId, targetUserId),
+          env.DB.prepare('UPDATE users SET following_count = following_count + 1 WHERE id = ?').bind(authUser.userId),
+          env.DB.prepare('UPDATE users SET follower_count = follower_count + 1 WHERE id = ?').bind(targetUserId),
+        ];
+        await env.DB.batch(batch);
         return jsonResponse({ following: true }, 200, origin);
       }
     } catch (err) {
@@ -1124,6 +1257,60 @@ async function handleApiRoutes(pathname, request, env, origin) {
   return null;
 }
 
+// ─── Rate Limiter (H-7) ──────────────────────────────────
+
+const RL_WINDOW_MS = 60 * 1000; // 60 秒滑动窗口
+
+// 各端点每分钟限制
+const RL_LIMITS = {
+  '/api/auth/login': 5,
+  '/api/posts': 10,       // 创建帖子/回复
+  '/api/world-messages': 20,
+  '/api/private-messages': 20,
+  '/api/mails': 10,
+  '/api/users': 10,
+  '/api/collections': 20,
+  '/api/follows': 20,
+  '/api/ratings': 20,
+  '/api/favorites': 20,
+};
+
+const rlStore = new Map(); // key: `${ip}:${pathGroup}`, value: { count, resetAt }
+
+function getRateLimitKey(ip, pathname) {
+  // 将具体路径归并到组，返回 { key, limit }
+  for (const prefix of Object.keys(RL_LIMITS)) {
+    if (pathname.startsWith(prefix)) return { key: `${ip}:${prefix}`, limit: RL_LIMITS[prefix] };
+  }
+  return null;
+}
+
+function checkRateLimit(ip, pathname) {
+  const result = getRateLimitKey(ip, pathname);
+  if (!result) return true; // 不在限制列表，放行
+
+  const { key, limit } = result;
+  const now = Date.now();
+  let entry = rlStore.get(key);
+
+  // 清理过期条目
+  if (!entry || entry.resetAt < now) {
+    entry = { count: 0, resetAt: now + RL_WINDOW_MS };
+    rlStore.set(key, entry);
+  }
+
+  entry.count++;
+
+  // 每 ~1% 请求时清理过期条目
+  if (Math.random() < 0.01) {
+    for (const [k, v] of rlStore) {
+      if (v.resetAt < now) rlStore.delete(k);
+    }
+  }
+
+  return entry.count <= limit;
+}
+
 // ─── 主入口 ──────────────────────────────────────────────────
 
 export default {
@@ -1136,10 +1323,18 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    // 验证来源
+    // 验证来源（H-2：精确匹配）
     const allowedOrigin = env.ALLOWED_ORIGIN || '';
-    if (allowedOrigin && origin && !origin.startsWith(allowedOrigin)) {
+    if (!isAllowedOrigin(origin, allowedOrigin)) {
       return jsonResponse({ error: '来源不被允许' }, 403, origin);
+    }
+
+    // H-7: Rate Limit — 写操作限流
+    if (request.method !== 'GET' && request.method !== 'OPTIONS') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      if (!checkRateLimit(ip, url.pathname)) {
+        return new Response('Too Many Requests', { status: 429 });
+      }
     }
 
     // ── Worker API 路由 ──
@@ -1159,7 +1354,11 @@ export default {
       const code = url.searchParams.get('code');
       if (!code) return jsonResponse({ error: '缺少 code 参数' }, 400, origin);
 
-      const redirectUri = url.searchParams.get('redirect_uri') || `${allowedOrigin}/auth/bangumi`;
+      // H-3: 校验 redirect_uri 仅允许白名单路径
+      const redirectUri = validateRedirectUri(
+        url.searchParams.get('redirect_uri'),
+        allowedOrigin
+      ) || `${allowedOrigin}/auth/bangumi`;
 
       try {
         const result = await handleBangumiToken(code, redirectUri, env);
@@ -1175,7 +1374,11 @@ export default {
       const code = url.searchParams.get('code');
       if (!code) return jsonResponse({ error: '缺少 code 参数' }, 400, origin);
 
-      const redirectUri = url.searchParams.get('redirect_uri') || `${allowedOrigin}/auth/github`;
+      // H-3: 校验 redirect_uri 仅允许白名单路径
+      const redirectUri = validateRedirectUri(
+        url.searchParams.get('redirect_uri'),
+        allowedOrigin
+      ) || `${allowedOrigin}/auth/github`;
 
       try {
         const result = await handleGithubToken(code, redirectUri, env);
@@ -1202,6 +1405,11 @@ export default {
       params.delete('path');
 
       const targetUrl = `${baseUrl}${path}${params.toString() ? '?' + params.toString() : ''}`;
+
+      // C-3: SSRF protection - 禁止内网/IP/非HTTPS请求
+      if (!isSafeTargetUrl(targetUrl)) {
+        return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
+      }
 
       try {
         const res = await fetch(targetUrl, {
