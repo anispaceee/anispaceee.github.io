@@ -188,7 +188,7 @@ function normalizeSubject(item) {
     name: item.name || '',
     name_cn: item.name_cn || item.nameCn || '',
     summary: item.summary || '',
-    image: toHttps(item.images?.common || item.images?.medium || item.image || ''),
+    image: toHttps(item.images?.large || item.images?.common || item.images?.medium || item.image || ''),
     images: httpsImages,
     score: item.rating?.score || item.score || 0,
     rating: item.rating || { score: 0, total: 0, count: {} },

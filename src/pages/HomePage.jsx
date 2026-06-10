@@ -94,7 +94,7 @@ function RandomRecommendCard({ subject, loading, onRefresh }) {
 
   if (!subject) return null;
 
-  const coverUrl = subject.images?.common || subject.images?.large || subject.images?.medium || '';
+  const coverUrl = subject.images?.large || subject.images?.common || subject.images?.medium || '';
   const title = subject.name_cn || subject.name || '';
   const summary = subject.summary || '';
   const score = subject.rating?.score || subject.score || 0;
