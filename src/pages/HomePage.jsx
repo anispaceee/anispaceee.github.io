@@ -262,7 +262,7 @@ export default function HomePage() {
           <div className="home-banner-carousel">
             <div className="home-banner-track" style={{ transform: `translateX(-${carouselIndex * 100}%)` }}>
               {carouselItems.map((item, idx) => {
-                const img = item.images?.grid || item.images?.large || item.images?.common || item.images?.medium || item.image || '';
+                const img = item.images?.large || item.images?.common || item.images?.medium || item.image || '';
                 const score = item.rating?.score || item.rating?.value || item.score || 0;
                 const typeLabel = item.type === 1 ? '小说' : item.type === 4 ? '游戏' : '动画';
                 const typePath = item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime';
