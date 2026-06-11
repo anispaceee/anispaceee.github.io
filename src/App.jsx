@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback, Component } from 'react'
 import Layout from './components/Layout/Layout'
 import HomePage from './pages/HomePage'
 import OAuthCallback from './pages/OAuthCallback'
@@ -34,8 +34,51 @@ import { MusicProvider } from './context/MusicContext'
 import { StorageService } from './services/api'
 import { initMediaSources } from './services/media/initSources'
 
-// Initialize media sources on app load
-initMediaSources()
+// Error Boundary to prevent white screen when a component crashes
+class VideoPlayerErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('[VideoPlayerErrorBoundary] Component crashed:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <h2>播放器加载失败</h2>
+          <p style={{ color: 'var(--text-quaternary)', fontSize: 13, margin: '12px 0' }}>
+            {this.state.error?.message || '未知错误'}
+          </p>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); window.history.back(); }}
+            style={{ padding: '8px 20px', borderRadius: 20, border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-primary)' }}
+          >
+            返回
+          </button>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            style={{ padding: '8px 20px', borderRadius: 20, border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-primary)', marginLeft: 8 }}
+          >
+            重试
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Initialize media sources on app load (wrapped in try-catch to prevent app crash)
+try {
+  initMediaSources()
+} catch (err) {
+  console.error('[App] initMediaSources failed:', err);
+}
 
 const Live2DPage = lazy(() => import('./components/Common/Live2DViewer'))
 
@@ -97,7 +140,7 @@ function AppInner() {
           <Route path="/user/:userId" element={<UserProfilePage />} />
           <Route path="/video" element={<VideoHome />} />
           <Route path="/video/subject/:subjectId" element={<SubjectDetail />} />
-          <Route path="/video/play/:subjectId/:episodeId" element={<VideoPlayer />} />
+          <Route path="/video/play/:subjectId/:episodeId" element={<VideoPlayerErrorBoundary><VideoPlayer /></VideoPlayerErrorBoundary>} />
           <Route path="/video/sources" element={<SourceManager />} />
           <Route path="/mailbox" element={<Mailbox />} />
           <Route path="/guestbook" element={<Guestbook />} />

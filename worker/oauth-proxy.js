@@ -2249,7 +2249,13 @@ export default {
       // SSRF protection (allow HTTP for video streams from CDNs)
       const streamUrlObj = new URL(streamUrl);
       const streamHost = streamUrlObj.hostname.toLowerCase();
-      if (streamHost === 'localhost' || streamHost === '127.0.0.1' || streamHost.startsWith('192.168.') || streamHost.startsWith('10.') || streamHost.startsWith('172.16.') || streamHost.startsWith('172.17.') || streamHost.startsWith('172.18.') || streamHost.startsWith('172.19.') || streamHost.startsWith('172.2') || streamHost.startsWith('172.3') || streamHost === '[::1]' || streamHost === '169.254.169.254') {
+      // Block internal/private IPs — use proper IP range checks, not hostname prefix matching
+      // (hostname prefix like '172.2' would incorrectly block legitimate domains)
+      const isPrivateIp = /^(?:127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(streamHost)
+        || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(streamHost)
+        || streamHost === 'localhost'
+        || streamHost === '[::1]';
+      if (isPrivateIp) {
         return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
       }
 
@@ -2279,9 +2285,12 @@ export default {
           const text = await res.text();
           const baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf('/') + 1);
           const refererParam = referer ? `&referer=${encodeURIComponent(referer)}` : '';
+          // Use full Worker URL prefix so HLS.js resolves ts segments correctly
+          // (relative paths like /api/video/stream would resolve to the frontend domain, not the Worker)
+          const workerOrigin = url.origin;
           const rewritten = text.replace(/^(?!https?:\/\/)([^\s#]+)/gm, (match) => {
             const absoluteUrl = baseUrl + match;
-            return `/api/video/stream?url=${encodeURIComponent(absoluteUrl)}${refererParam}`;
+            return `${workerOrigin}/api/video/stream?url=${encodeURIComponent(absoluteUrl)}${refererParam}`;
           });
           return new Response(rewritten, { status: res.status, headers: resHeaders });
         }

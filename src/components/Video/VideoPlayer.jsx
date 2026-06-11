@@ -91,7 +91,13 @@ export default function VideoPlayer() {
         setDebugInfo(`搜索: ${request.subjectNames.join('/')} EP${request.episodeSort}\n已注册: ${registeredSources.join(', ')}\n可用: ${enabledSources.join(', ')}`);
 
         // 4. Call mediaSourceManager.fetchAll
-        const result = await mediaSourceManager.fetchAll(request);
+        let result;
+        try {
+          result = await mediaSourceManager.fetchAll(request);
+        } catch (err) {
+          console.error('[VideoPlayer] mediaSourceManager.fetchAll crashed:', err);
+          result = { results: [], errors: [{ sourceId: 'unknown', error: err.message || '资源搜索崩溃' }] };
+        }
         if (cancelled) return;
         setMediaMatches(result.results || []);
 
@@ -113,8 +119,12 @@ export default function VideoPlayer() {
         // 4.5 Fetch danmaku using Bangumi episode ID
         const bangumiEpId = currentEp?.id ? String(currentEp.id) : '';
         if (bangumiEpId) {
-          const danmaku = await danmakuService.fetchDanmaku(bangumiEpId);
-          if (!cancelled) setDanmakuList(danmaku);
+          try {
+            const danmaku = await danmakuService.fetchDanmaku(bangumiEpId);
+            if (!cancelled) setDanmakuList(danmaku);
+          } catch (err) {
+            console.warn('[VideoPlayer] danmaku fetch failed:', err);
+          }
         }
 
         // 5. Find the specific media by sourceId + mediaId from query params
