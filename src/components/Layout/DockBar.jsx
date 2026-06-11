@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
+import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
 import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Eye, EyeOff, Brain, Users, ChevronUp, Bell, Gamepad2 } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import './DockBar.css';
 
-export default function DockBar({ live2dVisible, onToggleLive2D, musicState, onMusicControl }) {
+export default function DockBar({ live2dVisible, onToggleLive2D }) {
   const { currentUser, isAuthenticated, openAuth } = useApp();
   const { windows, openWindow, focusWindow } = useWindowManager();
+  const { currentSong, playing, volume, muted, togglePlay, playNext, playPrev, setVolume } = useMusic();
   const [activePanel, setActivePanel] = useState(null);
   const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || '');
   const [showLauncher, setShowLauncher] = useState(false);
@@ -123,7 +125,7 @@ export default function DockBar({ live2dVisible, onToggleLive2D, musicState, onM
               title={item.label}
             >
               {item.icon}
-              {item.key === 'music' && musicState?.playing && <span className="dock-btn-playing" />}
+              {item.key === 'music' && playing && <span className="dock-btn-playing" />}
               {windows[item.key]?.open && item.key !== 'launcher' && <span className="dock-btn-indicator" />}
               {item.badge > 0 && <span className="dock-btn-badge">{item.badge > 99 ? '99+' : item.badge}</span>}
             </button>
@@ -167,27 +169,27 @@ export default function DockBar({ live2dVisible, onToggleLive2D, musicState, onM
             </div>
           )}
 
-          {activePanel === 'music' && musicState && (
+          {activePanel === 'music' && (
             <div className="dock-panel-content">
               <div className="dock-panel-header"><h3>音乐</h3><button onClick={() => setActivePanel(null)}><X size={14} /></button></div>
               <div className="dock-music">
                 <div className="dock-music-info">
-                  <img src={musicState.cover || ''} alt="" className="dock-music-cover" loading="lazy" onError={e => { e.target.style.display = 'none'; }} />
+                  <img src={currentSong?.albumCover || FALLBACK_COVER} alt="" className="dock-music-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                   <div className="dock-music-meta">
-                    <span className="dock-music-name">{musicState.name || '未播放'}</span>
-                    <span className="dock-music-artist">{musicState.artist || ''}</span>
+                    <span className="dock-music-name">{currentSong?.name || '未播放'}</span>
+                    <span className="dock-music-artist">{currentSong?.artists || ''}</span>
                   </div>
                 </div>
                 <div className="dock-music-controls">
-                  <button onClick={() => onMusicControl?.('prev')}><SkipBack size={14} /></button>
-                  <button className="dock-music-play" onClick={() => onMusicControl?.('toggle')}>
-                    {musicState.playing ? <Pause size={16} /> : <Play size={16} />}
+                  <button onClick={playPrev}><SkipBack size={14} /></button>
+                  <button className="dock-music-play" onClick={togglePlay}>
+                    {playing ? <Pause size={16} /> : <Play size={16} />}
                   </button>
-                  <button onClick={() => onMusicControl?.('next')}><SkipForward size={14} /></button>
+                  <button onClick={playNext}><SkipForward size={14} /></button>
                 </div>
                 <div className="dock-music-volume">
-                  {musicState.muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                  <input type="range" min={0} max={100} value={musicState.muted ? 0 : Math.round((musicState.volume || 0.7) * 100)} onChange={e => onMusicControl?.('volume', parseInt(e.target.value) / 100)} />
+                  {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                  <input type="range" min={0} max={100} value={muted ? 0 : Math.round(volume * 100)} onChange={e => setVolume(parseInt(e.target.value) / 100)} />
                 </div>
               </div>
             </div>

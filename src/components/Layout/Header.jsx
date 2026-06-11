@@ -11,6 +11,7 @@ const navItems = [
   { path: '/club', label: 'Tea Time！' },
   { path: '/video', label: '视频' },
   { path: '/wiki', label: '禁書目錄' },
+  { path: '/links', label: '友情链接' },
 ];
 
 export default function Header() {

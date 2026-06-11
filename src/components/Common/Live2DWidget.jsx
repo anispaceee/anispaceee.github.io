@@ -2,18 +2,20 @@ import { useState, useEffect } from 'react';
 import { X, Minus } from 'lucide-react';
 import './Live2DWidget.css';
 
-const LIVE2D_CORE_JS = 'https://fastly.jsdelivr.net/gh/stevenjoezhang/live2d-widget@latest/live2d.min.js';
-const CDN_PATH = 'https://fastly.jsdelivr.net/gh/fghrsh/live2d_api/';
+const LIVE2D_CORE_JS = '/live2d.min.js';
+const MODEL_CDN = 'https://cdn.jsdelivr.net/gh/fghrsh/live2d_api/';
 
 const MODEL_LIST = [
-  { id: 0, name: '猫羽雫', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/shizuku/model.json' },
-  { id: 1, name: '和泉纱雾', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/sagiri/model.json' },
-  { id: 2, name: '蕾姆', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/rem/model.json' },
-  { id: 3, name: '黑猫', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/blackcat/model.json' },
-  { id: 4, name: '白猫', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/whitecat/model.json' },
-  { id: 5, name: '初音未来', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/kurumi/model.json' },
-  { id: 6, name: '小早川', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/koharu/model.json' },
-  { id: 7, name: '初濑', model: 'https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/hijiki/model.json' },
+  { id: 0, name: 'Pio', model: MODEL_CDN + 'model/Potion-Maker/Pio/model.json' },
+  { id: 1, name: 'Tia', model: MODEL_CDN + 'model/Potion-Maker/Tia/model.json' },
+  { id: 2, name: '22娘', model: MODEL_CDN + 'model/bilibili-live/22/model.json' },
+  { id: 3, name: '33娘', model: MODEL_CDN + 'model/bilibili-live/33/model.json' },
+  { id: 4, name: '雫', model: MODEL_CDN + 'model/ShizukuTalk/shizuku-48/model.json' },
+  { id: 5, name: '涅普缇努', model: MODEL_CDN + 'model/HyperdimensionNeptunia/neptune_classic/model.json' },
+  { id: 6, name: '诺瓦露', model: MODEL_CDN + 'model/HyperdimensionNeptunia/noir_classic/model.json' },
+  { id: 7, name: '布兰', model: MODEL_CDN + 'model/HyperdimensionNeptunia/blanc_classic/model.json' },
+  { id: 8, name: '贝露', model: MODEL_CDN + 'model/HyperdimensionNeptunia/vert_classic/model.json' },
+  { id: 9, name: '丛云', model: MODEL_CDN + 'model/KantaiCollection/murakumo/model.json' },
 ];
 
 let coreLoaded = false;

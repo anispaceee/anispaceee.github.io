@@ -1,67 +1,43 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { QQMusicService, NetEaseMusicService, StorageService } from '../../services/api';
+import { useMusic, FALLBACK_COVER, formatDuration } from '../../context/MusicContext';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Search, Music, X, List, ChevronDown, ChevronUp, Heart, RotateCw, Headphones, Import, Plus, FolderOpen, ArrowLeft, Disc3 } from 'lucide-react';
 import './MusicPlayer.css';
 
-const STORAGE_KEY = 'acg_music_history';
-const PLAYLIST_STORAGE = 'acg_saved_playlists';
-const FALLBACK_COVER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300" fill="%23f9f3f5"%3E%3Crect width="300" height="300" rx="10"/%3E%3Ctext x="150" y="145" text-anchor="middle" fill="%23d4b8c0" font-size="40"%3E🎵%3C/text%3E%3Ctext x="150" y="180" text-anchor="middle" fill="%23d4b8c0" font-size="12"%3EANISpace%3C/text%3E%3C/svg%3E';
-
-function formatDuration(ms) {
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${sec.toString().padStart(2, '0')}`;
-}
-
 export default function MusicPlayer() {
   const { isAuthenticated, openAuth } = useApp();
-  const audioRef = useRef(null);
+  const {
+    currentSong, playing, playlist, volume, muted,
+    currentTime, duration, mode, savedPlaylists, history,
+    loading, error,
+    playSong, togglePlay, playNext, playPrev,
+    setVolume, toggleMute, seekTo,
+    removeFromPlaylist, importPlaylist, loadSavedPlaylist, deleteSavedPlaylist,
+    search, setMode, setPlaylist, setError,
+  } = useMusic();
+
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [currentSong, setCurrentSong] = useState(null);
-  const [playlist, setPlaylist] = useState([]);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(() => parseFloat(localStorage.getItem('anispace_music_vol') || '0.7'));
-  const [muted, setMuted] = useState(false);
   const [showPlaylist, setShowPlaylist] = useState(false);
-  const [history, setHistory] = useState(() => StorageService.get(STORAGE_KEY, []));
-  const [mode, setMode] = useState('netease');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const [showImport, setShowImport] = useState(false);
   const [importId, setImportId] = useState('');
   const [importServer, setImportServer] = useState('netease');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
-  const [savedPlaylists, setSavedPlaylists] = useState(() => StorageService.get(PLAYLIST_STORAGE, []));
 
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [globalSearchResults, setGlobalSearchResults] = useState([]);
   const [globalSearching, setGlobalSearching] = useState(false);
   const [activePlaylistView, setActivePlaylistView] = useState(null);
 
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
-  }, [volume, muted]);
-
-  useEffect(() => {
-    localStorage.setItem('anispace_music_vol', String(volume));
-  }, [volume]);
-
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
     setSearching(true);
     setError('');
     try {
-      const results = mode === 'qq'
-        ? await QQMusicService.search(query)
-        : await NetEaseMusicService.search(query);
+      const results = await search(query);
       setSearchResults(results);
     } catch (err) {
       setError('搜索失败，请稍后重试');
@@ -69,7 +45,7 @@ export default function MusicPlayer() {
     } finally {
       setSearching(false);
     }
-  }, [query, mode]);
+  }, [query, search, setError]);
 
   const handleGlobalSearch = useCallback(() => {
     if (!globalSearchQuery.trim()) { setGlobalSearchResults([]); return; }
@@ -108,137 +84,38 @@ export default function MusicPlayer() {
     }
   };
 
-  const playSong = useCallback(async (song) => {
-    setLoading(true);
-    setError('');
-    try {
-      let url = song.url || '';
-      if (!url) {
-        if (mode === 'qq' && song.mid) {
-          url = await QQMusicService.getSongUrl(song.mid);
-        } else if (song.id) {
-          url = await NetEaseMusicService.getSongUrl(song.id);
-        }
-      }
-      if (!url) { setError('无法获取播放链接'); setLoading(false); return; }
-      setCurrentSong({ ...song, url });
-      if (!playlist.find(s => s.id === song.id)) {
-        setPlaylist(prev => [...prev, song]);
-      }
-      const newHistory = [song, ...history.filter(s => s.id !== song.id)].slice(0, 50);
-      setHistory(newHistory);
-      StorageService.set(STORAGE_KEY, newHistory);
-      if (audioRef.current) {
-        audioRef.current.src = url;
-        audioRef.current.play().catch(() => {});
-      }
-    } catch (err) {
-      setError('播放失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [mode, playlist, history]);
-
   const handleImportPlaylist = useCallback(async () => {
     if (!importId.trim()) { setImportError('请输入歌单ID'); return; }
     setImporting(true);
     setImportError('');
     try {
-      let songs = [];
-      let playlistName = '';
-      let playlistCover = '';
-
-      if (importServer === 'netease') {
-        const data = await NetEaseMusicService.getPlaylistDetail(importId.trim());
-        if (data && data.tracks) {
-          songs = data.tracks;
-          playlistName = data.name || '导入的歌单';
-          playlistCover = data.coverImgUrl || '';
-        }
-      } else {
-        const data = await QQMusicService.getPlaylistDetail(importId.trim());
-        if (data) {
-          songs = data.songlist || data.tracklist || [];
-          playlistName = data.diss_name || data.name || '导入的歌单';
-          playlistCover = data.logo || data.picurl || '';
-        }
-      }
-
-      if (songs.length === 0) {
-        setImportError('未找到歌曲，请检查歌单ID是否正确');
-        setImporting(false);
-        return;
-      }
-
-      setPlaylist(songs);
-      const saved = [...savedPlaylists, {
-        id: Date.now().toString(),
-        name: playlistName,
-        cover: playlistCover || songs[0]?.albumCover || '',
-        server: importServer,
-        sourceId: importId.trim(),
-        songCount: songs.length,
-        songs,
-        createdAt: new Date().toISOString(),
-      }];
-      setSavedPlaylists(saved);
-      StorageService.set(PLAYLIST_STORAGE, saved);
-
+      await importPlaylist(importId, importServer);
       setShowImport(false);
       setImportId('');
       setShowPlaylist(true);
     } catch (err) {
-      setImportError('导入失败，请检查歌单ID或网络连接');
+      setImportError(err.message || '导入失败，请检查歌单ID或网络连接');
     } finally {
       setImporting(false);
     }
-  }, [importId, importServer, savedPlaylists]);
+  }, [importId, importServer, importPlaylist]);
 
-  const loadSavedPlaylist = (pl) => {
-    setPlaylist(pl.songs || []);
+  const handleLoadSavedPlaylist = (pl) => {
+    loadSavedPlaylist(pl);
     setActivePlaylistView(pl);
     setShowPlaylist(true);
   };
 
-  const deleteSavedPlaylist = (id) => {
-    const updated = savedPlaylists.filter(p => p.id !== id);
-    setSavedPlaylists(updated);
-    StorageService.set(PLAYLIST_STORAGE, updated);
+  const handleDeleteSavedPlaylist = (id) => {
+    deleteSavedPlaylist(id);
     if (activePlaylistView?.id === id) setActivePlaylistView(null);
   };
 
-  const togglePlay = () => {
-    if (!audioRef.current || !currentSong) return;
-    if (playing) audioRef.current.pause();
-    else audioRef.current.play().catch(() => {});
-  };
-
-  const playNext = () => {
-    if (!currentSong || playlist.length === 0) return;
-    const idx = playlist.findIndex(s => s.id === currentSong.id);
-    const next = playlist[(idx + 1) % playlist.length];
-    if (next) playSong(next);
-  };
-
-  const playPrev = () => {
-    if (!currentSong || playlist.length === 0) return;
-    const idx = playlist.findIndex(s => s.id === currentSong.id);
-    const prev = playlist[(idx - 1 + playlist.length) % playlist.length];
-    if (prev) playSong(prev);
-  };
-
-  const removeFromPlaylist = (id) => {
-    setPlaylist(prev => prev.filter(s => s.id !== id));
-  };
-
-  const handleEnded = () => { setPlaying(false); playNext(); };
-  const handleTimeUpdate = () => { if (audioRef.current) setCurrentTime(audioRef.current.currentTime * 1000); };
-  const handleLoadedMetadata = () => { if (audioRef.current) setDuration(audioRef.current.duration * 1000); };
   const handleProgressClick = (e) => {
-    if (!audioRef.current || !duration) return;
+    if (!duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = (e.clientX - rect.left) / rect.width;
-    audioRef.current.currentTime = pct * (duration / 1000);
+    seekTo(pct);
   };
 
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -358,13 +235,13 @@ export default function MusicPlayer() {
                   <h3>我的歌单</h3>
                   <div className="music-saved-list">
                     {savedPlaylists.map(pl => (
-                      <div key={pl.id} className="music-saved-pl-item" onClick={() => loadSavedPlaylist(pl)}>
+                      <div key={pl.id} className="music-saved-pl-item" onClick={() => handleLoadSavedPlaylist(pl)}>
                         <img src={pl.cover || FALLBACK_COVER} alt="" className="music-saved-pl-cover" loading="lazy" onError={e => { e.target.src = FALLBACK_COVER; }} />
                         <div className="music-saved-pl-info">
                           <span className="music-saved-pl-name">{pl.name}</span>
                           <span className="music-saved-pl-meta">{pl.songCount}首 · {pl.server === 'netease' ? '网易云' : 'QQ音乐'}</span>
                         </div>
-                        <button className="music-saved-pl-del" onClick={e => { e.stopPropagation(); deleteSavedPlaylist(pl.id); }}><X size={12} /></button>
+                        <button className="music-saved-pl-del" onClick={e => { e.stopPropagation(); handleDeleteSavedPlaylist(pl.id); }}><X size={12} /></button>
                       </div>
                     ))}
                   </div>
@@ -436,8 +313,8 @@ export default function MusicPlayer() {
               </button>
               <button className="music-ctrl-btn" onClick={playNext} title="下一首"><SkipForward size={18} /></button>
               <div className="music-volume">
-                <button className="music-ctrl-btn" onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
-                <input type="range" className="music-volume-slider" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={e => { setVolume(parseFloat(e.target.value)); setMuted(false); }} />
+                <button className="music-ctrl-btn" onClick={toggleMute}>{muted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
+                <input type="range" className="music-volume-slider" min={0} max={1} step={0.01} value={muted ? 0 : volume} onChange={e => setVolume(parseFloat(e.target.value))} />
               </div>
               <button className={`music-ctrl-btn ${showPlaylist ? 'active' : ''}`} onClick={() => setShowPlaylist(!showPlaylist)} title="播放列表"><List size={16} /></button>
             </div>
@@ -461,8 +338,6 @@ export default function MusicPlayer() {
           )}
         </div>
       </div>
-
-      <audio ref={audioRef} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={handleEnded} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} />
     </div>
   );
 }

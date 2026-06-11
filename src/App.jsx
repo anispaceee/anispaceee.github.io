@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import Layout from './components/Layout/Layout'
 import HomePage from './pages/HomePage'
 import OAuthCallback from './pages/OAuthCallback'
@@ -15,18 +15,22 @@ import SourceManager from './components/Video/SourceManager'
 import Mailbox from './components/Mailbox/Mailbox'
 import Guestbook from './components/Guestbook/Guestbook'
 import MusicPlayer from './components/Music/MusicPlayer'
+import MiniPlayer from './components/Music/MiniPlayer'
 import Amadeus from './components/Amadeus/Amadeus'
 import FriendSpace from './components/FriendSpace/FriendSpace'
 import Notifications from './components/Notification/Notifications'
 import TouchGalApp from './components/TouchGal/TouchGalApp'
 import Club from './components/Club/Club'
 import Wiki from './components/Wiki/Wiki'
+import FriendLinks from './components/FriendLinks/FriendLinks'
 import NewsDetail from './components/NewsZone/NewsDetail'
 import AuthModal from './components/Common/AuthModal'
 import Live2DWidget from './components/Common/Live2DWidget'
+import FireworkEffect from './components/Common/FireworkEffect'
 import DockBar from './components/Layout/DockBar'
 import AppWindow from './components/Layout/AppWindow'
 import { WindowManagerProvider, useWindowManager } from './context/WindowManager'
+import { MusicProvider } from './context/MusicContext'
 import { StorageService } from './services/api'
 import { initMediaSources } from './services/media/initSources'
 
@@ -37,8 +41,6 @@ const Live2DPage = lazy(() => import('./components/Common/Live2DViewer'))
 
 const savedTheme = StorageService.get('acg_theme', '');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-
-const MUSIC_STATE_KEY = 'acg_music_state';
 
 function WindowLayer() {
   const { windows } = useWindowManager();
@@ -64,33 +66,9 @@ function WindowLayer() {
 function AppInner() {
   const [live2dVisible, setLive2dVisible] = useState(true);
   const { windows } = useWindowManager();
-  const [musicState, setMusicState] = useState(() => {
-    const saved = localStorage.getItem(MUSIC_STATE_KEY);
-    if (saved) { try { return JSON.parse(saved); } catch {} }
-    return { playing: false, name: '', artist: '', cover: '', volume: 0.7, muted: false };
-  });
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    localStorage.setItem(MUSIC_STATE_KEY, JSON.stringify(musicState));
-  }, [musicState]);
 
   const handleToggleLive2D = useCallback(() => {
     setLive2dVisible(prev => !prev);
-  }, []);
-
-  const handleMusicControl = useCallback((action, value) => {
-    switch (action) {
-      case 'toggle':
-        setMusicState(prev => ({ ...prev, playing: !prev.playing }));
-        break;
-      case 'prev':
-      case 'next':
-        break;
-      case 'volume':
-        setMusicState(prev => ({ ...prev, volume: value, muted: value === 0 }));
-        break;
-    }
   }, []);
 
   const anyWindowOpen = Object.values(windows).some(w => w.open && !w.minimized);
@@ -113,6 +91,7 @@ function AppInner() {
           <Route path="/info/:type/:id" element={<InfoDetail />} />
           <Route path="/club" element={<Club />} />
           <Route path="/wiki" element={<Wiki />} />
+          <Route path="/links" element={<FriendLinks />} />
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/user/:userId" element={<UserProfilePage />} />
@@ -129,13 +108,13 @@ function AppInner() {
         </Route>
       </Routes>
       <AuthModal />
+      <FireworkEffect />
       {live2dVisible && <Live2DWidget />}
       <WindowLayer />
+      <MiniPlayer />
       <DockBar
         live2dVisible={live2dVisible}
         onToggleLive2D={handleToggleLive2D}
-        musicState={musicState}
-        onMusicControl={handleMusicControl}
       />
     </>
   )
@@ -144,7 +123,9 @@ function AppInner() {
 function App() {
   return (
     <WindowManagerProvider>
-      <AppInner />
+      <MusicProvider>
+        <AppInner />
+      </MusicProvider>
     </WindowManagerProvider>
   )
 }
