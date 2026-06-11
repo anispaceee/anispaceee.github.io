@@ -175,22 +175,12 @@ function validateSubject(data) {
 
 function normalizeSubject(item) {
   if (!item) return null;
-  // Bangumi 图片代理：如果配置了代理，图片 URL 走代理
-  const proxyUrl = oauthConfig.proxyUrl;
-  const proxyImage = (url) => {
-    if (typeof url !== 'string' || !url) return url;
-    // 先转 HTTPS
-    let httpsUrl = url.startsWith('http://') ? url.replace('http://', 'https://') : url;
-    // 如果配置了代理且是 Bangumi 图片域名，走图片代理
-    if (proxyUrl && (httpsUrl.includes('lain.bgm.tv') || httpsUrl.includes('bgm.tv/pic/'))) {
-      return `${proxyUrl}/api/bangumi/image?url=${encodeURIComponent(httpsUrl)}`;
-    }
-    return httpsUrl;
-  };
+  // 确保 Bangumi 图片 URL 使用 HTTPS
+  const toHttps = (url) => (typeof url === 'string' && url.startsWith('http://')) ? url.replace('http://', 'https://') : url;
   const images = item.images || {};
-  const proxiedImages = {};
+  const httpsImages = {};
   for (const [key, val] of Object.entries(images)) {
-    proxiedImages[key] = proxyImage(val);
+    httpsImages[key] = toHttps(val);
   }
   return {
     id: item.id,
@@ -198,8 +188,8 @@ function normalizeSubject(item) {
     name: item.name || '',
     name_cn: item.name_cn || item.nameCn || '',
     summary: item.summary || '',
-    image: proxyImage(item.images?.large || item.images?.common || item.images?.medium || item.image || ''),
-    images: proxiedImages,
+    image: toHttps(item.images?.large || item.images?.common || item.images?.medium || item.image || ''),
+    images: httpsImages,
     score: item.rating?.score || item.score || 0,
     rating: item.rating || { score: 0, total: 0, count: {} },
     tags: Array.isArray(item.tags)
