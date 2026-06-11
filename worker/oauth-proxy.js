@@ -659,17 +659,95 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(users.results, 200, origin);
   }
 
-  // GET /api/posts — 帖子列表（分页）
+  // POST /api/uploads — 图片上传（需认证，存入 R2）
+  if (method === 'POST' && pathname === '/api/uploads') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const contentType = request.headers.get('Content-Type') || '';
+    if (!contentType.startsWith('multipart/form-data')) {
+      return jsonResponse({ error: '仅支持 multipart/form-data' }, 400, origin);
+    }
+
+    try {
+      const formData = await request.formData();
+      const file = formData.get('file');
+      if (!file) return jsonResponse({ error: '缺少 file 字段' }, 400, origin);
+
+      // 校验文件类型和大小
+      const allowedTypes = ['image/jpeg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        return jsonResponse({ error: '仅支持 JPG/PNG 格式' }, 400, origin);
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        return jsonResponse({ error: '图片不能超过 10MB' }, 400, origin);
+      }
+
+      // 生成唯一 key: uploads/{userId}/{timestamp}_{random}.{ext}
+      const ext = file.type === 'image/png' ? 'png' : 'jpg';
+      const key = `uploads/${authUser.userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      await env.BUCKET.put(key, file.stream(), {
+        httpMetadata: { contentType: file.type },
+      });
+
+      // 返回可访问的 URL（通过 Worker 代理读取）
+      const url = `${new URL(request.url).origin}/api/uploads/${key}`;
+      return jsonResponse({ url, key }, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '上传失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/uploads/:key+ — 读取 R2 上传的图片
+  const uploadMatch = pathname.match(/^\/api\/uploads\/(.+)$/);
+  if (uploadMatch && method === 'GET') {
+    const key = uploadMatch[1];
+    try {
+      const object = await env.BUCKET.get(key);
+      if (!object) return jsonResponse({ error: '文件不存在' }, 404, origin);
+
+      const headers = new Headers();
+      headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+      headers.set('Cache-Control', 'public, max-age=86400');
+      Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+      return new Response(object.body, { status: 200, headers });
+    } catch {
+      return jsonResponse({ error: '读取文件失败' }, 500, origin);
+    }
+  }
+
+  // GET /api/posts — 帖子列表（分页 + 板块筛选 + 排序）
   if (method === 'GET' && pathname === '/api/posts') {
-    const page = Math.max(1, Number(new URL(request.url).searchParams.get('page')) || 1);
-    const limit = Math.min(100, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 20));
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(100, Math.max(1, Number(sp.get('limit')) || 20));
+    const category = sp.get('category') || '';
+    const sort = sp.get('sort') || 'latest';
     const offset = (page - 1) * limit;
 
-    const posts = await env.DB.prepare(
-      'SELECT p.*, u.name AS author_name, u.avatar AS author_avatar FROM posts p JOIN users u ON p.author_id = u.id ORDER BY p.created_at DESC LIMIT ? OFFSET ?'
-    ).bind(limit, offset).all();
+    let whereClause = '';
+    const bindParams = [];
+    if (category) {
+      whereClause = 'WHERE p.category = ?';
+      bindParams.push(category);
+    }
 
-    const countResult = await env.DB.prepare('SELECT COUNT(*) AS total FROM posts').first();
+    // 排序：latest=按时间, hot=综合热度, replies=按回复数
+    let orderClause = 'ORDER BY p.created_at DESC';
+    if (sort === 'hot') {
+      // 综合热度 = views*1 + likes*3 + replies*5 + 时间衰减
+      orderClause = 'ORDER BY (p.views + p.likes * 3 + p.replies_count * 5) DESC, p.created_at DESC';
+    } else if (sort === 'replies') {
+      orderClause = 'ORDER BY p.replies_count DESC, p.created_at DESC';
+    }
+
+    const posts = await env.DB.prepare(
+      `SELECT p.*, u.name AS author_name, u.avatar AS author_avatar FROM posts p JOIN users u ON p.author_id = u.id ${whereClause} ${orderClause} LIMIT ? OFFSET ?`
+    ).bind(...bindParams, limit, offset).all();
+
+    const countSql = category ? 'SELECT COUNT(*) AS total FROM posts WHERE category = ?' : 'SELECT COUNT(*) AS total FROM posts';
+    const countResult = await env.DB.prepare(countSql).bind(...bindParams).first();
     return jsonResponse({
       posts: posts.results,
       pagination: { page, limit, total: countResult.total },
@@ -683,12 +761,15 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     try {
       const body = await request.json();
-      const { title, content, category } = body;
+      const { title, content, category, tags, images } = body;
       if (!title || !content) return jsonResponse({ error: '标题和内容不能为空' }, 400, origin);
 
+      const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : '[]';
+      const imagesJson = images && images.length > 0 ? JSON.stringify(images) : '[]';
+
       const result = await env.DB.prepare(
-        'INSERT INTO posts (author_id, title, content, category, likes, replies_count, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 0, datetime(\'now\'), datetime(\'now\'))'
-      ).bind(authUser.userId, title, content, category || null).run();
+        'INSERT INTO posts (author_id, title, content, category, tags, images, likes, replies_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, 0, datetime(\'now\'), datetime(\'now\'))'
+      ).bind(authUser.userId, title, content, category || null, tagsJson, imagesJson).run();
 
       const post = await env.DB.prepare('SELECT * FROM posts WHERE id = ?').bind(result.meta.last_row_id).first();
       return jsonResponse(post, 201, origin);
@@ -697,7 +778,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
-  // GET /api/posts/:id — 获取帖子详情及回复
+  // GET /api/posts/:id — 获取帖子详情及回复（浏览量+1）
   const postMatch = pathname.match(/^\/api\/posts\/(\d+)$/);
   if (postMatch && method === 'GET') {
     const postId = Number(postMatch[1]);
@@ -706,11 +787,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
     ).bind(postId).first();
     if (!post) return jsonResponse({ error: '帖子不存在' }, 404, origin);
 
+    // 浏览量递增
+    await env.DB.prepare('UPDATE posts SET views = views + 1 WHERE id = ?').bind(postId).run();
+
     const replies = await env.DB.prepare(
       'SELECT r.*, u.name AS author_name, u.avatar AS author_avatar FROM replies r JOIN users u ON r.author_id = u.id WHERE r.post_id = ? ORDER BY r.created_at ASC'
     ).bind(postId).all();
 
-    return jsonResponse({ ...post, replies: replies.results }, 200, origin);
+    return jsonResponse({ ...post, views: (post.views || 0) + 1, replies: replies.results }, 200, origin);
   }
 
   // POST /api/posts/:id/replies — 添加回复（需认证）
@@ -1950,6 +2034,7 @@ const RL_WINDOW_MS = 60 * 1000; // 60 秒滑动窗口
 const RL_LIMITS = {
   '/api/auth/login': 5,
   '/api/posts': 10,       // 创建帖子/回复
+  '/api/uploads': 20,     // 图片上传
   '/api/world-messages': 20,
   '/api/private-messages': 20,
   '/api/mails': 10,
@@ -2025,7 +2110,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }

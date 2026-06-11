@@ -10,7 +10,12 @@ ALLOWED_ORIGIN = "https://afterrain-2005.github.io"
 [[d1_databases]]
 binding = "DB"
 database_name = "anispace-db"
-database_id = "30523091-5d5d-449d-9e22-abe26bf2233b"
+database_id = "b3d41a07-90b8-4cfe-8142-5679bc768c06"
+
+# R2 Bucket — 论坛图片上传存储
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "anispace-uploads"
 
 # Cron Trigger — 每周一 03:00 UTC 跑 bangumi-data 同步
 # 周三 03:00 UTC 二次容错（bangumi-data 周一偶尔延迟）

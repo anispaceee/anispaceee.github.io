@@ -1,66 +1,21 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ForumService, UserService } from '../../services/api';
-import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
-import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, Users, FileText, TrendingUp, Clock, Heart, Image, Video, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Upload, Loader2, Flame, Hash } from 'lucide-react';
+import { ForumService } from '../../services/api';
+import { renderMarkdown } from '../../utils/renderMarkdown';
+import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, TrendingUp, Clock, Heart, Image, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Loader2, Flame, Hash } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import './Forum.css';
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 200 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
 
 const BOARDS = [
-  {
-    key: 'anime',
-    label: '动画',
-    icon: Tv,
-    color: 'var(--tag-anime)',
-    description: '新番讨论 · 旧番回顾 · MAD·AMV',
-    subs: [
-      { key: 'anime-new', label: '新番讨论', description: '当季新番讨论' },
-      { key: 'anime-classic', label: '旧番回顾', description: '经典作品回顾' },
-      { key: 'anime-mad', label: 'MAD·AMV', description: '二次创作视频' },
-    ],
-  },
-  {
-    key: 'game',
-    label: '游戏',
-    icon: Gamepad2,
-    color: 'var(--tag-game)',
-    description: '单机·主机 · 手游 · 网游',
-    subs: [
-      { key: 'game-pc', label: '单机·主机', description: 'PC/主机游戏讨论' },
-      { key: 'game-mobile', label: '手游', description: '手机游戏讨论' },
-      { key: 'game-online', label: '网游', description: '网络游戏讨论' },
-    ],
-  },
-  {
-    key: 'novel',
-    label: '小说',
-    icon: BookOpen,
-    color: 'var(--tag-novel)',
-    description: '轻小说 · 网文 · 同人',
-    subs: [
-      { key: 'novel-light', label: '轻小说', description: '日本轻小说讨论' },
-      { key: 'novel-web', label: '网文', description: '网络小说讨论' },
-      { key: 'novel-doujin', label: '同人', description: '同人创作讨论' },
-    ],
-  },
-  {
-    key: 'chat',
-    label: '吹水',
-    icon: Coffee,
-    color: 'var(--tag-chat)',
-    description: '日常闲聊 · 活动公告',
-    subs: [
-      { key: 'chat-daily', label: '日常闲聊', description: '随意聊天灌水' },
-      { key: 'chat-activity', label: '活动公告', description: '社区活动与公告' },
-    ],
-  },
+  { key: 'anime', label: '动画', icon: Tv, color: 'var(--tag-anime)', description: '新番讨论 · 旧番回顾 · MAD·AMV' },
+  { key: 'game', label: '游戏', icon: Gamepad2, color: 'var(--tag-game)', description: '单机·主机 · 手游 · 网游' },
+  { key: 'novel', label: '小说', icon: BookOpen, color: 'var(--tag-novel)', description: '轻小说 · 网文 · 同人' },
+  { key: 'chat', label: '吹水', icon: Coffee, color: 'var(--tag-chat)', description: '日常闲聊 · 活动公告' },
 ];
 
 const sortOptions = [
@@ -115,32 +70,14 @@ function RichTextEditor({ value, onChange, placeholder }) {
   );
 }
 
-function PostPreview({ title, content, images, videoUrl, category }) {
-  const renderContent = (text) => {
-    if (!text) return null;
-    let html = sanitizeHtml(text)
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
-        safeUrl(url) ? `<img src="${safeUrl(url)}" alt="${alt}" style="max-width:100%;border-radius:8px;margin:8px 0" loading="lazy" />` : ''
-      )
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) =>
-        safeUrl(url) ? `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text
-      )
-      .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/\n/g, '<br/>');
-    html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
-    return <div className="preview-content" dangerouslySetInnerHTML={{ __html: html }} />;
-  };
-
+function PostPreview({ title, content, images, category }) {
   return (
     <div className="post-preview">
       <div className="preview-header">
         <span className={`post-cat-tag ${category}`}>{({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' })[category]}</span>
         <h3 className="preview-title">{title || '帖子标题预览'}</h3>
       </div>
-      {renderContent(content)}
+      <div className="preview-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
       {images && images.length > 0 && (
         <div className="preview-images">
           {images.map((img, i) => (
@@ -148,19 +85,13 @@ function PostPreview({ title, content, images, videoUrl, category }) {
           ))}
         </div>
       )}
-      {videoUrl && (
-        <div className="preview-video">
-          <video src={videoUrl} controls className="preview-video-player" />
-        </div>
-      )}
     </div>
   );
 }
 
 export default function Forum() {
-  const { currentUser, isAuthenticated, openAuth } = useApp();
+  const { isAuthenticated, openAuth } = useApp();
   const [activeBoard, setActiveBoard] = useState(null);
-  const [activeSub, setActiveSub] = useState(null);
   const [sortBy, setSortBy] = useState('latest');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewPost, setShowNewPost] = useState(false);
@@ -173,51 +104,43 @@ export default function Forum() {
     category: 'chat',
     tags: '',
     images: [],
-    videoUrl: '',
   });
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const imageInputRef = useRef(null);
-  const videoInputRef = useRef(null);
+
+  // 从后端加载帖子（带 category 和 sort 参数）
+  const loadPosts = useCallback(async () => {
+    setLoadingPosts(true);
+    try {
+      const data = await ForumService.getPosts(1, 100, activeBoard || '', sortBy);
+      setPosts(data.posts || []);
+    } catch {
+      setPosts([]);
+    } finally {
+      setLoadingPosts(false);
+    }
+  }, [activeBoard, sortBy]);
 
   useEffect(() => {
-    const loadPosts = async () => {
-      try {
-        const data = await ForumService.getPosts(1, 100);
-        setPosts(data.posts || []);
-      } catch {
-        setPosts([]);
-      } finally {
-        setLoadingPosts(false);
-      }
-    };
     loadPosts();
-  }, []);
+  }, [loadPosts]);
 
+  // 前端仅做搜索过滤（搜索仍为前端功能，后端无全文搜索）
   const filteredPosts = useMemo(() => {
-    let filtered = [...posts];
-    if (activeBoard) {
-      filtered = filtered.filter(p => p.category === activeBoard);
-    }
-    if (searchQuery) {
-      filtered = filtered.filter(p =>
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.tags && p.tags.some(t => t.includes(searchQuery)))
-      );
-    }
-    switch (sortBy) {
-      case 'hot': filtered.sort((a, b) => (b.views || 0) - (a.views || 0)); break;
-      case 'replies': filtered.sort((a, b) => (b.replies_count || 0) - (a.replies_count || 0)); break;
-      default: break;
-    }
-    return filtered;
-  }, [activeBoard, sortBy, searchQuery, posts]);
+    if (!searchQuery) return posts;
+    const q = searchQuery.toLowerCase();
+    return posts.filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      p.content.toLowerCase().includes(q) ||
+      (p.tags && Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(q)))
+    );
+  }, [searchQuery, posts]);
 
-  const getUser = (userId) => UserService.getById(userId);
   const getPostAuthor = (post) => {
     if (post.author_name) return { name: post.author_name, avatar: post.author_avatar };
-    return getUser(post.author_id);
+    return { name: '未知用户', avatar: '' };
   };
   const getCategoryLabel = (cat) => ({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' }[cat] || cat);
 
@@ -270,37 +193,11 @@ export default function Forum() {
     e.target.value = '';
   };
 
-  const handleVideoSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
-      setSubmitError([{ type: 'format', message: '视频格式不支持，仅支持 MP4/WebM' }]);
-      e.target.value = '';
-      return;
-    }
-    if (file.size > MAX_VIDEO_SIZE) {
-      setSubmitError([{ type: 'format', message: '视频文件超过200MB限制' }]);
-      e.target.value = '';
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
-    setNewPost(prev => ({ ...prev, videoUrl: url }));
-    setSubmitError(null);
-    e.target.value = '';
-  };
-
   const removeImage = (index) => {
     setNewPost(prev => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index),
     }));
-  };
-
-  const removeVideo = () => {
-    if (newPost.videoUrl) URL.revokeObjectURL(newPost.videoUrl);
-    setNewPost(prev => ({ ...prev, videoUrl: '' }));
   };
 
   const handleNewPost = async () => {
@@ -322,18 +219,37 @@ export default function Forum() {
     try {
       const tags = newPost.tags.trim() ? newPost.tags.trim().split(/\s+/) : [];
 
+      // 上传图片到 R2，获取 URL 列表
+      let imageUrls = [];
+      if (newPost.images.length > 0) {
+        setUploadingImages(true);
+        try {
+          const uploadResults = await Promise.all(
+            newPost.images.map(img => ForumService.uploadImage(img.file))
+          );
+          imageUrls = uploadResults.map(r => r.url);
+        } catch (uploadErr) {
+          setSubmitError([{ type: 'network', message: `图片上传失败: ${uploadErr.message}` }]);
+          setSubmitting(false);
+          setUploadingImages(false);
+          return;
+        }
+        setUploadingImages(false);
+      }
+
       const created = await ForumService.createPost({
         title: newPost.title.trim(),
         content: newPost.content.trim(),
         category: newPost.category,
         tags,
+        images: imageUrls,
       });
 
       setPosts(prev => [created, ...prev]);
 
       setShowNewPost(false);
       setShowPreview(false);
-      setNewPost({ title: '', content: '', category: 'chat', tags: '', images: [], videoUrl: '' });
+      setNewPost({ title: '', content: '', category: 'chat', tags: '', images: [] });
       setSubmitError(null);
     } catch (err) {
       setSubmitError([{ type: 'network', message: err.message || '发帖失败，请重试' }]);
@@ -343,25 +259,20 @@ export default function Forum() {
   };
 
   const resetForm = () => {
-    if (newPost.videoUrl) URL.revokeObjectURL(newPost.videoUrl);
-    setNewPost({ title: '', content: '', category: 'chat', tags: '', images: [], videoUrl: '' });
+    setNewPost({ title: '', content: '', category: 'chat', tags: '', images: [] });
     setShowNewPost(false);
     setShowPreview(false);
     setSubmitError(null);
   };
 
   const renderError = (error, index) => {
-    const icon = error.type === 'network' ? <AlertCircle size={14} />
-      : error.type === 'format' ? <AlertCircle size={14} />
-      : error.type === 'auth' ? <AlertCircle size={14} />
-      : <AlertCircle size={14} />;
     const colorClass = error.type === 'network' ? 'error-network'
       : error.type === 'format' ? 'error-format'
       : error.type === 'auth' ? 'error-auth'
       : 'error-default';
     return (
       <div key={index} className={`form-error-item ${colorClass}`}>
-        {icon}
+        <AlertCircle size={14} />
         <span>{error.message}</span>
         {error.type === 'network' && <span className="form-error-hint">请检查网络后重试</span>}
         {error.type === 'format' && <span className="form-error-hint">请修改后重新提交</span>}
@@ -370,16 +281,19 @@ export default function Forum() {
     );
   };
 
-  // 计算热门帖子（按浏览量前5）
+  // 热门帖子（综合热度前5）
   const hotPosts = useMemo(() => {
-    return [...posts].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5);
+    return [...posts]
+      .sort((a, b) => ((b.views || 0) + (b.likes || 0) * 3 + (b.replies_count || 0) * 5) - ((a.views || 0) + (a.likes || 0) * 3 + (a.replies_count || 0) * 5))
+      .slice(0, 5);
   }, [posts]);
 
-  // 计算热门标签
+  // 热门标签
   const hotTags = useMemo(() => {
     const tagMap = {};
     posts.forEach(p => {
-      if (p.tags) p.tags.forEach(t => { tagMap[t] = (tagMap[t] || 0) + 1; });
+      const tags = Array.isArray(p.tags) ? p.tags : [];
+      tags.forEach(t => { tagMap[t] = (tagMap[t] || 0) + 1; });
     });
     return Object.entries(tagMap).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([tag]) => tag);
   }, [posts]);
@@ -448,21 +362,12 @@ export default function Forum() {
                   />
 
                   <div className="form-media-section">
-                    <div className="form-media-row">
-                      <div className="form-media-upload">
-                        <button type="button" className="media-upload-btn" onClick={() => imageInputRef.current?.click()} disabled={newPost.images.length >= MAX_IMAGES}>
-                          <Image size={16} /> 添加图片 ({newPost.images.length}/{MAX_IMAGES})
-                        </button>
-                        <input ref={imageInputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handleImageSelect} hidden />
-                        <span className="media-hint">JPG/PNG，单张≤10MB</span>
-                      </div>
-                      <div className="form-media-upload">
-                        <button type="button" className="media-upload-btn" onClick={() => videoInputRef.current?.click()} disabled={!!newPost.videoUrl}>
-                          <Video size={16} /> 添加视频
-                        </button>
-                        <input ref={videoInputRef} type="file" accept="video/mp4,video/webm" onChange={handleVideoSelect} hidden />
-                        <span className="media-hint">MP4/WebM，≤200MB</span>
-                      </div>
+                    <div className="form-media-upload">
+                      <button type="button" className="media-upload-btn" onClick={() => imageInputRef.current?.click()} disabled={newPost.images.length >= MAX_IMAGES || uploadingImages}>
+                        <Image size={16} /> {uploadingImages ? '上传中...' : `添加图片 (${newPost.images.length}/${MAX_IMAGES})`}
+                      </button>
+                      <input ref={imageInputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handleImageSelect} hidden />
+                      <span className="media-hint">JPG/PNG，单张≤10MB</span>
                     </div>
 
                     {newPost.images.length > 0 && (
@@ -473,13 +378,6 @@ export default function Forum() {
                             <button className="form-image-remove" onClick={() => removeImage(i)}><X size={10} /></button>
                           </div>
                         ))}
-                      </div>
-                    )}
-
-                    {newPost.videoUrl && (
-                      <div className="form-video-preview">
-                        <video src={newPost.videoUrl} className="form-video-thumb" muted />
-                        <button className="form-video-remove" onClick={removeVideo}><X size={14} /> 移除视频</button>
                       </div>
                     )}
                   </div>
@@ -493,15 +391,14 @@ export default function Forum() {
                   title={newPost.title}
                   content={newPost.content}
                   images={newPost.images}
-                  videoUrl={newPost.videoUrl}
                   category={newPost.category}
                 />
               )}
 
               <div className="form-actions">
                 <button className="form-cancel" onClick={resetForm}>取消</button>
-                <button className="form-submit" onClick={handleNewPost} disabled={submitting}>
-                  {submitting ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
+                <button className="form-submit" onClick={handleNewPost} disabled={submitting || uploadingImages}>
+                  {submitting || uploadingImages ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
                 </button>
               </div>
             </div>
@@ -547,14 +444,12 @@ export default function Forum() {
             <h3 className="sidebar-section-title">板块</h3>
             {BOARDS.map(board => {
               const Icon = board.icon;
-              const boardPosts = posts.filter(p => p.category === board.key);
               return (
                 <div key={board.key} className="sidebar-board-item" style={{ '--board-color': board.color }} onClick={() => setActiveBoard(activeBoard === board.key ? null : board.key)}>
                   <div className="sidebar-board-color" />
                   <Icon size={16} />
                   <div className="sidebar-board-info">
                     <span className="sidebar-board-name">{board.label}</span>
-                    <span className="sidebar-board-count">{boardPosts.length} 帖</span>
                   </div>
                 </div>
               );
@@ -564,18 +459,15 @@ export default function Forum() {
           {/* 热门帖子 */}
           <div className="sidebar-section">
             <h3 className="sidebar-section-title"><Flame size={14} /> 热门帖子</h3>
-            {hotPosts.map((post, idx) => {
-              const author = getPostAuthor(post);
-              return (
-                <Link to={`/forum/post/${post.id}`} key={post.id} className="sidebar-hot-item">
-                  <span className="sidebar-hot-rank">{idx + 1}</span>
-                  <div className="sidebar-hot-info">
-                    <span className="sidebar-hot-title">{post.title}</span>
-                    <span className="sidebar-hot-meta"><Eye size={10} /> {post.views || 0}</span>
-                  </div>
-                </Link>
-              );
-            })}
+            {hotPosts.map((post, idx) => (
+              <Link to={`/forum/post/${post.id}`} key={post.id} className="sidebar-hot-item">
+                <span className="sidebar-hot-rank">{idx + 1}</span>
+                <div className="sidebar-hot-info">
+                  <span className="sidebar-hot-title">{post.title}</span>
+                  <span className="sidebar-hot-meta"><Eye size={10} /> {post.views || 0}</span>
+                </div>
+              </Link>
+            ))}
           </div>
 
           {/* 热门标签 */}

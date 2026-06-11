@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS posts (
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   category TEXT DEFAULT '',
+  tags TEXT DEFAULT '[]',
+  images TEXT DEFAULT '[]',
   likes INTEGER DEFAULT 0,
   views INTEGER DEFAULT 0,
   replies_count INTEGER DEFAULT 0,

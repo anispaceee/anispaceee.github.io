@@ -1,39 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ForumService, UserService } from '../../services/api';
-import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
-import { MessageCircle, TrendingUp, Heart, Loader2, AlertCircle } from 'lucide-react';
+import { ForumService } from '../../services/api';
+import { renderMarkdown } from '../../utils/renderMarkdown';
+import { MessageCircle, Heart, Loader2, AlertCircle } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
 import UserAvatar from '../Common/UserAvatar';
 import './PostDetail.css';
 
-/** 将 Markdown 文本渲染为 HTML（与 Forum.jsx PostPreview 一致） */
-function renderMarkdown(text) {
-  if (!text) return '';
-  let html = sanitizeHtml(text)
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    // 图片语法 ![alt](url) 必须在链接语法之前处理
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
-      safeUrl(url) ? `<img src="${safeUrl(url)}" alt="${alt}" style="max-width:100%;border-radius:8px;margin:8px 0" loading="lazy" />` : ''
-    )
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, url) =>
-      safeUrl(url) ? `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${t}</a>` : t
-    )
-    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/\n/g, '<br/>');
-  html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
-  return html;
-}
-
 export default function PostDetail() {
   const { id } = useParams();
+  const { isAuthenticated, openAuth } = useApp();
   const [post, setPost] = useState(null);
   const [replies, setReplies] = useState([]);
   const [newReply, setNewReply] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [replyError, setReplyError] = useState('');
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
 
   useEffect(() => {
     const loadPost = async () => {
@@ -41,6 +26,7 @@ export default function PostDetail() {
         const data = await ForumService.getPostById(id);
         setPost(data);
         setReplies(data.replies || []);
+        setLikeCount(data.likes || 0);
       } catch (err) {
         setError(err.message || '加载失败');
       } finally {
@@ -57,18 +43,39 @@ export default function PostDetail() {
 
   const handleReply = async () => {
     if (!newReply.trim()) return;
+
+    if (!isAuthenticated) {
+      setReplyError('请先登录后再回复');
+      openAuth();
+      return;
+    }
+
     setSubmitting(true);
+    setReplyError('');
     try {
       await ForumService.addReply(id, newReply.trim());
-      // 重新加载帖子获取最新回复
       const data = await ForumService.getPostById(id);
       setPost(data);
       setReplies(data.replies || []);
       setNewReply('');
     } catch (err) {
-      alert(err.message || '回复失败');
+      setReplyError(err.message || '回复失败，请重试');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleToggleLike = async () => {
+    if (!isAuthenticated) {
+      openAuth();
+      return;
+    }
+    try {
+      const result = await ForumService.toggleLike(id);
+      setLiked(result.liked);
+      setLikeCount(prev => result.liked ? prev + 1 : Math.max(0, prev - 1));
+    } catch {
+      // 静默失败
     }
   };
 
@@ -97,6 +104,8 @@ export default function PostDetail() {
 
   const authorName = post.author_name || '未知用户';
   const authorAvatar = post.author_avatar || '';
+  const postImages = Array.isArray(post.images) ? post.images : [];
+  const postTags = Array.isArray(post.tags) ? post.tags : [];
 
   return (
     <div className="post-detail-page">
@@ -123,10 +132,28 @@ export default function PostDetail() {
 
           <div className="detail-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }} />
 
+          {postImages.length > 0 && (
+            <div className="detail-images">
+              {postImages.map((url, i) => (
+                <img key={i} src={url} alt="" className="detail-img" loading="lazy" />
+              ))}
+            </div>
+          )}
+
+          {postTags.length > 0 && (
+            <div className="detail-tags">
+              {postTags.map(tag => (
+                <span key={tag} className="post-tag">#{tag}</span>
+              ))}
+            </div>
+          )}
+
           <div className="detail-stats">
             <span>💬 {post.replies_count || 0} 回复</span>
             <span>👁 {post.views || 0} 浏览</span>
-            <span>❤️ {post.likes || 0} 喜欢</span>
+            <button className={`detail-like-btn ${liked ? 'liked' : ''}`} onClick={handleToggleLike}>
+              ❤️ {likeCount} 喜欢
+            </button>
           </div>
         </div>
 
@@ -153,15 +180,26 @@ export default function PostDetail() {
           </div>
 
           <div className="reply-form">
+            {replyError && (
+              <div className="reply-error">
+                <AlertCircle size={14} />
+                <span>{replyError}</span>
+              </div>
+            )}
             <textarea
-              placeholder="写下你的回复..."
+              placeholder={isAuthenticated ? '写下你的回复...' : '请先登录后再回复'}
               value={newReply}
               onChange={e => setNewReply(e.target.value)}
               className="reply-input"
               rows={3}
+              disabled={!isAuthenticated}
             />
-            <button className="reply-btn" onClick={handleReply} disabled={!newReply.trim() || submitting}>
-              {submitting ? '回复中...' : '回复'}
+            <button
+              className="reply-btn"
+              onClick={isAuthenticated ? handleReply : () => openAuth()}
+              disabled={!newReply.trim() || submitting}
+            >
+              {submitting ? '回复中...' : isAuthenticated ? '回复' : '登录后回复'}
             </button>
           </div>
         </div>

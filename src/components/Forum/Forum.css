@@ -56,7 +56,6 @@
 .rich-textarea { padding: 10px 14px; border: none; font-size: 14px; width: 100%; resize: vertical; background: var(--bg-input); color: var(--text-primary); line-height: 1.6; min-height: 160px; outline: none; }
 
 .form-media-section { display: flex; flex-direction: column; gap: 10px; }
-.form-media-row { display: flex; gap: 16px; align-items: flex-start; }
 .form-media-upload { display: flex; flex-direction: column; gap: 4px; }
 .media-upload-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-secondary); font-size: 13px; font-weight: 500; border: 1px dashed var(--border-primary); transition: all var(--transition-fast); }
 .media-upload-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
@@ -66,9 +65,6 @@
 .form-image-thumb { position: relative; width: 80px; height: 80px; border-radius: var(--radius-sm); overflow: hidden; }
 .form-image-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .form-image-remove { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; display: flex; align-items: center; justify-content: center; }
-.form-video-preview { display: flex; align-items: center; gap: 10px; }
-.form-video-thumb { width: 120px; height: 68px; border-radius: var(--radius-sm); object-fit: cover; background: #000; }
-.form-video-remove { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: var(--radius-sm); background: #fff5f5; color: var(--error); font-size: 12px; }
 
 .post-preview { padding: 16px; background: var(--bg-input); border-radius: var(--radius-sm); border: 1px solid var(--border-primary); }
 .preview-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -82,8 +78,6 @@
 .preview-content li { list-style: disc; margin: 4px 0; }
 .preview-images { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .preview-img { width: 120px; height: 90px; object-fit: cover; border-radius: var(--radius-sm); }
-.preview-video { margin-top: 12px; }
-.preview-video-player { width: 100%; max-height: 300px; border-radius: var(--radius-sm); }
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

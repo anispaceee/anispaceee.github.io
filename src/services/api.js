@@ -468,8 +468,11 @@ export const FriendPostService = {
 // ─── ForumService ───
 // 帖子、回复、点赞，走后端 API
 export const ForumService = {
-  async getPosts(page = 1, limit = 50) {
-    return await apiRequest(`/api/posts?page=${page}&limit=${limit}`);
+  async getPosts(page = 1, limit = 50, category = '', sort = 'latest') {
+    const params = new URLSearchParams({ page, limit });
+    if (category) params.set('category', category);
+    if (sort && sort !== 'latest') params.set('sort', sort);
+    return await apiRequest(`/api/posts?${params}`);
   },
 
   async getPostById(id) {
@@ -494,6 +497,23 @@ export const ForumService = {
     return await apiRequest(`/api/posts/${postId}/like`, {
       method: 'POST',
     });
+  },
+
+  async uploadImage(file) {
+    const token = sessionStorage.getItem('acg_jwt_token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
+    const res = await fetch(`${API_BASE}/api/uploads`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || `上传失败 ${res.status}`);
+    }
+    return res.json();
   },
 };
 
