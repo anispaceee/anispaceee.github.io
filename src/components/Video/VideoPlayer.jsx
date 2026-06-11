@@ -242,37 +242,25 @@ export default function VideoPlayer() {
     } else {
       // HTTP/HLS playback - wait for DPlayer and Hls to load
       const initPlayer = async () => {
-        await loadPlayerLibs;
+        try {
+          await loadPlayerLibs;
+        } catch (e) {
+          console.error('[VideoPlayer] Failed to load player libs:', e);
+        }
         if (!DPlayer) {
           setPlayError('DPlayer 加载失败，请刷新页面重试');
           return;
         }
 
         const isM3U8 = /\.m3u8(\?|$)/i.test(url);
+        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 100), 'isM3U8:', isM3U8);
 
         try {
-          const dp = new DPlayer({
+          const playerConfig = {
             container: playerContainerRef.current,
             video: {
               url,
               type: isM3U8 ? 'hls' : 'auto',
-              customType: isM3U8 ? {
-                hls: (video, src) => {
-                  if (Hls && Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(src);
-                    hls.attachMedia(video);
-                    hlsRef.current = hls;
-                    hls.on(Hls.Events.ERROR, (_event, data) => {
-                      if (data.fatal) {
-                        setPlayError('视频加载失败，请尝试切换播放源或剧集');
-                      }
-                    });
-                  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = src;
-                  }
-                },
-              } : undefined,
               pic: coverRef.current,
             },
             autoplay: true,
@@ -281,13 +269,38 @@ export default function VideoPlayer() {
             hotkey: true,
             preload: 'auto',
             volume: 0.7,
-            danmaku: {
+          };
+
+          // Add HLS custom type only if Hls is loaded
+          if (isM3U8 && Hls) {
+            playerConfig.video.customType = {
+              hls: (video, src) => {
+                if (Hls.isSupported()) {
+                  const hls = new Hls();
+                  hls.loadSource(src);
+                  hls.attachMedia(video);
+                  hlsRef.current = hls;
+                  hls.on(Hls.Events.ERROR, (_event, data) => {
+                    if (data.fatal) {
+                      setPlayError('视频加载失败，请尝试切换播放源或剧集');
+                    }
+                  });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                  video.src = src;
+                }
+              },
+            };
+          }
+
+          // Add danmaku only if we have data
+          if (danmakuList.length > 0) {
+            playerConfig.danmaku = {
               id: `${subjectId}_${episodeId}`,
               maximum: 1000,
               bottom: '10%',
               unlimited: false,
-            },
-            apiBackend: {
+            };
+            playerConfig.apiBackend = {
               read: (endpoint, callback) => {
                 callback({
                   data: danmakuList.map(d => ({
@@ -302,8 +315,10 @@ export default function VideoPlayer() {
               send: (endpoint, danmaku, callback) => {
                 callback();
               },
-            },
-          });
+            };
+          }
+
+          const dp = new DPlayer(playerConfig);
 
           // Listen for DPlayer error events
           dp.on('error', () => {
