@@ -154,6 +154,8 @@ export default function HomePage() {
   const [newsItems, setNewsItems] = useState([]);
   const [homeWorldInput, setHomeWorldInput] = useState('');
   const [homeWorldSending, setHomeWorldSending] = useState(false);
+  const [terminalInput, setTerminalInput] = useState('');
+  const [terminalHistory, setTerminalHistory] = useState([]);
 
   useEffect(() => {
     const loadHomeData = async () => {
@@ -197,6 +199,38 @@ export default function HomePage() {
       setHomeWorldSending(false);
     }
   }, [isAuthenticated, homeWorldInput, homeWorldSending, currentUser]);
+
+  const handleTerminalCommand = useCallback(() => {
+    const cmd = terminalInput.trim();
+    if (!cmd) return;
+    const newHistory = [...terminalHistory, { type: 'input', text: cmd }];
+    const lower = cmd.toLowerCase();
+    let response = '';
+    if (lower === 'help') {
+      response = 'Available commands:\n  help    - Show this help\n  clear   - Clear terminal\n  about   - About ANISpace\n  date    - Show current date\n  echo    - Echo text back\n  neko    - 🐱\n  elpsy   - El Psy Kongroo!';
+    } else if (lower === 'clear') {
+      setTerminalHistory([]);
+      setTerminalInput('');
+      return;
+    } else if (lower === 'about') {
+      response = 'ANISpace — ACG Community Platform\nBuilt with React + Cloudflare Workers';
+    } else if (lower === 'date') {
+      response = new Date().toLocaleString('zh-CN');
+    } else if (lower.startsWith('echo ')) {
+      response = cmd.slice(5);
+    } else if (lower === 'neko') {
+      response = '🐱 Meow~';
+    } else if (lower === 'elpsy') {
+      response = 'El Psy Kongroo! 世界线变动率 1.048596%';
+    } else {
+      response = `command not found: ${cmd.split(' ')[0]}`;
+    }
+    response.split('\n').forEach(line => {
+      newHistory.push({ type: 'output', text: line });
+    });
+    setTerminalHistory(newHistory);
+    setTerminalInput('');
+  }, [terminalInput, terminalHistory]);
 
   const [carouselIndex, setCarouselIndex] = useState(0);
   const carouselTimerRef = useRef(null);
@@ -414,6 +448,45 @@ export default function HomePage() {
                 )) : (
                   <div className="home-news-empty">暂无资讯</div>
                 )}
+              </div>
+            </div>
+
+            {/* Terminal - Mac终端风格 */}
+            <div className="home-terminal-window">
+              <div className="home-terminal-titlebar">
+                <div className="home-terminal-controls">
+                  <span className="home-terminal-ctrl close" />
+                  <span className="home-terminal-ctrl minimize" />
+                  <span className="home-terminal-ctrl maximize" />
+                </div>
+                <span className="home-terminal-title">Terminal — ANISpace</span>
+              </div>
+              <div className="home-terminal-body">
+                <div className="home-terminal-output">
+                  <div className="home-terminal-line">Welcome to ANISpace Terminal v1.0.0</div>
+                  <div className="home-terminal-line hint">Type 'help' for available commands.</div>
+                  {terminalHistory.map((entry, i) => (
+                    <div key={i} className="home-terminal-line">
+                      {entry.type === 'input' ? (
+                        <><span className="home-terminal-prompt">$ </span><span>{entry.text}</span></>
+                      ) : (
+                        <span className="home-terminal-response">{entry.text}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="home-terminal-input-line">
+                  <span className="home-terminal-prompt">$ </span>
+                  <input
+                    type="text"
+                    className="home-terminal-input"
+                    value={terminalInput}
+                    onChange={e => setTerminalInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleTerminalCommand(); }}
+                    autoFocus={false}
+                    spellCheck={false}
+                  />
+                </div>
               </div>
             </div>
 
