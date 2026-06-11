@@ -93,8 +93,8 @@ export default function SubjectDetail() {
     setMediaErrors([]);
 
     const subjectNames = [];
-    if (subject?.name) subjectNames.push(subject.name);
     if (subject?.name_cn) subjectNames.push(subject.name_cn);
+    if (subject?.name) subjectNames.push(subject.name);
 
     const request = {
       subjectId: String(subjectId),
@@ -116,11 +116,16 @@ export default function SubjectDetail() {
   }, [subject, subjectId]);
 
   const handleWatchInSite = useCallback(() => {
+    // 直接跳转到第一集的播放页面，由播放页负责资源搜索和匹配
     if (episodes.length > 0) {
       const firstEp = episodes[0];
-      handleEpisodeClick(firstEp);
+      const epSort = firstEp.sort || firstEp.episode_sort || 1;
+      navigate(`/video/play/${subjectId}/${epSort}`);
+    } else {
+      // 没有剧集信息时，也尝试跳转（播放页会重新获取）
+      navigate(`/video/play/${subjectId}/1`);
     }
-  }, [episodes, handleEpisodeClick]);
+  }, [episodes, subjectId, navigate]);
 
   if (loading) {
     return (

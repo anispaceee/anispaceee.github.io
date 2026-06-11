@@ -48,16 +48,65 @@ class MacCMSSource implements MediaSource {
   }
 
   async fetch(request: MediaFetchRequest): Promise<PagedResult<MediaMatch>> {
-    const keyword = request.subjectNames[0] || '';
-    const url = this.buildUrl('/api.php/provide/vod/', { ac: 'videolist', wd: keyword });
-    const res = await fetch(url);
-    const data = await res.json();
+    // MacCMS 源使用中文名索引，优先使用 name_cn（数组最后一个元素）
+    // subjectNames 格式: [name(日文), name_cn(中文)]
+    const keyword = request.subjectNames.length > 1
+      ? request.subjectNames[request.subjectNames.length - 1]
+      : (request.subjectNames[0] || '');
 
-    if (data.code !== 200 || !data.list) {
+    const url = this.buildUrl('/api.php/provide/vod/', { ac: 'videolist', wd: keyword });
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch (err) {
+      console.warn(`[MacCMS:${this.sourceId}] 请求失败:`, err);
       return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
     }
 
+    let data: any;
+    try {
+      data = await res.json();
+    } catch (err) {
+      console.warn(`[MacCMS:${this.sourceId}] 响应解析失败:`, err);
+      return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
+    }
+
+    if (data.code !== 200 || !data.list || data.list.length === 0) {
+      // 如果中文名搜索无结果，尝试用日文名再搜一次
+      if (request.subjectNames.length > 1 && request.subjectNames[0] !== keyword) {
+        return this.fetchWithKeyword(request.subjectNames[0], request);
+      }
+      return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
+    }
+
+    return this.processSearchResults(data, request);
+  }
+
+  /**
+   * 使用指定关键词搜索（用于中文名无结果时的回退）
+   */
+  private async fetchWithKeyword(keyword: string, request: MediaFetchRequest): Promise<PagedResult<MediaMatch>> {
+    const url = this.buildUrl('/api.php/provide/vod/', { ac: 'videolist', wd: keyword });
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.code !== 200 || !data.list || data.list.length === 0) {
+        return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
+      }
+      return this.processSearchResults(data, request);
+    } catch {
+      return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
+    }
+  }
+
+  /**
+   * 处理搜索结果，提取剧集和播放 URL
+   * 如果 videolist 未返回播放 URL，则使用 ac=detail 获取
+   */
+  private async processSearchResults(data: any, request: MediaFetchRequest): Promise<PagedResult<MediaMatch>> {
     const matches: MediaMatch[] = [];
+    const needDetailIds: number[] = [];
+
     for (const item of data.list) {
       const matchKind = MatchEngine.computeMatchKind(item.vod_name, request);
       if (matchKind === null) continue;
@@ -65,47 +114,39 @@ class MacCMSSource implements MediaSource {
       const playFroms = (item.vod_play_from || '').split('$$$').filter(Boolean);
       const playUrlGroups = (item.vod_play_url || '').split('$$$').filter(Boolean);
 
-      const episodes = playFroms.map((from, idx) => {
-        const urlGroup = playUrlGroups[idx] || '';
-        const eps = urlGroup.split('#').filter(Boolean).map(ep => {
-          const parts = ep.split('$');
-          return { name: parts[0] || `第${idx + 1}集`, url: parts[1] || parts[0] };
-        });
-        return { source: from, episodes: eps };
-      });
+      // 如果 videolist 没有返回播放 URL，标记需要 detail 请求
+      if (playUrlGroups.length === 0 || (playUrlGroups.length === 1 && playUrlGroups[0] === '')) {
+        needDetailIds.push(item.vod_id);
+        continue;
+      }
 
-      for (const group of episodes) {
-        for (const ep of group.episodes) {
-          const epMatch = MatchEngine.matchEpisode(ep.name, request.episodeSort);
-          const finalKind = epMatch ? MatchKind.EXACT : matchKind;
+      this.extractEpisodesFromPlayUrl(item, playFroms, playUrlGroups, matchKind, request, matches);
+    }
 
-          const media: Media = {
-            mediaId: `${this.sourceId}_${item.vod_id}_${ep.name}`,
-            sourceId: this.sourceId,
-            title: `${item.vod_name} - ${ep.name}`,
-            episodeRange: { sort: ep.name.replace(/[^0-9]/g, '') || ep.name, name: ep.name },
-            download: {
-              kind: 'http',
-              url: this.buildStreamUrl(ep.url),
-            },
-            properties: {
-              vodId: item.vod_id,
-              cover: item.vod_pic,
-              category: item.vod_class,
-              year: item.vod_year,
-              area: item.vod_area,
-              remarks: item.vod_remarks,
-              description: item.vod_content?.replace(/<[^>]+>/g, '') || '',
-              playSource: group.source,
-              tier: this.info.tier,
-            },
-          };
+    // 对需要 detail 的条目，批量获取播放 URL
+    if (needDetailIds.length > 0) {
+      const detailIds = needDetailIds.slice(0, 5).join(','); // 最多获取5个
+      const detailUrl = this.buildUrl('/api.php/provide/vod/', { ac: 'detail', ids: detailIds });
+      try {
+        const detailRes = await fetch(detailUrl);
+        const detailData = await detailRes.json();
+        if (detailData.code === 200 && detailData.list) {
+          for (const item of detailData.list) {
+            const matchKind = MatchEngine.computeMatchKind(item.vod_name, request);
+            if (matchKind === null) continue;
 
-          matches.push({ media, matchKind: finalKind });
+            const playFroms = (item.vod_play_from || '').split('$$$').filter(Boolean);
+            const playUrlGroups = (item.vod_play_url || '').split('$$$').filter(Boolean);
+
+            this.extractEpisodesFromPlayUrl(item, playFroms, playUrlGroups, matchKind, request, matches);
+          }
         }
+      } catch (err) {
+        console.warn(`[MacCMS:${this.sourceId}] detail 请求失败:`, err);
       }
     }
 
+    console.log(`[MacCMS:${this.sourceId}] 搜索完成, ${matches.length} 条匹配`);
     return {
       items: MatchEngine.sortMatches(matches),
       total: data.total || matches.length,
@@ -113,6 +154,61 @@ class MacCMSSource implements MediaSource {
       pagecount: data.pagecount || 1,
       hasMore: (data.page || 1) < (data.pagecount || 1),
     };
+  }
+
+  /**
+   * 从播放 URL 数据中提取剧集信息并生成 MediaMatch
+   */
+  private extractEpisodesFromPlayUrl(
+    item: any,
+    playFroms: string[],
+    playUrlGroups: string[],
+    matchKind: MatchKind,
+    request: MediaFetchRequest,
+    matches: MediaMatch[],
+  ): void {
+    const episodes = playFroms.map((from, idx) => {
+      const urlGroup = playUrlGroups[idx] || '';
+      const eps = urlGroup.split('#').filter(Boolean).map(ep => {
+        const parts = ep.split('$');
+        return { name: parts[0] || `第${idx + 1}集`, url: parts[1] || parts[0] };
+      });
+      return { source: from, episodes: eps };
+    });
+
+    for (const group of episodes) {
+      for (const ep of group.episodes) {
+        const epMatch = MatchEngine.matchEpisode(ep.name, request.episodeSort);
+        const finalKind = epMatch ? MatchKind.EXACT : matchKind;
+
+        // 跳过没有有效 URL 的条目
+        if (!ep.url || ep.url === 'undefined' || ep.url === 'null') continue;
+
+        const media: Media = {
+          mediaId: `${this.sourceId}_${item.vod_id}_${ep.name}`,
+          sourceId: this.sourceId,
+          title: `${item.vod_name} - ${ep.name}`,
+          episodeRange: { sort: ep.name.replace(/[^0-9]/g, '') || ep.name, name: ep.name },
+          download: {
+            kind: 'http',
+            url: this.buildStreamUrl(ep.url),
+          },
+          properties: {
+            vodId: item.vod_id,
+            cover: item.vod_pic,
+            category: item.vod_class,
+            year: item.vod_year,
+            area: item.vod_area,
+            remarks: item.vod_remarks,
+            description: item.vod_content?.replace(/<[^>]+>/g, '') || '',
+            playSource: group.source,
+            tier: this.info.tier,
+          },
+        };
+
+        matches.push({ media, matchKind: finalKind });
+      }
+    }
   }
 
   private buildUrl(path: string, params: Record<string, string>): string {

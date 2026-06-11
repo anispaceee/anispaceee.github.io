@@ -2246,8 +2246,10 @@ export default {
         return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
       }
 
-      // SSRF protection
-      if (!isSafeTargetUrl(streamUrl)) {
+      // SSRF protection (allow HTTP for video streams from CDNs)
+      const streamUrlObj = new URL(streamUrl);
+      const streamHost = streamUrlObj.hostname.toLowerCase();
+      if (streamHost === 'localhost' || streamHost === '127.0.0.1' || streamHost.startsWith('192.168.') || streamHost.startsWith('10.') || streamHost.startsWith('172.16.') || streamHost.startsWith('172.17.') || streamHost.startsWith('172.18.') || streamHost.startsWith('172.19.') || streamHost.startsWith('172.2') || streamHost.startsWith('172.3') || streamHost === '[::1]' || streamHost === '169.254.169.254') {
         return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
       }
 

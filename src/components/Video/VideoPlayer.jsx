@@ -57,9 +57,10 @@ export default function VideoPlayer() {
         setEpisodes(Array.isArray(eps) ? eps : []);
 
         // 3. Build MediaFetchRequest
+        // MacCMS 源优先使用中文名，所以把 name_cn 放在前面
         const subjectNames = [];
-        if (sub?.name) subjectNames.push(sub.name);
         if (sub?.name_cn) subjectNames.push(sub.name_cn);
+        if (sub?.name) subjectNames.push(sub.name);
 
         const request = {
           subjectId: String(subjectId),
@@ -76,10 +77,18 @@ export default function VideoPlayer() {
           request.episodeName = currentEp.name_cn || currentEp.name || '';
         }
 
+        console.log('[VideoPlayer] 开始搜索资源, request:', request);
+
         // 4. Call mediaSourceManager.fetchAll
         const result = await mediaSourceManager.fetchAll(request);
         if (cancelled) return;
         setMediaMatches(result.results || []);
+
+        console.log('[VideoPlayer] 资源搜索完成:', {
+          total: result.results?.length || 0,
+          errors: result.errors?.length || 0,
+          errorDetails: result.errors,
+        });
 
         // 4.5 Fetch danmaku using Bangumi episode ID
         const bangumiEpId = currentEp?.id ? String(currentEp.id) : '';
@@ -103,10 +112,15 @@ export default function VideoPlayer() {
           }
         } else if (matches.length > 0) {
           // No specific source/media specified, use first match
-          setCurrentMedia(matches[0].media);
+          // 优先选择 HTTP 流（MacCMS 源），其次磁力链接
+          const httpMatch = matches.find(m => m.media.download?.kind === 'http');
+          setCurrentMedia((httpMatch || matches[0]).media);
+        } else {
+          console.warn('[VideoPlayer] 未找到任何可用资源');
         }
       } catch (err) {
-        if (!cancelled) setError('获取视频信息失败');
+        console.error('[VideoPlayer] fetch error:', err);
+        if (!cancelled) setError(`获取视频信息失败: ${err.message || '未知错误'}`);
       } finally {
         if (!cancelled) setLoading(false);
       }
