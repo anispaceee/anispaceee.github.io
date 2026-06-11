@@ -655,7 +655,26 @@ export const BangumiService = {
     return `bgm_${endpoint}_${params}`;
   },
 
-  async _request(url, cacheKey = null, useCache = true, retryCount = 0) {
+  // ─── 请求去重：同一 cacheKey 复用进行中的请求 ───
+  _inFlight: new Map(),
+
+  async _request(url, cacheKey = null, useCache = true, retryCount = 0, fetchOptions = {}) {
+    // 请求去重：如果已有相同 cacheKey 的请求正在进行，直接复用
+    const dedupKey = cacheKey || url;
+    if (this._inFlight.has(dedupKey)) {
+      return this._inFlight.get(dedupKey);
+    }
+
+    const promise = this._doRequest(url, cacheKey, useCache, retryCount, fetchOptions);
+    this._inFlight.set(dedupKey, promise);
+    try {
+      return await promise;
+    } finally {
+      this._inFlight.delete(dedupKey);
+    }
+  },
+
+  async _doRequest(url, cacheKey, useCache, retryCount, fetchOptions) {
     if (!isOnline()) {
       if (useCache && cacheKey) {
         const cached = await CacheManager.get(cacheKey);
@@ -672,8 +691,11 @@ export const BangumiService = {
     try {
       const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
       const targetUrl = this._proxyUrl(url);
+      const { method, body, headers: extraHeaders } = fetchOptions;
       const res = await fetch(targetUrl, {
-        headers: this._headers(),
+        method: method || 'GET',
+        headers: { ...this._headers(), ...(extraHeaders || {}) },
+        ...(body ? { body } : {}),
         signal: controller.signal,
       });
       clearTimeout(timer);
@@ -689,7 +711,7 @@ export const BangumiService = {
 
         if (error.isRetryable && retryCount < MAX_RETRIES) {
           await sleep(RETRY_DELAYS[retryCount] || 4000);
-          return this._request(url, cacheKey, false, retryCount + 1);
+          return this._doRequest(url, cacheKey, false, retryCount + 1, fetchOptions);
         }
 
         throw error;
@@ -705,7 +727,7 @@ export const BangumiService = {
         const error = new ApiError('请求超时，请稍后重试', 0, 'TIMEOUT');
         if (retryCount < MAX_RETRIES) {
           await sleep(RETRY_DELAYS[retryCount] || 4000);
-          return this._request(url, cacheKey, false, retryCount + 1);
+          return this._doRequest(url, cacheKey, false, retryCount + 1, fetchOptions);
         }
         throw error;
       }
@@ -713,7 +735,7 @@ export const BangumiService = {
       const error = new ApiError('网络请求异常，请检查网络连接', 0, 'NETWORK_ERROR');
       if (retryCount < MAX_RETRIES) {
         await sleep(RETRY_DELAYS[retryCount] || 4000);
-        return this._request(url, cacheKey, false, retryCount + 1);
+        return this._doRequest(url, cacheKey, false, retryCount + 1, fetchOptions);
       }
       throw error;
     }
@@ -727,27 +749,15 @@ export const BangumiService = {
       filter.type = [1, 2, 4];
     }
     const url = `${this.BASE_URL}/v0/search/subjects?limit=${limit}&offset=${offset}`;
-    const body = JSON.stringify({
-      keyword,
-      filter,
-      sort: 'match',
-    });
+    const body = JSON.stringify({ keyword, filter, sort: 'match' });
+    const cacheKey = this._cacheKey('search', `${keyword}_${type}_${limit}_${offset}`);
+
     try {
-      const targetUrl = this._proxyUrl(url);
-      const { controller, timer } = createTimeoutController(REQUEST_TIMEOUT);
-      const res = await fetch(targetUrl, {
+      const data = await this._request(url, cacheKey, true, 0, {
         method: 'POST',
-        headers: { ...this._headers(), 'Content-Type': 'application/json' },
         body,
-        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
       });
-      clearTimeout(timer);
-      if (!res.ok) {
-        if (res.status === 429) throw new ApiError('请求过于频繁', res.status, 'RATE_LIMITED');
-        if (res.status === 404) throw new ApiError('未找到结果', res.status, 'NOT_FOUND');
-        throw new ApiError(`搜索失败 (${res.status})`, res.status);
-      }
-      const data = await res.json();
       if (data && data.data) {
         return {
           list: data.data.map(normalizeSubject).filter(Boolean),
