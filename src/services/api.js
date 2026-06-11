@@ -504,23 +504,6 @@ export const ForumService = {
       method: 'DELETE',
     });
   },
-
-  async uploadImage(file) {
-    const token = sessionStorage.getItem('acg_jwt_token');
-    const formData = new FormData();
-    formData.append('file', file);
-    const API_BASE_FOR_UPLOAD = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
-    const res = await fetch(`${API_BASE_FOR_UPLOAD}/api/uploads`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || `上传失败 ${res.status}`);
-    }
-    return res.json();
-  },
 };
 
 // ─── CollectionMarkService ───

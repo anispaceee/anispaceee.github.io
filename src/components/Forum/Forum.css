@@ -57,7 +57,9 @@
 
 .form-media-section { display: flex; flex-direction: column; gap: 10px; }
 .form-media-upload { display: flex; flex-direction: column; gap: 4px; }
-.media-upload-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-secondary); font-size: 13px; font-weight: 500; border: 1px dashed var(--border-primary); transition: all var(--transition-fast); }
+.image-url-input-row { display: flex; gap: 8px; align-items: center; }
+.image-url-input { flex: 1; min-width: 0; }
+.media-upload-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-secondary); font-size: 13px; font-weight: 500; border: 1px dashed var(--border-primary); transition: all var(--transition-fast); white-space: nowrap; }
 .media-upload-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
 .media-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .media-hint { font-size: 11px; color: var(--text-quaternary); }

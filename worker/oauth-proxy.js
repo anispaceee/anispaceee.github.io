@@ -659,63 +659,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(users.results, 200, origin);
   }
 
-  // POST /api/uploads — 图片上传（需认证，存入 R2）
-  if (method === 'POST' && pathname === '/api/uploads') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const contentType = request.headers.get('Content-Type') || '';
-    if (!contentType.startsWith('multipart/form-data')) {
-      return jsonResponse({ error: '仅支持 multipart/form-data' }, 400, origin);
-    }
-
-    try {
-      const formData = await request.formData();
-      const file = formData.get('file');
-      if (!file) return jsonResponse({ error: '缺少 file 字段' }, 400, origin);
-
-      // 校验文件类型和大小
-      const allowedTypes = ['image/jpeg', 'image/png'];
-      if (!allowedTypes.includes(file.type)) {
-        return jsonResponse({ error: '仅支持 JPG/PNG 格式' }, 400, origin);
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        return jsonResponse({ error: '图片不能超过 10MB' }, 400, origin);
-      }
-
-      // 生成唯一 key: uploads/{userId}/{timestamp}_{random}.{ext}
-      const ext = file.type === 'image/png' ? 'png' : 'jpg';
-      const key = `uploads/${authUser.userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-      await env.BUCKET.put(key, file.stream(), {
-        httpMetadata: { contentType: file.type },
-      });
-
-      // 返回可访问的 URL（通过 Worker 代理读取）
-      const url = `${new URL(request.url).origin}/api/uploads/${key}`;
-      return jsonResponse({ url, key }, 201, origin);
-    } catch (err) {
-      return jsonResponse({ error: '上传失败: ' + err.message }, 500, origin);
-    }
-  }
-
-  // GET /api/uploads/:key+ — 读取 R2 上传的图片
-  const uploadMatch = pathname.match(/^\/api\/uploads\/(.+)$/);
-  if (uploadMatch && method === 'GET') {
-    const key = uploadMatch[1];
-    try {
-      const object = await env.BUCKET.get(key);
-      if (!object) return jsonResponse({ error: '文件不存在' }, 404, origin);
-
-      const headers = new Headers();
-      headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
-      headers.set('Cache-Control', 'public, max-age=86400');
-      Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
-      return new Response(object.body, { status: 200, headers });
-    } catch {
-      return jsonResponse({ error: '读取文件失败' }, 500, origin);
-    }
-  }
+  // (图片上传已改为前端直接输入 URL，不再需要 R2 上传/读取路由)
 
   // GET /api/posts — 帖子列表（分页 + 板块筛选 + 排序）
   if (method === 'GET' && pathname === '/api/posts') {
@@ -2056,7 +2000,6 @@ const RL_WINDOW_MS = 60 * 1000; // 60 秒滑动窗口
 const RL_LIMITS = {
   '/api/auth/login': 5,
   '/api/posts': 10,       // 创建帖子/回复
-  '/api/uploads': 20,     // 图片上传
   '/api/world-messages': 20,
   '/api/private-messages': 20,
   '/api/mails': 10,
@@ -2132,7 +2075,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }

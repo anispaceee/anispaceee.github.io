@@ -8,8 +8,6 @@ import UserAvatar from '../Common/UserAvatar';
 import './Forum.css';
 
 const MAX_IMAGES = 5;
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
 
 const BOARDS = [
   { key: 'anime', label: '动画', icon: Tv, color: 'var(--tag-anime)', description: '新番讨论 · 旧番回顾 · MAD·AMV' },
@@ -81,7 +79,7 @@ function PostPreview({ title, content, images, category }) {
       {images && images.length > 0 && (
         <div className="preview-images">
           {images.map((img, i) => (
-            <img key={i} src={img.preview} alt="" className="preview-img" loading="lazy" />
+            <img key={i} src={typeof img === 'string' ? img : img.preview} alt="" className="preview-img" loading="lazy" />
           ))}
         </div>
       )}
@@ -108,7 +106,7 @@ export default function Forum() {
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [uploadingImages, setUploadingImages] = useState(false);
-  const imageInputRef = useRef(null);
+  const [imageUrlInput, setImageUrlInput] = useState('');
 
   // 从后端加载帖子（带 category 和 sort 参数）
   const loadPosts = useCallback(async () => {
@@ -149,48 +147,29 @@ export default function Forum() {
     if (!newPost.title.trim()) errors.push({ type: 'format', message: '请输入帖子标题' });
     else if (newPost.title.length > 100) errors.push({ type: 'format', message: '标题不能超过100个字符' });
     if (!newPost.content.trim()) errors.push({ type: 'format', message: '请输入帖子内容' });
-    if (newPost.images.length > MAX_IMAGES) errors.push({ type: 'format', message: `最多上传${MAX_IMAGES}张图片` });
+    if (newPost.images.length > MAX_IMAGES) errors.push({ type: 'format', message: `最多添加${MAX_IMAGES}张图片` });
     return errors;
   }, [newPost]);
 
-  const handleImageSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    const errors = [];
-    const validFiles = [];
-
-    files.forEach(file => {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        errors.push({ type: 'format', message: `${file.name} 格式不支持，仅支持 JPG/PNG` });
-        return;
-      }
-      if (file.size > MAX_IMAGE_SIZE) {
-        errors.push({ type: 'format', message: `${file.name} 超过10MB限制` });
-        return;
-      }
-      validFiles.push(file);
-    });
-
-    if (errors.length > 0) {
-      setSubmitError(errors);
+  const addImageUrl = () => {
+    const url = imageUrlInput.trim();
+    if (!url) return;
+    if (newPost.images.length >= MAX_IMAGES) {
+      setSubmitError([{ type: 'format', message: `最多添加${MAX_IMAGES}张图片` }]);
       return;
     }
-
-    const remaining = MAX_IMAGES - newPost.images.length;
-    const toProcess = validFiles.slice(0, remaining);
-
-    toProcess.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setNewPost(prev => ({
-          ...prev,
-          images: [...prev.images, { file, preview: ev.target.result, name: file.name }],
-        }));
-      };
-      reader.readAsDataURL(file);
-    });
-
+    try {
+      new URL(url);
+    } catch {
+      setSubmitError([{ type: 'format', message: '请输入有效的图片 URL' }]);
+      return;
+    }
+    setNewPost(prev => ({
+      ...prev,
+      images: [...prev.images, url],
+    }));
+    setImageUrlInput('');
     setSubmitError(null);
-    e.target.value = '';
   };
 
   const removeImage = (index) => {
@@ -219,23 +198,8 @@ export default function Forum() {
     try {
       const tags = newPost.tags.trim() ? newPost.tags.trim().split(/\s+/) : [];
 
-      // 上传图片到 R2，获取 URL 列表
-      let imageUrls = [];
-      if (newPost.images.length > 0) {
-        setUploadingImages(true);
-        try {
-          const uploadResults = await Promise.all(
-            newPost.images.map(img => ForumService.uploadImage(img.file))
-          );
-          imageUrls = uploadResults.map(r => r.url);
-        } catch (uploadErr) {
-          setSubmitError([{ type: 'network', message: `图片上传失败: ${uploadErr.message}` }]);
-          setSubmitting(false);
-          setUploadingImages(false);
-          return;
-        }
-        setUploadingImages(false);
-      }
+      // 图片直接使用 URL 列表
+      const imageUrls = newPost.images;
 
       const created = await ForumService.createPost({
         title: newPost.title.trim(),
@@ -363,18 +327,28 @@ export default function Forum() {
 
                   <div className="form-media-section">
                     <div className="form-media-upload">
-                      <button type="button" className="media-upload-btn" onClick={() => imageInputRef.current?.click()} disabled={newPost.images.length >= MAX_IMAGES || uploadingImages}>
-                        <Image size={16} /> {uploadingImages ? '上传中...' : `添加图片 (${newPost.images.length}/${MAX_IMAGES})`}
-                      </button>
-                      <input ref={imageInputRef} type="file" accept="image/jpeg,image/png" multiple onChange={handleImageSelect} hidden />
-                      <span className="media-hint">JPG/PNG，单张≤10MB</span>
+                      <div className="image-url-input-row">
+                        <input
+                          type="text"
+                          placeholder="输入图片 URL，回车添加"
+                          value={imageUrlInput}
+                          onChange={e => setImageUrlInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
+                          className="form-input image-url-input"
+                          disabled={newPost.images.length >= MAX_IMAGES}
+                        />
+                        <button type="button" className="media-upload-btn" onClick={addImageUrl} disabled={newPost.images.length >= MAX_IMAGES || !imageUrlInput.trim()}>
+                          <Image size={16} /> 添加 ({newPost.images.length}/{MAX_IMAGES})
+                        </button>
+                      </div>
+                      <span className="media-hint">输入图片链接地址，支持 JPG/PNG/WebP/GIF</span>
                     </div>
 
                     {newPost.images.length > 0 && (
                       <div className="form-image-previews">
-                        {newPost.images.map((img, i) => (
+                        {newPost.images.map((url, i) => (
                           <div key={i} className="form-image-thumb">
-                            <img src={img.preview} alt="" loading="lazy" />
+                            <img src={url} alt="" loading="lazy" onError={e => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect fill="%23ddd" width="80" height="80"/><text x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="12">加载失败</text></svg>'; }} />
                             <button className="form-image-remove" onClick={() => removeImage(i)}><X size={10} /></button>
                           </div>
                         ))}
@@ -397,8 +371,8 @@ export default function Forum() {
 
               <div className="form-actions">
                 <button className="form-cancel" onClick={resetForm}>取消</button>
-                <button className="form-submit" onClick={handleNewPost} disabled={submitting || uploadingImages}>
-                  {submitting || uploadingImages ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
+                <button className="form-submit" onClick={handleNewPost} disabled={submitting}>
+                  {submitting ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
                 </button>
               </div>
             </div>
