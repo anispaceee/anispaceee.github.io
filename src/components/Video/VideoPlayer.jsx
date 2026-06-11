@@ -265,14 +265,13 @@ export default function VideoPlayer() {
         // Detect HLS: check both original URL and the proxied URL path
         // Worker proxy URLs contain the original URL as a query param, e.g. /api/video/stream?url=...index.m3u8
         const isM3U8 = /\.m3u8(\?|$)/i.test(url) || /\.m3u8/i.test(decodeURIComponent(url));
-        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 120), 'isM3U8:', isM3U8);
+        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 120), 'isM3U8:', isM3U8, 'Hls available:', !!Hls);
 
         try {
           const playerConfig = {
             container: playerContainerRef.current,
             video: {
               url,
-              type: isM3U8 ? 'customHls' : 'auto',
               pic: coverRef.current,
             },
             autoplay: true,
@@ -283,23 +282,44 @@ export default function VideoPlayer() {
             volume: 0.7,
           };
 
-          // DPlayer customType is a top-level config, not inside video
-          // Reference: https://dplayer.diygod.dev/guide.html#special-type
+          // DPlayer 1.27 auto-detects HLS when window.Hls exists and URL ends with .m3u8
+          // For proxied URLs where .m3u8 is in the query param, we need customType
           if (isM3U8 && Hls) {
+            // Make Hls available globally so DPlayer can detect it
+            window.Hls = Hls;
+            // Use customType for proxied m3u8 URLs (where .m3u8 is in query param, not path)
+            playerConfig.video.type = 'customHls';
             playerConfig.customType = {
               customHls: (video, src) => {
                 if (Hls.isSupported()) {
-                  const hls = new Hls();
+                  const hls = new Hls({
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 60,
+                  });
                   hls.loadSource(src);
                   hls.attachMedia(video);
                   hlsRef.current = hls;
                   hls.on(Hls.Events.ERROR, (_event, data) => {
                     if (data.fatal) {
-                      console.error('[VideoPlayer] HLS fatal error:', data);
-                      setPlayError('视频加载失败，请尝试切换播放源或剧集');
+                      console.error('[VideoPlayer] HLS fatal error:', data.type, data.details);
+                      switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                          console.warn('[VideoPlayer] Network error, trying to recover...');
+                          hls.startLoad();
+                          break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                          console.warn('[VideoPlayer] Media error, trying to recover...');
+                          hls.recoverMediaError();
+                          break;
+                        default:
+                          setPlayError('视频加载失败，请尝试切换播放源或剧集');
+                          hls.destroy();
+                          break;
+                      }
                     }
                   });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                  // Safari native HLS support
                   video.src = src;
                 }
               },
