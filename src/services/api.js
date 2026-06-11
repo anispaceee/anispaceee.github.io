@@ -792,13 +792,14 @@ export const BangumiService = {
   },
 
   async getSubject(id) {
-    const url = `${this.BASE_URL}/subject/${id}`;
+    const url = `${this.BASE_URL}/v0/subjects/${id}`;
     const data = await this._request(url, this._cacheKey('subject', String(id)));
     return validateSubject(data);
   },
 
   async getSubjectDetail(id) {
-    const url = `${this.BASE_URL}/subject/${id}?responseGroup=large`;
+    // Use v0 API (more stable, 300s cache, recommended by Bangumi)
+    const url = `${this.BASE_URL}/v0/subjects/${id}`;
     const data = await this._request(url, this._cacheKey('subject_detail', String(id)));
     return validateSubject(data);
   },
@@ -882,20 +883,23 @@ export const BangumiService = {
   },
 
   async getSubjectCharacters(id) {
-    const url = `${this.BASE_URL}/subject/${id}/characters`;
+    const url = `${this.BASE_URL}/v0/subjects/${id}/characters`;
     const data = await this._request(url, this._cacheKey('characters', String(id)));
     return Array.isArray(data) ? data : [];
   },
 
   async getSubjectPersons(id) {
-    const url = `${this.BASE_URL}/subject/${id}/persons`;
+    const url = `${this.BASE_URL}/v0/subjects/${id}/persons`;
     const data = await this._request(url, this._cacheKey('persons', String(id)));
     return Array.isArray(data) ? data : [];
   },
 
   async getSubjectEpisodes(id) {
-    const url = `${this.BASE_URL}/subject/${id}/ep`;
+    // v0 API: /v0/episodes?subject_id={id}&limit=200&offset=0
+    const url = `${this.BASE_URL}/v0/episodes?subject_id=${id}&limit=200&offset=0`;
     const data = await this._request(url, this._cacheKey('episodes', String(id)));
+    // v0 returns { data: [...], total: N, ... }
+    if (data && Array.isArray(data.data)) return data.data;
     return Array.isArray(data) ? data : [];
   },
 

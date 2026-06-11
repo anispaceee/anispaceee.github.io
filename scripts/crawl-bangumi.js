@@ -35,7 +35,7 @@ const SUBJECT_TYPES = {
 };
 
 // 默认爬取的类型
-const DEFAULT_TYPES = [1, 2, 4];
+const DEFAULT_TYPES = [1, 2, 3, 4, 6];
 
 // 请求间隔（毫秒）
 const DEFAULT_DELAY = 200;

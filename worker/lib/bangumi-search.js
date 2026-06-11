@@ -56,7 +56,7 @@ export async function localSearch(env, q, type = 0, limit = LOCAL_LIMIT) {
  * 官方 API 兜底（带限流退避）
  */
 export async function officialSearch(q, type = 0) {
-  const filter = { type: type && type > 0 ? [Number(type)] : [1, 2, 4] };
+  const filter = { type: type && type > 0 ? [Number(type)] : [1, 2, 3, 4, 6] };
   const body = JSON.stringify({ keyword: q, filter, sort: 'match' });
   let lastErr = null;
   for (let attempt = 0; attempt < 2; attempt++) {
