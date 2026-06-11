@@ -3,19 +3,19 @@ import { X, Minus } from 'lucide-react';
 import './Live2DWidget.css';
 
 const LIVE2D_CORE_JS = '/live2d.min.js';
-const MODEL_CDN = 'https://cdn.jsdelivr.net/gh/fghrsh/live2d_api/';
+const MODEL_CDN = 'https://cdn.jsdelivr.net/gh/fghrsh/live2d_api@1.0.1/';
 
 const MODEL_LIST = [
-  { id: 0, name: 'Pio', model: MODEL_CDN + 'model/Potion-Maker/Pio/model.json' },
-  { id: 1, name: 'Tia', model: MODEL_CDN + 'model/Potion-Maker/Tia/model.json' },
-  { id: 2, name: '22娘', model: MODEL_CDN + 'model/bilibili-live/22/model.json' },
-  { id: 3, name: '33娘', model: MODEL_CDN + 'model/bilibili-live/33/model.json' },
-  { id: 4, name: '雫', model: MODEL_CDN + 'model/ShizukuTalk/shizuku-48/model.json' },
-  { id: 5, name: '涅普缇努', model: MODEL_CDN + 'model/HyperdimensionNeptunia/neptune_classic/model.json' },
-  { id: 6, name: '诺瓦露', model: MODEL_CDN + 'model/HyperdimensionNeptunia/noir_classic/model.json' },
-  { id: 7, name: '布兰', model: MODEL_CDN + 'model/HyperdimensionNeptunia/blanc_classic/model.json' },
-  { id: 8, name: '贝露', model: MODEL_CDN + 'model/HyperdimensionNeptunia/vert_classic/model.json' },
-  { id: 9, name: '丛云', model: MODEL_CDN + 'model/KantaiCollection/murakumo/model.json' },
+  { id: 0, name: 'Pio', model: MODEL_CDN + 'model/Potion-Maker/Pio/index.json' },
+  { id: 1, name: 'Tia', model: MODEL_CDN + 'model/Potion-Maker/Tia/index.json' },
+  { id: 2, name: '22娘', model: MODEL_CDN + 'model/bilibili-live/22/index.json' },
+  { id: 3, name: '33娘', model: MODEL_CDN + 'model/bilibili-live/33/index.json' },
+  { id: 4, name: '雫', model: MODEL_CDN + 'model/ShizukuTalk/shizuku-48/index.json' },
+  { id: 5, name: '涅普缇努', model: MODEL_CDN + 'model/HyperdimensionNeptunia/neptune_classic/index.json' },
+  { id: 6, name: '诺瓦露', model: MODEL_CDN + 'model/HyperdimensionNeptunia/noir_classic/index.json' },
+  { id: 7, name: '布兰', model: MODEL_CDN + 'model/HyperdimensionNeptunia/blanc_classic/index.json' },
+  { id: 8, name: '贝露', model: MODEL_CDN + 'model/HyperdimensionNeptunia/vert_classic/index.json' },
+  { id: 9, name: '丛云', model: MODEL_CDN + 'model/KantaiCollection/murakumo/index.json' },
 ];
 
 let coreLoaded = false;

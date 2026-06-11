@@ -7,7 +7,7 @@ export default function MiniPlayer() {
   const { currentSong, playing, togglePlay, playNext, playPrev } = useMusic();
   const { windows, focusWindow } = useWindowManager();
 
-  const visible = windows.music?.open && windows.music?.minimized && currentSong;
+  const visible = currentSong && (!windows.music?.open || windows.music?.minimized);
 
   if (!visible) return null;
 

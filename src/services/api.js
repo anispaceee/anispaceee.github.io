@@ -1269,7 +1269,7 @@ export const MailService = {
 // ─── NetEaseMusicService ───
 // 保持不变，仍使用网易云 API
 export const NetEaseMusicService = {
-  METING_API: 'https://api.injahow.cn/meting/',
+  METING_API: 'https://api.i-meto.com/meting/api',
   _cache: {},
 
   async _metingRequest(params) {
@@ -1488,7 +1488,7 @@ export const GitHubAuthService = {
 // ─── QQMusicService ───
 // 保持不变，仍使用 QQ 音乐 API
 export const QQMusicService = {
-  METING_API: 'https://api.injahow.cn/meting/',
+  METING_API: 'https://api.i-meto.com/meting/api',
   _cache: {},
 
   async _metingRequest(params) {
