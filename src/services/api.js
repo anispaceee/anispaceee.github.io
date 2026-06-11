@@ -380,7 +380,7 @@ export const FriendService = {
 
   // 获取用户公开信息
   async getUserPublic(userId) {
-    return apiRequest(`/api/users/${userId}/public`);
+    return apiRequest(`/api/users/${userId}/profile`);
   },
 
   // 发送好友请求
