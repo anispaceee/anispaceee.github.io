@@ -71,7 +71,7 @@ class MacCMSSource implements MediaSource {
       return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
     }
 
-    if (data.code !== 200 || !data.list || data.list.length === 0) {
+    if ((data.code !== 200 && data.code !== 1) || !data.list || data.list.length === 0) {
       // 如果中文名搜索无结果，尝试用日文名再搜一次
       if (request.subjectNames.length > 1 && request.subjectNames[0] !== keyword) {
         return this.fetchWithKeyword(request.subjectNames[0], request);
@@ -90,7 +90,7 @@ class MacCMSSource implements MediaSource {
     try {
       const res = await fetch(url);
       const data = await res.json();
-      if (data.code !== 200 || !data.list || data.list.length === 0) {
+      if ((data.code !== 200 && data.code !== 1) || !data.list || data.list.length === 0) {
         return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
       }
       return this.processSearchResults(data, request);
@@ -130,7 +130,7 @@ class MacCMSSource implements MediaSource {
       try {
         const detailRes = await fetch(detailUrl);
         const detailData = await detailRes.json();
-        if (detailData.code === 200 && detailData.list) {
+        if ((detailData.code === 200 || detailData.code === 1) && detailData.list) {
           for (const item of detailData.list) {
             const matchKind = MatchEngine.computeMatchKind(item.vod_name, request);
             if (matchKind === null) continue;
@@ -176,7 +176,16 @@ class MacCMSSource implements MediaSource {
       return { source: from, episodes: eps };
     });
 
-    for (const group of episodes) {
+    // 优先处理 m3u8 源（包含 m3u8 的播放源排在前面）
+    const sortedEpisodes = [...episodes].sort((a, b) => {
+      const aHasM3u8 = a.episodes.some(ep => ep.url.includes('.m3u8'));
+      const bHasM3u8 = b.episodes.some(ep => ep.url.includes('.m3u8'));
+      if (aHasM3u8 && !bHasM3u8) return -1;
+      if (!aHasM3u8 && bHasM3u8) return 1;
+      return 0;
+    });
+
+    for (const group of sortedEpisodes) {
       for (const ep of group.episodes) {
         const epMatch = MatchEngine.matchEpisode(ep.name, request.episodeSort);
         const finalKind = epMatch ? MatchKind.EXACT : matchKind;
