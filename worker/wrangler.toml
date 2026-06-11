@@ -1,7 +1,8 @@
 name = "anispace-oauth-proxy"
 main = "oauth-proxy.js"
 compatibility_date = "2024-01-01"
-# account_id 由 wrangler deploy 自动读取，无需提交到仓库
+account_id = "e3859153513e18ee3e56cc9345846356"
+workers_dev = true
 
 [vars]
 ALLOWED_ORIGIN = "https://afterrain-2005.github.io"
@@ -12,10 +13,11 @@ binding = "DB"
 database_name = "anispace-db"
 database_id = "b3d41a07-90b8-4cfe-8142-5679bc768c06"
 
-# R2 Bucket — 论坛图片上传存储
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "anispace-uploads"
+# R2 Bucket — 论坛图片上传存储（需要先在 Cloudflare Dashboard 启用 R2）
+# 启用 R2 后取消注释以下配置
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "anispace-uploads"
 
 # Cron Trigger — 每周一 03:00 UTC 跑 bangumi-data 同步
 # 周三 03:00 UTC 二次容错（bangumi-data 周一偶尔延迟）
