@@ -55,6 +55,8 @@ class MacCMSSource implements MediaSource {
       : (request.subjectNames[0] || '');
 
     const url = this.buildUrl('/api.php/provide/vod/', { ac: 'videolist', wd: keyword });
+    console.log(`[MacCMS:${this.sourceId}] 开始搜索, keyword="${keyword}", proxyBase="${this.proxyBase}", url="${url}"`);
+
     let res: Response;
     try {
       res = await fetch(url);

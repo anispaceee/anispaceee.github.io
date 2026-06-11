@@ -78,6 +78,8 @@ export default function VideoPlayer() {
         }
 
         console.log('[VideoPlayer] 开始搜索资源, request:', request);
+        console.log('[VideoPlayer] 已注册源:', mediaSourceManager.getRegistrations().map(r => `${r.sourceId}(enabled:${r.enabled})`));
+        console.log('[VideoPlayer] 可用源:', mediaSourceManager.getEnabledSources().map(s => `${s.sourceId}(${s.info.displayName})`));
 
         // 4. Call mediaSourceManager.fetchAll
         const result = await mediaSourceManager.fetchAll(request);
@@ -88,6 +90,11 @@ export default function VideoPlayer() {
           total: result.results?.length || 0,
           errors: result.errors?.length || 0,
           errorDetails: result.errors,
+          matchDetails: result.results?.slice(0, 3).map(m => ({
+            title: m.media.title,
+            sourceId: m.media.sourceId,
+            url: m.media.download?.url?.substring(0, 80),
+          })),
         });
 
         // 4.5 Fetch danmaku using Bangumi episode ID
