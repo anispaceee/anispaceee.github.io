@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import DPlayer from 'dplayer';
 import Hls from 'hls.js';
-import WebTorrent from 'webtorrent';
 import { BangumiService } from '../../services/api';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
 import { danmakuService } from '../../services/media/DanmakuService';
@@ -141,50 +140,58 @@ export default function VideoPlayer() {
     }
 
     if (downloadKind === 'magnet') {
-      // WebTorrent BT playback
-      const client = new WebTorrent();
-      torrentRef.current = client;
+      // WebTorrent BT playback (dynamic import to avoid Node.js stream crash at startup)
+      const initWebTorrent = async () => {
+        try {
+          const { default: WebTorrent } = await import('webtorrent');
+          const client = new WebTorrent();
+          torrentRef.current = client;
 
-      client.add(url, (torrent) => {
-        // Find the largest video file
-        const file = torrent.files.sort((a, b) => b.length - a.length)[0];
-        if (!file) {
-          setPlayError('种子中未找到视频文件');
-          return;
-        }
+          client.add(url, (torrent) => {
+            // Find the largest video file
+            const file = torrent.files.sort((a, b) => b.length - a.length)[0];
+            if (!file) {
+              setPlayError('种子中未找到视频文件');
+              return;
+            }
 
-        // Create a video element for WebTorrent to render into
-        const container = playerContainerRef.current;
-        const videoEl = document.createElement('video');
-        videoEl.style.width = '100%';
-        videoEl.style.height = '100%';
-        videoEl.controls = true;
-        videoEl.autoplay = true;
-        container.appendChild(videoEl);
+            // Create a video element for WebTorrent to render into
+            const container = playerContainerRef.current;
+            const videoEl = document.createElement('video');
+            videoEl.style.width = '100%';
+            videoEl.style.height = '100%';
+            videoEl.controls = true;
+            videoEl.autoplay = true;
+            container.appendChild(videoEl);
 
-        file.renderTo(videoEl, (err) => {
-          if (err) {
-            setPlayError('视频渲染失败: ' + err.message);
-          }
-        });
+            file.renderTo(videoEl, (err) => {
+              if (err) {
+                setPlayError('视频渲染失败: ' + err.message);
+              }
+            });
 
-        // Track progress
-        torrent.on('download', () => {
-          setTorrentProgress({
-            progress: Math.round(torrent.progress * 100),
-            downloadSpeed: Math.round(torrent.downloadSpeed / 1024),
-            numPeers: torrent.numPeers,
+            // Track progress
+            torrent.on('download', () => {
+              setTorrentProgress({
+                progress: Math.round(torrent.progress * 100),
+                downloadSpeed: Math.round(torrent.downloadSpeed / 1024),
+                numPeers: torrent.numPeers,
+              });
+            });
+
+            torrent.on('error', (err) => {
+              setPlayError('种子下载失败: ' + err.message);
+            });
           });
-        });
 
-        torrent.on('error', (err) => {
-          setPlayError('种子下载失败: ' + err.message);
-        });
-      });
-
-      client.on('error', (err) => {
-        setPlayError('WebTorrent 错误: ' + err.message);
-      });
+          client.on('error', (err) => {
+            setPlayError('WebTorrent 错误: ' + err.message);
+          });
+        } catch (err) {
+          setPlayError('WebTorrent 加载失败，浏览器可能不支持 BT 播放');
+        }
+      };
+      initWebTorrent();
 
       return () => {
         if (torrentRef.current) {
