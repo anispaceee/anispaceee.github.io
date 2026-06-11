@@ -5,7 +5,7 @@ import { openDB } from 'idb';
 const { STORAGE_KEYS: SK } = StorageService;
 
 // ─── Cloudflare Worker 后端 API 基础地址 ───
-const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
+const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
 
 // ─── 后端 API 请求辅助函数 ───
 async function apiRequest(path, options = {}) {
@@ -509,7 +509,7 @@ export const ForumService = {
     const token = sessionStorage.getItem('acg_jwt_token');
     const formData = new FormData();
     formData.append('file', file);
-    const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
+    const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
     const res = await fetch(`${API_BASE}/api/uploads`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
