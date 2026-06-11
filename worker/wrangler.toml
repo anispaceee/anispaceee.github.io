@@ -11,7 +11,7 @@ ALLOWED_ORIGIN = "https://afterrain-2005.github.io"
 [[d1_databases]]
 binding = "DB"
 database_name = "anispace-db"
-database_id = "b3d41a07-90b8-4cfe-8142-5679bc768c06"
+database_id = "30523091-5d5d-449d-9e22-abe26bf2233b"
 
 # R2 Bucket — 论坛图片上传存储（需要先在 Cloudflare Dashboard 启用 R2）
 # 启用 R2 后取消注释以下配置
