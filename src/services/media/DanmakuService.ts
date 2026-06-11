@@ -17,14 +17,30 @@ export interface DanmakuProvider {
 // DanDanPlay third-party provider
 class DanDanPlayProvider implements DanmakuProvider {
   readonly name = 'DanDanPlay';
-  private baseUrl = 'https://api.dandanplay.net/api/v2';
+  // Use Worker proxy to bypass CORS restrictions
+  private proxyBase: string;
+
+  constructor() {
+    // Read proxy URL from env (same as other services)
+    let rawBase = '';
+    try {
+      if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_OAUTH_PROXY_URL) {
+        rawBase = import.meta.env.VITE_OAUTH_PROXY_URL;
+      }
+    } catch {}
+    const base = rawBase || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+    // Safety check: override stale URL pointing to old workers.dev subdomain
+    this.proxyBase = base.includes('lyw2373314970')
+      ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
+      : base;
+  }
 
   async fetchDanmaku(episodeId: string): Promise<DanmakuItem[]> {
     try {
-      // DanDanPlay uses Bangumi episode ID
-      const url = `${this.baseUrl}/comment/${episodeId}`;
+      // Route through Worker proxy to bypass CORS
+      const url = `${this.proxyBase}/api/danmaku/comment/${episodeId}`;
       const res = await fetch(url, {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'ANISpace/1.0' },
+        headers: { 'Accept': 'application/json' },
         signal: AbortSignal.timeout(8000),
       });
       if (!res.ok) return [];

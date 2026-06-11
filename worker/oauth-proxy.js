@@ -2197,6 +2197,37 @@ export default {
       return handleBangumiProxy(bangumiPath, url.searchParams, request, env, origin);
     }
 
+    // DanDanPlay 弹幕代理：/api/danmaku/comment/:episodeId
+    // Proxies DanDanPlay API to bypass CORS restrictions
+    if (url.pathname.startsWith('/api/danmaku/comment/')) {
+      const episodeId = url.pathname.replace('/api/danmaku/comment/', '');
+      if (!episodeId) {
+        return jsonResponse({ error: '缺少 episodeId' }, 400, origin);
+      }
+
+      try {
+        const dandanUrl = `https://api.dandanplay.net/api/v2/comment/${encodeURIComponent(episodeId)}?withRelated=true&chConvert=1`;
+        const res = await fetch(dandanUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'ANISpace-Proxy/1.0',
+          },
+        });
+
+        const data = await res.text();
+        return new Response(data, {
+          status: res.status,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': origin || '*',
+            'Cache-Control': 'public, max-age=300', // Cache 5 minutes
+          },
+        });
+      } catch (err) {
+        return jsonResponse({ error: '弹幕服务异常: ' + err.message }, 502, origin);
+      }
+    }
+
     // Bangumi token 交换
     if (url.pathname === '/oauth/bangumi/token') {
       const code = url.searchParams.get('code');
