@@ -86,7 +86,7 @@ export default function Mailbox() {
 
   useEffect(() => {
     if (currentUser && mode === 'chat') loadConversations();
-  }, [loadConversations, currentUser, mode, chatInput]);
+  }, [loadConversations, currentUser, mode]);
 
   useEffect(() => {
     if (!selectedChat || !currentUser || mode !== 'chat') return;
@@ -103,7 +103,7 @@ export default function Mailbox() {
   }, [selectedChat, chatMails]);
 
   const filteredMails = useMemo(() => {
-    let mails = folder === 'inbox' ? inbox : folder === 'sent' ? sent : [...inbox, ...sent].filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
+    let mails = folder === 'inbox' ? inbox : folder === 'sent' ? sent : folder === 'starred' ? [...inbox, ...sent].filter(m => m.starred) : [...inbox, ...sent];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       mails = mails.filter(m => m.subject?.toLowerCase().includes(q) || m.content?.toLowerCase().includes(q));
@@ -125,9 +125,11 @@ export default function Mailbox() {
   }
 
   const handleSendMail = async () => {
+    if (!composeForm.to.trim()) { alert('请输入收件人'); return; }
     const toUser = UserService.search(composeForm.to);
-    const target = toUser.find(u => u.username === composeForm.to || u.name === composeForm.to);
+    const target = Array.isArray(toUser) ? toUser.find(u => u.username === composeForm.to || u.name === composeForm.to) : null;
     if (!target) { alert('未找到该用户'); return; }
+    if (target.id === currentUser.id) { alert('不能给自己发邮件'); return; }
     if (!composeForm.content.trim()) return;
     try {
       const result = await MailService.sendAsync(currentUser.id, target.id, composeForm.subject, composeForm.content, attachments);

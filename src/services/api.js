@@ -387,7 +387,7 @@ export const FriendService = {
   async sendFriendRequest(toUserId, message = '') {
     return apiRequest('/api/friends/request', {
       method: 'POST',
-      body: JSON.stringify({ toUserId, message }),
+      body: JSON.stringify({ to_user_id: toUserId, message }),
     });
   },
 
@@ -821,6 +821,15 @@ export const BangumiService = {
       result.list = result.list.map(normalizeSubject);
     }
     return result;
+  },
+
+  async searchPersons(keyword, limit = 24, offset = 0) {
+    const url = `${this.BASE_URL}/v0/persons?keyword=${encodeURIComponent(keyword)}&limit=${limit}&offset=${offset}`;
+    const cacheKey = this._cacheKey('search_persons', `${keyword}_${limit}_${offset}`);
+    const data = await this._request(url, cacheKey, true, 0, {
+      method: 'GET',
+    });
+    return data || { data: [], total: 0 };
   },
 
   async getSubjectCharacters(id) {

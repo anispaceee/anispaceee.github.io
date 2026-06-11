@@ -66,6 +66,13 @@ export default function Wiki() {
 
   const initialSearchDone = useRef(false);
 
+  // 类型切换时自动重新搜索
+  useEffect(() => {
+    if (hasSearched && query.trim()) {
+      handleSearch(1, query, activeType);
+    }
+  }, [activeType]);
+
   // 从 URL 参数初始化搜索
   useEffect(() => {
     if (!initialSearchDone.current) {
@@ -130,16 +137,12 @@ export default function Wiki() {
       try {
         const typeOption = TYPE_OPTIONS.find(t => t.key === activeType);
         if (typeOption?.typeCode === 'person') {
-          const res = await fetch(`https://api.bgm.tv/v0/persons?keyword=${encodeURIComponent(value)}&limit=8&offset=0`, {
-            headers: { 'User-Agent': 'ANISpace/1.0' },
-          });
-          if (!res.ok) throw new Error('API Error');
-          const data = await res.json();
+          const data = await BangumiService.searchPersons(value, 8, 0);
           setLiveResults((data.data || []).map(item => ({
             ...item,
             type: 'person',
             name_cn: item.name || item.short_summary || '',
-            images: { common: item.images?.common || item.images?.medium || '' },
+            images: { large: item.images?.large || '', common: item.images?.common || item.images?.medium || '' },
             rating: { score: 0, total: 0 },
           })));
         } else {
@@ -176,19 +179,16 @@ export default function Wiki() {
       const typeOption = TYPE_OPTIONS.find(t => t.key === type);
 
       if (typeOption?.typeCode === 'person') {
-        const res = await fetch(`https://api.bgm.tv/v0/persons?keyword=${encodeURIComponent(q)}&limit=${PAGE_SIZE}&offset=${offset}`);
-        if (res.ok) {
-          const data = await res.json();
-          const results = data.data || [];
-          setResults(results.map(item => ({
-            ...item,
-            type: 'person',
-            name_cn: item.name || item.short_summary || '',
-            images: { common: item.images?.common || item.images?.medium || '' },
-            rating: { score: 0, total: 0 },
-          })));
-          setTotal(data.total || results.length);
-        }
+        const data = await BangumiService.searchPersons(q, PAGE_SIZE, offset);
+        const personResults = data.data || [];
+        setResults(personResults.map(item => ({
+          ...item,
+          type: 'person',
+          name_cn: item.name || item.short_summary || '',
+          images: { large: item.images?.large || '', common: item.images?.common || item.images?.medium || '' },
+          rating: { score: 0, total: 0 },
+        })));
+        setTotal(data.total || personResults.length);
       } else {
         const typeCode = typeOption?.typeCode || 0;
         const result = await BangumiService.searchSubjects(q, typeCode, PAGE_SIZE, offset);
@@ -204,20 +204,7 @@ export default function Wiki() {
   }, [query, activeType]);
 
   const openMoegirl = (name) => {
-    window.open(`https://mzh.moegirl.org.cn/index.php?search=${encodeURIComponent(name)}`, '_blank');
-  };
-
-  const handleWatchAction = (item) => {
-    const typeCode = item.type || 2;
-    const name = item.name_cn || item.name || '';
-
-    if (typeCode === 4) {
-      window.open(`https://www.touchgal.top/search?keyword=${encodeURIComponent(name)}`, '_blank', 'noopener,noreferrer');
-    } else if (typeCode === 2) {
-      navigate(`/video?play=bgm_${item.id}&type=anime&bgm_id=${item.id}&bgm_name=${encodeURIComponent(name)}`);
-    } else if (typeCode === 1) {
-      navigate(`/video?play=bgm_${item.id}&type=novel&bgm_id=${item.id}&bgm_name=${encodeURIComponent(name)}`);
-    }
+    window.open(`https://mzh.moegirl.org.cn/index.php?search=${encodeURIComponent(name)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleHistoryClick = (keyword) => {
@@ -277,16 +264,11 @@ export default function Wiki() {
                 ) : liveResults.length > 0 ? (
                   <>
                     {liveResults.map((item, idx) => {
-                      const cover = item.images?.common || item.images?.medium || '';
+                      const cover = item.images?.large || item.images?.common || item.images?.medium || '';
                       const name = item.name_cn || item.name || '';
                       const isPerson = item.type === 'person';
-                      return (
-                        <Link
-                          key={item.id}
-                          to={isPerson ? '#' : `/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
-                          className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
-                          onClick={() => { setShowLiveResults(false); if (isPerson) openMoegirl(name); }}
-                        >
+                      const inner = (
+                        <>
                           {isPerson ? (
                             <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                           ) : (
@@ -300,6 +282,24 @@ export default function Wiki() {
                               {isPerson && item.short_summary && <span className="wiki-live-summary">{item.short_summary.slice(0, 30)}...</span>}
                             </div>
                           </div>
+                        </>
+                      );
+                      return isPerson ? (
+                        <div
+                          key={item.id}
+                          className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
+                          onClick={() => { setShowLiveResults(false); openMoegirl(name); }}
+                        >
+                          {inner}
+                        </div>
+                      ) : (
+                        <Link
+                          key={item.id}
+                          to={`/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
+                          className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
+                          onClick={() => setShowLiveResults(false)}
+                        >
+                          {inner}
                         </Link>
                       );
                     })}
@@ -382,16 +382,11 @@ export default function Wiki() {
               ) : liveResults.length > 0 ? (
                 <>
                   {liveResults.map((item, idx) => {
-                    const cover = item.images?.common || item.images?.medium || '';
+                    const cover = item.images?.large || item.images?.common || item.images?.medium || '';
                     const name = item.name_cn || item.name || '';
                     const isPerson = item.type === 'person';
-                    return (
-                      <Link
-                        key={item.id}
-                        to={isPerson ? '#' : `/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
-                        className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
-                        onClick={() => { setShowLiveResults(false); if (isPerson) openMoegirl(name); }}
-                      >
+                    const inner = (
+                      <>
                         {isPerson ? (
                           <img src={cover || FALLBACK_IMG} alt="" className="wiki-live-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                         ) : (
@@ -405,6 +400,24 @@ export default function Wiki() {
                             {isPerson && item.short_summary && <span className="wiki-live-summary">{item.short_summary.slice(0, 30)}...</span>}
                           </div>
                         </div>
+                      </>
+                    );
+                    return isPerson ? (
+                      <div
+                        key={item.id}
+                        className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
+                        onClick={() => { setShowLiveResults(false); openMoegirl(name); }}
+                      >
+                        {inner}
+                      </div>
+                    ) : (
+                      <Link
+                        key={item.id}
+                        to={`/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
+                        className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
+                        onClick={() => setShowLiveResults(false)}
+                      >
+                        {inner}
                       </Link>
                     );
                   })}
@@ -439,7 +452,7 @@ export default function Wiki() {
 
             if (isPerson) {
               const name = item.name_cn || item.name || '';
-              const cover = item.images?.common || item.images?.medium || '';
+              const cover = item.images?.large || item.images?.common || item.images?.medium || '';
               return (
                 <div key={item.id} className="wiki-card wiki-card-person glass-card">
                   <div className="wiki-card-cover-link">

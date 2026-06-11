@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { AuthService, NotificationService } from '../services/api';
+import { AuthService, NotificationService, MailService } from '../services/api';
 
 const AppContext = createContext();
 
@@ -7,12 +7,16 @@ export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => AuthService.getCurrentUser());
   const [isAuthenticated, setIsAuthenticated] = useState(() => AuthService.isAuthenticated());
   const [notifications, setNotifications] = useState([]);
+  const [mailUnreadCount, setMailUnreadCount] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       NotificationService.getUnreadAsync(currentUser.id).then(unread => {
         setNotifications(Array.isArray(unread) ? unread : []);
+      }).catch(() => {});
+      MailService.getUnreadCountAsync(currentUser.id).then(data => {
+        setMailUnreadCount(typeof data === 'object' ? (data.unread || 0) : (data || 0));
       }).catch(() => {});
     }
   }, [currentUser]);
@@ -54,6 +58,7 @@ export function AppProvider({ children }) {
       currentUser,
       isAuthenticated,
       notifications,
+      mailUnreadCount,
       showAuthModal,
       oauthLogin,
       logout,
@@ -62,6 +67,7 @@ export function AppProvider({ children }) {
       closeAuth,
       refreshUser,
       setNotifications,
+      setMailUnreadCount,
     }}>
       {children}
     </AppContext.Provider>

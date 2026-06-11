@@ -14,7 +14,7 @@ const navItems = [
 ];
 
 export default function Header() {
-  const { currentUser, isAuthenticated, logout, openAuth, notifications } = useApp();
+  const { currentUser, isAuthenticated, logout, openAuth, notifications, mailUnreadCount } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -68,6 +68,7 @@ export default function Header() {
                 </Link>
                 <Link to="/mailbox" className="header-icon-btn" title="D-Mail">
                   <Mail size={18} />
+                  {mailUnreadCount > 0 && <span className="notification-dot">{mailUnreadCount}</span>}
                 </Link>
                 <Link to="/profile" className="header-user">
                   <img src={currentUser?.avatar} alt="" className="user-avatar" />

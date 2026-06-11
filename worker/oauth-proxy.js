@@ -537,6 +537,11 @@ async function handleApiRoutes(pathname, request, env, origin) {
     if (method === 'GET') {
       const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, following_count, follower_count FROM users WHERE id = ?').bind(userId).first();
       if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+      // 动态计算好友数
+      const friendCount = await env.DB.prepare(
+        "SELECT COUNT(*) AS cnt FROM friend_requests WHERE (from_user_id = ? OR to_user_id = ?) AND status = 'accepted'"
+      ).bind(userId, userId).first();
+      user.friend_count = friendCount?.cnt || 0;
       return jsonResponse(user, 200, origin);
     }
 
@@ -571,11 +576,16 @@ async function handleApiRoutes(pathname, request, env, origin) {
     const userId = Number(userProfileMatch[1]);
     const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, allow_profile_view, allow_comments_public, follower_count, following_count FROM users WHERE id = ?').bind(userId).first();
     if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+    // 动态计算好友数
+    const friendCount = await env.DB.prepare(
+      "SELECT COUNT(*) AS cnt FROM friend_requests WHERE (from_user_id = ? OR to_user_id = ?) AND status = 'accepted'"
+    ).bind(userId, userId).first();
+    user.friend_count = friendCount?.cnt || 0;
     const authUser = await getAuthUser(request, env);
     if (!authUser || authUser.userId !== userId) {
       if (!user.allow_profile_view) {
         // 只返回基本信息，不返回标记等详细数据
-        return jsonResponse({ id: user.id, name: user.name, avatar: user.avatar, private: true }, 200, origin);
+        return jsonResponse({ id: user.id, name: user.name, avatar: user.avatar, friend_count: user.friend_count, private: true }, 200, origin);
       }
     }
     return jsonResponse(user, 200, origin);
@@ -974,7 +984,19 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(requests.results, 200, origin);
   }
 
-  // GET /api/friends/requests — 获取收到的好友请求（需认证）
+  // GET /api/friends/requests/received — 获取收到的好友请求（需认证，需在 /requests 之前匹配）
+  if (method === 'GET' && pathname === '/api/friends/requests/received') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const requests = await env.DB.prepare(
+      "SELECT fr.*, u.name AS from_user_name, u.avatar AS from_user_avatar, u.username AS from_user_username FROM friend_requests fr JOIN users u ON fr.from_user_id = u.id WHERE fr.to_user_id = ? AND fr.status = 'pending' ORDER BY fr.created_at DESC"
+    ).bind(authUser.userId).all();
+
+    return jsonResponse(requests.results, 200, origin);
+  }
+
+  // GET /api/friends/requests — 获取收到的好友请求（需认证，兼容旧路径）
   if (method === 'GET' && pathname === '/api/friends/requests') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
@@ -1070,7 +1092,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     let requestStatus = 'none';
     let isFriend = false;
+    let requestId = null;
     if (friendRequest) {
+      requestId = friendRequest.id;
       if (friendRequest.status === 'accepted') {
         isFriend = true;
         requestStatus = 'accepted';
@@ -1081,7 +1105,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       }
     }
 
-    return jsonResponse({ isFriend, isFollowing, isFollower, requestStatus }, 200, origin);
+    return jsonResponse({ isFriend, isFollowing, isFollower, requestStatus, requestId }, 200, origin);
   }
 
   // DELETE /api/friends/:userId — 删除好友（需认证）
@@ -1097,8 +1121,36 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     if (!friendRequest) return jsonResponse({ error: '不是好友关系' }, 404, origin);
 
-    await env.DB.prepare('DELETE FROM friend_requests WHERE id = ?').bind(friendRequest.id).run();
+    // 删除好友请求记录 + 解除双向关注 + 更新计数
+    const batch = [
+      env.DB.prepare('DELETE FROM friend_requests WHERE id = ?').bind(friendRequest.id),
+    ];
 
+    // 检查并删除 我→对方 的关注
+    const follow1 = await env.DB.prepare(
+      'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+    ).bind(authUser.userId, targetUserId).first();
+    if (follow1) {
+      batch.push(
+        env.DB.prepare('DELETE FROM follows WHERE id = ?').bind(follow1.id),
+        env.DB.prepare('UPDATE users SET following_count = MAX(0, following_count - 1) WHERE id = ?').bind(authUser.userId),
+        env.DB.prepare('UPDATE users SET follower_count = MAX(0, follower_count - 1) WHERE id = ?').bind(targetUserId),
+      );
+    }
+
+    // 检查并删除 对方→我 的关注
+    const follow2 = await env.DB.prepare(
+      'SELECT id FROM follows WHERE from_user_id = ? AND to_user_id = ?'
+    ).bind(targetUserId, authUser.userId).first();
+    if (follow2) {
+      batch.push(
+        env.DB.prepare('DELETE FROM follows WHERE id = ?').bind(follow2.id),
+        env.DB.prepare('UPDATE users SET following_count = MAX(0, following_count - 1) WHERE id = ?').bind(targetUserId),
+        env.DB.prepare('UPDATE users SET follower_count = MAX(0, follower_count - 1) WHERE id = ?').bind(authUser.userId),
+      );
+    }
+
+    await env.DB.batch(batch);
     return jsonResponse({ message: '已删除好友' }, 200, origin);
   }
 
@@ -1391,10 +1443,12 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
   // ── Mails API ──
 
-  // GET /api/mails/unread?userId=xxx — 未读邮件数
+  // GET /api/mails/unread?userId=xxx — 未读邮件数（需认证）
   if (method === 'GET' && pathname === '/api/mails/unread') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     const userId = new URL(request.url).searchParams.get('userId');
-    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+    if (!userId || Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
     const result = await env.DB.prepare(
       'SELECT COUNT(*) AS unread FROM mails WHERE to_user_id = ? AND read = 0 AND deleted_by_receiver = 0'
@@ -1403,10 +1457,12 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse({ unread: result.unread }, 200, origin);
   }
 
-  // GET /api/mails/inbox?userId=xxx — 收件箱
+  // GET /api/mails/inbox?userId=xxx — 收件箱（需认证）
   if (method === 'GET' && pathname === '/api/mails/inbox') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     const userId = new URL(request.url).searchParams.get('userId');
-    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+    if (!userId || Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
     const mails = await env.DB.prepare(
       'SELECT m.*, u.name AS from_user_name, u.avatar AS from_user_avatar FROM mails m JOIN users u ON m.from_user_id = u.id WHERE m.to_user_id = ? AND m.deleted_by_receiver = 0 ORDER BY m.created_at DESC'
@@ -1415,10 +1471,12 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(mails.results, 200, origin);
   }
 
-  // GET /api/mails/sent?userId=xxx — 发件箱
+  // GET /api/mails/sent?userId=xxx — 发件箱（需认证）
   if (method === 'GET' && pathname === '/api/mails/sent') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     const userId = new URL(request.url).searchParams.get('userId');
-    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+    if (!userId || Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
     const mails = await env.DB.prepare(
       'SELECT m.*, u.name AS to_user_name, u.avatar AS to_user_avatar FROM mails m JOIN users u ON m.to_user_id = u.id WHERE m.from_user_id = ? AND m.deleted_by_sender = 0 ORDER BY m.created_at DESC'
@@ -1427,11 +1485,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(mails.results, 200, origin);
   }
 
-  // GET /api/mails/conversation?userId=xxx&otherUserId=yyy — 两人之间的邮件
+  // GET /api/mails/conversation?userId=xxx&otherUserId=yyy — 两人之间的邮件（需认证）
   if (method === 'GET' && pathname === '/api/mails/conversation') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     const userId = new URL(request.url).searchParams.get('userId');
     const otherUserId = new URL(request.url).searchParams.get('otherUserId');
     if (!userId || !otherUserId) return jsonResponse({ error: '缺少 userId 或 otherUserId 参数' }, 400, origin);
+    if (Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
     const mails = await env.DB.prepare(
       'SELECT m.*, u1.name AS from_user_name, u2.name AS to_user_name FROM mails m JOIN users u1 ON m.from_user_id = u1.id JOIN users u2 ON m.to_user_id = u2.id WHERE ((m.from_user_id = ? AND m.to_user_id = ? AND m.deleted_by_sender = 0) OR (m.from_user_id = ? AND m.to_user_id = ? AND m.deleted_by_receiver = 0)) ORDER BY m.created_at ASC'
@@ -1501,6 +1562,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       const body = await request.json();
       const { toUserId, subject, content, attachments } = body;
       if (!toUserId || !content) return jsonResponse({ error: '缺少 toUserId 或 content' }, 400, origin);
+      if (Number(toUserId) === authUser.userId) return jsonResponse({ error: '不能给自己发邮件' }, 400, origin);
 
       const result = await env.DB.prepare(
         'INSERT INTO mails (from_user_id, to_user_id, subject, content, attachments, created_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))'
@@ -1515,10 +1577,12 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
   // ── Private Messages API ──
 
-  // GET /api/private-messages/conversations?userId=xxx — 获取会话列表
+  // GET /api/private-messages/conversations?userId=xxx — 获取会话列表（需认证）
   if (method === 'GET' && pathname === '/api/private-messages/conversations') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     const userId = new URL(request.url).searchParams.get('userId');
-    if (!userId) return jsonResponse({ error: '缺少 userId 参数' }, 400, origin);
+    if (!userId || Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
     const conversations = await env.DB.prepare(
       'SELECT u.id AS other_user_id, u.name AS other_user_name, u.avatar AS other_user_avatar, pm.content AS last_message, pm.created_at AS last_message_at, (SELECT COUNT(*) FROM private_messages WHERE to_user_id = ? AND from_user_id = u.id AND read = 0) AS unread_count FROM private_messages pm JOIN users u ON (CASE WHEN pm.from_user_id = ? THEN pm.to_user_id ELSE pm.from_user_id END) = u.id WHERE pm.id IN (SELECT MAX(id) FROM private_messages WHERE from_user_id = ? OR to_user_id = ? GROUP BY CASE WHEN from_user_id = ? THEN to_user_id ELSE from_user_id END) ORDER BY pm.created_at DESC'
@@ -1527,11 +1591,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(conversations.results, 200, origin);
   }
 
-  // GET /api/private-messages/conversation?userId=xxx&otherUserId=yyy — 获取两人之间的消息
+  // GET /api/private-messages/conversation?userId=xxx&otherUserId=yyy — 获取两人之间的消息（需认证）
   if (method === 'GET' && pathname === '/api/private-messages/conversation') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     const userId = new URL(request.url).searchParams.get('userId');
     const otherUserId = new URL(request.url).searchParams.get('otherUserId');
     if (!userId || !otherUserId) return jsonResponse({ error: '缺少 userId 或 otherUserId 参数' }, 400, origin);
+    if (Number(userId) !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
     const messages = await env.DB.prepare(
       'SELECT pm.*, u.name AS from_user_name, u.avatar AS from_user_avatar FROM private_messages pm JOIN users u ON pm.from_user_id = u.id WHERE (pm.from_user_id = ? AND pm.to_user_id = ?) OR (pm.from_user_id = ? AND pm.to_user_id = ?) ORDER BY pm.created_at ASC'
@@ -2064,6 +2131,53 @@ export default {
       }
     }
 
+    // Video stream proxy: /api/video/stream?url=xxx
+    // Proxies video stream (m3u8/ts/mp4) to bypass CORS restrictions
+    if (url.pathname === '/api/video/stream') {
+      const streamUrl = url.searchParams.get('url');
+      if (!streamUrl) {
+        return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
+      }
+
+      // SSRF protection
+      if (!isSafeTargetUrl(streamUrl)) {
+        return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
+      }
+
+      try {
+        const res = await fetch(streamUrl, {
+          headers: {
+            'User-Agent': 'ANISpace/1.0',
+            'Accept': '*/*',
+          },
+        });
+
+        const contentType = res.headers.get('Content-Type') || 'application/octet-stream';
+        const resHeaders = new Headers();
+        resHeaders.set('Content-Type', contentType);
+        resHeaders.set('Access-Control-Allow-Origin', origin || '*');
+        resHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        resHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        resHeaders.set('Cache-Control', 'public, max-age=3600');
+
+        // For m3u8 playlists, rewrite relative URLs to go through proxy
+        if (contentType.includes('mpegurl') || streamUrl.endsWith('.m3u8')) {
+          const text = await res.text();
+          const baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf('/') + 1);
+          const rewritten = text.replace(/^(?!https?:\/\/)([^\s#]+)/gm, (match) => {
+            const absoluteUrl = baseUrl + match;
+            return `/api/video/stream?url=${encodeURIComponent(absoluteUrl)}`;
+          });
+          return new Response(rewritten, { status: res.status, headers: resHeaders });
+        }
+
+        // For binary streams (ts, mp4, etc.), pass through directly
+        return new Response(res.body, { status: res.status, headers: resHeaders });
+      } catch (err) {
+        return jsonResponse({ error: '视频流代理请求失败' }, 500, origin);
+      }
+    }
+
     // Video source proxy: /api/video/proxy
     // Proxies requests to MacCMS API sources to avoid CORS issues
     if (url.pathname === '/api/video/proxy') {
@@ -2085,6 +2199,17 @@ export default {
         return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
       }
 
+      // Check cache first
+      const cache = caches.default;
+      const cacheKey = new Request(targetUrl, { method: 'GET' });
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        const headers = new Headers(cached.headers);
+        headers.set('X-Cache', 'HIT');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+        return new Response(cached.body, { status: cached.status, headers });
+      }
+
       try {
         const res = await fetch(targetUrl, {
           headers: {
@@ -2093,13 +2218,25 @@ export default {
           },
         });
         const body = await res.text();
-        return new Response(body, {
-          status: res.status,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders(origin),
-          },
-        });
+
+        const resHeaders = new Headers();
+        resHeaders.set('Content-Type', 'application/json');
+        resHeaders.set('X-Cache', 'MISS');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+        // Cache successful responses for 5 minutes
+        if (res.ok) {
+          const cacheResponse = new Response(body, {
+            status: res.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': `public, max-age=${CACHE_TTL_SHORT}`,
+            },
+          });
+          try { await cache.put(cacheKey, cacheResponse); } catch {}
+        }
+
+        return new Response(body, { status: res.status, headers: resHeaders });
       } catch (err) {
         return jsonResponse({ error: '视频源代理请求失败' }, 500, origin);
       }
