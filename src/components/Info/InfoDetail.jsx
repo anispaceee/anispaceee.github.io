@@ -455,53 +455,84 @@ export default function InfoDetail() {
     const isOffline = errCode === 'OFFLINE';
     const isNotFound = errCode === 'NOT_FOUND';
 
-    // NSFW 条目：有 preview 数据时显示部分信息 + 限制级提示
+    // NSFW 条目：有 preview 数据时显示与正常详情页相同布局 + 限制级提示
     if (isNotFound && preview) {
       const previewName = preview.name_cn || preview.name || '';
       const previewCover = preview.image || preview.images?.large || preview.images?.common || '';
       const previewTypeLabel = TYPE_LABELS[preview.type] || '其他';
+      const previewTypeKey = preview.type === 1 ? 'novel' : preview.type === 3 ? 'music' : preview.type === 4 ? 'game' : preview.type === 6 ? 'real' : 'anime';
+      const PreviewTypeIcon = TYPE_ICONS[preview.type] || Tv;
       return (
         <div className="info-detail-page animate-fade-in">
           {previewCover && (
             <div className="detail-page-background">
               <div style={{ backgroundImage: `url(${previewCover})`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'absolute', inset: 0 }} />
-              <div className="detail-bg-overlay" style={{ opacity: 0.7 }} />
+              <img src={previewCover} alt="" style={{ display: 'none' }} onError={() => {}} />
+              <div className="detail-bg-overlay" style={{ opacity: 0.35 }} />
               <div className="detail-bg-blur" />
             </div>
           )}
           <div className="detail-hero">
             <h1 className="detail-hero-title">{previewName}</h1>
           </div>
-          <div className="detail-content">
-            <div className="detail-main">
-              <div className="detail-info-card glass-card">
-                {previewCover && (
-                  <div className="detail-cover-section">
-                    <CoverImg src={previewCover} alt={previewName} />
+          <div className="detail-container" style={{ opacity: 1, transform: 'none' }}>
+            <div className="detail-breadcrumb">
+              <Link to="/info" className="breadcrumb-link">资讯区</Link>
+              <ChevronRight size={14} />
+              <span className={`breadcrumb-type type-${previewTypeKey}`}>{previewTypeLabel}</span>
+              <ChevronRight size={14} />
+              <span className="breadcrumb-current">{previewName}</span>
+            </div>
+
+            <div className="detail-two-column">
+              <aside className="detail-sidebar">
+                {previewCover && <CoverImg src={previewCover} alt={previewName} />}
+
+                <div className="detail-sidebar-actions">
+                  <a href={`https://bgm.tv/subject/${id}`} target="_blank" rel="noopener noreferrer" className="detail-watch-btn" style={{ textDecoration: 'none' }}>
+                    <ExternalLink size={16} /> 在Bangumi查看
+                  </a>
+                  <div className="detail-action-row">
+                    <Link to="/info" className="detail-action-btn"><ArrowLeft size={15} /> 返回</Link>
                   </div>
-                )}
-                <div className="detail-info-body">
-                  <h2 className="detail-title">{previewName}</h2>
+                </div>
+              </aside>
+
+              <main className="detail-main">
+                <div className="detail-title-section">
+                  <div className="detail-title-row">
+                    <span className={`detail-type-badge type-${previewTypeKey}`}><PreviewTypeIcon size={13} /> {previewTypeLabel}</span>
+                  </div>
+                  <h1 className="detail-title">{previewName}</h1>
                   {preview.name && preview.name_cn && preview.name !== preview.name_cn && (
                     <p className="detail-original-name">{preview.name}</p>
                   )}
-                  <span className="detail-type-badge">{previewTypeLabel}</span>
-                  <div className="detail-nsfw-notice">
-                    <ShieldOff size={20} />
-                    <div>
-                      <h3>限制级内容</h3>
-                      <p>该内容为限制级内容，详细信息无法显示。请前往 Bangumi 查看完整内容。</p>
-                      <p className="detail-nsfw-hint">未来绑定 Bangumi 账号后可直接查看</p>
-                    </div>
-                  </div>
-                  <div className="detail-error-actions" style={{ marginTop: '1rem' }}>
-                    <a href={`https://bgm.tv/subject/${id}`} target="_blank" rel="noopener noreferrer" className="detail-error-bangumi">
-                      <ExternalLink size={16} /> 在Bangumi查看
-                    </a>
-                    <Link to="/info" className="detail-error-back"><ArrowLeft size={16} /> 返回</Link>
+                </div>
+
+                <div className="detail-nsfw-notice">
+                  <ShieldOff size={24} />
+                  <div>
+                    <h3>限制级内容</h3>
+                    <p>该内容为限制级内容，详细信息无法显示。请前往 Bangumi 查看完整内容。</p>
+                    <p className="detail-nsfw-hint">未来绑定 Bangumi 账号后可直接查看</p>
                   </div>
                 </div>
-              </div>
+
+                <div className="detail-tabs">
+                  <div className="detail-tabs-header">
+                    <button className="detail-tab active">简介</button>
+                    <button className="detail-tab" disabled>出场角色</button>
+                    <button className="detail-tab" disabled>评论区</button>
+                  </div>
+                  <div className="detail-tab-content">
+                    <div className="detail-summary-section">
+                      <div className="detail-summary-text" style={{ color: 'var(--text-quaternary)', fontStyle: 'italic' }}>
+                        限制级内容，详细信息不可用
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </main>
             </div>
           </div>
         </div>
