@@ -415,6 +415,7 @@ export default function InfoDetail() {
     { id: 'gog', name: 'GOG', icon: '💿', searchUrl: (name) => `https://www.gog.com/en/games?query=${encodeURIComponent(name)}` },
     { id: 'tap', name: 'TapTap', icon: '📱', searchUrl: (name) => `https://www.taptap.cn/search/${encodeURIComponent(name)}` },
     { id: 'touchgal', name: 'TouchGal', icon: '🌸', searchUrl: (name) => `https://www.touchgal.ink/search?keyword=${encodeURIComponent(name)}` },
+    { id: 'shinnku', name: '真红小站', icon: '🔴', searchUrl: (name) => `https://www.shinnku.com/search?q=${encodeURIComponent(name)}` },
   ];
 
   const NOVEL_SOURCES = [
