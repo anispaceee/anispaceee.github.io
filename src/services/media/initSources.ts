@@ -7,6 +7,9 @@ import { LocalCacheSourceFactory } from './sources/LocalCacheSource';
 
 let initialized = false;
 
+// 已知失效的源 ID，需要从 localStorage 中清理
+const DEPRECATED_SOURCE_IDS = ['kuapi', 'guangsu', 'sdzy'];
+
 export function initMediaSources(): void {
   if (initialized) return;
   initialized = true;
@@ -16,6 +19,15 @@ export function initMediaSources(): void {
   mediaSourceManager.registerFactory(new DmhySourceFactory());
   mediaSourceManager.registerFactory(new MikanSourceFactory());
   mediaSourceManager.registerFactory(new LocalCacheSourceFactory());
+
+  // Clean up deprecated sources from localStorage
+  for (const depId of DEPRECATED_SOURCE_IDS) {
+    const existing = mediaSourceManager.getRegistrations();
+    if (existing.some(r => r.sourceId === depId)) {
+      mediaSourceManager.removeRegistration(depId);
+      console.log(`[MediaSource] 清理失效源: ${depId}`);
+    }
+  }
 
   const existing = mediaSourceManager.getRegistrations();
   const existingIds = new Set(existing.map(r => r.sourceId));
@@ -66,4 +78,6 @@ export function initMediaSources(): void {
       enabled: true,
     });
   }
+
+  console.log('[MediaSource] 初始化完成, 已注册源:', mediaSourceManager.getRegistrations().map(r => r.sourceId));
 }
