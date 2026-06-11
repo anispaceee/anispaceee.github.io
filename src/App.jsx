@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { lazy, Suspense, useState, useEffect, useCallback, Component } from 'react'
+import { lazy, Suspense, Component } from 'react'
 import Layout from './components/Layout/Layout'
 import HomePage from './pages/HomePage'
 import OAuthCallback from './pages/OAuthCallback'
@@ -107,20 +107,6 @@ function WindowLayer() {
 }
 
 function AppInner() {
-  const [live2dVisible, setLive2dVisible] = useState(true);
-  const { windows } = useWindowManager();
-
-  const handleToggleLive2D = useCallback(() => {
-    setLive2dVisible(prev => !prev);
-  }, []);
-
-  const anyWindowOpen = Object.values(windows).some(w => w.open && !w.minimized);
-
-  useEffect(() => {
-    if (anyWindowOpen) setLive2dVisible(false);
-    else setLive2dVisible(true);
-  }, [anyWindowOpen]);
-
   return (
     <>
       <Routes>
@@ -152,13 +138,10 @@ function AppInner() {
       </Routes>
       <AuthModal />
       <FireworkEffect />
-      {live2dVisible && <Live2DWidget />}
+      <Live2DWidget />
       <WindowLayer />
       <MiniPlayer />
-      <DockBar
-        live2dVisible={live2dVisible}
-        onToggleLive2D={handleToggleLive2D}
-      />
+      <DockBar />
     </>
   )
 }

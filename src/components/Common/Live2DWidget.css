@@ -1,41 +1,126 @@
 .live2d-widget {
   position: fixed;
-  bottom: 20px;
+  bottom: 0;
   right: 20px;
   z-index: 200;
   pointer-events: auto;
-}
-
-.live2d-controls {
   display: flex;
-  justify-content: flex-end;
-  gap: 4px;
-  margin-bottom: 4px;
+  align-items: flex-end;
+  gap: 0;
+  transition: bottom 0.3s ease;
 }
 
-.live2d-ctrl-btn {
+/* 对话气泡 */
+.live2d-tip {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 260px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  animation: live2d-tip-in 0.3s ease-out;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.live2d-tip::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .live2d-tip {
+  background: rgba(40, 40, 50, 0.95);
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .live2d-tip::after {
+  border-top-color: rgba(40, 40, 50, 0.95);
+}
+
+@keyframes live2d-tip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* 工具栏 - 竖排在看板娘左侧 */
+.live2d-tool {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.live2d-widget:hover .live2d-tool {
+  opacity: 1;
+}
+
+.live2d-tool-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
   color: var(--text-tertiary);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  font-size: 12px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(255,255,255,0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.live2d-ctrl-btn:hover {
+.live2d-tool-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.live2d-tool-btn:hover {
   background: var(--primary);
   color: #fff;
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(232, 134, 162, 0.3);
 }
 
+.live2d-tool-quit:hover {
+  background: #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="dark"] .live2d-tool-btn {
+  background: rgba(50, 50, 60, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #aaa;
+}
+
+[data-theme="dark"] .live2d-tool-btn:hover {
+  color: #fff;
+}
+
+/* 模型切换列表 */
 .live2d-switcher {
   position: absolute;
   bottom: 100%;
@@ -44,12 +129,28 @@
   background: rgba(255, 255, 255, 0.96);
   border-radius: var(--radius-md);
   padding: 8px;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 100px;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  animation: live2d-switcher-in 0.2s ease-out;
+}
+
+[data-theme="dark"] .live2d-switcher {
+  background: rgba(40, 40, 50, 0.96);
+}
+
+@keyframes live2d-switcher-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .live2d-switch-btn {
@@ -73,20 +174,15 @@
   font-weight: 600;
 }
 
+/* Canvas 区域 */
 .live2d-canvas-wrap {
   position: relative;
 }
 
 .live2d-canvas {
   display: block;
-  border-radius: var(--radius-lg);
   background: transparent;
   cursor: pointer;
-  transition: transform var(--transition-fast);
-}
-
-.live2d-canvas:hover {
-  transform: scale(1.02);
 }
 
 .live2d-loading {
@@ -98,6 +194,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.85);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
@@ -109,7 +206,6 @@
 }
 
 .live2d-retry-btn {
-  margin-top: 6px;
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   background: var(--primary);
@@ -123,29 +219,38 @@
   background: var(--primary-hover);
 }
 
-.live2d-restore-btn {
+/* 关闭后的恢复按钮 */
+.live2d-toggle {
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 200;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  padding: 8px 16px;
+  border-radius: 20px;
   background: var(--primary);
   color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(232, 134, 162, 0.3);
   transition: all var(--transition-fast);
-  letter-spacing: -0.5px;
+  animation: live2d-toggle-in 0.3s ease-out;
 }
 
-.live2d-restore-btn:hover {
-  transform: scale(1.1);
-  background: var(--primary-hover);
+.live2d-toggle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(232, 134, 162, 0.4);
+}
+
+@keyframes live2d-toggle-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse {
@@ -155,7 +260,6 @@
 
 @media (max-width: 768px) {
   .live2d-widget {
-    bottom: 10px;
     right: 10px;
   }
 

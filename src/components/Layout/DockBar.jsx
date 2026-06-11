@@ -3,11 +3,11 @@ import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
-import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Eye, EyeOff, Brain, Users, ChevronUp, Bell, Gamepad2 } from 'lucide-react';
+import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2 } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import './DockBar.css';
 
-export default function DockBar({ live2dVisible, onToggleLive2D }) {
+export default function DockBar() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
   const { windows, openWindow, focusWindow } = useWindowManager();
   const { currentSong, playing, volume, muted, togglePlay, playNext, playPrev, setVolume } = useMusic();
@@ -149,12 +149,6 @@ export default function DockBar({ live2dVisible, onToggleLive2D }) {
                   </div>
                 </div>
                 <div className="dock-setting-group">
-                  <label>Live2D 看板娘</label>
-                  <button className="dock-setting-toggle" onClick={onToggleLive2D}>
-                    {live2dVisible ? <><Eye size={14} /> 显示中</> : <><EyeOff size={14} /> 已隐藏</>}
-                  </button>
-                </div>
-                <div className="dock-setting-group">
                   <label>账户</label>
                   {isAuthenticated ? (
                     <div className="dock-account-info">
@@ -199,12 +193,6 @@ export default function DockBar({ live2dVisible, onToggleLive2D }) {
             <div className="dock-panel-content">
               <div className="dock-panel-header"><h3>Live2D 配置</h3><button onClick={() => setActivePanel(null)}><X size={14} /></button></div>
               <div className="dock-live2d">
-                <div className="dock-setting-group">
-                  <label>显示状态</label>
-                  <button className="dock-setting-toggle" onClick={onToggleLive2D}>
-                    {live2dVisible ? <><Eye size={14} /> 显示</> : <><EyeOff size={14} /> 隐藏</>}
-                  </button>
-                </div>
                 <a href="/live2d" className="dock-live2d-link">打开 Live2D 展示页</a>
               </div>
             </div>
