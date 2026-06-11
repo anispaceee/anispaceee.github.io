@@ -25,12 +25,12 @@ export default function UserAvatar({ userId, src, alt, size = 40, className = ''
         showToast?.('该用户已设置隐私保护');
         return;
       }
-      navigate(`/profile/${userId}`);
+      navigate(`/user/${userId}`);
     } catch (err) {
       if (err?.private) {
         showToast?.('该用户已设置隐私保护');
       } else {
-        navigate(`/profile/${userId}`);
+        navigate(`/user/${userId}`);
       }
     }
   }, [userId, isSelf, navigate, showToast]);
