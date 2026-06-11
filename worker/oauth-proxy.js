@@ -2295,6 +2295,7 @@ export default {
 
       try {
         const res = await fetch(streamUrl, {
+          redirect: 'follow', // Follow 302/301 redirects from CDN
           headers: {
             'User-Agent': 'ANISpace/1.0',
             'Accept': '*/*',

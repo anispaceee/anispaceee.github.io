@@ -195,6 +195,10 @@ class MacCMSSource implements MediaSource {
         // 跳过没有有效 URL 的条目
         if (!ep.url || ep.url === 'undefined' || ep.url === 'null') continue;
 
+        // Filter out non-playable URLs (share pages, embed pages, etc.)
+        // Only keep direct video stream URLs (m3u8, mp4, flv, etc.)
+        if (!this.isPlayableUrl(ep.url)) continue;
+
         const media: Media = {
           mediaId: `${this.sourceId}_${item.vod_id}_${ep.name}`,
           sourceId: this.sourceId,
@@ -220,6 +224,36 @@ class MacCMSSource implements MediaSource {
         matches.push({ media, matchKind: finalKind });
       }
     }
+  }
+
+  /**
+   * Check if a URL is a direct playable video stream URL.
+   * Filters out share/embed pages that return HTML instead of video content.
+   */
+  private isPlayableUrl(url: string): boolean {
+    const lower = url.toLowerCase();
+    // Known video stream formats
+    if (lower.includes('.m3u8')) return true;
+    if (lower.endsWith('.mp4') || lower.includes('.mp4?')) return true;
+    if (lower.endsWith('.flv') || lower.includes('.flv?')) return true;
+    if (lower.endsWith('.mkv') || lower.includes('.mkv?')) return true;
+    if (lower.endsWith('.avi') || lower.includes('.avi?')) return true;
+    if (lower.endsWith('.ts') || lower.includes('.ts?')) return true;
+    // CDN video URLs with path patterns like /2026XXXX/xxx/index.m3u8
+    if (lower.includes('/index.m3u8')) return true;
+    // Known CDN video path patterns (e.g., v.lzcdn27.com/20260410/xxx/)
+    // These typically contain date-like segments and end with video content
+    if (/\/\d{6,8}\//.test(lower) && !lower.includes('/share/')) return true;
+    // Exclude known non-playable patterns
+    if (lower.includes('/share/')) return false;  // Share/embed pages
+    if (lower.includes('/player/') && !lower.includes('.m3u8')) return false;  // Player pages
+    if (lower.includes('/embed/')) return false;  // Embed pages
+    // If URL has no video extension and no known CDN pattern, skip it
+    // (likely a share page or API endpoint, not a direct stream)
+    if (!/\.(m3u8|mp4|flv|mkv|avi|ts|mov|wmv)(\?|$)/i.test(url) && !/\/\d{6,8}\//.test(lower)) {
+      return false;
+    }
+    return true;
   }
 
   private buildUrl(path: string, params: Record<string, string>): string {
