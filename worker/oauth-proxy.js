@@ -2327,6 +2327,112 @@ export default {
       }
     }
 
+    // DMHY HTML proxy: /api/video/dmhy?keyword=xxx
+    // Proxies DMHY search results to bypass CORS restrictions
+    if (url.pathname === '/api/video/dmhy') {
+      const keyword = url.searchParams.get('keyword');
+      if (!keyword) {
+        return jsonResponse({ error: '缺少 keyword 参数' }, 400, origin);
+      }
+
+      const targetUrl = `https://share.dmhy.org/topics/list?keyword=${encodeURIComponent(keyword)}`;
+
+      // Check cache first
+      const cache = caches.default;
+      const cacheKey = new Request(targetUrl, { method: 'GET' });
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        const headers = new Headers(cached.headers);
+        headers.set('X-Cache', 'HIT');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+        return new Response(cached.body, { status: cached.status, headers });
+      }
+
+      try {
+        const res = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'ANISpace/1.0',
+            'Accept': 'text/html',
+          },
+        });
+        const body = await res.text();
+
+        const resHeaders = new Headers();
+        resHeaders.set('Content-Type', 'text/html; charset=utf-8');
+        resHeaders.set('X-Cache', 'MISS');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+        // Cache successful responses for 5 minutes
+        if (res.ok) {
+          const cacheResponse = new Response(body, {
+            status: res.status,
+            headers: {
+              'Content-Type': 'text/html; charset=utf-8',
+              'Cache-Control': `public, max-age=${CACHE_TTL_SHORT}`,
+            },
+          });
+          try { await cache.put(cacheKey, cacheResponse); } catch {}
+        }
+
+        return new Response(body, { status: res.status, headers: resHeaders });
+      } catch (err) {
+        return jsonResponse({ error: 'DMHY 代理请求失败' }, 500, origin);
+      }
+    }
+
+    // Mikan RSS proxy: /api/video/mikan?searchstr=xxx
+    // Proxies Mikan RSS search results to bypass CORS restrictions
+    if (url.pathname === '/api/video/mikan') {
+      const searchstr = url.searchParams.get('searchstr');
+      if (!searchstr) {
+        return jsonResponse({ error: '缺少 searchstr 参数' }, 400, origin);
+      }
+
+      const targetUrl = `https://mikanani.me/RSS/Search?searchstr=${encodeURIComponent(searchstr)}`;
+
+      // Check cache first
+      const cache = caches.default;
+      const cacheKey = new Request(targetUrl, { method: 'GET' });
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        const headers = new Headers(cached.headers);
+        headers.set('X-Cache', 'HIT');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+        return new Response(cached.body, { status: cached.status, headers });
+      }
+
+      try {
+        const res = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'ANISpace/1.0',
+            'Accept': 'application/xml',
+          },
+        });
+        const body = await res.text();
+
+        const resHeaders = new Headers();
+        resHeaders.set('Content-Type', 'application/xml; charset=utf-8');
+        resHeaders.set('X-Cache', 'MISS');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+        // Cache successful responses for 5 minutes
+        if (res.ok) {
+          const cacheResponse = new Response(body, {
+            status: res.status,
+            headers: {
+              'Content-Type': 'application/xml; charset=utf-8',
+              'Cache-Control': `public, max-age=${CACHE_TTL_SHORT}`,
+            },
+          });
+          try { await cache.put(cacheKey, cacheResponse); } catch {}
+        }
+
+        return new Response(body, { status: res.status, headers: resHeaders });
+      } catch (err) {
+        return jsonResponse({ error: 'Mikan 代理请求失败' }, 500, origin);
+      }
+    }
+
     // 健康检查
     if (url.pathname === '/') {
       return jsonResponse({ status: 'ok', service: 'ANISpace Proxy' }, 200, origin);

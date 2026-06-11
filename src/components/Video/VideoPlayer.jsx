@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import DPlayer from 'dplayer';
 import Hls from 'hls.js';
+import WebTorrent from 'webtorrent';
 import { BangumiService } from '../../services/api';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
+import { danmakuService } from '../../services/media/DanmakuService';
 import { ArrowLeft, Play, Server, ChevronLeft, ChevronRight, Loader2, List, Layers } from 'lucide-react';
 import './VideoPlayer.css';
 
@@ -23,10 +25,13 @@ export default function VideoPlayer() {
   const [playError, setPlayError] = useState('');
   const [showEpList, setShowEpList] = useState(false);
   const [showSourceList, setShowSourceList] = useState(false);
+  const [danmakuList, setDanmakuList] = useState([]);
+  const [torrentProgress, setTorrentProgress] = useState(null); // { progress, downloadSpeed, numPeers }
 
   const playerRef = useRef(null);
   const playerContainerRef = useRef(null);
   const hlsRef = useRef(null);
+  const torrentRef = useRef(null);
   const coverRef = useRef('');
 
   // Fetch subject detail, episodes, and media matches
@@ -38,6 +43,7 @@ export default function VideoPlayer() {
       setError('');
       setCurrentMedia(null);
       setMediaMatches([]);
+      setDanmakuList([]);
 
       try {
         // 1. Fetch subject detail
@@ -76,6 +82,13 @@ export default function VideoPlayer() {
         if (cancelled) return;
         setMediaMatches(result.results || []);
 
+        // 4.5 Fetch danmaku using Bangumi episode ID
+        const bangumiEpId = currentEp?.id ? String(currentEp.id) : '';
+        if (bangumiEpId) {
+          const danmaku = await danmakuService.fetchDanmaku(bangumiEpId);
+          if (!cancelled) setDanmakuList(danmaku);
+        }
+
         // 5. Find the specific media by sourceId + mediaId from query params
         const matches = result.results || [];
         if (sourceId && mediaId) {
@@ -104,14 +117,16 @@ export default function VideoPlayer() {
     return () => { cancelled = true; };
   }, [subjectId, episodeId, sourceId, mediaId]);
 
-  // Initialize DPlayer when currentMedia changes
+  // Initialize DPlayer / WebTorrent when currentMedia changes
   useEffect(() => {
     if (!currentMedia?.download?.url || !playerContainerRef.current) return;
 
     const url = currentMedia.download.url;
+    const downloadKind = currentMedia.download?.kind || 'http';
     setPlayError('');
+    setTorrentProgress(null);
 
-    // Destroy old player and HLS instance
+    // Destroy old player, HLS instance, and torrent client
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -120,86 +135,173 @@ export default function VideoPlayer() {
       playerRef.current.destroy();
       playerRef.current = null;
     }
+    if (torrentRef.current) {
+      torrentRef.current.destroy();
+      torrentRef.current = null;
+    }
 
-    const isM3U8 = /\.m3u8(\?|$)/i.test(url);
+    if (downloadKind === 'magnet') {
+      // WebTorrent BT playback
+      const client = new WebTorrent();
+      torrentRef.current = client;
 
-    const dp = new DPlayer({
-      container: playerContainerRef.current,
-      video: {
-        url,
-        type: isM3U8 ? 'hls' : 'auto',
-        customType: isM3U8 ? {
-          hls: (video, src) => {
-            if (Hls.isSupported()) {
-              const hls = new Hls();
-              hls.loadSource(src);
-              hls.attachMedia(video);
-              hlsRef.current = hls;
-              hls.on(Hls.Events.ERROR, (_event, data) => {
-                if (data.fatal) {
-                  setPlayError('视频加载失败，请尝试切换播放源或剧集');
-                }
-              });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-              video.src = src;
-            }
-          },
-        } : undefined,
-        pic: coverRef.current,
-      },
-      autoplay: true,
-      theme: '#fb7299',
-      screenshot: true,
-      hotkey: true,
-      preload: 'auto',
-      volume: 0.7,
-    });
-
-    // Listen for DPlayer error events
-    dp.on('error', () => {
-      setPlayError('视频播放失败，请尝试切换播放源或剧集');
-    });
-
-    // Save playback progress
-    const progressKey = `acg_v2_progress_${subjectId}_${episodeId}_${currentMedia?.sourceId}`;
-    dp.on('timeupdate', () => {
-      const currentTime = dp.video.currentTime;
-      const duration = dp.video.duration;
-      if (duration > 0 && currentTime > 5) {
-        localStorage.setItem(progressKey, JSON.stringify({
-          time: currentTime,
-          duration,
-          updatedAt: Date.now(),
-        }));
-      }
-    });
-
-    // Restore playback progress
-    dp.on('loadedmetadata', () => {
-      try {
-        const saved = JSON.parse(localStorage.getItem(progressKey));
-        if (saved?.time && saved?.duration) {
-          const ratio = saved.time / saved.duration;
-          if (ratio > 0.05 && ratio < 0.95) {
-            dp.seek(saved.time);
-          }
+      client.add(url, (torrent) => {
+        // Find the largest video file
+        const file = torrent.files.sort((a, b) => b.length - a.length)[0];
+        if (!file) {
+          setPlayError('种子中未找到视频文件');
+          return;
         }
-      } catch {}
-    });
 
-    playerRef.current = dp;
+        // Create a video element for WebTorrent to render into
+        const container = playerContainerRef.current;
+        const videoEl = document.createElement('video');
+        videoEl.style.width = '100%';
+        videoEl.style.height = '100%';
+        videoEl.controls = true;
+        videoEl.autoplay = true;
+        container.appendChild(videoEl);
 
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
-    };
-  }, [currentMedia, subjectId, episodeId]);
+        file.renderTo(videoEl, (err) => {
+          if (err) {
+            setPlayError('视频渲染失败: ' + err.message);
+          }
+        });
+
+        // Track progress
+        torrent.on('download', () => {
+          setTorrentProgress({
+            progress: Math.round(torrent.progress * 100),
+            downloadSpeed: Math.round(torrent.downloadSpeed / 1024),
+            numPeers: torrent.numPeers,
+          });
+        });
+
+        torrent.on('error', (err) => {
+          setPlayError('种子下载失败: ' + err.message);
+        });
+      });
+
+      client.on('error', (err) => {
+        setPlayError('WebTorrent 错误: ' + err.message);
+      });
+
+      return () => {
+        if (torrentRef.current) {
+          torrentRef.current.destroy();
+          torrentRef.current = null;
+        }
+        // Remove any video elements added by WebTorrent
+        const container = playerContainerRef.current;
+        if (container) {
+          const videos = container.querySelectorAll('video:not(.dplayer-video)');
+          videos.forEach(v => v.remove());
+        }
+      };
+    } else {
+      // Existing HTTP/HLS playback logic
+      const isM3U8 = /\.m3u8(\?|$)/i.test(url);
+
+      const dp = new DPlayer({
+        container: playerContainerRef.current,
+        video: {
+          url,
+          type: isM3U8 ? 'hls' : 'auto',
+          customType: isM3U8 ? {
+            hls: (video, src) => {
+              if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(src);
+                hls.attachMedia(video);
+                hlsRef.current = hls;
+                hls.on(Hls.Events.ERROR, (_event, data) => {
+                  if (data.fatal) {
+                    setPlayError('视频加载失败，请尝试切换播放源或剧集');
+                  }
+                });
+              } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = src;
+              }
+            },
+          } : undefined,
+          pic: coverRef.current,
+        },
+        autoplay: true,
+        theme: '#fb7299',
+        screenshot: true,
+        hotkey: true,
+        preload: 'auto',
+        volume: 0.7,
+        danmaku: {
+          id: `${subjectId}_${episodeId}`,
+          maximum: 1000,
+          bottom: '10%',
+          unlimited: false,
+        },
+        apiBackend: {
+          read: (endpoint, callback) => {
+            callback({
+              data: danmakuList.map(d => ({
+                time: d.time,
+                type: d.type,
+                color: parseInt(d.color.replace('#', ''), 16),
+                author: d.author,
+                text: d.text,
+              })),
+            });
+          },
+          send: (endpoint, danmaku, callback) => {
+            callback();
+          },
+        },
+      });
+
+      // Listen for DPlayer error events
+      dp.on('error', () => {
+        setPlayError('视频播放失败，请尝试切换播放源或剧集');
+      });
+
+      // Save playback progress
+      const progressKey = `acg_v2_progress_${subjectId}_${episodeId}_${currentMedia?.sourceId}`;
+      dp.on('timeupdate', () => {
+        const currentTime = dp.video.currentTime;
+        const duration = dp.video.duration;
+        if (duration > 0 && currentTime > 5) {
+          localStorage.setItem(progressKey, JSON.stringify({
+            time: currentTime,
+            duration,
+            updatedAt: Date.now(),
+          }));
+        }
+      });
+
+      // Restore playback progress
+      dp.on('loadedmetadata', () => {
+        try {
+          const saved = JSON.parse(localStorage.getItem(progressKey));
+          if (saved?.time && saved?.duration) {
+            const ratio = saved.time / saved.duration;
+            if (ratio > 0.05 && ratio < 0.95) {
+              dp.seek(saved.time);
+            }
+          }
+        } catch {}
+      });
+
+      playerRef.current = dp;
+
+      return () => {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+        if (playerRef.current) {
+          playerRef.current.destroy();
+          playerRef.current = null;
+        }
+      };
+    }
+  }, [currentMedia, subjectId, episodeId, danmakuList]);
 
   // Group media matches by sourceId
   const sourceGroups = useMemo(() => {
@@ -338,6 +440,15 @@ export default function VideoPlayer() {
               </div>
             )}
           </div>
+
+          {/* Torrent progress info */}
+          {torrentProgress && (
+            <div className="vp-torrent-info">
+              <span>缓冲: {torrentProgress.progress}%</span>
+              <span>速度: {torrentProgress.downloadSpeed} KB/s</span>
+              <span>节点: {torrentProgress.numPeers}</span>
+            </div>
+          )}
 
           {/* Info bar below player */}
           <div className="vp-info">

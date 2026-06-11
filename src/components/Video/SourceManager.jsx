@@ -5,7 +5,7 @@ import { ConnectionStatus } from '../../services/media/types';
 import { ArrowLeft, Plus, Server, Wifi, WifiOff, Trash2, RefreshCw, Settings, Loader2, X, Check } from 'lucide-react';
 import './SourceManager.css';
 
-const DEFAULT_SOURCE_IDS = ['kuapi', 'bfzy', 'guangsu', 'sdzy'];
+const DEFAULT_SOURCE_IDS = ['kuapi', 'bfzy', 'guangsu', 'sdzy', 'dmhy', 'mikan', 'local_cache'];
 
 const CONNECTION_STATUS_TEXT = {
   [ConnectionStatus.AVAILABLE]: '连接正常',
