@@ -57,21 +57,26 @@ export default function SubjectDetail() {
       setLoading(true);
       setError('');
       try {
-        const [sub, chars, pers, eps, cmts] = await Promise.all([
-          BangumiService.getSubjectDetail(subjectId),
-          BangumiService.getSubjectCharacters(subjectId),
-          BangumiService.getSubjectPersons(subjectId),
+        // Fetch subject detail first (required)
+        const sub = await BangumiService.getSubjectDetail(subjectId);
+        if (cancelled) return;
+        setSubject(sub);
+
+        // Fetch supplementary data independently (each can fail gracefully)
+        const [chars, pers, eps, cmts] = await Promise.all([
+          BangumiService.getSubjectCharacters(subjectId).catch(() => []),
+          BangumiService.getSubjectPersons(subjectId).catch(() => []),
           BangumiService.getSubjectEpisodes(subjectId).catch(() => []),
           BangumiService.getSubjectComments(subjectId, 20, 0).catch(() => ({ comments: [] })),
         ]);
         if (cancelled) return;
-        setSubject(sub);
         setCharacters(Array.isArray(chars) ? chars : []);
         setPersons(Array.isArray(pers) ? pers : []);
         setEpisodes(Array.isArray(eps) ? eps : []);
         setComments(cmts.comments || []);
       } catch (err) {
-        if (!cancelled) setError('获取条目信息失败');
+        console.error('SubjectDetail fetch error:', err);
+        if (!cancelled) setError(`获取条目信息失败: ${err.message || '未知错误'}`);
       } finally {
         if (!cancelled) setLoading(false);
       }
