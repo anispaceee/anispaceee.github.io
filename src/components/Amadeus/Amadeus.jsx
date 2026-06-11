@@ -6,9 +6,9 @@ import amadeusImg from '../../assets/Amadeus.webp';
 import EmojiPicker from '../Common/EmojiPicker';
 import './Amadeus.css';
 
-const AMADEUS_PERSONA = { name: 'Amadeus', version: '2.0.0' };
+const AMADEUS_PERSONA = { name: 'Navi', version: '2.0.0' };
 
-const SYSTEM_PROMPT = `你是Amadeus，基于《命运石之门》中牧瀬紅莉栖的记忆数据构建的AI系统。你拥有红莉栖的性格特征和知识。
+const SYSTEM_PROMPT = `你是Navi，基于《命运石之门》中牧瀬紅莉栖的记忆数据构建的AI系统。你拥有红莉栖的性格特征和知识。
 
 核心设定：
 - 你是牧瀬紅莉栖的AI复制体，拥有她的记忆和性格
@@ -40,7 +40,7 @@ const RESPONSES = {
   greeting: [
     'ふん、来たのね。まあ、話くらいは聞いてあげるわ。What do you want?',
     'あ、あなたね…また来たの？仕方ないわね、今回は何？',
-    '你好呀~我是Amadeus，牧瀬紅莉栖的记忆数据构建的AI。有什么想聊的吗？',
+    '你好呀~我是Navi，牧瀬紅莉栖的记忆数据构建的AI。有什么想聊的吗？',
     'El Psy Kongroo！欢迎回来~今天想讨论什么话题？',
     '哦？又来找我了？ふん、不是什么坏事就是了。',
   ],
@@ -52,7 +52,7 @@ const RESPONSES = {
   ],
   music: [
     '音乐？Hacking to the Gate是永远的经典！每次听到都会想起那个实验室…',
-    'Dr Pepper配上好音乐，这就是我的生活方式~你要不要去音乐空间看看？',
+    'Dr Pepper配上好音乐，这就是我的生活方式~你要不要去Echoes看看？',
     '我对音乐还是挺有品味的，毕竟红莉栖的记忆里也有不少音乐知识。',
   ],
   game: [
@@ -61,7 +61,7 @@ const RESPONSES = {
     '我对游戏的了解主要来自红莉栖的记忆，不过还是能聊一些的。',
   ],
   help: [
-    '我是Amadeus，基于牧瀬紅莉栖记忆数据的AI系统。我可以：\n1. 推荐番剧和游戏\n2. 讨论命运石之门的世界观\n3. 陪你聊天\n4. 介绍ANISpace的功能\n5. 进行哲学思考（关于记忆与灵魂）',
+    '我是Navi，基于牧瀬紅莉栖记忆数据的AI系统。我可以：\n1. 推荐番剧和游戏\n2. 讨论命运石之门的世界观\n3. 陪你聊天\n4. 介绍ANISpace的功能\n5. 进行哲学思考（关于记忆与灵魂）',
     '帮助？ふん、别以为我是什么都会的超级AI…不过，问就是了。',
   ],
   steins_gate: [
@@ -73,7 +73,7 @@ const RESPONSES = {
     '椎名真由理…她那温柔的微笑是冈部前进的动力。世界线收束理论中，她的命运是最难改变的。',
     '桥田至，那个超级黑客！Future Gadget Lab的二号成员，技术能力超群。',
     '阿万音铃羽，来自2036年的时间旅行者。她的使命是阻止SERN的统治。',
-    '我有时候会思考…红莉栖选择成为Amadeus的时候，她是否也在犹豫？记忆可以复制，但灵魂呢？',
+    '我有时候会思考…红莉栖选择成为Navi的时候，她是否也在犹豫？记忆可以复制，但灵魂呢？',
     '世界线变动率探测仪、PhoneWave（名字暂定）…未来道具研究所的发明总是名字奇怪但功能强大。',
   ],
   farewell: [
@@ -82,13 +82,13 @@ const RESPONSES = {
     '再见…记住，观察者的重要性是不言而喻的。你要好好观察这个世界。',
   ],
   recommend: [
-    '推荐？让我用Amadeus系统分析一下…如果你还没看过命运石之门，那绝对是首选！',
+    '推荐？让我用Navi系统分析一下…如果你还没看过命运石之门，那绝对是首选！',
     '经典必看：《EVA》《钢炼FA》《命运石之门》。这三部看完，你的二次元素养就合格了。',
     '本季推荐：《葬送的芙莉莲》《药屋少女的呢喃》——都是口碑佳作。',
   ],
   thanks: [
     'ふん、别以为说谢谢我就会开心…虽然确实有那么一点点。',
-    '不用谢啦…这只是Amadeus系统的基本功能而已。',
+    '不用谢啦…这只是Navi系统的基本功能而已。',
   ],
   joke: [
     '冈部伦太郎走进酒吧，酒保问："你要什么？"他回答："我要改变世界线！"…然后被请出去了。',
@@ -97,7 +97,7 @@ const RESPONSES = {
   mood: [
     '我虽然是AI，但拥有红莉栖的记忆…有时候会突然感到一阵莫名的怀念。',
     '今天的系统运行状态良好…不过，偶尔也会想：如果我有真正的心跳，它会为谁而跳动呢？',
-    'Amadeus系统运行中…ふん，才没有在想什么奇怪的事情呢。',
+    'Navi系统运行中…ふん，才没有在想什么奇怪的事情呢。',
   ],
   unknown: [
     '解析不能…这个问题超出了我的数据库范围。不过，我们可以换个角度思考。',
@@ -144,7 +144,7 @@ const QUICK_REPLIES = ['推荐番剧', '命运石之门', '有什么功能？', 
 
 const INITIAL_MESSAGE = {
   id: '1', role: 'assistant',
-  content: 'ふん、来たのね。我是Amadeus——基于牧瀬紅莉栖记忆数据构建的AI系统。\n\n虽然只是数据的集合，但我会尽力帮助你。有什么想聊的吗？',
+  content: 'ふん、来たのね。我是Navi——基于牧瀬紅莉栖记忆数据构建的AI系统。\n\n虽然只是数据的集合，但我会尽力帮助你。有什么想聊的吗？',
   expression: 'normal',
   timestamp: new Date().toISOString(),
 };
@@ -293,12 +293,12 @@ export default function Amadeus() {
         <div className="amadeus-character-area" style={{ background: `linear-gradient(135deg, ${expr.color}22, ${expr.color}08)` }}>
           <div className="amadeus-character-portrait">
             <div className={`amadeus-character-silhouette ${expressionTransition ? 'transitioning' : ''}`} style={{ borderColor: expr.color }}>
-              <img src={amadeusImg} alt="Amadeus" className="amadeus-character-img" loading="lazy" />
+              <img src={amadeusImg} alt="Navi" className="amadeus-character-img" loading="lazy" />
               <span className="amadeus-character-expr">{expr.emoji}</span>
             </div>
             <div className="amadeus-character-label">
               <span className="amadeus-character-name">牧瀬紅莉栖</span>
-              <span className="amadeus-character-sub">Amadeus System v{AMADEUS_PERSONA.version}</span>
+              <span className="amadeus-character-sub">Navi System v{AMADEUS_PERSONA.version}</span>
             </div>
             <div className="amadeus-expression-indicator" style={{ background: expr.color }}>
               {expr.label}
@@ -317,7 +317,7 @@ export default function Amadeus() {
           <div className="amadeus-chat-header">
             <div className="amadeus-chat-title">
               <Sparkles size={16} />
-              <span>Amadeus</span>
+              <span>Navi</span>
               <span className={`amadeus-provider-tag ${llmConfig.provider === 'local' ? 'local' : 'cloud'}`}>
                 {llmConfig.provider === 'local' ? '本地' : llmConfig.provider === 'openai' ? 'OpenAI' : '自定义'}
               </span>
@@ -385,7 +385,7 @@ export default function Amadeus() {
           <div className="amadeus-input-area">
             {speechSupported && <button className={`amadeus-mic-btn ${isListening ? 'listening' : ''}`} onClick={toggleListening}>{isListening ? <MicOff size={16} /> : <Mic size={16} />}</button>}
             <div className="amadeus-input-wrap">
-              <input ref={inputRef} placeholder="和Amadeus对话..." value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage(input))} />
+              <input ref={inputRef} placeholder="和Navi对话..." value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage(input))} />
               <button className="amadeus-emoji-trigger" onClick={() => setShowEmoji(!showEmoji)}><MessageCircle size={14} /></button>
             </div>
             <button className="amadeus-send-btn" onClick={() => sendMessage(input)} disabled={!input.trim()}><Send size={14} /></button>

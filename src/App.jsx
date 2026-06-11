@@ -118,7 +118,7 @@ function AppInner() {
           <Route path="/music" element={<MusicPlayer />} />
           <Route path="/friends" element={<FriendSpace />} />
           <Route path="/amadeus" element={<Amadeus />} />
-          <Route path="/live2d" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'var(--text-quaternary)'}}>雨，何时才能停？</div>}><Live2DPage /></Suspense>} />
+          <Route path="/live2d" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'var(--text-quaternary)'}}>雨何时停？</div>}><Live2DPage /></Suspense>} />
         </Route>
       </Routes>
       <AuthModal />

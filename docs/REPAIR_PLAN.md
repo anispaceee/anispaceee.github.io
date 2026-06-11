@@ -556,10 +556,27 @@ ALTER TABLE users ADD COLUMN favorites_visibility   TEXT DEFAULT 'friends';
 ALTER TABLE world_messages ADD COLUMN image_ids TEXT DEFAULT '[]';
 
 -- collections：评分字段已存在；范围约束 0-10（M16-01）
-CREATE TRIGGER IF NOT EXISTS trg_collections_rating CHECK (rating BETWEEN 0 AND 10);
+-- 假设创建时已带 CHECK；若表已存在，则新建触发器抛错
+CREATE TRIGGER IF NOT EXISTS trg_collections_rating_insert
+BEFORE INSERT ON collections
+FOR EACH ROW WHEN NEW.rating IS NOT NULL AND (NEW.rating < 0 OR NEW.rating > 10)
+BEGIN SELECT RAISE(ABORT, 'rating out of range'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_collections_rating_update
+BEFORE UPDATE ON collections
+FOR EACH ROW WHEN NEW.rating IS NOT NULL AND (NEW.rating < 0 OR NEW.rating > 10)
+BEGIN SELECT RAISE(ABORT, 'rating out of range'); END;
 
 -- ratings：同样加 CHECK
-CREATE TRIGGER IF NOT EXISTS trg_ratings_score CHECK (score BETWEEN 0 AND 10);
+CREATE TRIGGER IF NOT EXISTS trg_ratings_score_insert
+BEFORE INSERT ON ratings
+FOR EACH ROW WHEN NEW.score < 0 OR NEW.score > 10
+BEGIN SELECT RAISE(ABORT, 'score out of range'); END;
+
+CREATE TRIGGER IF NOT EXISTS trg_ratings_score_update
+BEFORE UPDATE ON ratings
+FOR EACH ROW WHEN NEW.score < 0 OR NEW.score > 10
+BEGIN SELECT RAISE(ABORT, 'score out of range'); END;
 
 -- posts：删 soft-delete 列（M03-03）
 ALTER TABLE posts ADD COLUMN deleted_at TEXT;

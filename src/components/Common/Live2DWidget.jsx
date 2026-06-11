@@ -150,7 +150,7 @@ export default function Live2DWidget() {
         />
         {!loaded && !error && (
           <div className="live2d-loading">
-            <span className="live2d-loading-text">看板娘加载中…雨，何时才能停？</span>
+            <span className="live2d-loading-text">看板娘加载中…雨何时停？</span>
           </div>
         )}
         {error && (

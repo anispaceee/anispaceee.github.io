@@ -204,7 +204,7 @@ export default function FriendSpace() {
       <div className="friend-space-header">
         <div className="friend-space-title">
           <Users size={22} />
-          <h1>好友空间</h1>
+          <h1>LeMU</h1>
           <span className="friend-space-subtitle">好友间的私密动态</span>
         </div>
         <div className="friend-space-header-actions">
@@ -251,7 +251,7 @@ export default function FriendSpace() {
         {loading ? (
           <div className="friend-space-empty">
             <Loader2 size={32} className="spin" />
-            <p>雨，何时才能停？</p>
+            <p>雨何时停？</p>
           </div>
         ) : filteredPosts.length === 0 ? (
           <div className="friend-space-empty">

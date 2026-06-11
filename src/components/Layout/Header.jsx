@@ -8,7 +8,7 @@ import './Header.css';
 const navItems = [
   { path: '/', label: '首页' },
   { path: '/forum', label: '讨论' },
-  { path: '/club', label: '社团' },
+  { path: '/club', label: '放課後Tea Time！' },
   { path: '/video', label: '视频' },
   { path: '/wiki', label: '百科' },
 ];

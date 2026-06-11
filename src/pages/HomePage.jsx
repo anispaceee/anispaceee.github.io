@@ -136,7 +136,7 @@ function RandomRecommendCard({ subject, loading, onRefresh }) {
           )}
           <button className="random-refresh-btn" onClick={handleRefresh} disabled={loading} title="换一个推荐">
             {loading ? <Loader2 size={14} className="spinning" /> : <Shuffle size={14} />}
-            {loading ? '雨，何时才能停？' : '换一个'}
+            {loading ? '雨何时停？' : '换一个'}
           </button>
         </div>
       </div>
@@ -256,7 +256,7 @@ export default function HomePage() {
         {carouselLoading ? (
           <div className="home-banner-loading">
             <Loader2 size={32} className="spinning" />
-            <span>雨，何时才能停？</span>
+            <span>雨何时停？</span>
           </div>
         ) : carouselItems.length > 0 ? (
           <div className="home-banner-carousel">
@@ -312,7 +312,7 @@ export default function HomePage() {
           <div className="home-main-col">
             <div className="home-random-section">
               <div className="home-random-header">
-                <h2 className="home-section-title"><Sparkles size={18} /> 随机推荐</h2>
+                <h2 className="home-section-title"><Sparkles size={18} /> 随·心·斩！</h2>
               </div>
               <RandomRecommendCard subject={randomSubject} loading={randomLoading} onRefresh={fetchRandom} />
             </div>
@@ -373,7 +373,7 @@ export default function HomePage() {
             {/* 电波预览 */}
             <div className="home-news-section">
               <div className="home-news-header">
-                <h2 className="home-section-title"><Newspaper size={18} /> 电波</h2>
+                <h2 className="home-section-title"><Newspaper size={18} /> 毒电波！！</h2>
                 <Link to="/news" className="home-more-link">更多 <ArrowRight size={12} /></Link>
               </div>
               <div className="home-news-list">

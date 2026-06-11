@@ -248,7 +248,7 @@ export default function MusicPlayer() {
       <div className="music-header">
         <div className="music-title">
           <Headphones size={22} />
-          <h1>音乐空间</h1>
+          <h1>Echoes</h1>
         </div>
         <div className="music-header-actions">
           <div className="music-source-switch">

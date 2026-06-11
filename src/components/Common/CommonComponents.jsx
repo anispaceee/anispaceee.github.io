@@ -177,7 +177,7 @@ export function SectionLoader() {
   return (
     <div className="section-loader">
       <div className="section-spinner" />
-      <span>雨，何时才能停？</span>
+      <span>雨何时停？</span>
     </div>
   );
 }

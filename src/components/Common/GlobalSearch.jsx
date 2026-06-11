@@ -27,7 +27,7 @@ const TYPE_LABELS = {
   person: '人物',
   post: '帖子',
   video: '视频',
-  club: '社团',
+  club: '放課後Tea Time！',
   news: '资讯',
 };
 

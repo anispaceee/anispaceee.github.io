@@ -77,7 +77,7 @@ export default function PostDetail() {
       <div className="post-detail-page">
         <div className="post-detail-container" style={{ textAlign: 'center', padding: '60px 0' }}>
           <Loader2 size={32} className="spinning" />
-          <p style={{ marginTop: 12, color: 'var(--text-secondary)' }}>雨，何时才能停？</p>
+          <p style={{ marginTop: 12, color: 'var(--text-secondary)' }}>雨何时停？</p>
         </div>
       </div>
     );

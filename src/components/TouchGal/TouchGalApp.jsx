@@ -142,7 +142,7 @@ export default function TouchGalApp({ initialUrl = 'https://www.touchgal.top' })
         {loading && (
           <div className="touchgal-loading">
             <Loader2 size={24} className="spin" />
-            <span>雨，何时才能停？</span>
+            <span>雨何时停？</span>
           </div>
         )}
         {error && (

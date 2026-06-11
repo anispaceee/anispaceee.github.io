@@ -251,7 +251,7 @@ export default function Mailbox() {
               </div>
               <div className="mail-list">
                 {loading ? (
-                  <div className="mail-empty"><Loader2 size={20} className="spin" /> 雨，何时才能停？</div>
+                  <div className="mail-empty"><Loader2 size={20} className="spin" /> 雨何时停？</div>
                 ) : filteredMails.length === 0 ? (
                   <div className="mail-empty">暂无邮件</div>
                 ) : (

@@ -199,7 +199,7 @@ export default function WorldChannel() {
         {loading ? (
           <div className="wc-loading">
             <Loader2 size={28} className="spinning" />
-            <span>雨，何时才能停？</span>
+            <span>雨何时停？</span>
           </div>
         ) : posts.length === 0 ? (
           <div className="wc-empty">
