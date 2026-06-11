@@ -430,11 +430,16 @@ export default function HomePage() {
           </div>
 
           <div className="home-side-col">
-            {/* 电波预览 */}
-            <div className="home-news-section">
-              <div className="home-news-header">
-                <h2 className="home-section-title"><Newspaper size={18} /> 毒电波！！</h2>
-                <Link to="/news" className="home-more-link">更多 <ArrowRight size={12} /></Link>
+            {/* 毒电波 - Mac窗口风格 */}
+            <div className="home-news-mac-window">
+              <div className="home-news-titlebar">
+                <div className="home-news-controls">
+                  <span className="home-news-ctrl close" />
+                  <span className="home-news-ctrl minimize" />
+                  <span className="home-news-ctrl maximize" />
+                </div>
+                <span className="home-news-title"><Newspaper size={13} /> 毒电波！！</span>
+                <Link to="/news" className="home-news-more"><ArrowRight size={12} /></Link>
               </div>
               <div className="home-news-list">
                 {newsItems.length > 0 ? newsItems.map(news => (

@@ -105,9 +105,73 @@
 .home-hot-post-stats { display: flex; gap: 10px; font-size: 10px; color: var(--text-quaternary); }
 .home-hot-post-stats span { display: flex; align-items: center; gap: 3px; }
 
-/* 电波 - 新闻预览 */
-.home-news-section { background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); border: 1px solid rgba(232,134,162,0.15); overflow: hidden; }
-.home-news-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(232,134,162,0.12); }
+/* 毒电波 - Mac窗口风格 */
+.home-news-mac-window {
+  background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+  border: 1px solid rgba(232,134,162,0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: macWindowOpen 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.home-news-titlebar {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(232,134,162,0.1);
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.home-news-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.home-news-ctrl {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: block;
+}
+
+.home-news-ctrl.close { background: #FF5A5A; }
+.home-news-ctrl.minimize { background: #FFBD2E; }
+.home-news-ctrl.maximize { background: #28C840; }
+
+.home-news-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.home-news-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.home-news-more:hover { background: rgba(232,134,162,0.15); color: var(--primary); }
+
 .home-news-list { display: flex; flex-direction: column; }
 .home-news-item { padding: 12px 18px; border-bottom: 1px solid rgba(232,134,162,0.1); transition: background var(--transition-fast); }
 .home-news-item:last-child { border-bottom: none; }
