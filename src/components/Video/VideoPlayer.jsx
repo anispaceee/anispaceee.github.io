@@ -26,6 +26,7 @@ export default function VideoPlayer() {
   const [showSourceList, setShowSourceList] = useState(false);
   const [danmakuList, setDanmakuList] = useState([]);
   const [torrentProgress, setTorrentProgress] = useState(null); // { progress, downloadSpeed, numPeers }
+  const [debugInfo, setDebugInfo] = useState(''); // 可见调试信息
 
   const playerRef = useRef(null);
   const playerContainerRef = useRef(null);
@@ -78,13 +79,20 @@ export default function VideoPlayer() {
         }
 
         console.log('[VideoPlayer] 开始搜索资源, request:', request);
-        console.log('[VideoPlayer] 已注册源:', mediaSourceManager.getRegistrations().map(r => `${r.sourceId}(enabled:${r.enabled})`));
-        console.log('[VideoPlayer] 可用源:', mediaSourceManager.getEnabledSources().map(s => `${s.sourceId}(${s.info.displayName})`));
+        const registeredSources = mediaSourceManager.getRegistrations().map(r => `${r.sourceId}(enabled:${r.enabled})`);
+        const enabledSources = mediaSourceManager.getEnabledSources().map(s => `${s.sourceId}(${s.info.displayName})`);
+        console.log('[VideoPlayer] 已注册源:', registeredSources);
+        console.log('[VideoPlayer] 可用源:', enabledSources);
+        setDebugInfo(`搜索: ${request.subjectNames.join('/')} EP${request.episodeSort}\n已注册: ${registeredSources.join(', ')}\n可用: ${enabledSources.join(', ')}`);
 
         // 4. Call mediaSourceManager.fetchAll
         const result = await mediaSourceManager.fetchAll(request);
         if (cancelled) return;
         setMediaMatches(result.results || []);
+
+        const errInfo = result.errors?.length > 0 ? `\n错误: ${result.errors.map(e => `${e.sourceId}: ${e.error}`).join('; ')}` : '';
+        const matchInfo = result.results?.length > 0 ? `\n匹配: ${result.results.slice(0, 3).map(m => `${m.media.title} [${m.media.download?.kind}]`).join('; ')}` : '\n匹配: 无';
+        setDebugInfo(prev => prev + `\n结果: ${result.results?.length || 0}条` + matchInfo + errInfo);
 
         console.log('[VideoPlayer] 资源搜索完成:', {
           total: result.results?.length || 0,
@@ -423,6 +431,17 @@ export default function VideoPlayer() {
 
   return (
     <div className={`video-player ${showEpList ? 'vp-sidebar-open' : ''} ${showSourceList ? 'vp-source-sidebar-open' : ''}`}>
+      {/* Debug info panel */}
+      {debugInfo && (
+        <pre style={{
+          position: 'fixed', bottom: 10, left: 10, zIndex: 9999,
+          background: 'rgba(0,0,0,0.85)', color: '#0f0', padding: '10px',
+          borderRadius: '8px', fontSize: '11px', maxWidth: '500px',
+          whiteSpace: 'pre-wrap', maxHeight: '200px', overflow: 'auto',
+          fontFamily: 'monospace',
+        }}>{debugInfo}</pre>
+      )}
+
       {/* Header */}
       <div className="vp-header">
         <button className="vp-back-btn" onClick={() => navigate(-1)}>
