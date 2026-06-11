@@ -250,24 +250,103 @@ export default function VideoPlayer() {
         }
       };
     } else {
-      // HTTP/HLS playback - wait for DPlayer and Hls to load
+      // HTTP/HLS playback
       const initPlayer = async () => {
         try {
           await loadPlayerLibs;
         } catch (e) {
           console.error('[VideoPlayer] Failed to load player libs:', e);
         }
-        if (!DPlayer) {
-          setPlayError('DPlayer 加载失败，请刷新页面重试');
-          return;
-        }
 
         // Detect HLS: check both original URL and the proxied URL path
-        // Worker proxy URLs contain the original URL as a query param, e.g. /api/video/stream?url=...index.m3u8
         const isM3U8 = /\.m3u8(\?|$)/i.test(url) || /\.m3u8/i.test(decodeURIComponent(url));
-        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 120), 'isM3U8:', isM3U8, 'Hls available:', !!Hls);
+        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 120), 'isM3U8:', isM3U8, 'Hls available:', !!Hls, 'DPlayer available:', !!DPlayer);
 
         try {
+          // For m3u8 streams: use hls.js directly with a plain <video> element
+          // This avoids DPlayer's unreliable HLS integration
+          if (isM3U8 && Hls && Hls.isSupported()) {
+            const container = playerContainerRef.current;
+            const videoEl = document.createElement('video');
+            videoEl.style.width = '100%';
+            videoEl.style.height = '100%';
+            videoEl.controls = true;
+            videoEl.autoplay = true;
+            videoEl.playsInline = true;
+            videoEl.poster = coverRef.current;
+            container.appendChild(videoEl);
+
+            const hls = new Hls({
+              maxBufferLength: 30,
+              maxMaxBufferLength: 60,
+              enableWorker: true,
+              lowLatencyMode: false,
+            });
+            hls.loadSource(url);
+            hls.attachMedia(videoEl);
+            hlsRef.current = hls;
+
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              console.log('[VideoPlayer] HLS manifest parsed, starting playback');
+              videoEl.play().catch(e => console.warn('[VideoPlayer] autoplay blocked:', e));
+            });
+
+            hls.on(Hls.Events.ERROR, (_event, data) => {
+              if (data.fatal) {
+                console.error('[VideoPlayer] HLS fatal error:', data.type, data.details, data);
+                switch (data.type) {
+                  case Hls.ErrorTypes.NETWORK_ERROR:
+                    console.warn('[VideoPlayer] Network error, trying to recover...');
+                    hls.startLoad();
+                    break;
+                  case Hls.ErrorTypes.MEDIA_ERROR:
+                    console.warn('[VideoPlayer] Media error, trying to recover...');
+                    hls.recoverMediaError();
+                    break;
+                  default:
+                    setPlayError(`视频加载失败(${data.details})，请尝试切换播放源或剧集`);
+                    hls.destroy();
+                    break;
+                }
+              }
+            });
+
+            // Save playback progress
+            const progressKey = `acg_v2_progress_${subjectId}_${episodeId}_${currentMedia?.sourceId}`;
+            videoEl.addEventListener('timeupdate', () => {
+              const currentTime = videoEl.currentTime;
+              const duration = videoEl.duration;
+              if (duration > 0 && currentTime > 5) {
+                localStorage.setItem(progressKey, JSON.stringify({
+                  time: currentTime,
+                  duration,
+                  updatedAt: Date.now(),
+                }));
+              }
+            });
+
+            // Restore playback progress
+            videoEl.addEventListener('loadedmetadata', () => {
+              try {
+                const saved = JSON.parse(localStorage.getItem(progressKey));
+                if (saved?.time && saved?.duration) {
+                  const ratio = saved.time / saved.duration;
+                  if (ratio > 0.05 && ratio < 0.95) {
+                    videoEl.currentTime = saved.time;
+                  }
+                }
+              } catch {}
+            });
+
+            return; // Skip DPlayer initialization for m3u8
+          }
+
+          // For non-m3u8 streams: use DPlayer
+          if (!DPlayer) {
+            setPlayError('DPlayer 加载失败，请刷新页面重试');
+            return;
+          }
+
           const playerConfig = {
             container: playerContainerRef.current,
             video: {
@@ -281,50 +360,6 @@ export default function VideoPlayer() {
             preload: 'auto',
             volume: 0.7,
           };
-
-          // DPlayer 1.27 auto-detects HLS when window.Hls exists and URL ends with .m3u8
-          // For proxied URLs where .m3u8 is in the query param, we need customType
-          if (isM3U8 && Hls) {
-            // Make Hls available globally so DPlayer can detect it
-            window.Hls = Hls;
-            // Use customType for proxied m3u8 URLs (where .m3u8 is in query param, not path)
-            playerConfig.video.type = 'customHls';
-            playerConfig.customType = {
-              customHls: (video, src) => {
-                if (Hls.isSupported()) {
-                  const hls = new Hls({
-                    maxBufferLength: 30,
-                    maxMaxBufferLength: 60,
-                  });
-                  hls.loadSource(src);
-                  hls.attachMedia(video);
-                  hlsRef.current = hls;
-                  hls.on(Hls.Events.ERROR, (_event, data) => {
-                    if (data.fatal) {
-                      console.error('[VideoPlayer] HLS fatal error:', data.type, data.details);
-                      switch (data.type) {
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                          console.warn('[VideoPlayer] Network error, trying to recover...');
-                          hls.startLoad();
-                          break;
-                        case Hls.ErrorTypes.MEDIA_ERROR:
-                          console.warn('[VideoPlayer] Media error, trying to recover...');
-                          hls.recoverMediaError();
-                          break;
-                        default:
-                          setPlayError('视频加载失败，请尝试切换播放源或剧集');
-                          hls.destroy();
-                          break;
-                      }
-                    }
-                  });
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                  // Safari native HLS support
-                  video.src = src;
-                }
-              },
-            };
-          }
 
           // Add danmaku only if we have data
           if (danmakuList.length > 0) {
@@ -402,6 +437,12 @@ export default function VideoPlayer() {
         if (playerRef.current) {
           playerRef.current.destroy();
           playerRef.current = null;
+        }
+        // Clean up any native <video> elements added by HLS direct playback
+        const container = playerContainerRef.current;
+        if (container) {
+          const videos = container.querySelectorAll('video');
+          videos.forEach(v => v.remove());
         }
       };
     }
