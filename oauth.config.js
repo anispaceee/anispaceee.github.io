@@ -15,6 +15,12 @@ function getEnvVar(key) {
 // 部署 Worker 后替换为你的 Worker URL
 const OAUTH_PROXY_URL = getEnvVar('VITE_OAUTH_PROXY_URL') || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
 
+// Safety check: if the env var points to the old workers.dev subdomain, override it
+// This prevents stale GitHub Secrets from causing 404 errors
+const PROXY_URL = OAUTH_PROXY_URL.includes('lyw2373314970')
+  ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
+  : OAUTH_PROXY_URL;
+
 export default {
   bangumi: {
     clientId: getEnvVar('VITE_BANGUMI_CLIENT_ID') || '',
@@ -33,15 +39,15 @@ export default {
   },
   // 获取 OAuth 代理基础 URL
   // 开发环境：''（使用 Vite 插件的 /api/oauth/* 端点）
-  // 生产环境：Worker URL（如 https://anispace-oauth.your-name.workers.dev）
+  // 生产环境：Worker URL（如 https://anispace-oauth-proxy.afterrainliu.workers.dev）
   get proxyUrl() {
-    return OAUTH_PROXY_URL;
+    return PROXY_URL;
   },
 
   // OAuth token 交换路径前缀
   // 开发环境（proxyUrl 为空）：Vite 插件监听 /api/oauth/*
   // 生产环境（proxyUrl 有值）：Worker 监听 /oauth/*
   get tokenBase() {
-    return OAUTH_PROXY_URL ? `${OAUTH_PROXY_URL}/oauth` : '/api/oauth';
+    return PROXY_URL ? `${PROXY_URL}/oauth` : '/api/oauth';
   },
 };
