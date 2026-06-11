@@ -103,7 +103,7 @@
 .post-author { color: var(--text-secondary); font-weight: 500; }
 
 /* ─── 右栏侧边栏 ─── */
-.sidebar-section { background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%); border-radius: var(--radius-lg); padding: 16px; border: 1px solid rgba(232,134,162,0.15); box-shadow: var(--shadow-xs); }
+.sidebar-section { background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; border: 1px solid var(--border-secondary); box-shadow: var(--shadow-xs); }
 .sidebar-section-title { font-size: 14px; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
 
 .sidebar-board-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); position: relative; }
