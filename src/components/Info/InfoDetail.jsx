@@ -414,6 +414,7 @@ export default function InfoDetail() {
     { id: 'epic', name: 'Epic Games', icon: '🎯', searchUrl: (name) => `https://store.epicgames.com/zh-CN/browse?q=${encodeURIComponent(name)}` },
     { id: 'gog', name: 'GOG', icon: '💿', searchUrl: (name) => `https://www.gog.com/en/games?query=${encodeURIComponent(name)}` },
     { id: 'tap', name: 'TapTap', icon: '📱', searchUrl: (name) => `https://www.taptap.cn/search/${encodeURIComponent(name)}` },
+    { id: 'touchgal', name: 'TouchGal', icon: '🌸', searchUrl: (name) => `https://www.touchgal.ink/search?keyword=${encodeURIComponent(name)}` },
   ];
 
   const NOVEL_SOURCES = [
