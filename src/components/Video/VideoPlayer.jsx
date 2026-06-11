@@ -262,15 +262,17 @@ export default function VideoPlayer() {
           return;
         }
 
-        const isM3U8 = /\.m3u8(\?|$)/i.test(url);
-        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 100), 'isM3U8:', isM3U8);
+        // Detect HLS: check both original URL and the proxied URL path
+        // Worker proxy URLs contain the original URL as a query param, e.g. /api/video/stream?url=...index.m3u8
+        const isM3U8 = /\.m3u8(\?|$)/i.test(url) || /\.m3u8/i.test(decodeURIComponent(url));
+        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 120), 'isM3U8:', isM3U8);
 
         try {
           const playerConfig = {
             container: playerContainerRef.current,
             video: {
               url,
-              type: isM3U8 ? 'hls' : 'auto',
+              type: isM3U8 ? 'customHls' : 'auto',
               pic: coverRef.current,
             },
             autoplay: true,
@@ -281,10 +283,11 @@ export default function VideoPlayer() {
             volume: 0.7,
           };
 
-          // Add HLS custom type only if Hls is loaded
+          // DPlayer customType is a top-level config, not inside video
+          // Reference: https://dplayer.diygod.dev/guide.html#special-type
           if (isM3U8 && Hls) {
-            playerConfig.video.customType = {
-              hls: (video, src) => {
+            playerConfig.customType = {
+              customHls: (video, src) => {
                 if (Hls.isSupported()) {
                   const hls = new Hls();
                   hls.loadSource(src);
@@ -292,6 +295,7 @@ export default function VideoPlayer() {
                   hlsRef.current = hls;
                   hls.on(Hls.Events.ERROR, (_event, data) => {
                     if (data.fatal) {
+                      console.error('[VideoPlayer] HLS fatal error:', data);
                       setPlayError('视频加载失败，请尝试切换播放源或剧集');
                     }
                   });
