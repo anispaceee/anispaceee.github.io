@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
 import { SubjectCard } from '../Common/CommonComponents';
-import { Search, BookOpen, Tv, Gamepad2, Music, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2 } from 'lucide-react';
+import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2 } from 'lucide-react';
 import './Wiki.css';
 
 const TYPE_OPTIONS = [
@@ -11,6 +11,7 @@ const TYPE_OPTIONS = [
   { key: 'novel', label: '小说', typeCode: 1, icon: BookOpen },
   { key: 'game', label: '游戏', typeCode: 4, icon: Gamepad2 },
   { key: 'music', label: '音乐', typeCode: 3, icon: Music },
+  { key: 'real', label: '三次元', typeCode: 6, icon: Film },
   { key: 'person', label: '人物', typeCode: 'person', icon: Users },
 ];
 
@@ -105,7 +106,7 @@ export default function Wiki() {
         if (isPerson) {
           openMoegirl(item.name_cn || item.name);
         } else {
-          navigate(`/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`);
+          navigate(`/info/${item.type === 1 ? 'novel' : item.type === 3 ? 'music' : item.type === 4 ? 'game' : item.type === 6 ? 'real' : 'anime'}/${item.id}`);
         }
         setShowLiveResults(false);
       } else if (e.key === 'Escape') {
@@ -295,7 +296,7 @@ export default function Wiki() {
                       ) : (
                         <Link
                           key={item.id}
-                          to={`/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
+                          to={`/info/${item.type === 1 ? 'novel' : item.type === 3 ? 'music' : item.type === 4 ? 'game' : item.type === 6 ? 'real' : 'anime'}/${item.id}`}
                           className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
                           onClick={() => setShowLiveResults(false)}
                         >
@@ -413,7 +414,7 @@ export default function Wiki() {
                     ) : (
                       <Link
                         key={item.id}
-                        to={`/info/${item.type === 1 ? 'novel' : item.type === 4 ? 'game' : 'anime'}/${item.id}`}
+                        to={`/info/${item.type === 1 ? 'novel' : item.type === 3 ? 'music' : item.type === 4 ? 'game' : item.type === 6 ? 'real' : 'anime'}/${item.id}`}
                         className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
                         onClick={() => setShowLiveResults(false)}
                       >
@@ -472,7 +473,7 @@ export default function Wiki() {
               );
             }
 
-            const typeKey = typeCode === 1 ? 'novel' : typeCode === 4 ? 'game' : 'anime';
+            const typeKey = typeCode === 1 ? 'novel' : typeCode === 3 ? 'music' : typeCode === 4 ? 'game' : typeCode === 6 ? 'real' : 'anime';
             return (
               <SubjectCard
                 key={item.id}

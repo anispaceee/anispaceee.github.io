@@ -732,29 +732,23 @@ export const BangumiService = {
   },
 
   async searchSubjects(keyword, type = 0, limit = 20, offset = 0) {
-    const filter = {};
+    // 使用 GET /search/subject/{keywords} 端点（与 Bangumi 站内搜索一致，结果更全）
+    const encodedKeyword = encodeURIComponent(keyword);
+    let url = `${this.BASE_URL}/search/subject/${encodedKeyword}?responseGroup=small&start=${offset}&max_results=${limit}`;
     if (type && type > 0) {
-      filter.type = [type];
-    } else {
-      filter.type = [1, 2, 4];
+      url += `&type=${type}`;
     }
-    const url = `${this.BASE_URL}/v0/search/subjects?limit=${limit}&offset=${offset}`;
-    const body = JSON.stringify({ keyword, filter, sort: 'match' });
     const cacheKey = this._cacheKey('search', `${keyword}_${type}_${limit}_${offset}`);
 
     try {
-      const data = await this._request(url, cacheKey, true, 0, {
-        method: 'POST',
-        body,
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (data && data.data) {
+      const data = await this._request(url, cacheKey, true, 0);
+      if (data && data.list) {
         return {
-          list: data.data.map(normalizeSubject).filter(Boolean),
-          results: data.total || 0,
-          total: data.total || 0,
-          offset: data.offset || 0,
-          limit: data.limit || limit,
+          list: data.list.map(normalizeSubject).filter(Boolean),
+          results: data.results || 0,
+          total: data.results || 0,
+          offset: offset,
+          limit: limit,
         };
       }
       return { list: [], results: 0, total: 0, offset: 0, limit };
