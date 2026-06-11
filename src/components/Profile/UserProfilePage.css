@@ -17,6 +17,9 @@
   position: sticky;
   top: 80px;
   align-self: flex-start;
+  background: linear-gradient(180deg, #fff5f7 0%, #ffeef2 100%);
+  border-radius: var(--radius-xl);
+  padding: 16px 12px;
 }
 
 .user-profile-sidebar-header {
@@ -722,7 +725,7 @@
 
 /* ─── 设置弹窗 ─── */
 .settings-modal { background: var(--bg-elevated); border-radius: var(--radius-xl); width: 100%; max-width: 640px; box-shadow: var(--shadow-xl); display: grid; grid-template-columns: 160px 1fr; min-height: 460px; overflow: hidden; }
-.settings-sidebar { background: var(--bg-input); padding: 24px 16px; display: flex; flex-direction: column; gap: 4px; }
+.settings-sidebar { background: linear-gradient(180deg, #fff5f7 0%, #ffeef2 100%); padding: 24px 16px; display: flex; flex-direction: column; gap: 4px; }
 .settings-sidebar h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding: 0 8px; color: var(--text-primary); }
 .settings-nav { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--text-secondary); transition: all var(--transition-fast); text-align: left; width: 100%; }
 .settings-nav:hover { background: var(--bg-card); color: var(--text-primary); }
