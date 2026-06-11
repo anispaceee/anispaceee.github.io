@@ -50,6 +50,10 @@ export default function FriendSpace() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // 图片URL输入
+  const [newImages, setNewImages] = useState([]);
+  const [imageUrlInput, setImageUrlInput] = useState('');
+
   // 删除菜单
   const [showMenu, setShowMenu] = useState(null);
   const menuRef = useRef(null);
@@ -99,8 +103,10 @@ export default function FriendSpace() {
     if (!newContent.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await FriendPostService.createPost(newContent.trim(), newVisibility);
+      await FriendPostService.createPost(newContent.trim(), newVisibility, newImages);
       setNewContent('');
+      setNewImages([]);
+      setImageUrlInput('');
       setShowComposer(false);
       loadPosts(1);
     } catch (err) {
@@ -229,11 +235,44 @@ export default function FriendSpace() {
               <button className={`visibility-btn ${newVisibility === 'public' ? 'active' : ''}`} onClick={() => setNewVisibility('public')}>
                 <Globe size={12} /> 公开
               </button>
+              <button className={`visibility-btn ${newVisibility === 'private' ? 'active' : ''}`} onClick={() => setNewVisibility('private')}>
+                <Lock size={12} /> 仅自己
+              </button>
             </div>
           </div>
           <textarea className="composer-input" placeholder="分享你的想法..." value={newContent} onChange={e => setNewContent(e.target.value)} rows={3} />
           <div className="composer-actions">
-            <button className="composer-tool" title="添加图片"><Image size={16} /></button>
+            <div className="composer-image-input">
+              <button className="composer-tool" title="添加图片URL" onClick={() => {
+                if (imageUrlInput.trim()) {
+                  setNewImages(prev => [...prev, imageUrlInput.trim()]);
+                  setImageUrlInput('');
+                }
+              }}><Image size={16} /></button>
+              <input
+                type="text"
+                placeholder="粘贴图片URL..."
+                value={imageUrlInput}
+                onChange={e => setImageUrlInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && imageUrlInput.trim()) {
+                    setNewImages(prev => [...prev, imageUrlInput.trim()]);
+                    setImageUrlInput('');
+                  }
+                }}
+                className="composer-image-url-input"
+              />
+            </div>
+            {newImages.length > 0 && (
+              <div className="composer-image-previews">
+                {newImages.map((img, i) => (
+                  <div key={i} className="composer-image-preview-item">
+                    <img src={img} alt="" />
+                    <button className="composer-image-remove" onClick={() => setNewImages(prev => prev.filter((_, idx) => idx !== i))}><X size={10} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
             <button className="composer-submit" onClick={handlePost} disabled={!newContent.trim() || submitting}>
               {submitting ? <Loader2 size={14} className="spin" /> : '发布'}
             </button>
@@ -245,6 +284,7 @@ export default function FriendSpace() {
         <button className={`filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>全部</button>
         <button className={`filter-btn ${filter === 'friends' ? 'active' : ''}`} onClick={() => setFilter('friends')}><Lock size={12} /> 好友</button>
         <button className={`filter-btn ${filter === 'public' ? 'active' : ''}`} onClick={() => setFilter('public')}><Globe size={12} /> 公开</button>
+        <button className={`filter-btn ${filter === 'private' ? 'active' : ''}`} onClick={() => setFilter('private')}><Lock size={12} /> 仅自己</button>
       </div>
 
       <div className="friend-space-feed">
@@ -320,7 +360,12 @@ export default function FriendSpace() {
                     <button className="space-action" onClick={() => loadComments(post.id)}>
                       <MessageSquare size={14} /> {post.comments_count || 0}
                     </button>
-                    <button className="space-action"><Share2 size={14} /> 分享</button>
+                    <button className="space-action" onClick={() => {
+                      const url = `${window.location.origin}/lemu`;
+                      navigator.clipboard.writeText(url).then(() => {
+                        alert('链接已复制到剪贴板');
+                      }).catch(() => {});
+                    }}><Share2 size={14} /> 分享</button>
                   </div>
                   {expandedComments[post.id] && (
                     <div className="space-post-comments">

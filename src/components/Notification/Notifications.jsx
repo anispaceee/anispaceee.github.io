@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { StorageService, FriendService } from '../../services/api';
-import { Bell, MessageCircle, Heart, Star, Users, AtSign, Check, CheckCheck, Trash2, Settings, UserPlus, UserCheck, UserX } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { StorageService, FriendService, NotificationService } from '../../services/api';
+import { Bell, MessageCircle, Heart, Star, Users, AtSign, Check, CheckCheck, Trash2, Settings, UserPlus, UserCheck, UserX, Loader2 } from 'lucide-react';
 import './Notifications.css';
 
 const NOTIFICATIONS_KEY = 'acg_notifications';
@@ -24,7 +25,7 @@ const DEFAULT_NOTIFICATIONS = [
   { id: 5, type: 'system', title: '社区公告', content: 'ANISpace v2.0 已更新，新增Bilibili嵌入模式和音乐空间功能', read: true, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
 ];
 
-function getNotifications() {
+function getLocalNotifications() {
   const stored = StorageService.get(NOTIFICATIONS_KEY);
   if (!stored) {
     StorageService.set(NOTIFICATIONS_KEY, DEFAULT_NOTIFICATIONS);
@@ -33,23 +34,54 @@ function getNotifications() {
   return stored;
 }
 
-function saveNotifications(notifications) {
+function saveLocalNotifications(notifications) {
   StorageService.set(NOTIFICATIONS_KEY, notifications);
 }
 
 export function getUnreadCount() {
-  const notifications = getNotifications();
+  const notifications = getLocalNotifications();
   return notifications.filter(n => !n.read).length;
 }
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState(() => getNotifications());
+  const { currentUser, isAuthenticated } = useApp();
+  const [notifications, setNotifications] = useState(() => getLocalNotifications());
   const [filter, setFilter] = useState('all');
+  const [loading, setLoading] = useState(false);
 
+  // 从后端加载通知并合并
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) return;
+    setLoading(true);
+    NotificationService.getByUserId(currentUser.id)
+      .then(serverNotifs => {
+        const serverList = Array.isArray(serverNotifs) ? serverNotifs : [];
+        // 将后端通知转换为前端格式
+        const formatted = serverList.map(n => ({
+          id: `s_${n.id}`,
+          serverId: n.id,
+          type: n.type,
+          title: n.type === 'friend_request' ? '好友请求' : n.type === 'follow' ? '新关注' : n.content || '通知',
+          content: n.content || '',
+          read: !!n.is_read,
+          createdAt: n.created_at,
+          fromUserId: n.from_user_id,
+          requestId: n.target_type === 'friend_request' ? n.target_id : null,
+        }));
+        // 合并：后端通知优先，保留本地独有的通知
+        const localNotifs = getLocalNotifications().filter(n => !String(n.id).startsWith('s_'));
+        const merged = [...formatted, ...localNotifs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setNotifications(merged);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [isAuthenticated, currentUser]);
+
+  // 首次进入标记已读
   useEffect(() => {
     const updated = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updated);
-    saveNotifications(updated);
+    saveLocalNotifications(updated.filter(n => !String(n.id).startsWith('s_')));
   }, []);
 
   const filteredNotifications = filter === 'all'
@@ -63,18 +95,22 @@ export default function Notifications() {
   const markAllRead = () => {
     const updated = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updated);
-    saveNotifications(updated);
+    saveLocalNotifications(updated.filter(n => !String(n.id).startsWith('s_')));
+    // 同步后端已读状态
+    if (isAuthenticated && currentUser) {
+      NotificationService.markAllAsRead(currentUser.id).catch(() => {});
+    }
   };
 
   const deleteNotification = (id) => {
     const updated = notifications.filter(n => n.id !== id);
     setNotifications(updated);
-    saveNotifications(updated);
+    saveLocalNotifications(updated.filter(n => !String(n.id).startsWith('s_')));
   };
 
   const clearAll = () => {
     setNotifications([]);
-    saveNotifications([]);
+    saveLocalNotifications([]);
   };
 
   const formatTime = (dateStr) => {
@@ -148,14 +184,14 @@ export default function Notifications() {
                     ) : notif.title}
                   </h4>
                   <p className="notif-text">{notif.content}</p>
-                  {notif.type === 'friend_request' && notif.requestId && (
+                  {notif.type === 'friend_request' && notif.requestId && !notif.read && (
                     <div className="notif-friend-actions">
                       <button className="notif-friend-accept" onClick={async () => {
                         try {
                           await FriendService.handleFriendRequest(notif.requestId, 'accepted');
                           const updated = notifications.map(n => n.id === notif.id ? { ...n, read: true, content: '已通过好友请求' } : n);
                           setNotifications(updated);
-                          saveNotifications(updated);
+                          saveLocalNotifications(updated.filter(n => !String(n.id).startsWith('s_')));
                         } catch (err) {
                           alert(err.message || '操作失败');
                         }
@@ -167,7 +203,7 @@ export default function Notifications() {
                           await FriendService.handleFriendRequest(notif.requestId, 'rejected');
                           const updated = notifications.map(n => n.id === notif.id ? { ...n, read: true, content: '已拒绝好友请求' } : n);
                           setNotifications(updated);
-                          saveNotifications(updated);
+                          saveLocalNotifications(updated.filter(n => !String(n.id).startsWith('s_')));
                         } catch (err) {
                           alert(err.message || '操作失败');
                         }

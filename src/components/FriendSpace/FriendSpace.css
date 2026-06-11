@@ -14,7 +14,14 @@
 .visibility-btn.active { background: var(--primary-bg); color: var(--primary); }
 .composer-input { width: 100%; padding: 10px 12px; background: var(--bg-input); border: 1px solid var(--border-secondary); border-radius: var(--radius-sm); font-size: 14px; color: var(--text-primary); resize: vertical; min-height: 60px; }
 .composer-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px var(--primary-bg); }
-.composer-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.composer-actions { display: flex; align-items: flex-start; justify-content: space-between; margin-top: 10px; flex-wrap: wrap; gap: 8px; }
+.composer-image-input { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.composer-image-url-input { flex: 1; padding: 4px 8px; background: var(--bg-input); border: 1px solid var(--border-secondary); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-primary); min-width: 0; }
+.composer-image-url-input:focus { border-color: var(--primary); outline: none; }
+.composer-image-previews { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+.composer-image-preview-item { position: relative; width: 48px; height: 48px; }
+.composer-image-preview-item img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); }
+.composer-image-remove { position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--error); color: #fff; font-size: 8px; }
 .composer-tool { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--text-tertiary); transition: all var(--transition-fast); }
 .composer-tool:hover { background: var(--bg-input); color: var(--primary); }
 .composer-submit { padding: 6px 20px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 13px; font-weight: 600; }
