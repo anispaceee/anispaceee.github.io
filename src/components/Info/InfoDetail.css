@@ -54,7 +54,7 @@
 .detail-two-column { display: flex; gap: 28px; align-items: flex-start; }
 
 /* 左侧栏 */
-.detail-sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 24px; background: linear-gradient(180deg, #fff5f7 0%, #ffeef2 100%); border-radius: var(--radius-xl); padding: 16px 12px; }
+.detail-sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 24px; }
 
 .detail-sidebar .detail-cover-wrap { position: relative; width: 100%; }
 .detail-sidebar .detail-cover { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: var(--radius-cover); box-shadow: var(--shadow-md); opacity: 0; transition: opacity 0.4s ease; }
@@ -62,7 +62,7 @@
 .detail-cover-skeleton { position: absolute; inset: 0; aspect-ratio: 3/4; border-radius: var(--radius-cover); }
 
 /* 评分方块 - 正方形紧凑组件 */
-.detail-score-box { background: var(--bg-input); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.detail-score-box { background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%); border-radius: var(--radius-md); padding: 16px; display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(232,134,162,0.15); }
 .score-box-main { display: flex; align-items: center; gap: 10px; }
 .score-box-num { font-size: 32px; font-weight: 800; color: var(--warning); line-height: 1; }
 .score-box-stars { display: flex; gap: 1px; }
@@ -119,7 +119,7 @@
 .sidebar-bangumi-link { text-decoration: none; width: 100%; flex: unset; }
 
 /* 收藏统计（侧边栏紧凑版） */
-.detail-collection-mini { background: var(--bg-input); border-radius: var(--radius-md); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+.detail-collection-mini { background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%); border-radius: var(--radius-md); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(232,134,162,0.15); }
 .collection-mini-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .collection-mini-label { color: var(--text-tertiary); }
 .collection-mini-num { font-weight: 700; }
@@ -130,7 +130,7 @@
 .collection-mini-num.dropped { color: var(--error); }
 
 /* 评分分布（侧边栏） */
-.detail-rating-mini { background: var(--bg-input); border-radius: var(--radius-md); padding: 10px; }
+.detail-rating-mini { background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%); border-radius: var(--radius-md); padding: 10px; border: 1px solid rgba(232,134,162,0.15); }
 
 /* ============ 右侧主内容区 ============ */
 .detail-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px; }

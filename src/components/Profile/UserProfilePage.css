@@ -17,16 +17,13 @@
   position: sticky;
   top: 80px;
   align-self: flex-start;
-  background: linear-gradient(180deg, #fff5f7 0%, #ffeef2 100%);
-  border-radius: var(--radius-xl);
-  padding: 16px 12px;
 }
 
 .user-profile-sidebar-header {
-  background: var(--bg-card);
+  background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
   border-radius: var(--radius-lg);
   padding: 24px 20px;
-  border: 1px solid var(--border-secondary);
+  border: 1px solid rgba(232,134,162,0.15);
   text-align: center;
 }
 
@@ -348,10 +345,10 @@
 .user-profile-sidebar-stats,
 .user-profile-sidebar-progress,
 .user-profile-sidebar-heatmap {
-  background: var(--bg-card);
+  background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
   border-radius: var(--radius-lg);
   padding: 14px 16px;
-  border: 1px solid var(--border-secondary);
+  border: 1px solid rgba(232,134,162,0.15);
 }
 
 .user-profile-sidebar-stats h3,
