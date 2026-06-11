@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BangumiService, UserService, ForumService, WorldChannelService, NewsService } from '../services/api';
-import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper } from 'lucide-react';
+import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper, Send, Image, X, Users as UsersIcon } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import UserAvatar from '../components/Common/UserAvatar';
 import './HomePage.css';
@@ -152,6 +152,8 @@ export default function HomePage() {
   const [carouselItems, setCarouselItems] = useState([]);
   const [carouselLoading, setCarouselLoading] = useState(true);
   const [newsItems, setNewsItems] = useState([]);
+  const [homeWorldInput, setHomeWorldInput] = useState('');
+  const [homeWorldSending, setHomeWorldSending] = useState(false);
 
   useEffect(() => {
     const loadHomeData = async () => {
@@ -171,6 +173,30 @@ export default function HomePage() {
     };
     loadHomeData();
   }, []);
+
+  const handleHomeWorldSend = useCallback(async () => {
+    if (!isAuthenticated || !homeWorldInput.trim() || homeWorldSending) return;
+    setHomeWorldSending(true);
+    try {
+      await WorldChannelService.sendMessage(homeWorldInput.trim());
+      const newMsg = {
+        id: Date.now(),
+        author_id: currentUser.id,
+        author_name: currentUser.name || currentUser.username,
+        author_avatar: currentUser.avatar,
+        content: homeWorldInput.trim(),
+        likes: 0,
+        replies_count: 0,
+        created_at: new Date().toISOString(),
+      };
+      setRecentMessages(prev => [...prev, newMsg]);
+      setHomeWorldInput('');
+    } catch {
+      // 静默失败
+    } finally {
+      setHomeWorldSending(false);
+    }
+  }, [isAuthenticated, homeWorldInput, homeWorldSending, currentUser]);
 
   const [carouselIndex, setCarouselIndex] = useState(0);
   const carouselTimerRef = useRef(null);
@@ -391,33 +417,58 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 世界线预览 */}
-            <div className="home-world-section">
-              <div className="home-world-header">
-                <h2 className="home-section-title"><Globe size={18} /> 世界线</h2>
-                <Link to="/world" className="home-more-link">更多 <ArrowRight size={12} /></Link>
+            {/* 世界线 - Mac窗口样式 */}
+            <div className="home-world-mac-window">
+              <div className="home-world-titlebar">
+                <div className="home-world-controls">
+                  <span className="home-world-ctrl close" />
+                  <span className="home-world-ctrl minimize" />
+                  <span className="home-world-ctrl maximize" />
+                </div>
+                <span className="home-world-title"><Globe size={13} /> 世界线</span>
+                <span className="home-world-online"><UsersIcon size={11} /> {recentMessages.length}+</span>
               </div>
-              <div className="home-world-posts">
-                {recentMessages.map(msg => {
+              <div className="home-world-messages">
+                {recentMessages.length === 0 ? (
+                  <div className="home-world-empty">
+                    <Globe size={32} />
+                    <p>还没有人发言</p>
+                  </div>
+                ) : recentMessages.map(msg => {
                   const msgUserName = msg.author_name || getUserById(msg.author_id)?.name || '未知';
                   const msgUserAvatar = msg.author_avatar || getUserById(msg.author_id)?.avatar || '';
+                  const isOwn = currentUser && msg.author_id === currentUser.id;
                   return (
-                    <div key={msg.id} className="home-world-post">
-                      <UserAvatar userId={msg.author_id} src={msgUserAvatar} alt={msgUserName} size={32} className="home-world-post-avatar" />
-                      <div className="home-world-post-body">
-                        <div className="home-world-post-header">
-                          <span className="home-world-post-author">{msgUserName}</span>
-                          <span className="home-world-post-time">{msg.created_at ? new Date(msg.created_at).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) : ''}</span>
+                    <div key={msg.id} className={`home-world-msg ${isOwn ? 'self' : 'other'}`}>
+                      {!isOwn && <UserAvatar userId={msg.author_id} src={msgUserAvatar} alt={msgUserName} size={28} className="home-world-msg-avatar" />}
+                      <div className="home-world-msg-body">
+                        {!isOwn && <span className="home-world-msg-name">{msgUserName}</span>}
+                        <div className={`home-world-msg-bubble ${isOwn ? 'bubble-self' : 'bubble-other'}`}>
+                          {msg.content}
                         </div>
-                        <p className="home-world-post-content">{msg.content}</p>
-                        <div className="home-world-post-stats">
-                          <span><Heart size={11} /> {msg.likes || 0}</span>
-                          <span><MessageCircle size={11} /> {msg.replies_count || 0}</span>
-                        </div>
+                        <span className="home-world-msg-time">
+                          {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
                       </div>
+                      {isOwn && <UserAvatar userId={msg.author_id} src={msgUserAvatar} alt={msgUserName} size={28} className="home-world-msg-avatar" />}
                     </div>
                   );
                 })}
+              </div>
+              <div className="home-world-input-area">
+                <input
+                  type="text"
+                  className="home-world-input"
+                  placeholder={isAuthenticated ? '说点什么...' : '登录后发言'}
+                  value={homeWorldInput}
+                  onChange={e => setHomeWorldInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleHomeWorldSend(); } }}
+                  readOnly={!isAuthenticated}
+                  onClick={() => { if (!isAuthenticated) openAuth(); }}
+                />
+                <button className="home-world-send-btn" onClick={handleHomeWorldSend} disabled={!isAuthenticated || !homeWorldInput.trim() || homeWorldSending}>
+                  {homeWorldSending ? <Loader2 size={14} className="spinning" /> : <Send size={14} />}
+                </button>
               </div>
             </div>
           </div>

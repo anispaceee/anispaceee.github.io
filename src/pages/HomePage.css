@@ -118,21 +118,194 @@
 .home-news-item-time { }
 .home-news-empty { padding: 24px 18px; text-align: center; font-size: 13px; color: var(--text-quaternary); }
 
-/* 世界线 - 帖子列表预览 */
-.home-world-section { background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); border: 1px solid var(--border-secondary); overflow: hidden; }
-.home-world-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border-secondary); }
-.home-world-posts { display: flex; flex-direction: column; gap: 0; max-height: 360px; overflow-y: auto; }
-.home-world-post { display: flex; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--border-secondary); transition: background var(--transition-fast); }
-.home-world-post:last-child { border-bottom: none; }
-.home-world-post:hover { background: var(--primary-bg); }
-.home-world-post-avatar { flex-shrink: 0; border-radius: 50%; }
-.home-world-post-body { flex: 1; min-width: 0; }
-.home-world-post-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.home-world-post-author { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.home-world-post-time { font-size: 11px; color: var(--text-quaternary); }
-.home-world-post-content { font-size: 13px; line-height: 1.5; color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 4px; word-break: break-word; }
-.home-world-post-stats { display: flex; gap: 10px; font-size: 11px; color: var(--text-quaternary); }
-.home-world-post-stats span { display: flex; align-items: center; gap: 3px; }
+/* 世界线 - Mac窗口样式 */
+.home-world-mac-window {
+  background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+  border: 1px solid rgba(232,134,162,0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: macWindowOpen 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.home-world-titlebar {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(232,134,162,0.1);
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.home-world-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.home-world-ctrl {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: block;
+}
+
+.home-world-ctrl.close { background: #FF5A5A; }
+.home-world-ctrl.minimize { background: #FFBD2E; }
+.home-world-ctrl.maximize { background: #28C840; }
+
+.home-world-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.home-world-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(232,134,162,0.15);
+  color: var(--primary);
+}
+
+.home-world-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  min-height: 200px;
+}
+
+.home-world-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--text-quaternary);
+}
+
+.home-world-empty p { font-size: 13px; color: var(--text-tertiary); }
+
+.home-world-msg {
+  display: flex;
+  gap: 8px;
+  max-width: 90%;
+}
+
+.home-world-msg.other { align-self: flex-start; }
+.home-world-msg.self { align-self: flex-end; flex-direction: row-reverse; }
+
+.home-world-msg-avatar { flex-shrink: 0; border-radius: 50%; }
+
+.home-world-msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-world-msg.self .home-world-msg-body { align-items: flex-end; }
+
+.home-world-msg-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  padding-left: 2px;
+}
+
+.home-world-msg-bubble {
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+  max-width: 220px;
+}
+
+.bubble-other {
+  background: rgba(255,255,255,0.8);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(232,134,162,0.08);
+}
+
+.bubble-self {
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.home-world-msg-time {
+  font-size: 10px;
+  color: var(--text-quaternary);
+  padding: 0 2px;
+}
+
+.home-world-input-area {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(232,134,162,0.1);
+  background: rgba(255,255,255,0.5);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+
+.home-world-input {
+  flex: 1;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(232,134,162,0.15);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.home-world-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(232,134,162,0.15);
+}
+
+.home-world-input::placeholder { color: var(--text-quaternary); }
+
+.home-world-send-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(232,134,162,0.3);
+}
+
+.home-world-send-btn:hover:not(:disabled) { background: var(--primary-hover); transform: scale(1.05); }
+.home-world-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 分页（保留供 Pagination 组件使用） */
 .home-pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-secondary); flex-wrap: wrap; }
