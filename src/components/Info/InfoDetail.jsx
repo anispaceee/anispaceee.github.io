@@ -167,8 +167,11 @@ export default function InfoDetail() {
   // 标签折叠状态
   const [tagsExpanded, setTagsExpanded] = useState(false);
 
+  // 是否为 NSFW 条目（详情 API 返回 404 但有 preview 数据）
+  const [isNsfw, setIsNsfw] = useState(false);
+
   const fetchDetail = useCallback(async () => {
-    setLoading(true); setError(null); setProgress(10);
+    setLoading(true); setError(null); setProgress(10); setIsNsfw(false);
     try {
       setProgress(30);
       const data = await BangumiService.getSubjectDetail(id);
@@ -184,7 +187,6 @@ export default function InfoDetail() {
           const favResult = await FavoriteService.isFavoritedAsync(currentUser.id, 'info', parseInt(id));
           if (favResult) setIsFav(favResult.favorited);
         } catch {}
-        // 从后端 API 获取收藏状态
         try {
           const marks = await CollectionMarkService.getByUserId(currentUser.id);
           const myMark = (Array.isArray(marks) ? marks : []).find(m => String(m.subject_id) === String(id));
@@ -198,9 +200,45 @@ export default function InfoDetail() {
         setCharacters(chars); setPersons(pers);
       } catch { setCharacters([]); setPersons([]); }
       finally { setCharsLoading(false); }
-    } catch (err) { setError(err instanceof ApiError ? err : new ApiError(err.message || '加载失败')); }
-    finally { setLoading(false); }
-  }, [id, currentUser]);
+    } catch (err) {
+      const apiErr = err instanceof ApiError ? err : new ApiError(err.message || '加载失败');
+      // NSFW 条目：用 preview 数据构造最小 subject，走正常渲染流程
+      if (apiErr.code === 'NOT_FOUND' && preview) {
+        setIsNsfw(true);
+        setSubject({
+          id: parseInt(id),
+          name: preview.name || '',
+          name_cn: preview.name_cn || '',
+          type: preview.type || 2,
+          images: preview.images || { large: preview.image || '', common: preview.image || '' },
+          rating: { score: 0, total: 0, count: {} },
+          collection: { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
+          tags: [],
+          infobox: [],
+          summary: '',
+        });
+        setCharacters([]); setPersons([]);
+        // 仍然获取用户评分/收藏/收录数据
+        if (currentUser) {
+          try {
+            const ratingData = await RatingService.fetchUserRating(currentUser.id, parseInt(id));
+            if (ratingData) setUserScore(ratingData.score);
+          } catch {}
+          try {
+            const favResult = await FavoriteService.isFavoritedAsync(currentUser.id, 'info', parseInt(id));
+            if (favResult) setIsFav(favResult.favorited);
+          } catch {}
+          try {
+            const marks = await CollectionMarkService.getByUserId(currentUser.id);
+            const myMark = (Array.isArray(marks) ? marks : []).find(m => String(m.subject_id) === String(id));
+            if (myMark) setCollectionMark(myMark.status);
+          } catch {}
+        }
+      } else {
+        setError(apiErr);
+      }
+    } finally { setLoading(false); }
+  }, [id, currentUser, preview]);
 
   const COMMENT_CACHE_PREFIX = 'acg_bgm_comments_';
 
@@ -454,91 +492,6 @@ export default function InfoDetail() {
     const errCode = error.code || 'UNKNOWN';
     const isOffline = errCode === 'OFFLINE';
     const isNotFound = errCode === 'NOT_FOUND';
-
-    // NSFW 条目：有 preview 数据时显示与正常详情页相同布局 + 限制级提示
-    if (isNotFound && preview) {
-      const previewName = preview.name_cn || preview.name || '';
-      const previewCover = preview.image || preview.images?.large || preview.images?.common || '';
-      const previewTypeLabel = TYPE_LABELS[preview.type] || '其他';
-      const previewTypeKey = preview.type === 1 ? 'novel' : preview.type === 3 ? 'music' : preview.type === 4 ? 'game' : preview.type === 6 ? 'real' : 'anime';
-      const PreviewTypeIcon = TYPE_ICONS[preview.type] || Tv;
-      return (
-        <div className="info-detail-page animate-fade-in">
-          {previewCover && (
-            <div className="detail-page-background">
-              <div style={{ backgroundImage: `url(${previewCover})`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'absolute', inset: 0 }} />
-              <img src={previewCover} alt="" style={{ display: 'none' }} onError={() => {}} />
-              <div className="detail-bg-overlay" style={{ opacity: 0.35 }} />
-              <div className="detail-bg-blur" />
-            </div>
-          )}
-          <div className="detail-hero">
-            <h1 className="detail-hero-title">{previewName}</h1>
-          </div>
-          <div className="detail-container" style={{ opacity: 1, transform: 'none' }}>
-            <div className="detail-breadcrumb">
-              <Link to="/info" className="breadcrumb-link">资讯区</Link>
-              <ChevronRight size={14} />
-              <span className={`breadcrumb-type type-${previewTypeKey}`}>{previewTypeLabel}</span>
-              <ChevronRight size={14} />
-              <span className="breadcrumb-current">{previewName}</span>
-            </div>
-
-            <div className="detail-two-column">
-              <aside className="detail-sidebar">
-                {previewCover && <CoverImg src={previewCover} alt={previewName} />}
-
-                <div className="detail-sidebar-actions">
-                  <a href={`https://bgm.tv/subject/${id}`} target="_blank" rel="noopener noreferrer" className="detail-watch-btn" style={{ textDecoration: 'none' }}>
-                    <ExternalLink size={16} /> 在Bangumi查看
-                  </a>
-                  <div className="detail-action-row">
-                    <Link to="/info" className="detail-action-btn"><ArrowLeft size={15} /> 返回</Link>
-                  </div>
-                </div>
-              </aside>
-
-              <main className="detail-main">
-                <div className="detail-title-section">
-                  <div className="detail-title-row">
-                    <span className={`detail-type-badge type-${previewTypeKey}`}><PreviewTypeIcon size={13} /> {previewTypeLabel}</span>
-                  </div>
-                  <h1 className="detail-title">{previewName}</h1>
-                  {preview.name && preview.name_cn && preview.name !== preview.name_cn && (
-                    <p className="detail-original-name">{preview.name}</p>
-                  )}
-                </div>
-
-                <div className="detail-nsfw-notice">
-                  <ShieldOff size={24} />
-                  <div>
-                    <h3>限制级内容</h3>
-                    <p>该内容为限制级内容，详细信息无法显示。请前往 Bangumi 查看完整内容。</p>
-                    <p className="detail-nsfw-hint">未来绑定 Bangumi 账号后可直接查看</p>
-                  </div>
-                </div>
-
-                <div className="detail-tabs">
-                  <div className="detail-tabs-header">
-                    <button className="detail-tab active">简介</button>
-                    <button className="detail-tab" disabled>出场角色</button>
-                    <button className="detail-tab" disabled>评论区</button>
-                  </div>
-                  <div className="detail-tab-content">
-                    <div className="detail-summary-section">
-                      <div className="detail-summary-text" style={{ color: 'var(--text-quaternary)', fontStyle: 'italic' }}>
-                        限制级内容，详细信息不可用
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </main>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="info-detail-page">
         <div className="detail-error">
@@ -739,15 +692,27 @@ export default function InfoDetail() {
               {subject.name && subject.name !== subject.name_cn && <p className="detail-original-name">{subject.name}</p>}
             </div>
 
+            {/* 限制级内容提示（NSFW 条目） */}
+            {isNsfw && (
+              <div className="detail-nsfw-notice">
+                <ShieldOff size={24} />
+                <div>
+                  <h3>限制级内容</h3>
+                  <p>该内容为限制级内容，详细信息无法显示。请前往 Bangumi 查看完整内容。</p>
+                  <p className="detail-nsfw-hint">未来绑定 Bangumi 账号后可直接查看</p>
+                </div>
+              </div>
+            )}
+
             {/* 详情信息卡片 */}
-            {subject.infobox && subject.infobox.length > 0 && (
+            {!isNsfw && subject.infobox && subject.infobox.length > 0 && (
               <div className="detail-info-card">
                 {subject.infobox.map((item, i) => <InfoBoxItem key={i} item={item} />)}
               </div>
             )}
 
             {/* 标签区 */}
-            {allTags.length > 0 && (
+            {!isNsfw && allTags.length > 0 && (
               <div className="detail-tags-section">
                 <div className="detail-tags">
                   {visibleTags.map((tag, i) => {
@@ -770,7 +735,7 @@ export default function InfoDetail() {
             )}
 
             {/* 制作人员（按角色分组） */}
-            {persons.length > 0 && (
+            {!isNsfw && persons.length > 0 && (
               <div className="detail-staff-section">
                 <h2 className="detail-section-title">制作人员</h2>
                 <div className="detail-staff-groups">
@@ -793,14 +758,22 @@ export default function InfoDetail() {
                 {/* 简介Tab */}
                 {activeTab === 'summary' && (
                   <div className="detail-summary-section">
-                    <div className="detail-summary-text"><MarkdownRenderer content={subject.summary || '暂无简介'} /></div>
+                    {isNsfw ? (
+                      <div className="detail-summary-text" style={{ color: 'var(--text-quaternary)', fontStyle: 'italic' }}>
+                        限制级内容，详细信息不可用
+                      </div>
+                    ) : (
+                      <div className="detail-summary-text"><MarkdownRenderer content={subject.summary || '暂无简介'} /></div>
+                    )}
                   </div>
                 )}
 
                 {/* 角色Tab */}
                 {activeTab === 'characters' && (
                   <div className="detail-chars-section">
-                    {charsLoading ? (
+                    {isNsfw ? (
+                      <div className="detail-no-comments">限制级内容，角色信息不可用</div>
+                    ) : charsLoading ? (
                       <div className="detail-loading-inline"><Loader2 size={20} className="vp-spin" /> 加载角色中...</div>
                     ) : allChars.length === 0 ? (
                       <div className="detail-no-comments">暂无角色信息</div>
