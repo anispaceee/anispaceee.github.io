@@ -728,6 +728,13 @@ export const BangumiService = {
       }
 
       const data = await res.json();
+
+      // Bangumi API 对 NSFW/已删除条目返回 HTTP 200 但 body 含 {"code":404}
+      // 需要检测此模式并抛出正确的错误，否则 validateSubject 会收到无 id 的数据
+      if (data && data.code === 404 && data.error) {
+        throw new ApiError('请求的内容不存在或为限制级内容', 404, 'NOT_FOUND');
+      }
+
       if (cacheKey) await CacheManager.set(cacheKey, data);
       return data;
     } catch (err) {
@@ -788,6 +795,28 @@ export const BangumiService = {
     const url = `${this.BASE_URL}/subject/${id}?responseGroup=large`;
     const data = await this._request(url, this._cacheKey('subject_detail', String(id)));
     return validateSubject(data);
+  },
+
+  /**
+   * 批量检查条目可访问性（用于过滤 NSFW/已删除条目）
+   * 使用 /v0/subjects/{id} 端点，NSFW 条目返回 404
+   * @param {Array<{id: number}>} items - 搜索结果列表
+   * @returns {Promise<Set<number>>} 不可访问的条目 ID 集合
+   */
+  async checkAccessibility(items) {
+    if (!items || items.length === 0) return new Set();
+    const inaccessibleIds = new Set();
+    const checks = items.map(item =>
+      fetch(this._proxyUrl(`${this.BASE_URL}/v0/subjects/${item.id}`), {
+        method: 'GET',
+        headers: this._headers(),
+        signal: AbortSignal.timeout(3000),
+      })
+        .then(res => { if (res.status === 404) inaccessibleIds.add(item.id); })
+        .catch(() => { /* 超时或网络错误，不标记为不可访问 */ })
+    );
+    await Promise.allSettled(checks);
+    return inaccessibleIds;
   },
 
   async getCalendar() {

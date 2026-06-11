@@ -33,6 +33,13 @@
 .detail-error-back { display: flex; align-items: center; gap: 6px; padding: 10px 24px; border-radius: var(--radius-md); background: var(--bg-card); color: var(--text-link); font-size: 14px; font-weight: 500; text-decoration: none; transition: all var(--transition-fast); }
 .detail-error-back:hover { color: var(--text-link-hover); }
 
+/* NSFW restricted notice */
+.detail-nsfw-notice { display: flex; align-items: flex-start; gap: 14px; margin-top: 20px; padding: 18px 20px; border-radius: var(--radius-lg); background: linear-gradient(135deg, rgba(232,67,147,0.08), rgba(232,67,147,0.03)); border: 1px solid rgba(232,67,147,0.2); }
+.detail-nsfw-notice svg { color: var(--primary); flex-shrink: 0; margin-top: 2px; }
+.detail-nsfw-notice h3 { font-size: 15px; font-weight: 700; color: var(--primary); margin: 0 0 4px; }
+.detail-nsfw-notice p { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.detail-nsfw-hint { font-size: 12px !important; color: var(--text-quaternary) !important; margin-top: 6px !important; }
+
 /* Breadcrumb */
 .detail-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-quaternary); padding: 4px 0; margin-bottom: 16px; }
 .breadcrumb-link { color: var(--text-link); font-weight: 500; transition: color var(--transition-fast); }

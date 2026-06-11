@@ -105,7 +105,7 @@ export function LazyImage({ src, alt, className = '', fallbackSrc = '' }) {
   );
 }
 
-export function SubjectCard({ item, type, onFavorite, isFavorited, linkTo, compact = false }) {
+export function SubjectCard({ item, type, onFavorite, isFavorited, linkTo, linkState, compact = false }) {
   const name = item.name_cn || item.nameCn || item.name || '未知标题';
   const originalName = item.name || '';
   const image = item.images?.common || item.images?.medium || item.image || '';
@@ -157,7 +157,7 @@ export function SubjectCard({ item, type, onFavorite, isFavorited, linkTo, compa
   );
 
   if (linkTo) {
-    return <Link to={linkTo} className="subject-card-link">{content}</Link>;
+    return <Link to={linkTo} state={linkState} className="subject-card-link">{content}</Link>;
   }
   return content;
 }

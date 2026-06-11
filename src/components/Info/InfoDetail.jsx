@@ -1,7 +1,7 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService } from '../../services/api';
-import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp } from 'lucide-react';
+import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import './InfoDetail.css';
@@ -130,7 +130,11 @@ function StaffGroup({ role, members, defaultCollapsed = false }) {
 export default function InfoDetail() {
   const { type: routeType, id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser, isAuthenticated, openAuth } = useApp();
+
+  // 从搜索结果传递的预览信息（用于 NSFW 条目的部分显示）
+  const preview = location.state?.preview || null;
 
   const [subject, setSubject] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -450,6 +454,60 @@ export default function InfoDetail() {
     const errCode = error.code || 'UNKNOWN';
     const isOffline = errCode === 'OFFLINE';
     const isNotFound = errCode === 'NOT_FOUND';
+
+    // NSFW 条目：有 preview 数据时显示部分信息 + 限制级提示
+    if (isNotFound && preview) {
+      const previewName = preview.name_cn || preview.name || '';
+      const previewCover = preview.image || preview.images?.large || preview.images?.common || '';
+      const previewTypeLabel = TYPE_LABELS[preview.type] || '其他';
+      return (
+        <div className="info-detail-page animate-fade-in">
+          {previewCover && (
+            <div className="detail-page-background">
+              <div style={{ backgroundImage: `url(${previewCover})`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'absolute', inset: 0 }} />
+              <div className="detail-bg-overlay" style={{ opacity: 0.7 }} />
+              <div className="detail-bg-blur" />
+            </div>
+          )}
+          <div className="detail-hero">
+            <h1 className="detail-hero-title">{previewName}</h1>
+          </div>
+          <div className="detail-content">
+            <div className="detail-main">
+              <div className="detail-info-card glass-card">
+                {previewCover && (
+                  <div className="detail-cover-section">
+                    <CoverImg src={previewCover} alt={previewName} />
+                  </div>
+                )}
+                <div className="detail-info-body">
+                  <h2 className="detail-title">{previewName}</h2>
+                  {preview.name && preview.name_cn && preview.name !== preview.name_cn && (
+                    <p className="detail-original-name">{preview.name}</p>
+                  )}
+                  <span className="detail-type-badge">{previewTypeLabel}</span>
+                  <div className="detail-nsfw-notice">
+                    <ShieldOff size={20} />
+                    <div>
+                      <h3>限制级内容</h3>
+                      <p>该内容为限制级内容，详细信息无法显示。请前往 Bangumi 查看完整内容。</p>
+                      <p className="detail-nsfw-hint">未来绑定 Bangumi 账号后可直接查看</p>
+                    </div>
+                  </div>
+                  <div className="detail-error-actions" style={{ marginTop: '1rem' }}>
+                    <a href={`https://bgm.tv/subject/${id}`} target="_blank" rel="noopener noreferrer" className="detail-error-bangumi">
+                      <ExternalLink size={16} /> 在Bangumi查看
+                    </a>
+                    <Link to="/info" className="detail-error-back"><ArrowLeft size={16} /> 返回</Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="info-detail-page">
         <div className="detail-error">

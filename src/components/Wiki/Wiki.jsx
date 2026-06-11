@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
 import { SubjectCard } from '../Common/CommonComponents';
-import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2 } from 'lucide-react';
+import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2, ShieldOff } from 'lucide-react';
 import './Wiki.css';
 
 const TYPE_OPTIONS = [
@@ -18,6 +18,7 @@ const TYPE_OPTIONS = [
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="280" fill="%23f9f3f5"%3E%3Crect width="200" height="280" rx="10"/%3E%3Ctext x="100" y="140" text-anchor="middle" fill="%23d4b8c0" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E';
 
 const HISTORY_KEY = 'anispace_search_history';
+const NSFW_FILTER_KEY = 'anispace_filter_nsfw';
 const MAX_HISTORY = 12;
 
 function getSearchHistory() {
@@ -37,6 +38,23 @@ function clearSearchHistory() {
   localStorage.removeItem(HISTORY_KEY);
 }
 
+/** 从搜索结果提取基本信息，用于传递给详情页作为 navigate state */
+function extractPreview(item) {
+  return {
+    id: item.id,
+    name: item.name || '',
+    name_cn: item.name_cn || '',
+    type: item.type,
+    image: item.images?.large || item.images?.common || item.image || '',
+    images: item.images || {},
+  };
+}
+
+/** 根据 type 数值返回路由 typeKey */
+function typeToKey(type) {
+  return type === 1 ? 'novel' : type === 3 ? 'music' : type === 4 ? 'game' : type === 6 ? 'real' : 'anime';
+}
+
 export default function Wiki() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -45,7 +63,10 @@ export default function Wiki() {
   const [activeType, setActiveType] = useState(() => {
     const typeParam = searchParams.get('type');
     if (typeParam && TYPE_OPTIONS.some(t => t.key === typeParam)) return typeParam;
-    return 'anime';
+    return 'all';
+  });
+  const [filterNsfw, setFilterNsfw] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(NSFW_FILTER_KEY) || 'false'); } catch { return false; }
   });
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -73,6 +94,13 @@ export default function Wiki() {
       handleSearch(1, query, activeType);
     }
   }, [activeType]);
+
+  // NSFW 过滤切换时自动重新搜索
+  useEffect(() => {
+    if (hasSearched && query.trim()) {
+      handleSearch(1, query, activeType);
+    }
+  }, [filterNsfw]);
 
   // 从 URL 参数初始化搜索
   useEffect(() => {
@@ -106,7 +134,7 @@ export default function Wiki() {
         if (isPerson) {
           openMoegirl(item.name_cn || item.name);
         } else {
-          navigate(`/info/${item.type === 1 ? 'novel' : item.type === 3 ? 'music' : item.type === 4 ? 'game' : item.type === 6 ? 'real' : 'anime'}/${item.id}`);
+          navigate(`/info/${typeToKey(item.type)}/${item.id}`, { state: { preview: extractPreview(item) } });
         }
         setShowLiveResults(false);
       } else if (e.key === 'Escape') {
@@ -193,8 +221,18 @@ export default function Wiki() {
       } else {
         const typeCode = typeOption?.typeCode || 0;
         const result = await BangumiService.searchSubjects(q, typeCode, PAGE_SIZE, offset);
-        setResults(result?.list || []);
-        setTotal(result?.results || 0);
+        let list = result?.list || [];
+
+        // NSFW 过滤：用 /v0/subjects/{id} 并行检查可访问性
+        if (filterNsfw && list.length > 0) {
+          const inaccessibleIds = await BangumiService.checkAccessibility(list);
+          if (inaccessibleIds.size > 0) {
+            list = list.filter(item => !inaccessibleIds.has(item.id));
+          }
+        }
+
+        setResults(list);
+        setTotal(filterNsfw ? list.length : (result?.results || 0));
       }
       setPage(p);
     } catch (err) {
@@ -202,7 +240,7 @@ export default function Wiki() {
     } finally {
       setSearching(false);
     }
-  }, [query, activeType]);
+  }, [query, activeType, filterNsfw]);
 
   const openMoegirl = (name) => {
     window.open(`https://mzh.moegirl.org.cn/index.php?search=${encodeURIComponent(name)}`, '_blank', 'noopener,noreferrer');
@@ -216,6 +254,14 @@ export default function Wiki() {
   const handleClearHistory = () => {
     clearSearchHistory();
     setSearchHistory([]);
+  };
+
+  const toggleNsfwFilter = () => {
+    setFilterNsfw(prev => {
+      const next = !prev;
+      localStorage.setItem(NSFW_FILTER_KEY, JSON.stringify(next));
+      return next;
+    });
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -296,7 +342,8 @@ export default function Wiki() {
                       ) : (
                         <Link
                           key={item.id}
-                          to={`/info/${item.type === 1 ? 'novel' : item.type === 3 ? 'music' : item.type === 4 ? 'game' : item.type === 6 ? 'real' : 'anime'}/${item.id}`}
+                          to={`/info/${typeToKey(item.type)}/${item.id}`}
+                          state={{ preview: extractPreview(item) }}
                           className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
                           onClick={() => setShowLiveResults(false)}
                         >
@@ -321,6 +368,13 @@ export default function Wiki() {
                 {t.label}
               </button>
             ))}
+            <button
+              className={`wiki-type-tab-pill wiki-nsfw-toggle ${filterNsfw ? 'active' : ''}`}
+              onClick={toggleNsfwFilter}
+              title={filterNsfw ? '已开启：过滤限制级内容' : '已关闭：显示所有内容（含限制级）'}
+            >
+              <ShieldOff size={12} /> 过滤限制级
+            </button>
           </div>
           {searchHistory.length > 0 && (
             <div className="wiki-history-section">
@@ -414,7 +468,8 @@ export default function Wiki() {
                     ) : (
                       <Link
                         key={item.id}
-                        to={`/info/${item.type === 1 ? 'novel' : item.type === 3 ? 'music' : item.type === 4 ? 'game' : item.type === 6 ? 'real' : 'anime'}/${item.id}`}
+                        to={`/info/${typeToKey(item.type)}/${item.id}`}
+                        state={{ preview: extractPreview(item) }}
                         className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
                         onClick={() => setShowLiveResults(false)}
                       >
@@ -439,6 +494,13 @@ export default function Wiki() {
               {t.label}
             </button>
           ))}
+          <button
+            className={`wiki-type-tab-pill wiki-nsfw-toggle ${filterNsfw ? 'active' : ''}`}
+            onClick={toggleNsfwFilter}
+            title={filterNsfw ? '已开启：过滤限制级内容' : '已关闭：显示所有内容（含限制级）'}
+          >
+            <ShieldOff size={12} /> 过滤限制级
+          </button>
         </div>
       </div>
 
@@ -473,13 +535,14 @@ export default function Wiki() {
               );
             }
 
-            const typeKey = typeCode === 1 ? 'novel' : typeCode === 3 ? 'music' : typeCode === 4 ? 'game' : typeCode === 6 ? 'real' : 'anime';
+            const typeKey = typeToKey(typeCode);
             return (
               <SubjectCard
                 key={item.id}
                 item={item}
                 type={typeKey}
                 linkTo={`/info/${typeKey}/${item.id}`}
+                linkState={{ preview: extractPreview(item) }}
               />
             );
           })}
