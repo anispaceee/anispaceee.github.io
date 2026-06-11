@@ -7,7 +7,6 @@ import WorldChannel from './components/WorldChannel/WorldChannel'
 import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
 import InfoDetail from './components/Info/InfoDetail'
-import Profile from './components/Profile/Profile'
 import UserProfilePage from './components/Profile/UserProfilePage'
 import VideoZone from './components/Video/VideoZone'
 import VideoDetail from './components/Video/VideoDetail'
@@ -108,8 +107,7 @@ function AppInner() {
           <Route path="/club" element={<Club />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/news/:id" element={<NewsDetail />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/user/:userId" element={<UserProfilePage />} />
           <Route path="/video" element={<VideoZone />} />
           <Route path="/video/:sourceId/:vodId" element={<VideoDetail />} />
@@ -117,7 +115,7 @@ function AppInner() {
           <Route path="/guestbook" element={<Guestbook />} />
           <Route path="/music" element={<MusicPlayer />} />
           <Route path="/friends" element={<FriendSpace />} />
-          <Route path="/amadeus" element={<Amadeus />} />
+          <Route path="/navi" element={<Amadeus />} />
           <Route path="/live2d" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'var(--text-quaternary)'}}>雨何时停？</div>}><Live2DPage /></Suspense>} />
         </Route>
       </Routes>
