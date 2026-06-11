@@ -119,7 +119,7 @@
 .sidebar-bangumi-link { text-decoration: none; width: 100%; flex: unset; }
 
 /* 收藏统计（侧边栏紧凑版） */
-.detail-collection-mini { background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%); border-radius: var(--radius-md); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(232,134,162,0.15); }
+.detail-collection-mini { background: var(--bg-input); border-radius: var(--radius-md); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
 .collection-mini-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .collection-mini-label { color: var(--text-tertiary); }
 .collection-mini-num { font-weight: 700; }
