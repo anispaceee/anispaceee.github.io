@@ -10,7 +10,7 @@ const navItems = [
   { path: '/forum', label: '放課後' },
   { path: '/club', label: 'Tea Time！' },
   { path: '/video', label: '视频' },
-  { path: '/wiki', label: '百科' },
+  { path: '/wiki', label: '禁書目錄' },
 ];
 
 export default function Header() {

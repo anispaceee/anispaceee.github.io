@@ -224,7 +224,7 @@ export default function Wiki() {
     return (
       <div className="wiki-immersive">
         <div className="wiki-immersive-center">
-          <h1 className="wiki-immersive-title">ANISpace</h1>
+          <h1 className="wiki-immersive-title">インデックスIndex</h1>
           <p className="wiki-immersive-subtitle">发现你的下一部番</p>
           <div className="wiki-immersive-search" ref={searchWrapRef}>
             <div className="wiki-search-bar wiki-search-bar-large">
