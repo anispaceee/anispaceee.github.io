@@ -42,6 +42,10 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  // ─── 社交列表状态 ───
+  const [socialTab, setSocialTab] = useState(null); // null | 'following' | 'followers' | 'friends'
+  const [socialList, setSocialList] = useState([]);
+  const [socialLoading, setSocialLoading] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
@@ -292,6 +296,29 @@ export default function UserProfilePage() {
     } catch {}
   };
 
+  // ─── 社交列表加载 ───
+  const handleSocialClick = async (tab) => {
+    if (socialTab === tab) { setSocialTab(null); return; }
+    setSocialTab(tab);
+    setSocialLoading(true);
+    try {
+      if (tab === 'following') {
+        const data = await FollowService.getFollowing(effectiveUserId);
+        setSocialList(Array.isArray(data) ? data : []);
+      } else if (tab === 'followers') {
+        const data = await FollowService.getFollowers(effectiveUserId);
+        setSocialList(Array.isArray(data) ? data : []);
+      } else if (tab === 'friends') {
+        const data = await FriendService.getFriendList();
+        setSocialList(Array.isArray(data) ? data : (data?.list || []));
+      }
+    } catch {
+      setSocialList([]);
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
   // ─── 自己主页：编辑操作 ───
   const handleEdit = () => {
     setEditForm({
@@ -515,9 +542,9 @@ export default function UserProfilePage() {
             {/* ─── 社交统计 ─── */}
             <div className="user-profile-social">
               <div className="user-profile-social-item"><span className="social-num">{userInfo.postCount || 0}</span><span className="social-label">帖子</span></div>
-              <div className="user-profile-social-item"><span className="social-num">{userInfo.followingCount || 0}</span><span className="social-label">关注</span></div>
-              <div className="user-profile-social-item"><span className="social-num">{userInfo.followerCount || 0}</span><span className="social-label">粉丝</span></div>
-              <div className="user-profile-social-item"><span className="social-num">{userInfo.friend_count || userInfo.friendCount || 0}</span><span className="social-label">好友</span></div>
+              <div className={`user-profile-social-item clickable ${socialTab === 'following' ? 'active' : ''}`} onClick={() => handleSocialClick('following')}><span className="social-num">{userInfo.followingCount || 0}</span><span className="social-label">关注</span></div>
+              <div className={`user-profile-social-item clickable ${socialTab === 'followers' ? 'active' : ''}`} onClick={() => handleSocialClick('followers')}><span className="social-num">{userInfo.followerCount || 0}</span><span className="social-label">粉丝</span></div>
+              <div className={`user-profile-social-item clickable ${socialTab === 'friends' ? 'active' : ''}`} onClick={() => handleSocialClick('friends')}><span className="social-num">{userInfo.friend_count || userInfo.friendCount || 0}</span><span className="social-label">好友</span></div>
             </div>
           </div>
 
@@ -579,6 +606,36 @@ export default function UserProfilePage() {
             </div>
           ) : (
             <>
+              {/* ─── 社交列表（点击关注/粉丝/好友后显示） ─── */}
+              {socialTab && (
+                <div className="user-profile-social-panel">
+                  <div className="social-panel-header">
+                    <h3>{socialTab === 'following' ? '关注列表' : socialTab === 'followers' ? '粉丝列表' : '好友列表'}</h3>
+                    <button className="social-panel-close" onClick={() => setSocialTab(null)}>✕</button>
+                  </div>
+                  {socialLoading ? (
+                    <div className="social-panel-loading"><Loader2 size={20} className="spin" /></div>
+                  ) : socialList.length > 0 ? (
+                    <div className="social-panel-list">
+                      {socialList.map(user => (
+                        <Link key={user.id || user.userId} to={`/user/${user.id || user.userId}`} className="social-panel-item">
+                          <img src={user.avatar || FALLBACK_IMG} alt="" className="social-panel-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          <div className="social-panel-info">
+                            <span className="social-panel-name">{user.name || user.username || '用户'}</span>
+                            {user.sign && <span className="social-panel-sign">{user.sign}</span>}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="social-panel-empty">
+                      <Users size={32} />
+                      <p>{socialTab === 'following' ? '暂无关注' : socialTab === 'followers' ? '暂无粉丝' : '暂无好友'}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ─── 标签页切换（仅自己主页显示好友标签） ─── */}
               {isSelf && (
                 <div className="user-profile-tabs">

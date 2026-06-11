@@ -284,8 +284,62 @@
   align-items: center;
   gap: 2px;
 }
+.user-profile-social-item.clickable {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  transition: background 0.2s, transform 0.15s;
+}
+.user-profile-social-item.clickable:hover {
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+.user-profile-social-item.clickable.active {
+  background: var(--primary-light, rgba(232, 134, 162, 0.12));
+}
+.user-profile-social-item.clickable.active .social-num {
+  color: var(--primary);
+}
 .social-num { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 .social-label { font-size: 10px; color: var(--text-quaternary); }
+
+/* ─── 社交列表面板 ─── */
+.user-profile-social-panel {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-secondary);
+  padding: 16px;
+  margin-bottom: 16px;
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.social-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.social-panel-header h3 { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0; }
+.social-panel-close {
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--bg-hover); border: none; cursor: pointer;
+  color: var(--text-tertiary); font-size: 12px; transition: all 0.15s;
+}
+.social-panel-close:hover { background: var(--primary-light, rgba(232, 134, 162, 0.15)); color: var(--primary); }
+.social-panel-loading { text-align: center; padding: 24px 0; color: var(--text-quaternary); }
+.social-panel-list { display: flex; flex-direction: column; gap: 4px; max-height: 400px; overflow-y: auto; }
+.social-panel-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: var(--radius-md); text-decoration: none; color: var(--text-primary);
+  transition: background 0.15s;
+}
+.social-panel-item:hover { background: var(--bg-hover); }
+.social-panel-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.social-panel-info { display: flex; flex-direction: column; min-width: 0; }
+.social-panel-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.social-panel-sign { font-size: 11px; color: var(--text-quaternary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.social-panel-empty { text-align: center; padding: 32px 0; color: var(--text-quaternary); }
+.social-panel-empty p { margin-top: 8px; font-size: 13px; }
 
 /* 统计数字 */
 .user-profile-sidebar-stats,

@@ -871,11 +871,11 @@ async function handleApiRoutes(pathname, request, env, origin) {
     const userId = Number(followMatch[1]);
 
     const following = await env.DB.prepare(
-      'SELECT f.to_user_id, u.name, u.avatar FROM follows f JOIN users u ON f.to_user_id = u.id WHERE f.from_user_id = ?'
+      'SELECT u.id, u.username, u.name, u.avatar, u.sign FROM follows f JOIN users u ON f.to_user_id = u.id WHERE f.from_user_id = ?'
     ).bind(userId).all();
 
     const followers = await env.DB.prepare(
-      'SELECT f.from_user_id, u.name, u.avatar FROM follows f JOIN users u ON f.from_user_id = u.id WHERE f.to_user_id = ?'
+      'SELECT u.id, u.username, u.name, u.avatar, u.sign FROM follows f JOIN users u ON f.from_user_id = u.id WHERE f.to_user_id = ?'
     ).bind(userId).all();
 
     return jsonResponse({ following: following.results, followers: followers.results }, 200, origin);
