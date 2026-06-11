@@ -858,6 +858,12 @@ export const BangumiService = {
     return Array.isArray(data) ? data : [];
   },
 
+  async getSubjectEpisodes(id) {
+    const url = `${this.BASE_URL}/subject/${id}/ep`;
+    const data = await this._request(url, this._cacheKey('episodes', String(id)));
+    return Array.isArray(data) ? data : [];
+  },
+
   async getRelatedSubjects(id) {
     const url = `${this.BASE_URL}/subject/${id}/related`;
     const data = await this._request(url, this._cacheKey('related', String(id)));

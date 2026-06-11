@@ -411,7 +411,7 @@ export default function InfoDetail() {
       setShowSourcePicker(true);
     } else {
       const typeKey = typeCode === 1 ? 'novel' : typeCode === 4 ? 'game' : 'anime';
-      navigate(`/video?play=bgm_${id}&type=${typeKey}&bgm_id=${id}&bgm_name=${encodeURIComponent(name)}`);
+      navigate(`/video/subject/${id}`);
     }
     setWatchLoading(false);
   };

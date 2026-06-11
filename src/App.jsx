@@ -8,8 +8,10 @@ import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
 import InfoDetail from './components/Info/InfoDetail'
 import UserProfilePage from './components/Profile/UserProfilePage'
-import VideoZone from './components/Video/VideoZone'
-import VideoDetail from './components/Video/VideoDetail'
+import VideoHome from './components/Video/VideoHome'
+import SubjectDetail from './components/Video/SubjectDetail'
+import VideoPlayer from './components/Video/VideoPlayer'
+import SourceManager from './components/Video/SourceManager'
 import Mailbox from './components/Mailbox/Mailbox'
 import Guestbook from './components/Guestbook/Guestbook'
 import MusicPlayer from './components/Music/MusicPlayer'
@@ -26,6 +28,10 @@ import DockBar from './components/Layout/DockBar'
 import AppWindow from './components/Layout/AppWindow'
 import { WindowManagerProvider, useWindowManager } from './context/WindowManager'
 import { StorageService } from './services/api'
+import { initMediaSources } from './services/media/initSources'
+
+// Initialize media sources on app load
+initMediaSources()
 
 const Live2DPage = lazy(() => import('./components/Common/Live2DViewer'))
 
@@ -110,8 +116,10 @@ function AppInner() {
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/user/:userId" element={<UserProfilePage />} />
-          <Route path="/video" element={<VideoZone />} />
-          <Route path="/video/:sourceId/:vodId" element={<VideoDetail />} />
+          <Route path="/video" element={<VideoHome />} />
+          <Route path="/video/subject/:subjectId" element={<SubjectDetail />} />
+          <Route path="/video/play/:subjectId/:episodeId" element={<VideoPlayer />} />
+          <Route path="/video/sources" element={<SourceManager />} />
           <Route path="/mailbox" element={<Mailbox />} />
           <Route path="/guestbook" element={<Guestbook />} />
           <Route path="/music" element={<MusicPlayer />} />
