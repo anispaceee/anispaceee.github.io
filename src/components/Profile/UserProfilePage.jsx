@@ -34,7 +34,8 @@ export default function UserProfilePage() {
 
   // ─── 基础状态 ───
   const [userInfo, setUserInfo] = useState(null);
-  const [friendStatus, setFriendStatus] = useState(null);
+  const [friendStatus, setFriendStatus] = useState(null); // 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'rejected' | 'following'
+  const [friendRequestId, setFriendRequestId] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [userMarks, setUserMarks] = useState([]);
   const [markCounts, setMarkCounts] = useState({ wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 });
@@ -74,6 +75,12 @@ export default function UserProfilePage() {
   // ─── 加载用户信息 ───
   useEffect(() => {
     const loadUser = async () => {
+      // 自己的主页：直接使用 currentUser，无需调 API
+      if (isSelf && currentUser) {
+        setUserInfo(currentUser);
+        setLoading(false);
+        return;
+      }
       if (!effectiveUserId) { setLoading(false); return; }
       setLoading(true);
       try {
@@ -86,7 +93,7 @@ export default function UserProfilePage() {
       }
     };
     loadUser();
-  }, [effectiveUserId]);
+  }, [effectiveUserId, isSelf, currentUser]);
 
   // ─── 加载好友状态和关注状态（仅他人主页） ───
   useEffect(() => {
@@ -94,7 +101,18 @@ export default function UserProfilePage() {
     const loadStatus = async () => {
       try {
         const status = await FriendService.getFriendStatus(effectiveUserId);
-        setFriendStatus(status.status || 'none');
+        // 后端返回 requestStatus: 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'rejected'
+        // 以及 isFollowing, isFollower, requestId
+        if (status.requestStatus === 'accepted') {
+          setFriendStatus('accepted');
+        } else if (status.requestStatus === 'pending_sent' || status.requestStatus === 'pending_received') {
+          setFriendStatus(status.requestStatus);
+        } else if (status.isFollowing) {
+          setFriendStatus('following');
+        } else {
+          setFriendStatus('none');
+        }
+        setFriendRequestId(status.requestId || null);
       } catch {
         setFriendStatus('none');
       }
@@ -212,10 +230,16 @@ export default function UserProfilePage() {
     if (!isAuthenticated) return;
     setActionLoading(true);
     try {
-      const status = await FriendService.getFriendStatus(effectiveUserId);
-      if (status.requestId) {
-        await FriendService.handleFriendRequest(status.requestId, 'accepted');
-        setFriendStatus('friend');
+      // 使用已缓存的 requestId，若无则重新查询
+      let requestId = friendRequestId;
+      if (!requestId) {
+        const status = await FriendService.getFriendStatus(effectiveUserId);
+        requestId = status.requestId;
+      }
+      if (requestId) {
+        await FriendService.handleFriendRequest(requestId, 'accepted');
+        setFriendStatus('accepted');
+        setFriendRequestId(requestId);
       }
     } catch (err) {
       alert(err.message || '操作失败');
@@ -228,10 +252,15 @@ export default function UserProfilePage() {
     if (!isAuthenticated) return;
     setActionLoading(true);
     try {
-      const status = await FriendService.getFriendStatus(effectiveUserId);
-      if (status.requestId) {
-        await FriendService.handleFriendRequest(status.requestId, 'rejected');
+      let requestId = friendRequestId;
+      if (!requestId) {
+        const status = await FriendService.getFriendStatus(effectiveUserId);
+        requestId = status.requestId;
+      }
+      if (requestId) {
+        await FriendService.handleFriendRequest(requestId, 'rejected');
         setFriendStatus('none');
+        setFriendRequestId(null);
       }
     } catch (err) {
       alert(err.message || '操作失败');
@@ -320,6 +349,19 @@ export default function UserProfilePage() {
     );
   }
 
+  // ─── 未登录提示 ───
+  if (!isAuthenticated && isSelf) {
+    return (
+      <div className="user-profile-page">
+        <div className="user-profile-not-found">
+          <span>🔒</span>
+          <h2>请先登录</h2>
+          <button onClick={openAuth} className="back-link">去登录</button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── 用户不存在 ───
   if (!userInfo) {
     return (
@@ -374,7 +416,7 @@ export default function UserProfilePage() {
               </div>
             ) : (
               <div className="user-profile-actions">
-                {friendStatus === 'friend' && (
+                {friendStatus === 'accepted' && (
                   <>
                     <span className="user-profile-badge friend">
                       <UserCheck size={13} /> 已好友
