@@ -89,7 +89,7 @@ export default function PostDetail() {
         <div className="post-not-found">
           <AlertCircle size={48} style={{ color: 'var(--error)' }} />
           <h2>{error || '帖子不存在'}</h2>
-          <Link to="/forum" className="back-link">返回交流区</Link>
+          <Link to="/forum" className="back-link">返回放課後</Link>
         </div>
       </div>
     );
@@ -102,7 +102,7 @@ export default function PostDetail() {
     <div className="post-detail-page">
       <div className="post-detail-container">
         <div className="post-detail-back">
-          <Link to="/forum">← 返回交流区</Link>
+          <Link to="/forum">← 返回放課後</Link>
         </div>
 
         <div className="post-detail-card">

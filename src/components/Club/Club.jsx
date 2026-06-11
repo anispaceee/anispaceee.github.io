@@ -167,7 +167,7 @@ export default function Club() {
       <div className="club-header">
         <div className="club-title">
           <Users size={22} />
-          <h1>放課後Tea Time！</h1>
+          <h1>Tea Time！</h1>
         </div>
         <button className="club-create-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowCreate(!showCreate); }}>
           <Plus size={16} /> 创建社团

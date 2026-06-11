@@ -336,10 +336,10 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 热门讨论 */}
+            {/* 放課後热议 */}
             <div className="home-hot-section">
               <div className="home-hot-header">
-                <h2 className="home-section-title"><Flame size={18} /> 热门讨论</h2>
+                <h2 className="home-section-title"><Flame size={18} /> 放課後热议</h2>
                 <Link to="/forum" className="home-more-link">更多 <ArrowRight size={12} /></Link>
               </div>
               <div className="home-hot-posts">

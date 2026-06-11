@@ -390,7 +390,7 @@ export default function Forum() {
         {/* 左栏 7fr */}
         <div className="forum-main">
           <div className="forum-header">
-            <h1 className="forum-title"><MessageCircle size={22} /> 交流区</h1>
+            <h1 className="forum-title"><MessageCircle size={22} /> 放課後</h1>
             <button className="new-post-btn" onClick={() => { if (!isAuthenticated) { openAuth(); return; } setShowNewPost(!showNewPost); }}>
               <Plus size={16} /> 发帖
             </button>
