@@ -17,10 +17,12 @@
 
 .detail-author { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border-secondary); }
 .detail-author-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; }
-.detail-author-info { display: flex; align-items: center; gap: 8px; }
+.detail-author-info { display: flex; align-items: center; gap: 8px; flex: 1; }
 .detail-author-name { font-size: 14px; font-weight: 600; }
 .detail-author-level { font-size: 11px; color: var(--secondary); font-weight: 500; }
 .detail-time { font-size: 12px; color: var(--text-quaternary); }
+.detail-delete-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-sm); color: var(--text-quaternary); background: none; border: 1px solid transparent; cursor: pointer; transition: all var(--transition-fast); margin-left: auto; }
+.detail-delete-btn:hover { color: var(--error); border-color: var(--error); background: #fff5f5; }
 .detail-content { font-size: 15px; line-height: 1.8; color: var(--text-primary); margin-bottom: 16px; }
 .detail-images { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .detail-img { max-width: 400px; max-height: 300px; border-radius: var(--radius-md); object-fit: cover; }
@@ -59,3 +61,16 @@
   .detail-images { flex-direction: column; }
   .detail-img { max-width: 100%; }
 }
+
+/* 删除确认弹窗 */
+.delete-confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.15s ease; }
+.delete-confirm-dialog { background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; max-width: 380px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+.delete-confirm-dialog h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.delete-confirm-dialog p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px; }
+.delete-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.delete-cancel-btn { padding: 8px 20px; border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-secondary); font-size: 14px; }
+.delete-cancel-btn:hover { background: var(--border-primary); }
+.delete-confirm-btn { display: flex; align-items: center; gap: 6px; padding: 8px 20px; border-radius: var(--radius-sm); background: var(--error); color: #fff; font-size: 14px; font-weight: 600; }
+.delete-confirm-btn:hover:not(:disabled) { opacity: 0.9; }
+.delete-confirm-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

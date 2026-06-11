@@ -499,6 +499,12 @@ export const ForumService = {
     });
   },
 
+  async deletePost(postId) {
+    return await apiRequest(`/api/posts/${postId}`, {
+      method: 'DELETE',
+    });
+  },
+
   async uploadImage(file) {
     const token = sessionStorage.getItem('acg_jwt_token');
     const formData = new FormData();

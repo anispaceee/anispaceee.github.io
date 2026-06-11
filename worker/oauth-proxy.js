@@ -852,6 +852,28 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
+  // DELETE /api/posts/:id — 删除帖子（仅作者可删）
+  const deleteMatch = pathname.match(/^\/api\/posts\/(\d+)$/);
+  if (deleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const postId = Number(deleteMatch[1]);
+
+    const post = await env.DB.prepare('SELECT author_id FROM posts WHERE id = ?').bind(postId).first();
+    if (!post) return jsonResponse({ error: '帖子不存在' }, 404, origin);
+    if (post.author_id !== authUser.userId) return jsonResponse({ error: '无权删除他人帖子' }, 403, origin);
+
+    try {
+      // 级联删除：先删回复和点赞，再删帖子
+      await env.DB.prepare('DELETE FROM replies WHERE post_id = ?').bind(postId).run();
+      await env.DB.prepare('DELETE FROM likes WHERE post_id = ?').bind(postId).run();
+      await env.DB.prepare('DELETE FROM posts WHERE id = ?').bind(postId).run();
+      return jsonResponse({ message: '已删除' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '删除失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // GET /api/collections — 获取用户收藏列表
   if (method === 'GET' && pathname === '/api/collections') {
     const userId = new URL(request.url).searchParams.get('userId');

@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ForumService } from '../../services/api';
 import { renderMarkdown } from '../../utils/renderMarkdown';
-import { MessageCircle, Heart, Loader2, AlertCircle } from 'lucide-react';
+import { Heart, Loader2, AlertCircle, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import UserAvatar from '../Common/UserAvatar';
 import './PostDetail.css';
 
 export default function PostDetail() {
   const { id } = useParams();
-  const { isAuthenticated, openAuth } = useApp();
+  const navigate = useNavigate();
+  const { currentUser, isAuthenticated, openAuth } = useApp();
   const [post, setPost] = useState(null);
   const [replies, setReplies] = useState([]);
   const [newReply, setNewReply] = useState('');
@@ -19,6 +20,8 @@ export default function PostDetail() {
   const [replyError, setReplyError] = useState('');
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const loadPost = async () => {
@@ -40,6 +43,8 @@ export default function PostDetail() {
     const map = { game: '游戏', anime: '动画', novel: '小说', chat: '吹水' };
     return map[cat] || cat;
   };
+
+  const isAuthor = currentUser && post && currentUser.id === post.author_id;
 
   const handleReply = async () => {
     if (!newReply.trim()) return;
@@ -76,6 +81,18 @@ export default function PostDetail() {
       setLikeCount(prev => result.liked ? prev + 1 : Math.max(0, prev - 1));
     } catch {
       // 静默失败
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await ForumService.deletePost(id);
+      navigate('/forum');
+    } catch (err) {
+      alert(err.message || '删除失败');
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -128,6 +145,11 @@ export default function PostDetail() {
               <span className="detail-author-name">{authorName}</span>
               <span className="detail-time">{post.created_at}</span>
             </div>
+            {isAuthor && (
+              <button className="detail-delete-btn" onClick={() => setShowDeleteConfirm(true)} title="删除帖子">
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
 
           <div className="detail-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }} />
@@ -156,6 +178,21 @@ export default function PostDetail() {
             </button>
           </div>
         </div>
+
+        {showDeleteConfirm && (
+          <div className="delete-confirm-overlay" onClick={() => setShowDeleteConfirm(false)}>
+            <div className="delete-confirm-dialog" onClick={e => e.stopPropagation()}>
+              <h3>确认删除</h3>
+              <p>删除后无法恢复，帖子及其所有回复将被永久移除。</p>
+              <div className="delete-confirm-actions">
+                <button className="delete-cancel-btn" onClick={() => setShowDeleteConfirm(false)}>取消</button>
+                <button className="delete-confirm-btn" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? <><Loader2 size={14} className="spinning" /> 删除中...</> : '确认删除'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="replies-section">
           <h2 className="replies-title">回复 ({replies.length})</h2>
