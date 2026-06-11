@@ -207,6 +207,24 @@
 | M08-01 | 排序缓存粒度粗（key 不带 sort） | 🟠 | IndexedDB 缓存只存一份 | 缓存 key = `${type}-${sort}-page`；或每次排序不读缓存 |
 | M08-02 | 人物类型走 subjects 接口 | 🟠 | URL 写死 | 抽 `searchSubjects(keyword, type)`，type=persons 走 `/persons` |
 | M08-03 | 随机推荐无"换一条" | 🟡 | 仅 initial 一次 | 加按钮调 `GET /api/wiki/random?type=` 后端抽签 |
+| M08-04 | 搜索结果不全（冷数据 / 新番） | 🔴 | 官方 /v0/search 索引覆盖率<100% | 见下方「番剧检索补全（v1.1）」 |
+
+### 番剧检索补全（v1.1）
+
+- **新增 DDL**：[worker/migrations/v008_bangumi_index.sql](file:///d:/Desktop/Ideas/ANISpace/ANISpace/worker/migrations/v008_bangumi_index.sql)
+- **新增 worker 模块**：
+  - [worker/lib/bangumi-sync.js](file:///d:/Desktop/Ideas/ANISpace/ANISpace/worker/lib/bangumi-sync.js) — 周更同步逻辑
+  - [worker/lib/bangumi-search.js](file:///d:/Desktop/Ideas/ANISpace/ANISpace/worker/lib/bangumi-search.js) — 本地+兜底搜索
+- **新增接口**：
+  - `GET  /api/bangumi-search/search?q=&type=` — 搜索
+  - `GET  /api/bangumi-search/detail/:id` — 详情
+  - `POST /api/bangumi-search/admin/sync`（需 `X-Admin-Token`）— 手动触发同步
+  - `GET  /api/bangumi-search/admin/status` — 查询同步状态
+- **新增前端服务**：[src/services/BangumiSearchService.js](file:///d:/Desktop/Ideas/ANISpace/ANISpace/src/services/BangumiSearchService.js)
+- **新增运维脚本**：[scripts/import-bangumi-data.mjs](file:///d:/Desktop/Ideas/ANISpace/ANISpace/scripts/import-bangumi-data.mjs)
+- **wrangler 变更**：`[triggers] crons = ["0 3 * * 1", "0 3 * * 3"]`
+- **运维手册**：[docs/BANGUMI_SEARCH_OPS.md](file:///d:/Desktop/Ideas/ANISpace/ANISpace/docs/BANGUMI_SEARCH_OPS.md)
+- **验收**：搜"高达 seed"、"莉可丽丝"、"孤独摇滚"等冷/新番均能命中，且搜索 RT < 200ms（命中本地时）。
 
 - **涉及文件**：
   - [src/components/Wiki/Wiki.jsx](file:///d:/Desktop/Ideas/ANISpace/ANISpace/src/components/Wiki/Wiki.jsx)

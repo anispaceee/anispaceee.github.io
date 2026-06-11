@@ -13,7 +13,12 @@
  *   GITHUB_CLIENT_SECRET   - GitHub OAuth Client Secret
  *   ALLOWED_ORIGIN         - 允许的前端域名（如 https://afterrain-2005.github.io）
  *   JWT_SECRET             - JWT 签名密钥
+ *   ADMIN_SYNC_TOKEN       - 手动触发 bangumi-data 同步的鉴权 token（任意随机字符串）
  */
+
+// ─── ES Module 依赖 ────────────────────────────────────────
+import * as bangumiSync from './lib/bangumi-sync.js';
+import * as bangumiSearch from './lib/bangumi-search.js';
 
 // ─── SSRF 防护 ───────────────────────────────────────────
 
@@ -1802,6 +1807,70 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
+  // ── Bangumi 本地索引搜索 API ──
+
+  // GET /api/bangumi-search/search?q=xxx&type=2
+  if (method === 'GET' && pathname === '/api/bangumi-search/search') {
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') || '').trim();
+    const type = Number(url.searchParams.get('type')) || 0;
+    if (!q) return jsonResponse({ error: '缺少 q 参数' }, 400, origin);
+    if (q.length > 100) return jsonResponse({ error: 'q 太长' }, 400, origin);
+    try {
+      const result = await bangumiSearch.search(env, q, type);
+      return jsonResponse(result, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '搜索失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/bangumi-search/detail/:id
+  const detailMatch = pathname.match(/^\/api\/bangumi-search\/detail\/(\d+)$/);
+  if (detailMatch && method === 'GET') {
+    try {
+      const result = await bangumiSearch.getDetail(env, Number(detailMatch[1]));
+      if (!result) return jsonResponse({ error: '未找到条目' }, 404, origin);
+      return jsonResponse(result, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '获取详情失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/bangumi-search/admin/sync — 手动触发同步（需 ADMIN_SYNC_TOKEN）
+  if (method === 'POST' && pathname === '/api/bangumi-search/admin/sync') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+    const force = new URL(request.url).searchParams.get('force') === '1';
+    try {
+      const result = await bangumiSync.runSync(env, { force });
+      return jsonResponse(result, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '同步失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/bangumi-search/admin/status — 查询同步元数据
+  if (method === 'GET' && pathname === '/api/bangumi-search/admin/status') {
+    try {
+      const lastSync = await env.DB.prepare('SELECT value, updated_at FROM bangumi_index_meta WHERE key = ?').bind('last_sync_at').first();
+      const sourceHash = await env.DB.prepare('SELECT value, updated_at FROM bangumi_index_meta WHERE key = ?').bind('source_hash').first();
+      const itemCount = await env.DB.prepare('SELECT value FROM bangumi_index_meta WHERE key = ?').bind('item_count').first();
+      const liveCount = await env.DB.prepare('SELECT COUNT(*) AS n FROM bangumi_index').first();
+      return jsonResponse({
+        lastSyncAt: lastSync ? Number(lastSync.value) : null,
+        lastSyncAtIso: lastSync?.updated_at || null,
+        sourceHash: sourceHash?.value || null,
+        itemCountRecorded: itemCount ? Number(itemCount.value) : 0,
+        itemCountLive: liveCount?.n || 0,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '查询失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // 未匹配的 API 路由
   return null;
 }
@@ -1889,9 +1958,63 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
+    }
+
+    // Bangumi 图片代理：/api/bangumi/image?url=...
+    if (url.pathname === '/api/bangumi/image') {
+      const imageUrl = url.searchParams.get('url');
+      if (!imageUrl) return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
+      // 只允许代理 Bangumi 图片域名
+      const allowedHosts = ['lain.bgm.tv', 'bgm.tv', 'api.bgm.tv'];
+      try {
+        const parsedUrl = new URL(imageUrl);
+        if (!allowedHosts.some(h => parsedUrl.hostname.endsWith(h))) {
+          return jsonResponse({ error: '不允许的图片域名' }, 403, origin);
+        }
+      } catch {
+        return jsonResponse({ error: '无效的 URL' }, 400, origin);
+      }
+
+      // 检查缓存
+      const cache = caches.default;
+      const cacheKey = new Request(imageUrl, { method: 'GET' });
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        const headers = new Headers(cached.headers);
+        headers.set('X-Cache', 'HIT');
+        headers.set('Cache-Control', 'public, max-age=86400');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+        return new Response(cached.body, { status: cached.status, headers });
+      }
+
+      try {
+        const imgRes = await fetch(imageUrl, {
+          headers: { 'User-Agent': 'ANISpace/1.0', 'Referer': 'https://bgm.tv/' },
+        });
+        const contentType = imgRes.headers.get('Content-Type') || 'image/jpeg';
+        const body = await imgRes.arrayBuffer();
+        const resHeaders = new Headers();
+        resHeaders.set('Content-Type', contentType);
+        resHeaders.set('Cache-Control', 'public, max-age=86400');
+        resHeaders.set('X-Cache', 'MISS');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+        // 缓存图片
+        if (imgRes.ok) {
+          const cacheResponse = new Response(body, {
+            status: imgRes.status,
+            headers: { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' },
+          });
+          try { await cache.put(cacheKey, cacheResponse); } catch {}
+        }
+
+        return new Response(body, { status: imgRes.status, headers: resHeaders });
+      } catch (err) {
+        return jsonResponse({ error: '图片代理失败: ' + err.message }, 502, origin);
+      }
     }
 
     // Bangumi API 代理：/api/bangumi/*

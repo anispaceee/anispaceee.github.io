@@ -249,6 +249,16 @@ ANISpace
   - 排行榜缓存键必须带 sort key 或每次排序重新拉取（v1 选前端排序）。
   - 人物类型走独立 `/persons` 接口，错误处理与 subjects 统一封装。
   - 缓存被驱逐（LRU 200 条）时静默重拉。
+- **番剧检索策略（v1.1 新增）**：
+  - **问题**：官方 `/v0/search/subjects` 索引不全、MeiliSearch 索引字段有限（仅 name/name_cn/alias），覆盖不到长尾条目与新番。
+  - **方案**：本地索引 + 官方兜底
+    1. D1 新增 `bangumi_index` 表，存储 [bangumi-data](https://github.com/bangumi-data/bangumi-data) 周更全量（5.5 万+条）。
+    2. Worker Cron 每周一 03:00 UTC 自动拉 `latest.json` 同步（hash 比对，无变化跳过）。
+    3. 首次全量通过 `scripts/import-bangumi-data.mjs` 一次性导入。
+    4. `GET /api/bangumi-search/search?q=&type=` 先查本地，命中 < 5 时调官方兜底并异步回写。
+    5. 前端 `BangumiSearchService` 取代 `BangumiService.searchSubjects` 的"搜索"路径。
+  - **验收**：搜"高达 seed"、"莉可丽丝"等冷门/新番均能命中。
+  - **运维**：见 [BANGUMI_SEARCH_OPS.md](BANGUMI_SEARCH_OPS.md)。
 - **验收**：
   - 切换"评分/热度/日期"时排行榜内容确实重排。
   - 随机推荐有"换一条"按钮。

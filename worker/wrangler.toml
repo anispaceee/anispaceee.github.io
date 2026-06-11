@@ -11,3 +11,8 @@ ALLOWED_ORIGIN = "https://afterrain-2005.github.io"
 binding = "DB"
 database_name = "anispace-db"
 database_id = "30523091-5d5d-449d-9e22-abe26bf2233b"
+
+# Cron Trigger — 每周一 03:00 UTC 跑 bangumi-data 同步
+# 周三 03:00 UTC 二次容错（bangumi-data 周一偶尔延迟）
+[triggers]
+crons = ["0 3 * * 1", "0 3 * * 3"]
