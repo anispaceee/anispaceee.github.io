@@ -5,11 +5,7 @@ import { openDB } from 'idb';
 const { STORAGE_KEYS: SK } = StorageService;
 
 // ─── Cloudflare Worker 后端 API 基础地址 ───
-// 安全检查：如果 VITE_OAUTH_PROXY_URL 指向旧 workers.dev 子域，覆盖为当前正确的地址
-const _rawApiBase = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
-const API_BASE = _rawApiBase.includes('lyw2373314970')
-  ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
-  : _rawApiBase;
+const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
 
 // ─── 后端 API 请求辅助函数 ───
 async function apiRequest(path, options = {}) {
@@ -513,11 +509,8 @@ export const ForumService = {
     const token = sessionStorage.getItem('acg_jwt_token');
     const formData = new FormData();
     formData.append('file', file);
-    const _rawBase = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
-    const API_BASE_LOCAL = _rawBase.includes('lyw2373314970')
-      ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
-      : _rawBase;
-    const res = await fetch(`${API_BASE_LOCAL}/api/uploads`, {
+    const API_BASE_FOR_UPLOAD = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+    const res = await fetch(`${API_BASE_FOR_UPLOAD}/api/uploads`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
