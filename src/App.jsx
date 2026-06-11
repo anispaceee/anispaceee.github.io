@@ -47,6 +47,7 @@ function WindowLayer() {
             {win.id === 'amadeus' && <Amadeus />}
             {win.id === 'world' && <WorldChannel />}
             {win.id === 'notifications' && <Notifications />}
+            {win.id === 'touchgal' && <TouchGalApp />}
           </AppWindow>
         );
       })}

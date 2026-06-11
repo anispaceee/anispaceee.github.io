@@ -168,7 +168,7 @@ export default function UserProfilePage() {
   useEffect(() => {
     if (!isSelf || !currentUser) return;
     MailService.getUnreadCountAsync(currentUser.id).then(data => {
-      setUnreadMail(typeof data === 'object' ? data.count : (data || 0));
+      setUnreadMail(typeof data === 'object' ? data.unread : (data || 0));
     }).catch(() => {});
   }, [isSelf, currentUser]);
 
@@ -195,7 +195,7 @@ export default function UserProfilePage() {
   // ─── 计算属性 ───
   const totalMarks = userMarks.length;
   const avgScore = useMemo(() => {
-    const scores = userMarks.filter(m => m.user_score > 0).map(m => m.user_score);
+    const scores = userMarks.filter(m => (m.rating || m.user_score) > 0).map(m => m.rating || m.user_score);
     return scores.length > 0 ? (scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1) : '-';
   }, [userMarks]);
 
@@ -327,6 +327,17 @@ export default function UserProfilePage() {
   const handlePrivacyChange = (key, value) => {
     const updated = { ...privacySettings, [key]: value };
     setPrivacySettings(updated);
+    // 同步更新后端字段：profile 对应 allow_profile_view，marks/info 对应 allow_comments_public
+    const settings = {};
+    if (key === 'profile') {
+      settings.allow_profile_view = value === 'public' ? 1 : 0;
+    }
+    if (key === 'marks' || key === 'info') {
+      settings.allow_comments_public = value === 'public' ? 1 : 0;
+    }
+    if (Object.keys(settings).length > 0 && currentUser?.id) {
+      UserService.updateSettings(currentUser.id, settings).catch(() => {});
+    }
     updateProfile({ preferences: { ...(currentUser?.preferences || {}), privacy: updated } });
   };
 
@@ -754,10 +765,10 @@ export default function UserProfilePage() {
                       <div className="user-profile-friend-list">
                         {receivedRequests.map(req => (
                           <div key={req.id} className="user-profile-friend-item with-actions">
-                            <Link to={`/user/${req.fromUserId || req.userId}`} className="user-profile-friend-item-left">
-                              <img src={req.avatar || FALLBACK_IMG} alt="" className="user-profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                            <Link to={`/user/${req.from_user_id || req.userId}`} className="user-profile-friend-item-left">
+                              <img src={req.from_user_avatar || req.avatar || FALLBACK_IMG} alt="" className="user-profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                               <div className="user-profile-friend-info">
-                                <span className="user-profile-friend-name">{req.name || req.fromUserName || '用户'}</span>
+                                <span className="user-profile-friend-name">{req.from_user_name || req.name || '用户'}</span>
                                 {req.message && <span className="user-profile-friend-sign">{req.message}</span>}
                               </div>
                             </Link>
@@ -797,10 +808,10 @@ export default function UserProfilePage() {
                       <h3 className="user-profile-friend-section-title">待通过请求</h3>
                       <div className="user-profile-friend-list">
                         {sentRequests.map(req => (
-                          <Link key={req.id} to={`/user/${req.toUserId || req.userId}`} className="user-profile-friend-item">
-                            <img src={req.avatar || FALLBACK_IMG} alt="" className="user-profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                          <Link key={req.id} to={`/user/${req.to_user_id || req.userId}`} className="user-profile-friend-item">
+                            <img src={req.to_user_avatar || req.avatar || FALLBACK_IMG} alt="" className="user-profile-friend-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
                             <div className="user-profile-friend-info">
-                              <span className="user-profile-friend-name">{req.name || req.toUserName || '用户'}</span>
+                              <span className="user-profile-friend-name">{req.to_user_name || req.name || '用户'}</span>
                               <span className="user-profile-friend-sign pending">等待通过</span>
                             </div>
                           </Link>

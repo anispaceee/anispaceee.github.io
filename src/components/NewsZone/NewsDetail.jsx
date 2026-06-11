@@ -1,22 +1,46 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Tag, ExternalLink } from 'lucide-react';
+import { NewsService, StorageService } from '../../services/api';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
-import { StorageService } from '../../services/api';
 import './NewsZone.css';
 
 export default function NewsDetail() {
   const { id } = useParams();
+  const [article, setArticle] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const customNews = (() => {
-    try {
-      const saved = localStorage.getItem('acg_custom_news');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  })();
+  useEffect(() => {
+    const loadArticle = async () => {
+      setLoading(true);
+      try {
+        // 优先从后端 API 获取
+        const data = await NewsService.getNewsById(id);
+        setArticle(data);
+      } catch {
+        // 后端获取失败时，回退到 localStorage
+        try {
+          const saved = localStorage.getItem('acg_custom_news');
+          const customNews = saved ? JSON.parse(saved) : [];
+          const found = customNews.find(n => String(n.id) === String(id));
+          setArticle(found || null);
+        } catch {
+          setArticle(null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadArticle();
+  }, [id]);
 
-  const article = customNews.find(n => String(n.id) === String(id));
+  if (loading) {
+    return (
+      <div className="news-zone">
+        <div className="news-detail-loading">加载中...</div>
+      </div>
+    );
+  }
 
   if (!article) {
     return (
@@ -42,6 +66,13 @@ export default function NewsDetail() {
     return colors[cat] || '#409eff';
   };
 
+  // 后端返回的 images 可能是 JSON 字符串
+  const images = (() => {
+    if (!article.images) return [];
+    if (Array.isArray(article.images)) return article.images;
+    try { return JSON.parse(article.images); } catch { return []; }
+  })();
+
   return (
     <div className="news-zone">
       <div className="news-detail">
@@ -54,7 +85,7 @@ export default function NewsDetail() {
             <span className="news-item-category" style={{ backgroundColor: getCategoryColor(article.category) }}>
               {article.category}
             </span>
-            <span className="news-item-date"><Calendar size={10} /> {article.date}</span>
+            <span className="news-item-date"><Calendar size={10} /> {article.created_at || article.date}</span>
             {article.source && <span className="news-item-source">{article.source}</span>}
           </div>
           <h1 className="news-detail-title">{article.title}</h1>
@@ -72,9 +103,9 @@ export default function NewsDetail() {
           </div>
         )}
 
-        {article.images && article.images.length > 0 && (
+        {images.length > 0 && (
           <div className="news-detail-images">
-            {article.images.map((img, idx) => (
+            {images.map((img, idx) => (
               <img key={idx} src={img} alt={`图片 ${idx + 1}`} className="news-detail-image" loading="lazy" />
             ))}
           </div>

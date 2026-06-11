@@ -191,3 +191,55 @@ CREATE INDEX IF NOT EXISTS idx_mails_to_created ON mails(to_user_id, created_at 
 CREATE INDEX IF NOT EXISTS idx_mails_from ON mails(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_pm_conversation ON private_messages(from_user_id, to_user_id);
 CREATE INDEX IF NOT EXISTS idx_pm_to_read ON private_messages(to_user_id, from_user_id, read);
+
+-- 好友请求表
+CREATE TABLE IF NOT EXISTS friend_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_user_id INTEGER NOT NULL REFERENCES users(id),
+  to_user_id INTEGER NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'pending',
+  message TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(from_user_id, to_user_id)
+);
+
+-- 好友空间动态表
+CREATE TABLE IF NOT EXISTS friend_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  images TEXT DEFAULT '[]',
+  visibility TEXT NOT NULL DEFAULT 'friends' CHECK(visibility IN ('public', 'friends', 'private')),
+  likes_count INTEGER DEFAULT 0,
+  comments_count INTEGER DEFAULT 0,
+  views INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 好友动态评论表
+CREATE TABLE IF NOT EXISTS friend_post_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL REFERENCES friend_posts(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 好友动态点赞表
+CREATE TABLE IF NOT EXISTS friend_post_likes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL REFERENCES friend_posts(id),
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(post_id, user_id)
+);
+
+-- 好友相关索引
+CREATE INDEX IF NOT EXISTS idx_fr_from ON friend_requests(from_user_id);
+CREATE INDEX IF NOT EXISTS idx_fr_to ON friend_requests(to_user_id, status);
+CREATE INDEX IF NOT EXISTS idx_fp_user ON friend_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_fp_visibility ON friend_posts(visibility);
+CREATE INDEX IF NOT EXISTS idx_fpc_post ON friend_post_comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_fpl_post ON friend_post_likes(post_id);

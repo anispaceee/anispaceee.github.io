@@ -65,7 +65,7 @@ export default function Mailbox() {
     } catch { setSent([]); }
     try {
       const unreadData = await MailService.getUnreadCountAsync(currentUser.id);
-      setUnreadCount(typeof unreadData === 'object' ? unreadData.count : (unreadData || 0));
+      setUnreadCount(typeof unreadData === 'object' ? unreadData.unread : (unreadData || 0));
     } catch { /* no-op */ }
     setLoading(false);
   }, [currentUser]);
@@ -156,7 +156,7 @@ export default function Mailbox() {
   };
 
   const handleSelectMail = async (mail) => {
-    if (!mail.read && mail.toUserId === currentUser.id) {
+    if (!mail.read && mail.to_user_id === currentUser.id) {
       try {
         await MailService.markAsReadAsync(mail.id);
         setInbox(prev => prev.map(m => m.id === mail.id ? { ...m, read: true } : m));
@@ -258,15 +258,15 @@ export default function Mailbox() {
                   <div className="mail-empty">暂无邮件</div>
                 ) : (
                   filteredMails.map(mail => {
-                    const isFromMe = mail.fromUserId === currentUser.id;
-                    const otherUser = UserService.getById(isFromMe ? mail.toUserId : mail.fromUserId);
+                    const isFromMe = mail.from_user_id === currentUser.id;
+                    const otherUser = UserService.getById(isFromMe ? mail.to_user_id : mail.from_user_id);
                     return (
                       <div key={mail.id} className={`mail-item ${selectedMail?.id === mail.id ? 'selected' : ''} ${!mail.read && !isFromMe ? 'unread' : ''}`} onClick={() => handleSelectMail(mail)}>
-                        <UserAvatar userId={isFromMe ? mail.toUserId : mail.fromUserId} src={otherUser?.avatar} alt={otherUser?.name} size={40} className="mail-item-avatar" />
+                        <UserAvatar userId={isFromMe ? mail.to_user_id : mail.from_user_id} src={otherUser?.avatar} alt={otherUser?.name} size={40} className="mail-item-avatar" />
                         <div className="mail-item-content">
                           <div className="mail-item-top">
                             <span className="mail-item-from">{otherUser?.name || '未知用户'}</span>
-                            <span className="mail-item-time">{formatTime(mail.createdAt)}</span>
+                            <span className="mail-item-time">{formatTime(mail.created_at)}</span>
                           </div>
                           <span className="mail-item-subject">{mail.subject}</span>
                           <span className="mail-item-preview">{mail.content.substring(0, 60)}...</span>
@@ -342,12 +342,12 @@ export default function Mailbox() {
                   </div>
                   <h2 className="mail-detail-subject">{selectedMail.subject}</h2>
                   <div className="mail-detail-meta">
-                    <UserAvatar userId={selectedMail.fromUserId} src={UserService.getById(selectedMail.fromUserId)?.avatar} alt={UserService.getById(selectedMail.fromUserId)?.name} size={40} className="mail-detail-avatar" />
+                    <UserAvatar userId={selectedMail.from_user_id} src={UserService.getById(selectedMail.from_user_id)?.avatar} alt={UserService.getById(selectedMail.from_user_id)?.name} size={40} className="mail-detail-avatar" />
                     <div>
-                      <span className="mail-detail-from">{UserService.getById(selectedMail.fromUserId)?.name || '未知'}</span>
-                      <span className="mail-detail-to">发送给 {UserService.getById(selectedMail.toUserId)?.name || '未知'}</span>
+                      <span className="mail-detail-from">{UserService.getById(selectedMail.from_user_id)?.name || '未知'}</span>
+                      <span className="mail-detail-to">发送给 {UserService.getById(selectedMail.to_user_id)?.name || '未知'}</span>
                     </div>
-                    <span className="mail-detail-time">{formatFullTime(selectedMail.createdAt)}</span>
+                    <span className="mail-detail-time">{formatFullTime(selectedMail.created_at)}</span>
                   </div>
                   <div className="mail-detail-body" dangerouslySetInnerHTML={{ __html: renderMailContent(selectedMail.content) }} />
                   {selectedMail.attachments?.length > 0 && (
@@ -359,7 +359,7 @@ export default function Mailbox() {
                     </div>
                   )}
                   <button className="mail-reply-btn" onClick={() => {
-                    const otherUser = UserService.getById(selectedMail.fromUserId === currentUser.id ? selectedMail.toUserId : selectedMail.fromUserId);
+                    const otherUser = UserService.getById(selectedMail.from_user_id === currentUser.id ? selectedMail.to_user_id : selectedMail.from_user_id);
                     setComposeForm({ to: otherUser?.username || '', subject: `Re: ${selectedMail.subject}`, content: '' });
                     setComposing(true);
                   }}>

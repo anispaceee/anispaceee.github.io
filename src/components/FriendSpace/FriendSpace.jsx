@@ -345,9 +345,9 @@ export default function FriendSpace() {
                     )}
                   </div>
                   <div className="space-post-content">{post.content}</div>
-                  {post.images && Array.isArray(post.images) && post.images.length > 0 && (
+                  {post.images && (Array.isArray(post.images) ? post.images : (() => { try { return JSON.parse(post.images); } catch { return []; } })()).length > 0 && (
                     <div className="space-post-images">
-                      {post.images.map((img, i) => <img key={i} src={img} alt="" className="space-post-img" loading="lazy" />)}
+                      {(Array.isArray(post.images) ? post.images : JSON.parse(post.images)).map((img, i) => <img key={i} src={img} alt="" className="space-post-img" loading="lazy" />)}
                     </div>
                   )}
                   <div className="space-post-stats">
