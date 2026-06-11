@@ -221,7 +221,8 @@ class MacCMSSource implements MediaSource {
 
   private buildStreamUrl(videoUrl: string): string {
     if (this.proxyBase) {
-      return `${this.proxyBase}/api/video/stream?url=${encodeURIComponent(videoUrl)}`;
+      // Pass the source site's base URL as referer for CDN anti-hotlinking
+      return `${this.proxyBase}/api/video/stream?url=${encodeURIComponent(videoUrl)}&referer=${encodeURIComponent(this.baseUrl + '/')}`;
     }
     return videoUrl;
   }
@@ -247,8 +248,9 @@ export class MacCMSSourceFactory implements MediaSourceFactory {
 }
 
 export const DEFAULT_MACCMS_SOURCES = [
-  { sourceId: 'kuapi', name: '酷云资源', baseUrl: 'https://kuapi.co' },
+  { sourceId: 'lizi', name: '量子资源', baseUrl: 'https://cj.lziapi.com' },
+  { sourceId: 'feisu', name: '飞速资源', baseUrl: 'https://www.feisuzyapi.com' },
   { sourceId: 'bfzy', name: '暴风资源', baseUrl: 'https://bfzyapi.com' },
-  { sourceId: 'guangsu', name: '光速资源', baseUrl: 'https://guangsuapi.com' },
-  { sourceId: 'sdzy', name: '闪电资源', baseUrl: 'https://sdzyapi.com' },
+  { sourceId: 'kuaikan', name: '快看资源', baseUrl: 'https://www.kuaikan-api.com' },
+  { sourceId: 'ffzy', name: '非凡资源', baseUrl: 'https://cj.ffzyapi.com' },
 ];

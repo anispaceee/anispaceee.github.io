@@ -2238,7 +2238,7 @@ export default {
       }
     }
 
-    // Video stream proxy: /api/video/stream?url=xxx
+    // Video stream proxy: /api/video/stream?url=xxx&referer=xxx
     // Proxies video stream (m3u8/ts/mp4) to bypass CORS restrictions
     if (url.pathname === '/api/video/stream') {
       const streamUrl = url.searchParams.get('url');
@@ -2253,11 +2253,16 @@ export default {
         return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
       }
 
+      // Use referer parameter if provided, otherwise derive from stream URL
+      const referer = url.searchParams.get('referer') || streamUrlObj.origin + '/';
+
       try {
         const res = await fetch(streamUrl, {
           headers: {
             'User-Agent': 'ANISpace/1.0',
             'Accept': '*/*',
+            'Referer': referer,
+            'Origin': streamUrlObj.origin,
           },
         });
 
@@ -2273,9 +2278,10 @@ export default {
         if (contentType.includes('mpegurl') || streamUrl.endsWith('.m3u8')) {
           const text = await res.text();
           const baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf('/') + 1);
+          const refererParam = referer ? `&referer=${encodeURIComponent(referer)}` : '';
           const rewritten = text.replace(/^(?!https?:\/\/)([^\s#]+)/gm, (match) => {
             const absoluteUrl = baseUrl + match;
-            return `/api/video/stream?url=${encodeURIComponent(absoluteUrl)}`;
+            return `/api/video/stream?url=${encodeURIComponent(absoluteUrl)}${refererParam}`;
           });
           return new Response(rewritten, { status: res.status, headers: resHeaders });
         }
@@ -2303,9 +2309,26 @@ export default {
 
       const targetUrl = `${baseUrl}${path}${params.toString() ? '?' + params.toString() : ''}`;
 
-      // C-3: SSRF protection - 禁止内网/IP/非HTTPS请求
-      if (!isSafeTargetUrl(targetUrl)) {
-        return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
+      // SSRF protection - allow HTTP for MacCMS API sources but block internal IPs
+      try {
+        const targetUrlObj = new URL(targetUrl);
+        const targetHost = targetUrlObj.hostname.toLowerCase();
+        // Block internal/private IPs
+        if (targetHost === 'localhost' || targetHost === '127.0.0.1' || targetHost === '[::1]' ||
+            targetHost.startsWith('192.168.') || targetHost.startsWith('10.') ||
+            targetHost.startsWith('172.16.') || targetHost.startsWith('172.17.') ||
+            targetHost.startsWith('172.18.') || targetHost.startsWith('172.19.') ||
+            targetHost.startsWith('172.20.') || targetHost.startsWith('172.21.') ||
+            targetHost.startsWith('172.22.') || targetHost.startsWith('172.23.') ||
+            targetHost.startsWith('172.24.') || targetHost.startsWith('172.25.') ||
+            targetHost.startsWith('172.26.') || targetHost.startsWith('172.27.') ||
+            targetHost.startsWith('172.28.') || targetHost.startsWith('172.29.') ||
+            targetHost.startsWith('172.30.') || targetHost.startsWith('172.31.') ||
+            targetHost.startsWith('169.254.') || targetHost.endsWith('.internal')) {
+          return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
+        }
+      } catch {
+        return jsonResponse({ error: '无效的目标URL' }, 400, origin);
       }
 
       // Check cache first
@@ -2328,6 +2351,23 @@ export default {
         });
         const body = await res.text();
 
+        // Validate that the response is valid JSON (not a Cloudflare error page)
+        let isJson = false;
+        try {
+          JSON.parse(body);
+          isJson = true;
+        } catch {}
+
+        if (!isJson) {
+          // Return a structured error instead of passing through HTML error pages
+          return jsonResponse({
+            code: 500,
+            msg: `源站返回非JSON响应 (HTTP ${res.status})`,
+            list: [],
+            total: 0,
+          }, 200, origin);
+        }
+
         const resHeaders = new Headers();
         resHeaders.set('Content-Type', 'application/json');
         resHeaders.set('X-Cache', 'MISS');
@@ -2347,7 +2387,7 @@ export default {
 
         return new Response(body, { status: res.status, headers: resHeaders });
       } catch (err) {
-        return jsonResponse({ error: '视频源代理请求失败' }, 500, origin);
+        return jsonResponse({ code: 500, msg: '视频源代理请求失败', list: [], total: 0 }, 200, origin);
       }
     }
 

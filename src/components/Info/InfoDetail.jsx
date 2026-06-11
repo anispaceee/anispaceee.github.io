@@ -163,7 +163,7 @@ export default function InfoDetail() {
   const [activeRatingFilter, setActiveRatingFilter] = useState(null);
 
   // Tab 状态
-  const [activeTab, setActiveTab] = useState('summary');
+  const [activeTab, setActiveTab] = useState('detail');
   // 标签折叠状态
   const [tagsExpanded, setTagsExpanded] = useState(false);
 
@@ -706,57 +706,70 @@ export default function InfoDetail() {
               </div>
             )}
 
-            {/* 详情信息卡片 */}
-            {!isNsfw && subject.infobox && subject.infobox.length > 0 && (
-              <div className="detail-info-card">
-                {subject.infobox.map((item, i) => <InfoBoxItem key={i} item={item} />)}
-              </div>
-            )}
-
-            {/* 标签区 */}
-            {!isNsfw && allTags.length > 0 && (
-              <div className="detail-tags-section">
-                <div className="detail-tags">
-                  {visibleTags.map((tag, i) => {
-                    const tagName = typeof tag === 'string' ? tag : tag.name;
-                    const tagCount = typeof tag === 'object' ? tag.count : null;
-                    return (
-                      <span key={i} className="detail-tag">
-                        {tagName}
-                        {tagCount && <span className="detail-tag-count">{tagCount}</span>}
-                      </span>
-                    );
-                  })}
-                </div>
-                {allTags.length > 10 && (
-                  <button className="detail-tags-toggle" onClick={() => setTagsExpanded(!tagsExpanded)}>
-                    {tagsExpanded ? <><ChevronUp size={14} /> 收起</> : <><ChevronDown size={14} /> 显示更多 ({allTags.length})</>}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* 制作人员（按角色分组） */}
-            {!isNsfw && persons.length > 0 && (
-              <div className="detail-staff-section">
-                <h2 className="detail-section-title">制作人员</h2>
-                <div className="detail-staff-groups">
-                  {Object.entries(staffGroups).map(([role, members]) => (
-                    <StaffGroup key={role} role={role} members={members} defaultCollapsed={members.length > 6} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Tab 区：简介 | 角色 | 评论 */}
+            {/* Tab 区：详情 | 简介 | 角色 | 评论 */}
             <div className="detail-tabs">
               <div className="detail-tabs-header">
-                <button className={`detail-tab ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>游戏介绍</button>
+                <button className={`detail-tab ${activeTab === 'detail' ? 'active' : ''}`} onClick={() => setActiveTab('detail')}>详情</button>
+                <button className={`detail-tab ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>条目介绍</button>
                 <button className={`detail-tab ${activeTab === 'characters' ? 'active' : ''}`} onClick={() => setActiveTab('characters')}>出场角色</button>
                 <button className={`detail-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>评论区</button>
               </div>
 
               <div className="detail-tab-content">
+                {/* 详情Tab：infobox + tags + staff */}
+                {activeTab === 'detail' && (
+                  <div className="detail-detail-section">
+                    {isNsfw ? (
+                      <div className="detail-no-comments">限制级内容，详细信息不可用</div>
+                    ) : (
+                      <>
+                        {/* 详情信息卡片 */}
+                        {subject.infobox && subject.infobox.length > 0 && (
+                          <div className="detail-info-card">
+                            {subject.infobox.map((item, i) => <InfoBoxItem key={i} item={item} />)}
+                          </div>
+                        )}
+                        {/* 标签区 */}
+                        {allTags.length > 0 && (
+                          <div className="detail-tags-section">
+                            <div className="detail-tags">
+                              {visibleTags.map((tag, i) => {
+                                const tagName = typeof tag === 'string' ? tag : tag.name;
+                                const tagCount = typeof tag === 'object' ? tag.count : null;
+                                return (
+                                  <span key={i} className="detail-tag">
+                                    {tagName}
+                                    {tagCount && <span className="detail-tag-count">{tagCount}</span>}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                            {allTags.length > 10 && (
+                              <button className="detail-tags-toggle" onClick={() => setTagsExpanded(!tagsExpanded)}>
+                                {tagsExpanded ? <><ChevronUp size={14} /> 收起</> : <><ChevronDown size={14} /> 显示更多 ({allTags.length})</>}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {/* 制作人员（按角色分组） */}
+                        {persons.length > 0 && (
+                          <div className="detail-staff-section">
+                            <h2 className="detail-section-title">制作人员</h2>
+                            <div className="detail-staff-groups">
+                              {Object.entries(staffGroups).map(([role, members]) => (
+                                <StaffGroup key={role} role={role} members={members} defaultCollapsed={members.length > 6} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {subject.infobox?.length === 0 && allTags.length === 0 && persons.length === 0 && (
+                          <div className="detail-no-comments">暂无详细信息</div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {/* 简介Tab */}
                 {activeTab === 'summary' && (
                   <div className="detail-summary-section">
