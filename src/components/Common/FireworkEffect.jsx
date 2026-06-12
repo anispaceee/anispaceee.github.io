@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const FIREWORK_KEY = 'anispace_firework';
 
@@ -9,12 +9,12 @@ export function isFireworkOn() {
 
 export function setFireworkOn(val) {
   localStorage.setItem(FIREWORK_KEY, val ? '1' : '0');
-  // 派发自定义事件，让 FireworkEffect 实时响应
   window.dispatchEvent(new CustomEvent('firework-setting-change', { detail: val }));
 }
 
 export default function FireworkEffect() {
   const [enabled, setEnabled] = useState(() => isFireworkOn());
+  const initializedRef = useRef(false);
 
   // 监听设置变化
   useEffect(() => {
@@ -25,15 +25,18 @@ export default function FireworkEffect() {
 
   useEffect(() => {
     if (!enabled) {
-      // 关闭时：移除事件监听 + 隐藏 canvas
-      const canvas = document.querySelector('canvas[style*="pointer-events:none"]');
+      // 关闭时：隐藏 canvas
+      const canvas = document.getElementById('anispace-firework-canvas');
       if (canvas) canvas.style.display = 'none';
       return;
     }
 
-    // 开启时：显示 canvas + 初始化烟花
-    const canvas = document.querySelector('canvas[style*="pointer-events:none"]');
+    // 开启时：显示 canvas
+    const canvas = document.getElementById('anispace-firework-canvas');
     if (canvas) canvas.style.display = '';
+
+    // 只初始化一次
+    if (initializedRef.current) return;
 
     let cancelled = false;
 
@@ -41,6 +44,12 @@ export default function FireworkEffect() {
       if (cancelled) return;
       const firework = mod.default || mod;
       if (typeof firework !== 'function') return;
+
+      // 初始化后给 canvas 加 id 方便后续查找
+      setTimeout(() => {
+        const fwCanvas = document.querySelector('canvas[style*="pointer-events:none"]');
+        if (fwCanvas && !fwCanvas.id) fwCanvas.id = 'anispace-firework-canvas';
+      }, 100);
 
       firework({
         excludeElements: [],
@@ -76,6 +85,8 @@ export default function FireworkEffect() {
           },
         ],
       });
+
+      initializedRef.current = true;
     }).catch(() => {});
 
     return () => { cancelled = true; };
