@@ -133,6 +133,42 @@ const APP_ICONS = {
   club: Coffee,
 };
 
+// 音乐未播放时的歌单选择小组件
+function MusicPlaylistWidget() {
+  const { savedPlaylists, loadSavedPlaylist, playSong } = useMusic();
+  const [expanded, setExpanded] = useState(false);
+
+  if (savedPlaylists.length === 0) {
+    return <span className="minimized-bar-title">暂无歌单</span>;
+  }
+
+  if (!expanded) {
+    return (
+      <span className="minimized-bar-title minimized-bar-clickable" onClick={e => { e.stopPropagation(); setExpanded(true); }}>
+        选择歌单 ▾
+      </span>
+    );
+  }
+
+  return (
+    <div className="minimized-bar-playlist" onClick={e => e.stopPropagation()}>
+      {savedPlaylists.slice(0, 3).map(pl => (
+        <button
+          key={pl.id}
+          className="minimized-bar-playlist-item"
+          onClick={() => {
+            loadSavedPlaylist(pl);
+            if (pl.songs?.length > 0) playSong(pl.songs[0]);
+            setExpanded(false);
+          }}
+        >
+          {pl.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Tea Time! 最小化小组件
 function ClubMinimizedWidget() {
   const [latestMsg, setLatestMsg] = useState(null);
@@ -225,16 +261,18 @@ function LeMUMinimizedWidget() {
 
 function MinimizedBars() {
   const { windows, openWindow } = useWindowManager();
-  const { currentSong, playing, togglePlay, playNext, playPrev } = useMusic();
+  const { currentSong, playing, togglePlay, playNext, playPrev, savedPlaylists, loadSavedPlaylist, playSong } = useMusic();
 
-  // 音乐横条：歌曲播放中且窗口未打开或最小化时显示
-  const musicVisible = currentSong && (!windows.music?.open || windows.music?.minimized);
+  // 音乐横条：窗口最小化时显示（无论是否播放）
+  const musicVisible = windows.music?.open && windows.music?.minimized;
   // 其他APP：仅最小化时显示
   const otherMinimized = Object.values(windows).filter(w => w.open && w.minimized && w.id !== 'music');
+  // 音乐窗口未打开但有歌曲在播放时也显示
+  const musicPlayingNoWindow = currentSong && !windows.music?.open;
 
   // 构建横条列表，音乐在最底部
   const bars = [];
-  if (musicVisible) {
+  if (musicVisible || musicPlayingNoWindow) {
     bars.push({ id: 'music' });
   }
   otherMinimized.forEach(w => {
@@ -248,30 +286,38 @@ function MinimizedBars() {
 
     switch (barId) {
       case 'music':
+        if (currentSong) {
+          return (
+            <MinimizedBar key="music" id="music" icon={<Music size={18} />} title="音乐" bottom={bottom}>
+              <img
+                src={currentSong.albumCover || FALLBACK_COVER}
+                alt=""
+                className="minimized-bar-cover"
+                loading="lazy"
+                onError={e => { e.target.src = FALLBACK_COVER; }}
+              />
+              <div className="minimized-bar-info">
+                <span className="minimized-bar-name">{currentSong.name}</span>
+                <span className="minimized-bar-artist">{currentSong.artists}</span>
+              </div>
+              <div className="minimized-bar-controls">
+                <button className="minimized-bar-btn" onClick={playPrev} title="上一首">
+                  <SkipBack size={14} />
+                </button>
+                <button className="minimized-bar-btn minimized-bar-btn-play" onClick={togglePlay} title={playing ? '暂停' : '播放'}>
+                  {playing ? <Pause size={16} /> : <Play size={16} />}
+                </button>
+                <button className="minimized-bar-btn" onClick={playNext} title="下一首">
+                  <SkipForward size={14} />
+                </button>
+              </div>
+            </MinimizedBar>
+          );
+        }
+        // 未播放时显示歌单选择
         return (
-          <MinimizedBar key="music" id="music" icon={IconComp ? <IconComp size={18} /> : '🎵'} title="音乐" bottom={bottom}>
-            <img
-              src={currentSong.albumCover || FALLBACK_COVER}
-              alt=""
-              className="minimized-bar-cover"
-              loading="lazy"
-              onError={e => { e.target.src = FALLBACK_COVER; }}
-            />
-            <div className="minimized-bar-info">
-              <span className="minimized-bar-name">{currentSong.name}</span>
-              <span className="minimized-bar-artist">{currentSong.artists}</span>
-            </div>
-            <div className="minimized-bar-controls">
-              <button className="minimized-bar-btn" onClick={playPrev} title="上一首">
-                <SkipBack size={14} />
-              </button>
-              <button className="minimized-bar-btn minimized-bar-btn-play" onClick={togglePlay} title={playing ? '暂停' : '播放'}>
-                {playing ? <Pause size={16} /> : <Play size={16} />}
-              </button>
-              <button className="minimized-bar-btn" onClick={playNext} title="下一首">
-                <SkipForward size={14} />
-              </button>
-            </div>
+          <MinimizedBar key="music" id="music" icon={<Music size={18} />} title="音乐" bottom={bottom}>
+            <MusicPlaylistWidget />
           </MinimizedBar>
         );
 

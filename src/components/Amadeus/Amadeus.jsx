@@ -252,6 +252,16 @@ export default function Amadeus() {
     };
   }, []);
 
+  // 读取从最小化横条发送的待处理消息
+  useEffect(() => {
+    const pending = sessionStorage.getItem('navi_pending_msg');
+    if (pending) {
+      sessionStorage.removeItem('navi_pending_msg');
+      // 延迟执行确保组件完全挂载
+      setTimeout(() => sendMessage(pending), 100);
+    }
+  }, []);
+
   useEffect(() => { StorageService.set(CHAT_HISTORY_KEY, messages.length > MAX_HISTORY ? messages.slice(-MAX_HISTORY) : messages); }, [messages]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);

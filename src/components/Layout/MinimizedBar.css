@@ -226,3 +226,49 @@
   color: #fff;
   transform: scale(1.08);
 }
+
+/* 歌单选择 */
+.minimized-bar-clickable {
+  cursor: pointer;
+  color: var(--primary);
+}
+
+.minimized-bar-playlist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.minimized-bar-playlist-item {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-primary);
+  font-size: 11px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.minimized-bar-playlist-item:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--primary);
+}
+
+[data-theme="dark"] .minimized-bar-playlist-item,
+[data-theme="high-contrast"] .minimized-bar-playlist-item {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .minimized-bar-playlist-item:hover,
+[data-theme="high-contrast"] .minimized-bar-playlist-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
