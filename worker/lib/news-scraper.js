@@ -4,21 +4,23 @@
  * 数据源：
  * 1. Bangumi Calendar API — 当季新番
  * 2. Bangumi 热门排行 — 高分动画
- * 3. 月幕 Galgame — Galgame 发行/档案（OAuth2 API + HTML 回退）
+ * 3. 月幕 Galgame — Galgame 发行（OAuth2 API）
  * 4. HikariNagi — 光凪 Galgame 社区（HTML 爬取）
  * 5. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
+ *
+ * 注意：AniList 和 B站 API 在 Cloudflare Worker 环境中被封禁（403/412），不可用
  *
  * 所有爬取结果统一为 { source, source_id, title, link, summary, cover, category, extra }
  */
 
 const BANGUMI_API = 'https://api.bgm.tv';
-const UA = 'ANISpace/1.0 (https://github.com/anispace)';
+const BANGUMI_UA = 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)';
 
 // ─── Bangumi Calendar ──────────────────────────────────────
 
 async function scrapeBangumiCalendar() {
   const res = await fetch(`${BANGUMI_API}/calendar`, {
-    headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+    headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
   });
   if (!res.ok) return [];
 
@@ -28,7 +30,6 @@ async function scrapeBangumiCalendar() {
   for (const day of days) {
     const weekday = day.weekday?.cn || '';
     for (const item of (day.items || [])) {
-      // 只收录当季有评分的动画
       if (item.type !== 2) continue;
       const rating = item.rating?.score || 0;
       const doing = item.collection?.doing || 0;
@@ -57,9 +58,8 @@ async function scrapeBangumiCalendar() {
 // ─── Bangumi Hot (browser rank) ────────────────────────────
 
 async function scrapeBangumiHot() {
-  // 使用 /v0/subjects 接口获取高分动画
   const res = await fetch(`${BANGUMI_API}/v0/subjects?type=2&sort=rank&limit=20`, {
-    headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+    headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
   });
   if (!res.ok) return [];
 
@@ -96,7 +96,6 @@ const YMGAL_CLIENT_SECRET = 'luna0327';
 let ymgalTokenCache = { token: '', expires: 0 };
 
 async function getYmgalToken() {
-  // 使用缓存的 token（提前 5 分钟过期）
   if (ymgalTokenCache.token && Date.now() < ymgalTokenCache.expires - 300000) {
     return ymgalTokenCache.token;
   }
@@ -118,82 +117,81 @@ async function getYmgalToken() {
 
 async function scrapeYmgal() {
   const items = [];
-
-  // 优先尝试 OAuth2 API
   const token = await getYmgalToken();
-  if (token) {
-    const headers = {
-      'Accept': 'application/json;charset=utf-8',
-      'Authorization': `Bearer ${token}`,
-      'version': '1',
-    };
+  if (!token) return items;
 
+  const headers = {
+    'Accept': 'application/json;charset=utf-8',
+    'Authorization': `Bearer ${token}`,
+    'version': '1',
+  };
+
+  // 1. 按日期区间查询近期发行的游戏（正确端点：/open/archive/game）
+  try {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+    const releaseStartDate = thirtyDaysAgo.toISOString().split('T')[0];
+    const releaseEndDate = now.toISOString().split('T')[0];
+
+    const res = await fetch(
+      `${YMGAL_API}/game?releaseStartDate=${releaseStartDate}&releaseEndDate=${releaseEndDate}`,
+      { headers }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const games = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      for (const game of games) {
+        const title = game.chineseName || game.mainName || game.name || '';
+        if (!title) continue;
+        const cover = game.mainImg || '';
+        items.push({
+          source: 'ymgal',
+          source_id: `ymgal_${game.gid}`,
+          title,
+          link: `https://www.ymgal.games/ga${game.gid}`,
+          summary: `${game.orgName || 'Galgame'} · ${game.releaseDate || '发售日期未知'}${game.haveChinese ? ' · 有中文' : ''}`,
+          cover,
+          category: '新作发售',
+          extra: JSON.stringify({
+            gid: game.gid,
+            type: game.typeDesc || '',
+            releaseDate: game.releaseDate || '',
+            haveChinese: game.haveChinese || false,
+            orgName: game.orgName || '',
+            restricted: game.restricted || false,
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  // 2. 获取随机游戏作为补充
+  if (items.length < 5) {
     try {
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
-      const startDate = thirtyDaysAgo.toISOString().split('T')[0];
-      const endDate = now.toISOString().split('T')[0];
-
-      const res = await fetch(
-        `${YMGAL_API}/game/released?startDate=${startDate}&endDate=${endDate}&pageNum=1&pageSize=20`,
-        { headers }
-      );
+      const res = await fetch(`${YMGAL_API}/random-game?num=5`, { headers });
       if (res.ok) {
         const data = await res.json();
-        const games = data.result || [];
+        const games = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
         for (const game of games) {
-          const title = game.chineseName || game.name || '';
+          const title = game.chineseName || game.mainName || game.name || '';
           if (!title) continue;
+          if (items.find(i => i.source_id === `ymgal_${game.gid}`)) continue;
+          const cover = game.mainImg
+            ? (game.mainImg.startsWith('http') ? game.mainImg : `https://cdn.ymgal.games/${game.mainImg}`)
+            : '';
           items.push({
             source: 'ymgal',
             source_id: `ymgal_${game.gid}`,
             title,
-            link: `https://www.ymgal.games/game/${game.gid}`,
-            summary: `${game.typeDesc || 'Galgame'} · ${game.releaseDate || '发售日期未知'}${game.haveChinese ? ' · 有中文' : ''}`,
-            cover: game.mainImg ? `https://www.ymgal.games${game.mainImg}` : '',
-            category: '新作发售',
+            link: `https://www.ymgal.games/ga${game.gid}`,
+            summary: `${game.orgName || 'Galgame'} · ${game.releaseDate || ''}${game.haveChinese ? ' · 有中文' : ''}`,
+            cover,
+            category: 'Gal档案',
             extra: JSON.stringify({
               gid: game.gid,
-              type: game.typeDesc || '',
               releaseDate: game.releaseDate || '',
               haveChinese: game.haveChinese || false,
-              developer: game.developerId || 0,
-              restricted: game.restricted || false,
-              country: game.country || '',
             }),
-          });
-        }
-      }
-    } catch {}
-  }
-
-  // API 不可用时，回退到 HTML 爬取
-  if (items.length === 0) {
-    try {
-      const res = await fetch('https://www.ymgal.games/', {
-        headers: { 'User-Agent': UA, 'Accept': 'text/html' },
-      });
-      if (res.ok) {
-        const html = await res.text();
-        // 尝试从首页提取最新游戏/资讯
-        // 匹配游戏卡片链接 /gaXXXXX
-        const gameRe = /href="\/ga(\d+)"[^>]*>([\s\S]*?)<\/a>/g;
-        let match;
-        const seen = new Set();
-        while ((match = gameRe.exec(html)) !== null && items.length < 15) {
-          const gid = match[1];
-          const titleRaw = match[2].replace(/<[^>]*>/g, '').trim();
-          if (!titleRaw || titleRaw.length < 2 || seen.has(gid)) continue;
-          seen.add(gid);
-          items.push({
-            source: 'ymgal',
-            source_id: `ymgal_${gid}`,
-            title: titleRaw,
-            link: `https://www.ymgal.games/ga${gid}`,
-            summary: '月幕 Galgame',
-            cover: '',
-            category: 'Gal档案',
-            extra: JSON.stringify({ gid: Number(gid), type: 'game' }),
           });
         }
       }
@@ -210,13 +208,12 @@ async function scrapeHikariNagi() {
 
   try {
     const res = await fetch('https://www.hikarinagi.org/', {
-      headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+      headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'text/html' },
     });
     if (!res.ok) return items;
 
     const html = await res.text();
 
-    // 匹配社区文章链接 /community/article/{id}
     const articleRe = /href="https?:\/\/www\.hikarinagi\.org\/community\/article\/(\d+)"[^>]*>([\s\S]*?)<\/a>/g;
     let match;
     const seen = new Set();
@@ -238,14 +235,12 @@ async function scrapeHikariNagi() {
       });
     }
 
-    // 匹配 Gal 周报链接
     const weeklyRe = /href="(https?:\/\/www\.hikarinagi\.org\/community\/article\/(\d+))"[^>]*>[\s\S]*?Gal周报/gi;
     while ((match = weeklyRe.exec(html)) !== null && items.length < 15) {
       const url = match[1];
       const id = match[2];
       if (seen.has(id)) continue;
       seen.add(id);
-      // 提取周报标题
       const titleMatch = match[0].match(/>([^<]*(?:Gal周报|周报)[^<]*)</);
       const title = titleMatch ? titleMatch[1].trim() : `Gal周报 #${id}`;
       items.push({
@@ -280,26 +275,26 @@ async function scrapeCnGal() {
     });
     if (res.ok) {
       const data = await res.json();
-      const articles = Array.isArray(data) ? data : (data.result || data.data || []);
+      const articles = Array.isArray(data) ? data : (data.data || data.result || []);
       for (const article of articles.slice(0, 10)) {
-        const title = article.title || article.name || '';
+        const title = article.name || article.title || article.displayName || '';
         if (!title) continue;
-        // 优先使用 API 返回的 link 字段（原始来源链接），否则用 CnGal 站内链接
         const articleLink = article.link || `https://www.cngal.org/articles/index/${article.id}`;
         items.push({
           source: 'cngal',
           source_id: `cngal_art_${article.id}`,
           title,
           link: articleLink,
-          summary: article.briefIntroduction || article.summary || '',
-          cover: article.mainImage || article.cover || '',
+          summary: (article.briefIntroduction || '').slice(0, 100),
+          cover: article.mainImage || '',
           category: '业界动态',
           extra: JSON.stringify({
             id: article.id,
             type: 'article',
-            author: article.author || '',
-            createTime: article.createTime || '',
+            author: article.createUserName || '',
+            createTime: article.lastEditTime || '',
             originalLink: article.link || '',
+            readerCount: article.readerCount || 0,
           }),
         });
       }
@@ -315,7 +310,7 @@ async function scrapeCnGal() {
       const data = await res.json();
       const weeklyList = Array.isArray(data) ? data : (data.result || data.data || []);
       for (const weekly of weeklyList.slice(0, 5)) {
-        const title = weekly.title || weekly.name || '';
+        const title = weekly.name || weekly.title || weekly.displayName || '';
         if (!title) continue;
         if (items.find(i => i.title === title)) continue;
         const weeklyLink = weekly.link || `https://www.cngal.org/news/weekly/${weekly.id}`;
@@ -324,13 +319,13 @@ async function scrapeCnGal() {
           source_id: `cngal_weekly_${weekly.id}`,
           title,
           link: weeklyLink,
-          summary: weekly.briefIntroduction || weekly.summary || '',
-          cover: weekly.mainImage || weekly.cover || '',
+          summary: (weekly.briefIntroduction || '').slice(0, 100),
+          cover: weekly.mainImage || '',
           category: '每周速报',
           extra: JSON.stringify({
             id: weekly.id,
             type: 'weekly',
-            period: weekly.period || '',
+            displayName: weekly.displayName || '',
           }),
         });
       }
@@ -346,7 +341,7 @@ async function scrapeCnGal() {
       const data = await res.json();
       const games = Array.isArray(data) ? data : (data.result || data.data || []);
       for (const game of games.slice(0, 10)) {
-        const title = game.name || game.chineseName || '';
+        const title = game.name || '';
         if (!title) continue;
         if (items.find(i => i.source_id === `cngal_game_${game.id}`)) continue;
         items.push({
@@ -354,14 +349,13 @@ async function scrapeCnGal() {
           source_id: `cngal_game_${game.id}`,
           title,
           link: `https://www.cngal.org/entries/index/${game.id}`,
-          summary: game.briefIntroduction || `${game.publisher || ''} · ${game.publishDate || ''}`,
-          cover: game.mainImage || game.cover || '',
+          summary: (game.briefIntroduction || '').slice(0, 100) || `${game.publishTime || ''}`,
+          cover: game.mainImage || '',
           category: 'Gal档案',
           extra: JSON.stringify({
             id: game.id,
             type: 'game',
-            publisher: game.publisher || '',
-            publishDate: game.publishDate || '',
+            publishTime: game.publishTime || '',
           }),
         });
       }
@@ -373,11 +367,6 @@ async function scrapeCnGal() {
 
 // ─── 统一爬取入口 ──────────────────────────────────────────
 
-/**
- * 执行所有源的爬取，返回合并后的结果
- * @param {D1Database} db - Cloudflare D1 数据库绑定
- * @returns {{ total: number, sources: Record<string, number> }}
- */
 export async function runAllScrapers(db) {
   const scrapers = [
     { name: 'bangumi_calendar', fn: scrapeBangumiCalendar },
@@ -402,9 +391,7 @@ export async function runAllScrapers(db) {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
           ).bind(item.source, item.source_id, item.title, item.link, item.summary, item.cover, item.category, item.extra).run();
           inserted++;
-        } catch {
-          // 单条插入失败不影响其他
-        }
+        } catch {}
       }
 
       results[scraper.name] = inserted;
@@ -424,11 +411,6 @@ export async function runAllScrapers(db) {
   return { total, sources: results };
 }
 
-/**
- * 实时爬取单个源（前端按需刷新用）
- * @param {string} sourceName - 源名称
- * @returns {Array} 爬取结果（不写入数据库，直接返回）
- */
 export async function scrapeSingleSource(sourceName) {
   const scrapers = {
     bangumi_calendar: scrapeBangumiCalendar,
