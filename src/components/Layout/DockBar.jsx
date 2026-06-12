@@ -21,8 +21,9 @@ export default function DockBar() {
   const dockRef = useRef(null);
   const hideTimerRef = useRef(null);
 
-  // 10s 无行为自动隐藏 Dock
-  const resetHideTimer = () => {
+  // 统一的启动/重置隐藏计时器
+  const startHideTimer = useRef(() => {});
+  startHideTimer.current = () => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => {
       setDockHidden(true);
@@ -30,11 +31,11 @@ export default function DockBar() {
   };
 
   useEffect(() => {
-    resetHideTimer();
+    startHideTimer.current();
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
     const handleActivity = () => {
       setDockHidden(false);
-      resetHideTimer();
+      startHideTimer.current();
     };
     events.forEach(e => document.addEventListener(e, handleActivity, { passive: true }));
     return () => {
@@ -43,20 +44,16 @@ export default function DockBar() {
     };
   }, []);
 
-  // 鼠标移入 trigger bar 时弹出 Dock
+  // 鼠标移入 trigger bar 时弹出 Dock 并暂停计时
   useEffect(() => {
     if (hoveringTrigger) {
       setDockHidden(false);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    } else if (!dockHidden) {
+      // 鼠标离开 trigger bar 且 Dock 已弹出，重新开始计时
+      startHideTimer.current();
     }
   }, [hoveringTrigger]);
-
-  // Dock 弹出后重新开始计时
-  useEffect(() => {
-    if (!dockHidden && !hoveringTrigger) {
-      resetHideTimer();
-    }
-  }, [dockHidden, hoveringTrigger]);
 
   useEffect(() => {
     setUnreadCount(getUnreadCount());
