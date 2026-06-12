@@ -8,7 +8,6 @@ import './Header.css';
 const navItems = [
   { path: '/', label: '首页' },
   { path: '/forum', label: '放課後' },
-  { path: '/club', label: 'Tea Time！' },
   { path: '/news', label: '毒电波！！' },
   { path: '/wiki', label: '禁書目錄' },
   { path: '/musashi', label: '武藏也' },

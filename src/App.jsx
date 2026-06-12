@@ -130,7 +130,6 @@ function AppInner() {
           <Route path="/forum" element={<Forum />} />
           <Route path="/forum/post/:id" element={<PostDetail />} />
           <Route path="/info/:type/:id" element={<InfoDetail />} />
-          <Route path="/club" element={<Club />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<FriendLinks />} />
           <Route path="/musashi/new" element={<WorkCreate />} />
