@@ -1,0 +1,267 @@
+.fansub-loading,
+.fansub-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--text-quaternary);
+  font-size: 13px;
+}
+
+.fansub-empty button,
+.fansub-empty a {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.fansub-empty button:hover,
+.fansub-empty a:hover {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+/* ── Header ── */
+
+.fansub-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.fansub-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.fansub-count {
+  font-size: 12px;
+  color: var(--text-quaternary);
+}
+
+.fansub-ext-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  transition: all 0.2s;
+}
+
+.fansub-ext-link:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+/* ── Group List ── */
+
+.fansub-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fansub-group {
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.fansub-group.expanded {
+  border-color: var(--accent-primary);
+}
+
+.fansub-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  transition: background 0.15s;
+}
+
+.fansub-group-header:hover {
+  background: var(--bg-tertiary);
+}
+
+.fansub-group-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fansub-group-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fansub-group-status {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #34d399;
+  color: white;
+  font-weight: 500;
+}
+
+.fansub-group-status:not([style*="ACTIVE"]) {
+  background: var(--text-quaternary);
+}
+
+.fansub-group-time {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-quaternary);
+}
+
+.fansub-group-count {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* ── Release List ── */
+
+.fansub-release-list {
+  padding: 6px 8px;
+  background: var(--bg-primary);
+}
+
+.fansub-release {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.fansub-release:hover {
+  background: var(--bg-secondary);
+}
+
+.fansub-release-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fansub-release-ep {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  white-space: nowrap;
+}
+
+.fansub-release-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fansub-release-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.fansub-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.fansub-tag.resolution {
+  color: white;
+}
+
+.fansub-tag.language {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+
+.fansub-tag.subtitle {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+/* ── Actions ── */
+
+.fansub-release-actions {
+  flex-shrink: 0;
+}
+
+.fansub-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fansub-copy-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.fansub-copy-btn.copied {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 640px) {
+  .fansub-release {
+    flex-wrap: wrap;
+  }
+
+  .fansub-release-tags {
+    order: 3;
+    width: 100%;
+    margin-top: 4px;
+  }
+}

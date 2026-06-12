@@ -6,6 +6,7 @@ import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
 import { MatchKind, MediaSourceKind } from '../../services/media/types';
+import FansubGroupsPanel from './FansubGroups';
 import './InfoDetail.css';
 
 const TYPE_ICONS = { 1: BookOpen, 2: Tv, 4: Gamepad2 };
@@ -817,6 +818,10 @@ export default function InfoDetail() {
                 <button className={`detail-tab ${activeTab === 'detail' ? 'active' : ''}`} onClick={() => setActiveTab('detail')}>详情</button>
                 <button className={`detail-tab ${activeTab === 'characters' ? 'active' : ''}`} onClick={() => setActiveTab('characters')}>出场角色</button>
                 <button className={`detail-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>评论区</button>
+                {/* 字幕组资源标签：仅对动画类型显示 */}
+                {subject?.type === 2 && (
+                  <button className={`detail-tab ${activeTab === 'fansubs' ? 'active' : ''}`} onClick={() => setActiveTab('fansubs')}>字幕组</button>
+                )}
                 {/* 站内观看标签：仅对动画/三次元类型显示 */}
                 {(subject?.type === 2 || subject?.type === 6) && (
                   <button className={`detail-tab ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => setActiveTab('watch')}>站内观看</button>
@@ -1183,6 +1188,11 @@ export default function InfoDetail() {
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* 字幕组资源 Tab */}
+                {activeTab === 'fansubs' && (
+                  <FansubGroupsPanel bgmId={id} />
                 )}
               </div>
             </div>
