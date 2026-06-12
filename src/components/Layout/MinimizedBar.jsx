@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWindowManager } from '../../context/WindowManager';
+import { X } from 'lucide-react';
 import './MinimizedBar.css';
 
 const HIDE_DELAY = 5000; // 5秒无操作后隐去
 
 export default function MinimizedBar({ id, icon, title, bottom = 80, children }) {
-  const { focusWindow } = useWindowManager();
+  const { focusWindow, closeWindow } = useWindowManager();
   const [hidden, setHidden] = useState(false);
   const timerRef = useRef(null);
   const barRef = useRef(null);
@@ -22,7 +23,7 @@ export default function MinimizedBar({ id, icon, title, bottom = 80, children })
   }, [resetTimer]);
 
   const handleBarClick = (e) => {
-    if (e.target.closest('.minimized-bar-btn')) return;
+    if (e.target.closest('.minimized-bar-btn') || e.target.closest('.minimized-bar-close')) return;
     focusWindow(id);
   };
 
@@ -35,6 +36,11 @@ export default function MinimizedBar({ id, icon, title, bottom = 80, children })
     resetTimer();
   };
 
+  const handleClose = (e) => {
+    e.stopPropagation();
+    closeWindow(id);
+  };
+
   return (
     <div
       ref={barRef}
@@ -44,8 +50,11 @@ export default function MinimizedBar({ id, icon, title, bottom = 80, children })
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <span className="minimized-bar-icon">{icon}</span>
+      <button className="minimized-bar-close" onClick={handleClose}>
+        <X size={12} />
+      </button>
       {children || <span className="minimized-bar-title">{title}</span>}
+      <span className="minimized-bar-icon">{icon}</span>
     </div>
   );
 }
