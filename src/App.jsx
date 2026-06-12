@@ -13,6 +13,7 @@ import Mailbox from './components/Mailbox/Mailbox'
 import Guestbook from './components/Guestbook/Guestbook'
 import MusicPlayer from './components/Music/MusicPlayer'
 import MinimizedBar from './components/Layout/MinimizedBar'
+import LoginNotificationBar from './components/Layout/LoginNotificationBar'
 import { useMusic, FALLBACK_COVER } from './context/MusicContext'
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
 import Amadeus from './components/Amadeus/Amadeus'
@@ -124,18 +125,30 @@ function MinimizedBars() {
   const { windows } = useWindowManager();
   const { currentSong, playing, togglePlay, playNext, playPrev } = useMusic();
 
-  const minimizedWins = Object.values(windows).filter(w => w.open && w.minimized);
+  // 音乐横条：歌曲播放中且窗口未打开或最小化时显示
+  const musicVisible = currentSong && (!windows.music?.open || windows.music?.minimized);
+  // 其他APP：仅最小化时显示
+  const otherMinimized = Object.values(windows).filter(w => w.open && w.minimized && w.id !== 'music');
 
-  if (minimizedWins.length === 0) return null;
+  // 构建横条列表，音乐在最底部
+  const bars = [];
+  if (musicVisible) {
+    bars.push({ id: 'music', icon: '🎵', title: '音乐', isMusic: true });
+  }
+  otherMinimized.forEach(w => {
+    bars.push({ id: w.id, icon: w.icon, title: w.title, isMusic: false });
+  });
+
+  if (bars.length === 0) return null;
 
   return (
     <>
-      {minimizedWins.map((win, index) => {
+      {bars.map((bar, index) => {
         const bottom = 80 + index * 56;
 
-        if (win.id === 'music' && currentSong) {
+        if (bar.isMusic) {
           return (
-            <MinimizedBar key={win.id} id={win.id} icon={win.icon} title={win.title} bottom={bottom}>
+            <MinimizedBar key={bar.id} id={bar.id} icon={bar.icon} title={bar.title} bottom={bottom}>
               <img
                 src={currentSong.albumCover || FALLBACK_COVER}
                 alt=""
@@ -163,7 +176,7 @@ function MinimizedBars() {
         }
 
         return (
-          <MinimizedBar key={win.id} id={win.id} icon={win.icon} title={win.title} bottom={bottom} />
+          <MinimizedBar key={bar.id} id={bar.id} icon={bar.icon} title={bar.title} bottom={bottom} />
         );
       })}
     </>
@@ -213,6 +226,7 @@ function AppInner() {
       <Live2DWidget />
       <WindowLayer />
       <MinimizedBars />
+      <LoginNotificationBar />
       <DockBar />
     </>
   )

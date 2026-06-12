@@ -1,0 +1,108 @@
+.login-notif-bar {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 8px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 40px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+  z-index: 999;
+  max-width: 320px;
+  animation: login-notif-slide-in 0.3s ease-out;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+}
+
+[data-theme="dark"] .login-notif-bar,
+[data-theme="high-contrast"] .login-notif-bar {
+  background: rgba(30, 30, 40, 0.78);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.login-notif-bar:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .login-notif-bar:hover,
+[data-theme="high-contrast"] .login-notif-bar:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 向右隐去：只露出左侧 20px 的边缘 */
+.login-notif-bar.hidden {
+  transform: translateX(calc(100% - 20px));
+}
+
+@keyframes login-notif-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.login-notif-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+[data-theme="dark"] .login-notif-icon,
+[data-theme="high-contrast"] .login-notif-icon {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.login-notif-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.login-notif-label {
+  font-size: 10px;
+  color: var(--text-quaternary);
+  font-weight: 500;
+}
+
+.login-notif-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.login-notif-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--text-quaternary);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.login-notif-close:hover {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
