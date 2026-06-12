@@ -387,7 +387,7 @@ export async function runAllScrapers(db) {
       for (const item of items) {
         try {
           await db.prepare(
-            `INSERT OR IGNORE INTO scraped_news (source, source_id, title, link, summary, cover, category, extra, scraped_at)
+            `INSERT OR REPLACE INTO scraped_news (source, source_id, title, link, summary, cover, category, extra, scraped_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
           ).bind(item.source, item.source_id, item.title, item.link, item.summary, item.cover, item.category, item.extra).run();
           inserted++;

@@ -1633,14 +1633,13 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
   // ── Scraped News Feed API ──
 
-  // GET /api/news/feed — 聚合资讯流（从 scraped_news + news 表合并查询）
+  // GET /api/news/feed — 聚合资讯流（多源交替排列，实现多元整合）
   if (method === 'GET' && pathname === '/api/news/feed') {
     const sp = new URL(request.url).searchParams;
     const page = Math.max(1, Number(sp.get('page')) || 1);
     const limit = Math.min(50, Math.max(1, Number(sp.get('limit')) || 20));
     const source = sp.get('source') || '';
     const category = sp.get('category') || '';
-    const offset = (page - 1) * limit;
 
     let whereClause = '';
     const bindParams = [];
@@ -1658,16 +1657,49 @@ async function handleApiRoutes(pathname, request, env, origin) {
       whereClause = 'WHERE ' + conditions.join(' AND ');
     }
 
-    const scrapedNews = await env.DB.prepare(
-      `SELECT id, source, title, link, summary, cover, category, extra, scraped_at AS created_at FROM scraped_news ${whereClause} ORDER BY scraped_at DESC LIMIT ? OFFSET ?`
-    ).bind(...bindParams, limit, offset).all();
-
+    // 查询总数
     const countResult = await env.DB.prepare(
       `SELECT COUNT(*) AS total FROM scraped_news ${whereClause}`
     ).bind(...bindParams).first();
+    const total = countResult?.total || 0;
+
+    // 多源交替排列：按来源分组，每组取最新数据，然后轮询交替
+    // 先获取所有数据（限制200条避免过多），在代码中交替排列
+    const allNews = await env.DB.prepare(
+      `SELECT id, source, title, link, summary, cover, category, extra, scraped_at AS created_at FROM scraped_news ${whereClause} ORDER BY scraped_at DESC LIMIT 200`
+    ).bind(...bindParams).all();
+
+    // 按来源分组
+    const sourceGroups = {};
+    for (const item of allNews.results) {
+      if (!sourceGroups[item.source]) sourceGroups[item.source] = [];
+      sourceGroups[item.source].push(item);
+    }
+
+    // 轮询交替：从每个来源依次取一条，直到取够limit
+    const interleaved = [];
+    const sourceKeys = Object.keys(sourceGroups);
+    const cursors = {};
+    for (const key of sourceKeys) cursors[key] = 0;
+
+    while (interleaved.length < 200) {
+      let added = false;
+      for (const key of sourceKeys) {
+        if (cursors[key] < sourceGroups[key].length) {
+          interleaved.push(sourceGroups[key][cursors[key]]);
+          cursors[key]++;
+          added = true;
+        }
+      }
+      if (!added) break;
+    }
+
+    // 分页
+    const offset = (page - 1) * limit;
+    const pageItems = interleaved.slice(offset, offset + limit);
 
     // 解析 extra JSON 字段
-    const parsedItems = scrapedNews.results.map(item => {
+    const parsedItems = pageItems.map(item => {
       let extra = {};
       try { extra = JSON.parse(item.extra || '{}'); } catch {}
       return { ...item, extra };
@@ -1675,7 +1707,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     return jsonResponse({
       news: parsedItems,
-      pagination: { page, limit, total: countResult?.total || 0 },
+      pagination: { page, limit, total },
     }, 200, origin);
   }
 
