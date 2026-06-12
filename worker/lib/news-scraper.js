@@ -306,11 +306,10 @@ async function scrapeCnGal() {
     }
   } catch {}
 
-  // 2. 获取每周速报概览
+  // 2. 获取每周速报概览（GET 请求）
   try {
     const res = await fetch(`${CNGAL_API}/news/GetWeeklyNewsOverview`, {
-      method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      headers: { 'Accept': 'application/json' },
     });
     if (res.ok) {
       const data = await res.json();
@@ -338,11 +337,10 @@ async function scrapeCnGal() {
     }
   } catch {}
 
-  // 3. 获取近期发售游戏
+  // 3. 获取近期发售游戏（GET 请求）
   try {
     const res = await fetch(`${CNGAL_API}/entries/GetPublishGamesByTime`, {
-      method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      headers: { 'Accept': 'application/json' },
     });
     if (res.ok) {
       const data = await res.json();
