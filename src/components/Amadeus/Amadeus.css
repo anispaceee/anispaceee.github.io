@@ -91,3 +91,41 @@
   .amadeus-expression-bar { flex-wrap: nowrap; overflow-x: auto; }
   .amadeus-page { height: auto; min-height: calc(100vh - var(--header-height) - 40px); }
 }
+
+/* ── 人格选择器 ── */
+.amadeus-persona-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.amadeus-persona-card { position: relative; flex: 0 0 auto; width: 120px; padding: 10px 8px; border: 1px solid var(--border-secondary); border-radius: 10px; background: rgba(255,255,255,0.03); cursor: pointer; display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; transition: border-color .15s, background .15s; }
+.amadeus-persona-card.active { border-color: #7eb8da; background: rgba(126,184,218,0.12); }
+.amadeus-persona-avatar { font-size: 26px; line-height: 1; }
+.amadeus-persona-name { font-size: 13px; font-weight: 600; }
+.amadeus-persona-tag { font-size: 10px; opacity: .6; line-height: 1.2; }
+.amadeus-persona-ops { display: flex; gap: 4px; margin-top: 2px; }
+.amadeus-persona-ops button { font-size: 10px; padding: 2px 6px; border: 1px solid var(--border-secondary); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.amadeus-persona-ops button:hover { background: rgba(255,255,255,0.08); }
+.amadeus-persona-new { flex: 0 0 auto; width: 90px; border: 1px dashed var(--border-secondary); border-radius: 10px; background: transparent; color: inherit; cursor: pointer; font-size: 12px; }
+.amadeus-persona-new:hover { border-color: #7eb8da; color: #7eb8da; }
+.amadeus-character-avatar-emoji { font-size: 72px; line-height: 1; display: flex; align-items: center; justify-content: center; height: 100%; }
+
+/* ── OC 编辑器 ── */
+.amadeus-oc-editor { padding: 12px; border-top: 1px solid var(--border-secondary); display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.amadeus-oc-row { display: flex; flex-direction: column; gap: 4px; }
+.amadeus-oc-row label { font-size: 12px; opacity: .8; }
+.amadeus-oc-row input, .amadeus-oc-row textarea, .amadeus-oc-row select { width: 100%; padding: 6px 8px; border: 1px solid var(--border-secondary); border-radius: 8px; background: rgba(255,255,255,0.04); color: inherit; font: inherit; resize: vertical; }
+.amadeus-oc-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+/* ── API 设置补充 ── */
+.amadeus-remember-row label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.amadeus-test-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #7eb8da; border-radius: 8px; background: transparent; color: #7eb8da; cursor: pointer; font-size: 13px; }
+.amadeus-test-btn:disabled { opacity: .6; cursor: default; }
+
+/* ── 动作卡片 ── */
+.amadeus-actions { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.amadeus-action-goto { align-self: flex-start; padding: 6px 12px; border: 1px solid #7eb8da; border-radius: 16px; background: rgba(126,184,218,0.1); color: #7eb8da; cursor: pointer; font-size: 13px; }
+.amadeus-action-goto:hover { background: rgba(126,184,218,0.22); }
+.amadeus-action-empty { font-size: 12px; opacity: .6; }
+.amadeus-rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+.amadeus-rec-card { display: flex; flex-direction: column; gap: 4px; padding: 0; border: 1px solid var(--border-secondary); border-radius: 8px; background: rgba(255,255,255,0.03); cursor: pointer; overflow: hidden; text-align: center; }
+.amadeus-rec-card:hover { border-color: #7eb8da; }
+.amadeus-rec-card img { width: 100%; height: 96px; object-fit: cover; display: block; }
+.amadeus-rec-noimg { height: 96px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.amadeus-rec-name { font-size: 11px; padding: 4px; line-height: 1.3; }
