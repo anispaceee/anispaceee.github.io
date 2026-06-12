@@ -39,3 +39,7 @@ coverage/
 # Misc
 .vite/
 .turbo/
+
+# Playwright / test artifacts
+.playwright-mcp/
+test-results/
