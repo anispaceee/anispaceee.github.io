@@ -567,7 +567,7 @@ export default function HomePage() {
               </div>
               <div className="home-calendar-grid">
                 {calendarLoading ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />) :
-                  calendarItems.slice(0, 6).map(item => (
+                  calendarItems.map(item => (
                     <SubjectCard key={item.id} item={item} type="anime" linkTo={`/info/anime/${item.id}`} />
                   ))}
               </div>
