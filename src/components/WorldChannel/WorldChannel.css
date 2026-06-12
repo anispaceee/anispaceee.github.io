@@ -1,4 +1,4 @@
-/* ─── 世界线 APP - Mac 窗口 + 聊天气泡风格 ─── */
+/* ─── 世界线 APP - 聊天气泡风格 ─── */
 .wc-mac-window {
   display: flex;
   flex-direction: column;
@@ -10,67 +10,6 @@
 
 [data-theme="dark"] .wc-mac-window {
   background: linear-gradient(135deg, rgba(40, 20, 30, 0.95) 0%, rgba(30, 15, 25, 0.98) 100%);
-}
-
-/* ─── Mac 窗口标题栏 ─── */
-.wc-mac-titlebar {
-  display: flex;
-  align-items: center;
-  height: 38px;
-  padding: 0 12px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(232, 134, 162, 0.1);
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-[data-theme="dark"] .wc-mac-titlebar {
-  background: rgba(255, 255, 255, 0.06);
-  border-bottom-color: rgba(255, 255, 255, 0.06);
-}
-
-.wc-mac-controls {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.wc-mac-ctrl {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: block;
-}
-
-.wc-mac-ctrl.close { background: #FF5A5A; }
-.wc-mac-ctrl.minimize { background: #FFBD2E; }
-.wc-mac-ctrl.maximize { background: #28C840; }
-
-.wc-mac-title {
-  flex: 1;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  pointer-events: none;
-}
-
-.wc-mac-online {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 10px;
-  font-weight: 600;
-  background: rgba(232, 134, 162, 0.15);
-  color: var(--primary);
 }
 
 /* ─── 消息区域 ─── */

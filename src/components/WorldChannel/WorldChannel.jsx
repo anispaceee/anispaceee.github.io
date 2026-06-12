@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { WorldChannelService, UserService } from '../../services/api';
-import { Globe, Image, X, Send, Loader2, Users as UsersIcon, Heart, MessageCircle } from 'lucide-react';
+import { Image, X, Send, Loader2, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './WorldChannel.css';
@@ -185,17 +185,6 @@ export default function WorldChannel() {
 
   return (
     <div className="wc-mac-window">
-      {/* Mac 窗口标题栏 */}
-      <div className="wc-mac-titlebar">
-        <div className="wc-mac-controls">
-          <span className="wc-mac-ctrl close" />
-          <span className="wc-mac-ctrl minimize" />
-          <span className="wc-mac-ctrl maximize" />
-        </div>
-        <span className="wc-mac-title"><Globe size={13} /> 世界线</span>
-        <span className="wc-mac-online"><UsersIcon size={11} /> {posts.length}+</span>
-      </div>
-
       {/* 消息区域 */}
       <div className="wc-mac-messages">
         {loading ? (
