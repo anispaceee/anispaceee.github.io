@@ -275,7 +275,8 @@ export default function Wiki() {
   // 沉浸式首页模式
   if (!hasSearched) {
     return (
-      <div className="wiki-immersive" style={customBg ? { backgroundImage: `url(${customBg})` } : undefined}>
+      <div className="wiki-immersive">
+        {customBg && <div className="wiki-immersive-bg" style={{ backgroundImage: `url(${customBg})` }} />}
         {customBg && <div className="wiki-immersive-bg-overlay" />}
         <div className="wiki-immersive-center">
           <h1 className="wiki-immersive-title">インデックスIndex</h1>
