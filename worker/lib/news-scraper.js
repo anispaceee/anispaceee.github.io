@@ -35,9 +35,9 @@ async function scrapeBangumiCalendar() {
         source: 'bangumi_calendar',
         source_id: `bgm_${item.id}`,
         title: item.name_cn || item.name || '',
-        link: item.url || `https://bgm.tv/subject/${item.id}`,
+        link: (item.url || `https://bgm.tv/subject/${item.id}`).replace('http://', 'https://'),
         summary: item.summary || `${weekday}放送 · 评分 ${rating} · ${doing}人在看`,
-        cover: item.images?.large || item.images?.common || '',
+        cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
         category: '新番导视',
         extra: JSON.stringify({
           weekday,
@@ -70,7 +70,7 @@ async function scrapeBangumiHot() {
       title: item.name_cn || item.name || '',
       link: `https://bgm.tv/subject/${item.id}`,
       summary: `评分 ${item.rating?.score || '-'} · 排名 #${item.rank || '-'}`,
-      cover: item.images?.large || item.images?.common || '',
+      cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
       category: '热门推荐',
       extra: JSON.stringify({
         rating: item.rating?.score || 0,
