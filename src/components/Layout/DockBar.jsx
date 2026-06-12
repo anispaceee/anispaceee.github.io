@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
-import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee } from 'lucide-react';
+import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2 } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import './DockBar.css';
 
@@ -135,7 +135,7 @@ export default function DockBar() {
     { key: 'amadeus', icon: <Brain size={16} />, label: 'Navi', active: windows.amadeus?.open && !windows.amadeus.minimized, onClick: () => handleAppClick('amadeus') },
     { key: 'music', icon: <Music size={16} />, label: '音乐', active: windows.music?.open && !windows.music.minimized || activePanel === 'music', onClick: () => handleAppClick('music') },
     { key: 'friends', icon: <Users size={16} />, label: 'LeMU', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },
-    { key: 'live2d', icon: <Sparkles size={16} />, label: 'Live2D', active: activePanel === 'live2d' },
+    { key: 'links', icon: <Link2 size={16} />, label: '友情链接', href: '/links' },
     { key: 'settings', icon: <Settings size={16} />, label: '设置', active: activePanel === 'settings' },
     { key: 'notifications', icon: <Bell size={16} />, label: '通知', active: windows.notifications?.open && !windows.notifications.minimized, onClick: () => handleAppClick('notifications'), badge: unreadCount },
   ];
@@ -150,55 +150,9 @@ export default function DockBar() {
           onMouseLeave={() => setHoveringTrigger(false)}
         />
       )}
-      {showLauncher && (
-        <div className="dock-launcher">
-          {launcherApps.map((app, i) => (
-            app.href ? (
-              <a
-                key={app.id}
-                href={app.href}
-                className={`dock-launcher-item ${launcherIndex === i ? 'focused' : ''}`}
-                onMouseEnter={() => setLauncherIndex(i)}
-              >
-                <span className="dock-launcher-icon">{app.icon}</span>
-                <span className="dock-launcher-label">{app.label}</span>
-              </a>
-            ) : (
-              <button
-                key={app.id}
-                className={`dock-launcher-item ${launcherIndex === i ? 'focused' : ''} ${windows[app.id]?.open ? 'running' : ''}`}
-                onClick={() => handleAppClick(app.id)}
-                onMouseEnter={() => setLauncherIndex(i)}
-              >
-                <span className="dock-launcher-icon">{app.icon}</span>
-                <span className="dock-launcher-label">{app.label}</span>
-                {windows[app.id]?.open && <span className="dock-launcher-dot" />}
-              </button>
-            )
-          ))}
-        </div>
-      )}
-
-      <div className="dock-bar">
-        {dockItems.map((item, i) => (
-          <div key={item.key} className="dock-item-wrap">
-            <button
-              className={`dock-btn ${item.active ? 'active' : ''}`}
-              onClick={item.onClick || (() => togglePanel(item.key))}
-              title={item.label}
-            >
-              {item.icon}
-              {item.key === 'music' && playing && <span className="dock-btn-playing" />}
-              {windows[item.key]?.open && item.key !== 'launcher' && <span className="dock-btn-indicator" />}
-              {item.badge > 0 && <span className="dock-btn-badge">{item.badge > 99 ? '99+' : item.badge}</span>}
-            </button>
-            {i < dockItems.length - 1 && <div className="dock-separator" />}
-          </div>
-        ))}
-      </div>
 
       {activePanel && (
-        <div className="dock-panel">
+        <div className="dock-panel dock-panel-above">
           {activePanel === 'settings' && (
             <div className="dock-panel-content">
               <div className="dock-panel-header"><h3>设置</h3><button onClick={() => setActivePanel(null)}><X size={14} /></button></div>
@@ -251,17 +205,61 @@ export default function DockBar() {
               </div>
             </div>
           )}
-
-          {activePanel === 'live2d' && (
-            <div className="dock-panel-content">
-              <div className="dock-panel-header"><h3>Live2D 配置</h3><button onClick={() => setActivePanel(null)}><X size={14} /></button></div>
-              <div className="dock-live2d">
-                <a href="/live2d" className="dock-live2d-link">打开 Live2D 展示页</a>
-              </div>
-            </div>
-          )}
         </div>
       )}
+
+      {showLauncher && (
+        <div className="dock-launcher">
+          {launcherApps.map((app, i) => (
+            app.href ? (
+              <a
+                key={app.id}
+                href={app.href}
+                className={`dock-launcher-item ${launcherIndex === i ? 'focused' : ''}`}
+                onMouseEnter={() => setLauncherIndex(i)}
+              >
+                <span className="dock-launcher-icon">{app.icon}</span>
+                <span className="dock-launcher-label">{app.label}</span>
+              </a>
+            ) : (
+              <button
+                key={app.id}
+                className={`dock-launcher-item ${launcherIndex === i ? 'focused' : ''} ${windows[app.id]?.open ? 'running' : ''}`}
+                onClick={() => handleAppClick(app.id)}
+                onMouseEnter={() => setLauncherIndex(i)}
+              >
+                <span className="dock-launcher-icon">{app.icon}</span>
+                <span className="dock-launcher-label">{app.label}</span>
+                {windows[app.id]?.open && <span className="dock-launcher-dot" />}
+              </button>
+            )
+          ))}
+        </div>
+      )}
+
+      <div className="dock-bar">
+        {dockItems.map((item, i) => (
+          <div key={item.key} className="dock-item-wrap">
+            {item.href ? (
+              <a href={item.href} className={`dock-btn ${item.active ? 'active' : ''}`} title={item.label}>
+                {item.icon}
+              </a>
+            ) : (
+              <button
+                className={`dock-btn ${item.active ? 'active' : ''}`}
+                onClick={item.onClick || (() => togglePanel(item.key))}
+                title={item.label}
+              >
+                {item.icon}
+                {item.key === 'music' && playing && <span className="dock-btn-playing" />}
+                {windows[item.key]?.open && item.key !== 'launcher' && <span className="dock-btn-indicator" />}
+                {item.badge > 0 && <span className="dock-btn-badge">{item.badge > 99 ? '99+' : item.badge}</span>}
+              </button>
+            )}
+            {i < dockItems.length - 1 && <div className="dock-separator" />}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -12,7 +12,6 @@ const navItems = [
   { path: '/news', label: '毒电波！！' },
   { path: '/wiki', label: '禁書目錄' },
   { path: '/musashi', label: '武藏也' },
-  { path: '/links', label: '友情链接' },
 ];
 
 export default function Header() {
