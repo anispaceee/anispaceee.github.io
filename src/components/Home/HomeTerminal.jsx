@@ -82,11 +82,15 @@ export default function HomeTerminal() {
               );
             }
             if (entry.type === 'link') {
+              const go = (e) => { e.stopPropagation(); navigate(entry.to, { state: entry.state }); };
               return (
                 <div
                   key={i}
                   className="home-terminal-line link"
-                  onClick={(e) => { e.stopPropagation(); navigate(entry.to, { state: entry.state }); }}
+                  role="link"
+                  tabIndex={0}
+                  onClick={go}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(e); } }}
                 >
                   {entry.text}
                 </div>
@@ -105,6 +109,7 @@ export default function HomeTerminal() {
             ref={inputRef}
             type="text"
             className="home-terminal-input"
+            aria-label="终端命令输入"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={onKeyDown}
