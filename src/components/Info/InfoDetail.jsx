@@ -820,7 +820,7 @@ export default function InfoDetail() {
                 <button className={`detail-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>评论区</button>
                 {/* 字幕组资源标签：仅对动画类型显示 */}
                 {subject?.type === 2 && (
-                  <button className={`detail-tab ${activeTab === 'fansubs' ? 'active' : ''}`} onClick={() => setActiveTab('fansubs')}>字幕组</button>
+                  <button className={`detail-tab ${activeTab === 'fansubs' ? 'active' : ''}`} onClick={() => setActiveTab('fansubs')}>字幕组资源</button>
                 )}
                 {/* 站内观看标签：仅对动画/三次元类型显示 */}
                 {(subject?.type === 2 || subject?.type === 6) && (
