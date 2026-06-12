@@ -13,6 +13,7 @@ const TYPE_OPTIONS = [
   { key: 'anime', label: '动画', typeCode: 2 },
   { key: 'novel', label: '小说', typeCode: 1 },
   { key: 'game', label: '游戏', typeCode: 4 },
+  { key: 'real', label: '三次元', typeCode: 6 },
 ];
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const PAGE_SIZE = 12;
@@ -66,7 +67,7 @@ function Pagination({ currentPage, totalPages, totalItems, onPageChange, loading
   );
 }
 
-function RandomRecommendCard({ subject, loading, onRefresh }) {
+function RandomRecommendCard({ subject, loading, onRefresh, activeType, onTypeChange }) {
   const [lastClick, setLastClick] = useState(0);
   const [coverLoaded, setCoverLoaded] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
@@ -102,9 +103,9 @@ function RandomRecommendCard({ subject, loading, onRefresh }) {
   const tags = (subject.tags || []).slice(0, 3).map(t => typeof t === 'string' ? t : t.name);
   const extraTags = (subject.tags || []).length - 3;
   const typeCode = subject.type || 2;
-  const typeLabel = typeCode === 1 ? '小说' : typeCode === 4 ? '游戏' : '动画';
+  const typeLabel = typeCode === 1 ? '小说' : typeCode === 4 ? '游戏' : typeCode === 6 ? '三次元' : '动画';
   const TypeIcon = typeCode === 1 ? BookOpen : typeCode === 4 ? Gamepad2 : Tv;
-  const linkTo = `/info/${typeCode === 1 ? 'novel' : typeCode === 4 ? 'game' : 'anime'}/${subject.id}`;
+  const linkTo = `/info/${typeCode === 1 ? 'novel' : typeCode === 4 ? 'game' : typeCode === 6 ? 'anime' : 'anime'}/${subject.id}`;
 
   return (
     <div className="random-recommend-card">
@@ -129,12 +130,17 @@ function RandomRecommendCard({ subject, loading, onRefresh }) {
         <Link to={linkTo} className="random-title">{title}</Link>
         <p className="random-summary">{summary}</p>
         <div className="random-meta">
-          {tags.length > 0 && (
-            <div className="random-tags">
-              {tags.map((tag, i) => <span key={i} className="random-tag">{tag}</span>)}
-              {extraTags > 0 && <span className="random-tag-more">+{extraTags}</span>}
-            </div>
-          )}
+          <div className="random-type-filter">
+            {TYPE_OPTIONS.map(opt => (
+              <button
+                key={opt.key}
+                className={`random-type-filter-btn ${activeType === opt.key ? 'active' : ''}`}
+                onClick={() => onTypeChange(opt.key)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           <button className="random-refresh-btn" onClick={handleRefresh} disabled={loading} title="换一个推荐">
             {loading ? <Loader2 size={14} className="spinning" /> : <Shuffle size={14} />}
             {loading ? '雨何时停？' : '换一个'}
@@ -211,29 +217,77 @@ export default function HomePage() {
     }
   }, [isAuthenticated, homeWorldInput, homeWorldSending, currentUser]);
 
-  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselIndex, setCarouselIndex] = useState(1); // start at 1 because of clone
   const carouselTimerRef = useRef(null);
+  const carouselTrackRef = useRef(null);
+  const [carouselTransition, setCarouselTransition] = useState(true);
 
-  // 横滑推荐：加载5个热门条目
+  // 横滑推荐：加载当季所有在更动画
   useEffect(() => {
     const loadCarousel = async () => {
       setCarouselLoading(true);
       try {
-        const result = await BangumiService.getPopular('anime', 5);
-        const items = result?.data || [];
-        setCarouselItems(items);
+        const data = await BangumiService.getCalendar();
+        if (Array.isArray(data)) {
+          // 收集所有在更动画，按评分排序
+          const allItems = data.flatMap(day => day.items || []);
+          const animeItems = allItems.filter(item => item.type === 2);
+          const seen = new Set();
+          const unique = animeItems.filter(item => {
+            if (seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          });
+          const sorted = unique.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0));
+          setCarouselItems(sorted);
+        }
       } catch { setCarouselItems([]); }
       finally { setCarouselLoading(false); }
     };
     loadCarousel();
   }, []);
 
+  // 无缝循环：到达 clone 时瞬移
+  useEffect(() => {
+    if (carouselItems.length <= 1) return;
+    const len = carouselItems.length;
+
+    // 从最后一个 clone 跳到真实的最后一个
+    if (carouselIndex === 0) {
+      const timer = setTimeout(() => {
+        setCarouselTransition(false);
+        setCarouselIndex(len);
+        // 下一帧恢复 transition
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setCarouselTransition(true);
+          });
+        });
+      }, 500); // 等动画结束
+      return () => clearTimeout(timer);
+    }
+
+    // 从第一个 clone 跳到真实的第一个
+    if (carouselIndex === len + 1) {
+      const timer = setTimeout(() => {
+        setCarouselTransition(false);
+        setCarouselIndex(1);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setCarouselTransition(true);
+          });
+        });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [carouselIndex, carouselItems.length]);
+
   // 自动轮播
   useEffect(() => {
     if (carouselItems.length <= 1) return;
     const startTimer = () => {
       carouselTimerRef.current = setInterval(() => {
-        setCarouselIndex(prev => (prev + 1) % carouselItems.length);
+        setCarouselIndex(prev => prev + 1);
       }, 5000);
     };
     startTimer();
@@ -241,18 +295,34 @@ export default function HomePage() {
   }, [carouselItems.length]);
 
   const goToSlide = (idx) => {
-    setCarouselIndex(idx);
+    // idx is the real index (0-based), map to carousel index (1-based due to clone)
+    setCarouselIndex(idx + 1);
     clearInterval(carouselTimerRef.current);
     carouselTimerRef.current = setInterval(() => {
-      setCarouselIndex(prev => (prev + 1) % carouselItems.length);
+      setCarouselIndex(prev => prev + 1);
     }, 5000);
   };
 
-  const prevSlide = () => goToSlide((carouselIndex - 1 + carouselItems.length) % carouselItems.length);
-  const nextSlide = () => goToSlide((carouselIndex + 1) % carouselItems.length);
+  const prevSlide = () => {
+    setCarouselTransition(true);
+    setCarouselIndex(prev => prev - 1);
+    clearInterval(carouselTimerRef.current);
+    carouselTimerRef.current = setInterval(() => {
+      setCarouselIndex(prev => prev + 1);
+    }, 5000);
+  };
+  const nextSlide = () => {
+    setCarouselTransition(true);
+    setCarouselIndex(prev => prev + 1);
+    clearInterval(carouselTimerRef.current);
+    carouselTimerRef.current = setInterval(() => {
+      setCarouselIndex(prev => prev + 1);
+    }, 5000);
+  };
 
   const [randomSubject, setRandomSubject] = useState(null);
   const [randomLoading, setRandomLoading] = useState(true);
+  const [randomType, setRandomType] = useState('all');
 
   const [calendarData, setCalendarData] = useState([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
@@ -261,19 +331,25 @@ export default function HomePage() {
   const getCategoryLabel = (cat) => ({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' }[cat] || cat);
   const getUserById = (id) => UserService.getById(id);
 
-  const fetchRandom = useCallback(async () => {
+  const fetchRandom = useCallback(async (type) => {
     setRandomLoading(true);
     try {
-      const subject = await BangumiService.getRandomSubject();
+      const typeCode = TYPE_OPTIONS.find(o => o.key === (type || randomType))?.typeCode || 0;
+      const subject = await BangumiService.getRandomSubject(typeCode);
       setRandomSubject(subject);
     } catch {
       setRandomSubject(null);
     } finally {
       setRandomLoading(false);
     }
-  }, []);
+  }, [randomType]);
 
-  useEffect(() => { fetchRandom(); }, [fetchRandom]);
+  const handleRandomTypeChange = useCallback((type) => {
+    setRandomType(type);
+    fetchRandom(type);
+  }, [fetchRandom]);
+
+  useEffect(() => { fetchRandom('all'); }, []);
 
   useEffect(() => { fetchCalendar(); }, []);
 
@@ -299,7 +375,44 @@ export default function HomePage() {
           </div>
         ) : carouselItems.length > 0 ? (
           <div className="home-banner-carousel">
-            <div className="home-banner-track" style={{ transform: `translateX(-${carouselIndex * 100}%)` }}>
+            <div
+              className="home-banner-track"
+              ref={carouselTrackRef}
+              style={{
+                transform: `translateX(-${carouselIndex * 100}%)`,
+                transition: carouselTransition ? 'transform 0.5s ease' : 'none',
+              }}
+            >
+              {/* Clone last item at the beginning */}
+              {carouselItems.length > 1 && (() => {
+                const item = carouselItems[carouselItems.length - 1];
+                const img = item.images?.large || item.images?.common || item.images?.medium || item.image || '';
+                const score = item.rating?.score || item.rating?.value || item.score || 0;
+                const title = item.name_cn || item.name || '';
+                const summary = item.summary || '';
+                return (
+                  <Link key="clone-last" to={`/info/anime/${item.id}`} className="home-banner-slide">
+                    <div className="home-banner-bg" style={{ backgroundImage: `url(${img})` }} />
+                    <div className="home-banner-gradient" />
+                    <div className="home-banner-content">
+                      <div className="home-banner-info">
+                        <div className="home-banner-badge">✨ 精选推荐</div>
+                        <h2 className="home-banner-title">{title}</h2>
+                        <div className="home-banner-meta">
+                          <span className="home-banner-type">动画</span>
+                          {score > 0 && <span className="home-banner-score"><Star size={14} fill="#ffc107" style={{ color: '#ffc107' }} /> {score.toFixed(1)}</span>}
+                        </div>
+                        {summary && <p className="home-banner-summary">{summary.length > 80 ? summary.substring(0, 80) + '...' : summary}</p>}
+                        <div className="home-banner-actions">
+                          <span className="home-banner-btn-primary">♡ 想看</span>
+                          <span className="home-banner-btn-secondary">查看详情</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })()}
+              {/* Real items */}
               {carouselItems.map((item, idx) => {
                 const img = item.images?.large || item.images?.common || item.images?.medium || item.image || '';
                 const score = item.rating?.score || item.rating?.value || item.score || 0;
@@ -329,12 +442,41 @@ export default function HomePage() {
                   </Link>
                 );
               })}
+              {/* Clone first item at the end */}
+              {carouselItems.length > 1 && (() => {
+                const item = carouselItems[0];
+                const img = item.images?.large || item.images?.common || item.images?.medium || item.image || '';
+                const score = item.rating?.score || item.rating?.value || item.score || 0;
+                const title = item.name_cn || item.name || '';
+                const summary = item.summary || '';
+                return (
+                  <Link key="clone-first" to={`/info/anime/${item.id}`} className="home-banner-slide">
+                    <div className="home-banner-bg" style={{ backgroundImage: `url(${img})` }} />
+                    <div className="home-banner-gradient" />
+                    <div className="home-banner-content">
+                      <div className="home-banner-info">
+                        <div className="home-banner-badge">🌸 本周推荐</div>
+                        <h2 className="home-banner-title">{title}</h2>
+                        <div className="home-banner-meta">
+                          <span className="home-banner-type">动画</span>
+                          {score > 0 && <span className="home-banner-score"><Star size={14} fill="#ffc107" style={{ color: '#ffc107' }} /> {score.toFixed(1)}</span>}
+                        </div>
+                        {summary && <p className="home-banner-summary">{summary.length > 80 ? summary.substring(0, 80) + '...' : summary}</p>}
+                        <div className="home-banner-actions">
+                          <span className="home-banner-btn-primary">♡ 想看</span>
+                          <span className="home-banner-btn-secondary">查看详情</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })()}
             </div>
             <button className="home-banner-arrow home-banner-arrow-left" onClick={prevSlide}><ChevronLeft size={24} /></button>
             <button className="home-banner-arrow home-banner-arrow-right" onClick={nextSlide}><ChevronRight size={24} /></button>
             <div className="home-banner-dots">
               {carouselItems.map((_, i) => (
-                <button key={i} className={`home-banner-dot ${i === carouselIndex ? 'active' : ''}`} onClick={() => goToSlide(i)} />
+                <button key={i} className={`home-banner-dot ${i === (carouselIndex - 1 + carouselItems.length) % carouselItems.length ? 'active' : ''}`} onClick={() => goToSlide(i)} />
               ))}
             </div>
           </div>
