@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
-import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2 } from 'lucide-react';
+import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2, Globe } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import './DockBar.css';
 
@@ -18,10 +18,11 @@ export default function DockBar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
   const [hoveringTrigger, setHoveringTrigger] = useState(false);
+  const [hoveringDock, setHoveringDock] = useState(false);
   const dockRef = useRef(null);
   const hideTimerRef = useRef(null);
 
-  // 统一的启动/重置隐藏计时器
+  // 启动/重置隐藏计时器
   const startHideTimer = useRef(() => {});
   startHideTimer.current = () => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -30,30 +31,23 @@ export default function DockBar() {
     }, 10000);
   };
 
+  // 页面加载时开始计时
   useEffect(() => {
     startHideTimer.current();
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    const handleActivity = () => {
-      setDockHidden(false);
-      startHideTimer.current();
-    };
-    events.forEach(e => document.addEventListener(e, handleActivity, { passive: true }));
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      events.forEach(e => document.removeEventListener(e, handleActivity));
     };
   }, []);
 
-  // 鼠标移入 trigger bar 时弹出 Dock 并暂停计时
+  // 鼠标在 Dock 区域内时暂停计时，离开时重新计时
   useEffect(() => {
-    if (hoveringTrigger) {
+    if (hoveringDock || hoveringTrigger) {
       setDockHidden(false);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     } else if (!dockHidden) {
-      // 鼠标离开 trigger bar 且 Dock 已弹出，重新开始计时
       startHideTimer.current();
     }
-  }, [hoveringTrigger]);
+  }, [hoveringDock, hoveringTrigger]);
 
   useEffect(() => {
     setUnreadCount(getUnreadCount());
@@ -98,7 +92,7 @@ export default function DockBar() {
     { id: 'friends', icon: <Users size={18} />, label: '好友空间' },
     { id: 'music', icon: <Music size={18} />, label: '音乐' },
     { id: 'amadeus', icon: <Brain size={18} />, label: 'Navi' },
-    { id: 'world', icon: <MessageCircle size={18} />, label: '世界频道' },
+    { id: 'world', icon: <Globe size={18} />, label: '世界频道' },
     { id: 'notifications', icon: <Bell size={18} />, label: '通知' },
     ...(isAuthenticated ? [{ id: 'musashi-new', icon: <PenSquare size={18} />, label: '发布作品', href: '/musashi/new' }] : []),
   ];
@@ -128,7 +122,7 @@ export default function DockBar() {
     { key: 'launcher', icon: <ChevronUp size={16} />, label: '应用', active: showLauncher, onClick: () => { setShowLauncher(prev => !prev); setActivePanel(null); } },
     { key: 'touchgal', icon: <Gamepad2 size={16} />, label: 'TouchGal', active: windows.touchgal?.open && !windows.touchgal.minimized, onClick: () => handleAppClick('touchgal') },
     { key: 'club', icon: <Coffee size={16} />, label: 'Tea Time！', active: windows.club?.open && !windows.club.minimized, onClick: () => handleAppClick('club') },
-    { key: 'world', icon: <MessageCircle size={16} />, label: '世界线', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
+    { key: 'world', icon: <Globe size={16} />, label: '世界线', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
     { key: 'amadeus', icon: <Brain size={16} />, label: 'Navi', active: windows.amadeus?.open && !windows.amadeus.minimized, onClick: () => handleAppClick('amadeus') },
     { key: 'music', icon: <Music size={16} />, label: '音乐', active: windows.music?.open && !windows.music.minimized || activePanel === 'music', onClick: () => handleAppClick('music') },
     { key: 'friends', icon: <Users size={16} />, label: 'LeMU', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },
@@ -138,7 +132,7 @@ export default function DockBar() {
   ];
 
   return (
-    <div ref={dockRef} className={`dock-bar-wrapper ${dockHidden ? 'dock-hidden' : ''}`}>
+    <div ref={dockRef} className={`dock-bar-wrapper ${dockHidden ? 'dock-hidden' : ''}`} onMouseEnter={() => setHoveringDock(true)} onMouseLeave={() => setHoveringDock(false)}>
       {/* 隐藏时的触发横条 */}
       {dockHidden && (
         <div

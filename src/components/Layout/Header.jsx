@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Search, Bell, LogOut, Menu, X, Mail } from 'lucide-react';
+import { Search, LogOut, Menu, X, Mail } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import GlobalSearch from '../Common/GlobalSearch';
 import './Header.css';
@@ -63,10 +63,6 @@ export default function Header() {
 
             {isAuthenticated ? (
               <div className="header-user-section">
-                <Link to="/notifications" className="header-icon-btn" title="通知">
-                  <Bell size={18} />
-                  {notifications.length > 0 && <span className="notification-dot">{notifications.length}</span>}
-                </Link>
                 <Link to="/mailbox" className="header-icon-btn" title="D-Mail">
                   <Mail size={18} />
                   {mailUnreadCount > 0 && <span className="notification-dot">{mailUnreadCount}</span>}
