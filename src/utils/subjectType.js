@@ -1,3 +1,5 @@
+/** Bangumi 条目类型相关工具，供 Wiki 与终端命令注册表共用 */
+
 /** 根据 Bangumi type 数值返回详情页路由 typeKey */
 export function typeToKey(type) {
   return type === 1 ? 'novel' : type === 3 ? 'music' : type === 4 ? 'game' : type === 6 ? 'real' : 'anime';
