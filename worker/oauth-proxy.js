@@ -729,10 +729,17 @@ async function handleApiRoutes(pathname, request, env, origin) {
       `SELECT p.*, u.name AS author_name, u.avatar AS author_avatar FROM posts p JOIN users u ON p.author_id = u.id ${whereClause} ${orderClause} LIMIT ? OFFSET ?`
     ).bind(...bindParams, limit, offset).all();
 
+    // 解析 JSON 字段
+    const parsedPosts = posts.results.map(p => ({
+      ...p,
+      tags: typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags,
+      images: typeof p.images === 'string' ? JSON.parse(p.images) : p.images,
+    }));
+
     const countSql = category ? 'SELECT COUNT(*) AS total FROM posts WHERE category = ?' : 'SELECT COUNT(*) AS total FROM posts';
     const countResult = await env.DB.prepare(countSql).bind(...bindParams).first();
     return jsonResponse({
-      posts: posts.results,
+      posts: parsedPosts,
       pagination: { page, limit, total: countResult.total },
     }, 200, origin);
   }
@@ -755,7 +762,11 @@ async function handleApiRoutes(pathname, request, env, origin) {
       ).bind(authUser.userId, title, content, category || null, tagsJson, imagesJson).run();
 
       const post = await env.DB.prepare('SELECT * FROM posts WHERE id = ?').bind(result.meta.last_row_id).first();
-      return jsonResponse(post, 201, origin);
+      return jsonResponse({
+        ...post,
+        tags: typeof post.tags === 'string' ? JSON.parse(post.tags) : post.tags,
+        images: typeof post.images === 'string' ? JSON.parse(post.images) : post.images,
+      }, 201, origin);
     } catch (err) {
       return jsonResponse({ error: '创建帖子失败: ' + err.message }, 500, origin);
     }
@@ -777,7 +788,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
       'SELECT r.*, u.name AS author_name, u.avatar AS author_avatar FROM replies r JOIN users u ON r.author_id = u.id WHERE r.post_id = ? ORDER BY r.created_at ASC'
     ).bind(postId).all();
 
-    return jsonResponse({ ...post, views: (post.views || 0) + 1, replies: replies.results }, 200, origin);
+    // 解析 JSON 字段
+    const parsedPost = {
+      ...post,
+      tags: typeof post.tags === 'string' ? JSON.parse(post.tags) : post.tags,
+      images: typeof post.images === 'string' ? JSON.parse(post.images) : post.images,
+    };
+
+    return jsonResponse({ ...parsedPost, views: (post.views || 0) + 1, replies: replies.results }, 200, origin);
   }
 
   // POST /api/posts/:id/replies — 添加回复（需认证）
