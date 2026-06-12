@@ -209,37 +209,47 @@ export default function NewsZone() {
         </div>
       </div>
 
-      {/* 轮播热点 */}
+      {/* 全宽大图 Banner 轮播 — 与首页格式一致 */}
       {hotNews.length > 0 && (
         <div className="news-carousel">
-          <div className="news-carousel-track">
+          <div className="news-carousel-track" style={{ transform: `translateX(-${carouselIndex * 100}%)` }}>
             {hotNews.map((news, idx) => (
               <div
                 key={news.id || idx}
-                className={`news-carousel-slide ${idx === carouselIndex ? 'active' : ''}`}
-                style={{ backgroundImage: `url(${news.cover})` }}
+                className="news-carousel-slide"
                 onClick={() => {
-                  if (news.type === 'article') navigate(`/news/${news.id}`);
+                  if (news.type === 'article' || news.id) navigate(`/news/${news.id}`);
                   else if (news.link) window.open(news.link, '_blank');
                 }}
               >
-                <div className="news-carousel-overlay">
-                  <span className="news-carousel-source" style={{ backgroundColor: getSourceColor(news.source) }}>
-                    {getSourceLabel(news.source)}
-                  </span>
-                  <h3 className="news-carousel-title">{news.title}</h3>
-                  {news.summary && <p className="news-carousel-summary">{news.summary}</p>}
+                <div className="news-carousel-bg" style={{ backgroundImage: `url(${news.cover})` }} />
+                <div className="news-carousel-gradient" />
+                <div className="news-carousel-content">
+                  <div className="news-carousel-info">
+                    <div className="news-carousel-badge" style={{ backgroundColor: getSourceColor(news.source) }}>
+                      {getSourceLabel(news.source)}
+                    </div>
+                    <h2 className="news-carousel-title">{news.title}</h2>
+                    <div className="news-carousel-meta">
+                      <span className="news-carousel-type">{news.category || '资讯'}</span>
+                    </div>
+                    {news.summary && <p className="news-carousel-summary">{news.summary.length > 80 ? news.summary.substring(0, 80) + '...' : news.summary}</p>}
+                    <div className="news-carousel-actions">
+                      <span className="news-carousel-btn-primary">查看详情</span>
+                      {news.link && <span className="news-carousel-btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(news.link, '_blank'); }}>访问来源</span>}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
           {hotNews.length > 1 && (
             <>
-              <button className="news-carousel-arrow left" onClick={() => setCarouselIndex(prev => (prev - 1 + hotNews.length) % hotNews.length)}>
-                <ChevronLeft size={18} />
+              <button className="news-carousel-arrow news-carousel-arrow-left" onClick={() => setCarouselIndex(prev => (prev - 1 + hotNews.length) % hotNews.length)}>
+                <ChevronLeft size={24} />
               </button>
-              <button className="news-carousel-arrow right" onClick={() => setCarouselIndex(prev => (prev + 1) % hotNews.length)}>
-                <ChevronRight size={18} />
+              <button className="news-carousel-arrow news-carousel-arrow-right" onClick={() => setCarouselIndex(prev => (prev + 1) % hotNews.length)}>
+                <ChevronRight size={24} />
               </button>
               <div className="news-carousel-dots">
                 {hotNews.map((_, idx) => (
