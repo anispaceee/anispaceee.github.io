@@ -13,11 +13,7 @@ function getEnvVar(key) {
 
 // 生产环境 OAuth 代理地址（Cloudflare Worker）
 // 部署 Worker 后替换为你的 Worker URL
-const _rawProxyUrl = getEnvVar('VITE_OAUTH_PROXY_URL') || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
-// lyw2373314970.workers.dev 在中国大陆不可用，自动切换到 afterrainliu
-const OAUTH_PROXY_URL = _rawProxyUrl.includes('lyw2373314970')
-  ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
-  : _rawProxyUrl;
+const OAUTH_PROXY_URL = getEnvVar('VITE_OAUTH_PROXY_URL') || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
 
 export default {
   bangumi: {
@@ -37,7 +33,7 @@ export default {
   },
   // 获取 OAuth 代理基础 URL
   // 开发环境：''（使用 Vite 插件的 /api/oauth/* 端点）
-  // 生产环境：Worker URL（如 https://anispace-oauth-proxy.afterrainliu.workers.dev）
+  // 生产环境：Worker URL（如 https://anispace-oauth-proxy.lyw2373314970.workers.dev）
   get proxyUrl() {
     return OAUTH_PROXY_URL;
   },
