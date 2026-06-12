@@ -29,9 +29,9 @@ class DanDanPlayProvider implements DanmakuProvider {
       }
     } catch {}
     const base = rawBase || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
-    // Safety check: override stale URL pointing to old workers.dev subdomain
+    // lyw2373314970.workers.dev 在中国大陆不可用，自动切换到 afterrainliu
     this.proxyBase = base.includes('lyw2373314970')
-      ? 'https://anispace-oauth-proxy.lyw2373314970.workers.dev'
+      ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
       : base;
   }
 

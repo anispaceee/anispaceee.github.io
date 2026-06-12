@@ -4,10 +4,8 @@
  * 数据源：
  * 1. Bangumi Calendar API — 当季新番
  * 2. Bangumi 热门排行 — 高分动画
- * 3. 游民星空 ACG — 中文资讯
- * 4. 3DMGame 动漫 — 游戏+动漫资讯
- * 5. 月幕 Galgame — Galgame 发行/档案（OAuth2 API）
- * 6. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
+ * 3. 月幕 Galgame — Galgame 发行/档案（OAuth2 API + HTML 回退）
+ * 4. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
  *
  * 所有爬取结果统一为 { source, source_id, title, link, summary, cover, category, extra }
  */
@@ -85,145 +83,6 @@ async function scrapeBangumiHot() {
   } catch {
     return [];
   }
-}
-
-// ─── 游民星空 ACG ──────────────────────────────────────────
-
-async function scrapeGamersky() {
-  const res = await fetch('https://acg.gamersky.com/news/', {
-    headers: { 'User-Agent': UA, 'Accept': 'text/html' },
-  });
-  if (!res.ok) return [];
-
-  const html = await res.text();
-  const items = [];
-
-  // 解析资讯列表：匹配 <a href="...">标题</a> + 日期 + 图片
-  // 游民星空的资讯列表结构：
-  // <div class="tit"><a href="链接">标题</a></div>
-  // <p class="con">摘要</p>
-  // <span class="time">日期</span>
-  // <img src="封面" />
-
-  // 使用正则提取资讯块
-  const blockRe = /<div[^>]*class="[^"]*list_item[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g;
-  let match;
-  while ((match = blockRe.exec(html)) !== null) {
-    const block = match[1];
-
-    const titleMatch = block.match(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/);
-    const imgMatch = block.match(/<img[^>]*src="([^"]*)"[^>]*>/);
-    const dateMatch = block.match(/(\d{4}-\d{2}-\d{2}\s*\d{2}:\d{2})/);
-    const summaryMatch = block.match(/<p[^>]*class="[^"]*con[^"]*"[^>]*>([\s\S]*?)<\/p>/);
-
-    if (titleMatch) {
-      const link = titleMatch[1];
-      const title = titleMatch[2].replace(/<[^>]*>/g, '').trim();
-      if (!title || !link) continue;
-
-      items.push({
-        source: 'gamersky',
-        source_id: `gsky_${link.replace(/[^\w]/g, '_').substring(0, 60)}`,
-        title,
-        link,
-        summary: summaryMatch ? summaryMatch[1].replace(/<[^>]*>/g, '').trim() : '',
-        cover: imgMatch ? imgMatch[1] : '',
-        category: '业界动态',
-        extra: JSON.stringify({ date: dateMatch ? dateMatch[1] : '' }),
-      });
-    }
-  }
-
-  // 如果正则没匹配到，尝试更宽松的解析
-  if (items.length === 0) {
-    // 匹配 <a href="https://acg.gamersky.com/news/.../...shtml">标题</a>
-    const linkRe = /<a[^>]*href="(https:\/\/acg\.gamersky\.com\/news\/\d+\/\d+\.shtml)"[^>]*>([\s\S]*?)<\/a>/g;
-    let linkMatch;
-    while ((linkMatch = linkRe.exec(html)) !== null) {
-      const title = linkMatch[2].replace(/<[^>]*>/g, '').trim();
-      if (!title || title.length < 4) continue;
-
-      items.push({
-        source: 'gamersky',
-        source_id: `gsky_${linkMatch[1].replace(/[^\w]/g, '_').substring(0, 60)}`,
-        title,
-        link: linkMatch[1],
-        summary: '',
-        cover: '',
-        category: '业界动态',
-        extra: JSON.stringify({}),
-      });
-    }
-  }
-
-  return items.slice(0, 20);
-}
-
-// ─── 3DMGame 动漫 ──────────────────────────────────────────
-
-async function scrape3DMGame() {
-  const res = await fetch('https://www.3dmgame.com/dongman/', {
-    headers: { 'User-Agent': UA, 'Accept': 'text/html' },
-  });
-  if (!res.ok) return [];
-
-  const html = await res.text();
-  const items = [];
-
-  // 3DM 动漫列表结构
-  // <div class="list"> 中包含 <li> 元素
-  // 每个 <li> 包含 <a href="链接"><img src="封面"/></a> + <h2><a href="链接">标题</a></h2> + <p>摘要</p> + <span>日期</span>
-
-  const liRe = /<li[^>]*>([\s\S]*?)<\/li>/g;
-  let liMatch;
-  while ((liMatch = liRe.exec(html)) !== null) {
-    const block = liMatch[1];
-
-    const titleMatch = block.match(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/);
-    const imgMatch = block.match(/<img[^>]*src="([^"]*)"[^>]*>/);
-    const dateMatch = block.match(/(\d{4}-\d{2}-\d{2})/);
-    const summaryMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/);
-
-    if (titleMatch) {
-      const link = titleMatch[1];
-      const title = titleMatch[2].replace(/<[^>]*>/g, '').trim();
-      if (!title || !link || !link.startsWith('http')) continue;
-
-      items.push({
-        source: '3dmgame',
-        source_id: `3dm_${link.replace(/[^\w]/g, '_').substring(0, 60)}`,
-        title,
-        link,
-        summary: summaryMatch ? summaryMatch[1].replace(/<[^>]*>/g, '').trim().substring(0, 200) : '',
-        cover: imgMatch ? imgMatch[1] : '',
-        category: '业界动态',
-        extra: JSON.stringify({ date: dateMatch ? dateMatch[1] : '' }),
-      });
-    }
-  }
-
-  // 如果正则没匹配到，尝试更宽松的解析
-  if (items.length === 0) {
-    const linkRe = /<a[^>]*href="(https:\/\/www\.3dmgame\.com\/[^"]*\d+\.html)"[^>]*>([\s\S]*?)<\/a>/g;
-    let linkMatch;
-    while ((linkMatch = linkRe.exec(html)) !== null) {
-      const title = linkMatch[2].replace(/<[^>]*>/g, '').trim();
-      if (!title || title.length < 4) continue;
-
-      items.push({
-        source: '3dmgame',
-        source_id: `3dm_${linkMatch[1].replace(/[^\w]/g, '_').substring(0, 60)}`,
-        title,
-        link: linkMatch[1],
-        summary: '',
-        cover: '',
-        category: '业界动态',
-        extra: JSON.stringify({}),
-      });
-    }
-  }
-
-  return items.slice(0, 20);
 }
 
 // ─── 月幕 Galgame (OAuth2 API) ─────────────────────────────
@@ -350,10 +209,12 @@ const CNGAL_API = 'https://api.cngal.org/api';
 async function scrapeCnGal() {
   const items = [];
 
-  // 1. 获取最新文章
+  // 1. 获取最新文章（POST 请求）
   try {
     const res = await fetch(`${CNGAL_API}/articles/GetArticleHomeList`, {
-      headers: { 'Accept': 'application/json' },
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 1, pageSize: 10 }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -361,11 +222,13 @@ async function scrapeCnGal() {
       for (const article of articles.slice(0, 10)) {
         const title = article.title || article.name || '';
         if (!title) continue;
+        // 优先使用 API 返回的 link 字段（原始来源链接），否则用 CnGal 站内链接
+        const articleLink = article.link || `https://www.cngal.org/articles/index/${article.id}`;
         items.push({
           source: 'cngal',
           source_id: `cngal_art_${article.id}`,
           title,
-          link: `https://www.cngal.org/articles/${article.id}`,
+          link: articleLink,
           summary: article.briefIntroduction || article.summary || '',
           cover: article.mainImage || article.cover || '',
           category: '业界动态',
@@ -374,6 +237,7 @@ async function scrapeCnGal() {
             type: 'article',
             author: article.author || '',
             createTime: article.createTime || '',
+            originalLink: article.link || '',
           }),
         });
       }
@@ -383,7 +247,8 @@ async function scrapeCnGal() {
   // 2. 获取每周速报概览
   try {
     const res = await fetch(`${CNGAL_API}/news/GetWeeklyNewsOverview`, {
-      headers: { 'Accept': 'application/json' },
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
     });
     if (res.ok) {
       const data = await res.json();
@@ -391,13 +256,13 @@ async function scrapeCnGal() {
       for (const weekly of weeklyList.slice(0, 5)) {
         const title = weekly.title || weekly.name || '';
         if (!title) continue;
-        // 避免重复
         if (items.find(i => i.title === title)) continue;
+        const weeklyLink = weekly.link || `https://www.cngal.org/news/weekly/${weekly.id}`;
         items.push({
           source: 'cngal',
           source_id: `cngal_weekly_${weekly.id}`,
           title,
-          link: `https://www.cngal.org/news/weekly/${weekly.id}`,
+          link: weeklyLink,
           summary: weekly.briefIntroduction || weekly.summary || '',
           cover: weekly.mainImage || weekly.cover || '',
           category: '每周速报',
@@ -414,7 +279,8 @@ async function scrapeCnGal() {
   // 3. 获取近期发售游戏
   try {
     const res = await fetch(`${CNGAL_API}/entries/GetPublishGamesByTime`, {
-      headers: { 'Accept': 'application/json' },
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
     });
     if (res.ok) {
       const data = await res.json();
@@ -427,10 +293,10 @@ async function scrapeCnGal() {
           source: 'cngal',
           source_id: `cngal_game_${game.id}`,
           title,
-          link: `https://www.cngal.org/entries/${game.id}`,
+          link: `https://www.cngal.org/entries/index/${game.id}`,
           summary: game.briefIntroduction || `${game.publisher || ''} · ${game.publishDate || ''}`,
           cover: game.mainImage || game.cover || '',
-          category: '新作发售',
+          category: 'Gal档案',
           extra: JSON.stringify({
             id: game.id,
             type: 'game',
@@ -456,8 +322,6 @@ export async function runAllScrapers(db) {
   const scrapers = [
     { name: 'bangumi_calendar', fn: scrapeBangumiCalendar },
     { name: 'bangumi_hot', fn: scrapeBangumiHot },
-    { name: 'gamersky', fn: scrapeGamersky },
-    { name: '3dmgame', fn: scrape3DMGame },
     { name: 'ymgal', fn: scrapeYmgal },
     { name: 'cngal', fn: scrapeCnGal },
   ];
@@ -508,8 +372,6 @@ export async function scrapeSingleSource(sourceName) {
   const scrapers = {
     bangumi_calendar: scrapeBangumiCalendar,
     bangumi_hot: scrapeBangumiHot,
-    gamersky: scrapeGamersky,
-    '3dmgame': scrape3DMGame,
     ymgal: scrapeYmgal,
     cngal: scrapeCnGal,
   };

@@ -13,7 +13,11 @@ function getEnvVar(key) {
 
 // 生产环境 OAuth 代理地址（Cloudflare Worker）
 // 部署 Worker 后替换为你的 Worker URL
-const OAUTH_PROXY_URL = getEnvVar('VITE_OAUTH_PROXY_URL') || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
+const _rawProxyUrl = getEnvVar('VITE_OAUTH_PROXY_URL') || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
+// lyw2373314970.workers.dev 在中国大陆不可用，自动切换到 afterrainliu
+const OAUTH_PROXY_URL = _rawProxyUrl.includes('lyw2373314970')
+  ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
+  : _rawProxyUrl;
 
 export default {
   bangumi: {

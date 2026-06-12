@@ -29,6 +29,7 @@ import MangaReader from './components/Musashi/MangaReader';
 import MyWorks from './components/Musashi/MyWorks';
 import NewsDetail from './components/NewsZone/NewsDetail'
 import NewsZone from './components/NewsZone/NewsZone'
+import NewsEditor from './components/NewsZone/NewsEditor'
 import AuthModal from './components/Common/AuthModal'
 import Live2DWidget from './components/Common/Live2DWidget'
 import FireworkEffect from './components/Common/FireworkEffect'
@@ -141,6 +142,7 @@ function AppInner() {
           <Route path="/musashi/:workId" element={<WorkDetail />} />
           <Route path="/musashi" element={<MusashiHome />} />
           <Route path="/news" element={<NewsZone />} />
+          <Route path="/news/editor" element={<NewsEditor />} />
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/user/:userId" element={<UserProfilePage />} />

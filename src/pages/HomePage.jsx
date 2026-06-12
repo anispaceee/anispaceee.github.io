@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BangumiService, UserService, ForumService, WorldChannelService, NewsService } from '../services/api';
@@ -145,6 +145,7 @@ function RandomRecommendCard({ subject, loading, onRefresh }) {
 }
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const { currentUser, isAuthenticated, openAuth } = useApp();
 
   const [hotPosts, setHotPosts] = useState([]);
@@ -176,7 +177,7 @@ export default function HomePage() {
         const feedData = await NewsService.getNewsFeed({ limit: 5 });
         const feedItems = (feedData.news || []).map(n => ({
           ...n,
-          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'gamersky' ? '游民星空' : n.source,
+          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'ymgal' ? '月幕' : n.source === 'cngal' ? 'CnGal' : n.source,
         }));
         setNewsItems(prev => {
           const existing = prev.filter(p => !feedItems.find(f => f.title === p.title));
@@ -453,15 +454,26 @@ export default function HomePage() {
                 <Link to="/news" className="home-news-more"><ArrowRight size={12} /></Link>
               </div>
               <div className="home-news-list">
-                {newsItems.length > 0 ? newsItems.map(news => (
-                  <div key={news.id} className="home-news-item">
-                    <div className="home-news-item-title">{news.title}</div>
-                    <div className="home-news-item-meta">
-                      <span className="home-news-item-source">{news.source || 'ANISpace'}</span>
-                      <span className="home-news-item-time">{news.date || (news.created_at && news.created_at.split('T')[0]) || ''}</span>
+                {newsItems.length > 0 ? newsItems.map(news => {
+                  const handleClick = () => {
+                    if (news.type === 'article' || news.id) {
+                      // 站内文章跳转详情页
+                      navigate(`/news/${news.id}`, { state: { article: news } });
+                    } else if (news.link) {
+                      // 外链资讯打开新标签
+                      window.open(news.link, '_blank');
+                    }
+                  };
+                  return (
+                    <div key={news.id || news.source_id} className="home-news-item" onClick={handleClick} style={{ cursor: 'pointer' }}>
+                      <div className="home-news-item-title">{news.title}</div>
+                      <div className="home-news-item-meta">
+                        <span className="home-news-item-source">{news.source || 'ANISpace'}</span>
+                        <span className="home-news-item-time">{news.date || (news.created_at && news.created_at.split('T')[0]) || ''}</span>
+                      </div>
                     </div>
-                  </div>
-                )) : (
+                  );
+                }) : (
                   <div className="home-news-empty">暂无资讯</div>
                 )}
               </div>

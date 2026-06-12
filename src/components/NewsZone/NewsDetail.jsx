@@ -8,8 +8,8 @@ import './NewsZone.css';
 const SOURCE_CONFIG = {
   bangumi_calendar: { label: 'Bangumi 新番', color: '#f09199' },
   bangumi_hot: { label: 'Bangumi 热门', color: '#e8674f' },
-  gamersky: { label: '游民星空', color: '#3b82f6' },
-  '3dmgame': { label: '3DMGame', color: '#f59e0b' },
+  ymgal: { label: '月幕 Galgame', color: '#a855f7' },
+  cngal: { label: 'CnGal', color: '#06b6d4' },
   custom: { label: '站内资讯', color: '#10b981' },
 };
 

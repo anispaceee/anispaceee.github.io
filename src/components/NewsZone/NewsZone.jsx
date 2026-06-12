@@ -1,17 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Tv, Book, Gamepad2, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Bold, Italic, Link as LinkIcon, List, Quote, Image as ImageIcon, Eye, EyeOff, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Tv, Book, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { NewsService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
-import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './NewsZone.css';
 
 // 来源配置
 const SOURCE_CONFIG = {
   bangumi_calendar: { label: 'Bangumi 新番', color: '#f09199', icon: Tv },
   bangumi_hot: { label: 'Bangumi 热门', color: '#e8674f', icon: Flame },
-  gamersky: { label: '游民星空', color: '#3b82f6', icon: Newspaper },
-  '3dmgame': { label: '3DMGame', color: '#f59e0b', icon: Gamepad2 },
   ymgal: { label: '月幕 Galgame', color: '#a855f7', icon: Sparkles },
   cngal: { label: 'CnGal', color: '#06b6d4', icon: Book },
   custom: { label: '站内资讯', color: '#10b981', icon: Sparkles },
@@ -30,17 +27,11 @@ export default function NewsZone() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
-  const [submitMode, setSubmitMode] = useState('link');
   const [applyForm, setApplyForm] = useState({ title: '', source: '', link: '', category: '', cover: '' });
-  const [articleContent, setArticleContent] = useState('');
-  const [articleImages, setArticleImages] = useState([]);
   const [coverPreview, setCoverPreview] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const carouselTimerRef = useRef(null);
-  const fileInputRef = useRef(null);
   const coverInputRef = useRef(null);
-  const textareaRef = useRef(null);
 
   // 合并所有资讯
   const allNews = [...feedNews, ...customNews.map(n => ({ ...n, source: 'custom' }))];
@@ -105,11 +96,7 @@ export default function NewsZone() {
   // 提交资讯
   const resetForm = () => {
     setApplyForm({ title: '', source: '', link: '', category: '', cover: '' });
-    setArticleContent('');
-    setArticleImages([]);
     setCoverPreview('');
-    setShowPreview(false);
-    setSubmitMode('link');
   };
 
   const handleCloseModal = () => {
@@ -124,34 +111,18 @@ export default function NewsZone() {
     }
     setSubmitting(true);
     try {
-      if (submitMode === 'link') {
-        if (!applyForm.title.trim() || !applyForm.link.trim()) {
-          alert('请填写完整信息');
-          return;
-        }
-        await NewsService.createNews({
-          type: 'link',
-          title: applyForm.title.trim(),
-          source: applyForm.source.trim(),
-          link: applyForm.link.trim(),
-          category: applyForm.category || '业界动态',
-          cover: applyForm.cover.trim() || coverPreview || '',
-        });
-      } else {
-        if (!applyForm.title.trim() || !articleContent.trim()) {
-          alert('请填写标题和文章内容');
-          return;
-        }
-        await NewsService.createNews({
-          type: 'article',
-          title: applyForm.title.trim(),
-          source: applyForm.source.trim(),
-          category: applyForm.category || '业界动态',
-          content: articleContent,
-          cover: applyForm.cover.trim() || coverPreview || '',
-          images: articleImages,
-        });
+      if (!applyForm.title.trim() || !applyForm.link.trim()) {
+        alert('请填写完整信息');
+        return;
       }
+      await NewsService.createNews({
+        type: 'link',
+        title: applyForm.title.trim(),
+        source: applyForm.source.trim(),
+        link: applyForm.link.trim(),
+        category: applyForm.category || '业界动态',
+        cover: applyForm.cover.trim() || coverPreview || '',
+      });
       handleCloseModal();
       loadData();
     } catch (err) {
@@ -159,25 +130,6 @@ export default function NewsZone() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    if (articleImages.length + files.length > 5) {
-      alert('最多上传5张图片');
-      return;
-    }
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setArticleImages(prev => {
-          if (prev.length >= 5) return prev;
-          return [...prev, ev.target.result];
-        });
-      };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
   };
 
   const handleCoverUpload = (e) => {
@@ -190,25 +142,6 @@ export default function NewsZone() {
     };
     reader.readAsDataURL(file);
     e.target.value = '';
-  };
-
-  const removeImage = (index) => {
-    setArticleImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const insertMarkdown = (before, after = '', defaultText = '') => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const selected = articleContent.substring(start, end) || defaultText;
-    const newText = articleContent.substring(0, start) + before + selected + after + articleContent.substring(end);
-    setArticleContent(newText);
-    requestAnimationFrame(() => {
-      ta.focus();
-      const cursorPos = start + before.length + selected.length + after.length;
-      ta.setSelectionRange(cursorPos, cursorPos);
-    });
   };
 
   const getSourceLabel = (source) => SOURCE_CONFIG[source]?.label || source;
@@ -400,15 +333,15 @@ export default function NewsZone() {
                 🔗 短讯
               </button>
               <button
-                className={`news-submit-tab ${submitMode === 'article' ? 'active' : ''}`}
-                onClick={() => setSubmitMode('article')}
+                className="news-submit-tab"
+                onClick={() => navigate('/news/editor')}
               >
                 📝 长文
               </button>
             </div>
 
             <div className="news-apply-body">
-              {/* 封面图上传（两种模式共用） */}
+              {/* 封面图上传 */}
               <div className="news-form-group">
                 <label>封面图</label>
                 <input ref={coverInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverUpload} />
@@ -425,88 +358,26 @@ export default function NewsZone() {
                 <input type="url" placeholder="或输入封面图 URL" value={applyForm.cover && !coverPreview ? applyForm.cover : ''} onChange={e => { setApplyForm(prev => ({ ...prev, cover: e.target.value })); setCoverPreview(''); }} className="news-cover-url-input" />
               </div>
 
-              {submitMode === 'link' ? (
-                <>
-                  <div className="news-form-group">
-                    <label>资讯标题 *</label>
-                    <input type="text" placeholder="例如：XX新作发售" value={applyForm.title} onChange={e => setApplyForm(prev => ({ ...prev, title: e.target.value }))} />
-                  </div>
-                  <div className="news-form-group">
-                    <label>来源</label>
-                    <input type="text" placeholder="例如：电击文库" value={applyForm.source} onChange={e => setApplyForm(prev => ({ ...prev, source: e.target.value }))} />
-                  </div>
-                  <div className="news-form-group">
-                    <label>链接地址 *</label>
-                    <input type="url" placeholder="https://..." value={applyForm.link} onChange={e => setApplyForm(prev => ({ ...prev, link: e.target.value }))} />
-                  </div>
-                  <div className="news-form-group">
-                    <label>分类</label>
-                    <select value={applyForm.category || '业界动态'} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
-                      {CATEGORIES.filter(c => c !== '全部').map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="news-form-group">
-                    <label>文章标题 *</label>
-                    <input type="text" placeholder="例如：XX新作深度评测" value={applyForm.title} onChange={e => setApplyForm(prev => ({ ...prev, title: e.target.value }))} />
-                  </div>
-                  <div className="news-form-group">
-                    <label>来源</label>
-                    <input type="text" placeholder="可选，例如：本人原创" value={applyForm.source} onChange={e => setApplyForm(prev => ({ ...prev, source: e.target.value }))} />
-                  </div>
-                  <div className="news-form-group">
-                    <label>分类</label>
-                    <select value={applyForm.category || '业界动态'} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
-                      {CATEGORIES.filter(c => c !== '全部').map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="news-form-group">
-                    <label>文章内容 *</label>
-                    <div className="news-article-toolbar">
-                      <button className="news-toolbar-btn" onClick={() => insertMarkdown('**', '**', '粗体')} title="粗体"><Bold size={14} /></button>
-                      <button className="news-toolbar-btn" onClick={() => insertMarkdown('*', '*', '斜体')} title="斜体"><Italic size={14} /></button>
-                      <button className="news-toolbar-btn" onClick={() => insertMarkdown('[', '](url)', '链接文字')} title="链接"><LinkIcon size={14} /></button>
-                      <button className="news-toolbar-btn" onClick={() => insertMarkdown('- ', '', '列表项')} title="列表"><List size={14} /></button>
-                      <button className="news-toolbar-btn" onClick={() => insertMarkdown('> ', '', '引用')} title="引用"><Quote size={14} /></button>
-                      <button className="news-toolbar-btn" onClick={() => insertMarkdown('### ', '', '标题')} title="标题"><Bold size={14} /></button>
-                      <button className="news-toolbar-btn" onClick={() => fileInputRef.current?.click()} title="上传图片"><ImageIcon size={14} /></button>
-                      <button className={`news-toolbar-btn ${showPreview ? 'active' : ''}`} onClick={() => setShowPreview(!showPreview)} title="预览">
-                        {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                    <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleImageUpload} />
-                    {showPreview ? (
-                      <div className="news-preview">
-                        <MarkdownRenderer content={articleContent} />
-                        {!articleContent && <p style={{ color: 'var(--text-quaternary)', textAlign: 'center' }}>暂无内容</p>}
-                      </div>
-                    ) : (
-                      <textarea ref={textareaRef} className="news-article-textarea" placeholder="支持 Markdown 语法，输入文章内容..." value={articleContent} onChange={e => setArticleContent(e.target.value)} />
-                    )}
-                    {articleImages.length > 0 && (
-                      <div className="news-image-previews">
-                        {articleImages.map((img, idx) => (
-                          <div key={idx} className="news-image-thumb">
-                            <img src={img} alt={`预览 ${idx + 1}`} loading="lazy" />
-                            <button className="news-image-remove" onClick={() => removeImage(idx)}><X size={10} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {articleImages.length < 5 && (
-                      <div className="news-image-upload" onClick={() => fileInputRef.current?.click()}>
-                        <ImageIcon size={16} /> 点击上传图片（最多5张）
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+              <div className="news-form-group">
+                <label>资讯标题 *</label>
+                <input type="text" placeholder="例如：XX新作发售" value={applyForm.title} onChange={e => setApplyForm(prev => ({ ...prev, title: e.target.value }))} />
+              </div>
+              <div className="news-form-group">
+                <label>来源</label>
+                <input type="text" placeholder="例如：电击文库" value={applyForm.source} onChange={e => setApplyForm(prev => ({ ...prev, source: e.target.value }))} />
+              </div>
+              <div className="news-form-group">
+                <label>链接地址 *</label>
+                <input type="url" placeholder="https://..." value={applyForm.link} onChange={e => setApplyForm(prev => ({ ...prev, link: e.target.value }))} />
+              </div>
+              <div className="news-form-group">
+                <label>分类</label>
+                <select value={applyForm.category || '业界动态'} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
+                  {CATEGORIES.filter(c => c !== '全部').map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="news-apply-footer">
               <button className="news-apply-cancel" onClick={handleCloseModal}>取消</button>
