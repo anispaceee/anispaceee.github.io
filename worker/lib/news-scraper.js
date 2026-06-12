@@ -257,82 +257,83 @@ async function getYmgalToken() {
 }
 
 async function scrapeYmgal() {
-  const token = await getYmgalToken();
-  if (!token) return [];
-
-  const headers = {
-    'Accept': 'application/json;charset=utf-8',
-    'Authorization': `Bearer ${token}`,
-    'version': '1',
-  };
-
   const items = [];
 
-  // 1. 获取近期发行的游戏
-  try {
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
-    const startDate = thirtyDaysAgo.toISOString().split('T')[0];
-    const endDate = now.toISOString().split('T')[0];
+  // 优先尝试 OAuth2 API
+  const token = await getYmgalToken();
+  if (token) {
+    const headers = {
+      'Accept': 'application/json;charset=utf-8',
+      'Authorization': `Bearer ${token}`,
+      'version': '1',
+    };
 
-    const res = await fetch(
-      `${YMGAL_API}/game/released?startDate=${startDate}&endDate=${endDate}&pageNum=1&pageSize=20`,
-      { headers }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const games = data.result || [];
-      for (const game of games) {
-        const title = game.chineseName || game.name || '';
-        if (!title) continue;
-        items.push({
-          source: 'ymgal',
-          source_id: `ymgal_${game.gid}`,
-          title,
-          link: `https://www.ymgal.games/game/${game.gid}`,
-          summary: `${game.typeDesc || 'Galgame'} · ${game.releaseDate || '发售日期未知'}${game.haveChinese ? ' · 有中文' : ''}`,
-          cover: game.mainImg ? `https://www.ymgal.games${game.mainImg}` : '',
-          category: '新作发售',
-          extra: JSON.stringify({
-            gid: game.gid,
-            type: game.typeDesc || '',
-            releaseDate: game.releaseDate || '',
-            haveChinese: game.haveChinese || false,
-            developer: game.developerId || 0,
-            restricted: game.restricted || false,
-            country: game.country || '',
-          }),
-        });
-      }
-    }
-  } catch {}
-
-  // 2. 获取随机游戏（补充数据）
-  if (items.length < 5) {
     try {
-      const res = await fetch(`${YMGAL_API}/game/random`, { headers });
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+      const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+      const endDate = now.toISOString().split('T')[0];
+
+      const res = await fetch(
+        `${YMGAL_API}/game/released?startDate=${startDate}&endDate=${endDate}&pageNum=1&pageSize=20`,
+        { headers }
+      );
       if (res.ok) {
         const data = await res.json();
-        const games = Array.isArray(data.result) ? data.result : (data.result ? [data.result] : []);
-        for (const game of games.slice(0, 10)) {
+        const games = data.result || [];
+        for (const game of games) {
           const title = game.chineseName || game.name || '';
           if (!title) continue;
-          // 避免重复
-          if (items.find(i => i.source_id === `ymgal_${game.gid}`)) continue;
           items.push({
             source: 'ymgal',
             source_id: `ymgal_${game.gid}`,
             title,
             link: `https://www.ymgal.games/game/${game.gid}`,
-            summary: `${game.typeDesc || 'Galgame'}${game.haveChinese ? ' · 有中文' : ''}`,
+            summary: `${game.typeDesc || 'Galgame'} · ${game.releaseDate || '发售日期未知'}${game.haveChinese ? ' · 有中文' : ''}`,
             cover: game.mainImg ? `https://www.ymgal.games${game.mainImg}` : '',
-            category: 'Gal档案',
+            category: '新作发售',
             extra: JSON.stringify({
               gid: game.gid,
               type: game.typeDesc || '',
+              releaseDate: game.releaseDate || '',
               haveChinese: game.haveChinese || false,
+              developer: game.developerId || 0,
               restricted: game.restricted || false,
+              country: game.country || '',
             }),
+          });
+        }
+      }
+    } catch {}
+  }
+
+  // API 不可用时，回退到 HTML 爬取
+  if (items.length === 0) {
+    try {
+      const res = await fetch('https://www.ymgal.games/', {
+        headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+      });
+      if (res.ok) {
+        const html = await res.text();
+        // 尝试从首页提取最新游戏/资讯
+        // 匹配游戏卡片链接 /gaXXXXX
+        const gameRe = /href="\/ga(\d+)"[^>]*>([\s\S]*?)<\/a>/g;
+        let match;
+        const seen = new Set();
+        while ((match = gameRe.exec(html)) !== null && items.length < 15) {
+          const gid = match[1];
+          const titleRaw = match[2].replace(/<[^>]*>/g, '').trim();
+          if (!titleRaw || titleRaw.length < 2 || seen.has(gid)) continue;
+          seen.add(gid);
+          items.push({
+            source: 'ymgal',
+            source_id: `ymgal_${gid}`,
+            title: titleRaw,
+            link: `https://www.ymgal.games/ga${gid}`,
+            summary: '月幕 Galgame',
+            cover: '',
+            category: 'Gal档案',
+            extra: JSON.stringify({ gid: Number(gid), type: 'game' }),
           });
         }
       }
