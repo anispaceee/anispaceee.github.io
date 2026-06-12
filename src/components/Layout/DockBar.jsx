@@ -20,6 +20,14 @@ export default function DockBar() {
   const [hoveringTrigger, setHoveringTrigger] = useState(false);
   const [hoveringDock, setHoveringDock] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
+  const [autoHide, setAutoHide] = useState(() => {
+    const saved = StorageService.get('dock_auto_hide');
+    return saved !== null ? saved : true;
+  });
+  const [autoHideDelay, setAutoHideDelay] = useState(() => {
+    const saved = StorageService.get('dock_auto_hide_delay');
+    return saved || 10;
+  });
   const dockRef = useRef(null);
   const hideTimerRef = useRef(null);
 
@@ -37,9 +45,10 @@ export default function DockBar() {
   const startHideTimer = useRef(() => {});
   startHideTimer.current = () => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (!autoHide) return;
     hideTimerRef.current = setTimeout(() => {
       setDockHidden(true);
-    }, 10000);
+    }, autoHideDelay * 1000);
   };
 
   // 页面加载时开始计时
@@ -48,17 +57,25 @@ export default function DockBar() {
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
-  }, []);
+  }, [autoHide, autoHideDelay]);
 
   // 鼠标在 Dock 区域内时暂停计时，离开时重新计时
   useEffect(() => {
     if (hoveringDock || hoveringTrigger) {
       setDockHidden(false);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    } else if (!dockHidden) {
+    } else if (!dockHidden && autoHide) {
       startHideTimer.current();
     }
-  }, [hoveringDock, hoveringTrigger]);
+  }, [hoveringDock, hoveringTrigger, autoHide]);
+
+  // autoHide 关闭时确保 Dock 显示
+  useEffect(() => {
+    if (!autoHide) {
+      setDockHidden(false);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    }
+  }, [autoHide]);
 
   useEffect(() => {
     setUnreadCount(getUnreadCount());
@@ -86,6 +103,16 @@ export default function DockBar() {
     setTheme(t);
     document.documentElement.setAttribute('data-theme', t);
     StorageService.set('acg_theme', t);
+  };
+
+  const setAutoHideAndSave = (val) => {
+    setAutoHide(val);
+    StorageService.set('dock_auto_hide', val);
+  };
+
+  const setAutoHideDelayAndSave = (val) => {
+    setAutoHideDelay(val);
+    StorageService.set('dock_auto_hide_delay', val);
   };
 
   const handleAppClick = (appId) => {
@@ -163,6 +190,19 @@ export default function DockBar() {
                     <button className={`dock-theme-btn ${theme === '' ? 'active' : ''}`} onClick={() => setThemeAndSave('')}><Sun size={14} /> 浅色</button>
                     <button className={`dock-theme-btn ${theme === 'dark' ? 'active' : ''}`} onClick={() => setThemeAndSave('dark')}><Moon size={14} /> 深色</button>
                     <button className={`dock-theme-btn ${theme === 'high-contrast' ? 'active' : ''}`} onClick={() => setThemeAndSave('high-contrast')}><Contrast size={14} /> 高对比</button>
+                  </div>
+                </div>
+                <div className="dock-setting-group">
+                  <label>Dock 自动隐藏</label>
+                  <div className="dock-autohide-row">
+                    <button className={`dock-theme-btn ${autoHide ? 'active' : ''}`} onClick={() => setAutoHideAndSave(true)}>开启</button>
+                    <button className={`dock-theme-btn ${!autoHide ? 'active' : ''}`} onClick={() => setAutoHideAndSave(false)}>关闭</button>
+                    {autoHide && (
+                      <div className="dock-autohide-delay">
+                        <span>{autoHideDelay}s</span>
+                        <input type="range" min={3} max={30} step={1} value={autoHideDelay} onChange={e => setAutoHideDelayAndSave(Number(e.target.value))} />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="dock-setting-group">
