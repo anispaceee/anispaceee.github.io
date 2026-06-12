@@ -566,6 +566,35 @@ export default function Amadeus() {
                 <div className="amadeus-msg-bubble">
                   <div className="amadeus-msg-text">{renderContent(msg.content)}</div>
                   <span className="amadeus-msg-time">{new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                {Array.isArray(msg.actions) && msg.actions.length > 0 && (
+                  <div className="amadeus-actions">
+                    {msg.actions.map((a, ai) => {
+                      if (a.action === 'goto') {
+                        const g = resolveGoto(a);
+                        if (!g) return null;
+                        return <button key={ai} className="amadeus-action-goto" onClick={() => navigate(g.route)}>前往「{g.label}」 →</button>;
+                      }
+                      if (a.action === 'search' || a.action === 'recommend') {
+                        if (a._state === 'error') return <div key={ai} className="amadeus-action-empty">检索失败</div>;
+                        if (!a.items) return <div key={ai} className="amadeus-action-empty">检索中…</div>;
+                        if (a.items.length === 0) return <div key={ai} className="amadeus-action-empty">未找到相关条目</div>;
+                        return (
+                          <div key={ai} className="amadeus-rec-grid">
+                            {a.items.map(it => (
+                              <button key={it.id} className="amadeus-rec-card" onClick={() => navigate(it.to, { state: it.state })}>
+                                {it.image
+                                  ? <img src={it.image} alt={it.name_cn || it.name} loading="lazy" />
+                                  : <span className="amadeus-rec-noimg">📦</span>}
+                                <span className="amadeus-rec-name">{it.name_cn || it.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                )}
                 </div>
               </div>
             ))}
