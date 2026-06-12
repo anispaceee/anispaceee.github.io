@@ -165,7 +165,7 @@ export default function InfoDetail() {
   const [activeRatingFilter, setActiveRatingFilter] = useState(null);
 
   // Tab 状态
-  const [activeTab, setActiveTab] = useState('detail');
+  const [activeTab, setActiveTab] = useState('summary');
   // 标签折叠状态
   const [tagsExpanded, setTagsExpanded] = useState(false);
 
@@ -624,8 +624,8 @@ export default function InfoDetail() {
           style={{ backgroundImage: `url(${subject.images.large})` }}
         >
           <img src={subject.images.large} alt="" style={{ display: 'none' }} onError={() => setBgFailed(true)} />
-          <div className="detail-bg-overlay" style={{ opacity: 0.35 + Math.min(0.45, scrollY * 0.002) }} />
-          <div className="detail-bg-blur" />
+          <div className="detail-bg-overlay" style={{ opacity: 0.35 + Math.min(0.55, scrollY * 0.002) }} />
+          <div className="detail-bg-blur" style={{ backdropFilter: `blur(${8 + Math.min(25, scrollY * 0.05)}px)`, WebkitBackdropFilter: `blur(${8 + Math.min(25, scrollY * 0.05)}px)` }} />
         </div>
       ) : (
         <div className="detail-page-background detail-page-bg-fallback">
@@ -790,11 +790,11 @@ export default function InfoDetail() {
               </div>
             )}
 
-            {/* Tab 区：详情 | 简介 | 角色 | 评论 */}
+            {/* Tab 区：条目介绍 | 详情 | 角色 | 评论 */}
             <div className="detail-tabs">
               <div className="detail-tabs-header">
-                <button className={`detail-tab ${activeTab === 'detail' ? 'active' : ''}`} onClick={() => setActiveTab('detail')}>详情</button>
                 <button className={`detail-tab ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>条目介绍</button>
+                <button className={`detail-tab ${activeTab === 'detail' ? 'active' : ''}`} onClick={() => setActiveTab('detail')}>详情</button>
                 <button className={`detail-tab ${activeTab === 'characters' ? 'active' : ''}`} onClick={() => setActiveTab('characters')}>出场角色</button>
                 <button className={`detail-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>评论区</button>
                 {/* 站内观看标签：仅对动画/三次元类型显示 */}
