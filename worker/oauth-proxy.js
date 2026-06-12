@@ -803,9 +803,29 @@ async function handleApiRoutes(pathname, request, env, origin) {
     // 浏览量递增
     await env.DB.prepare('UPDATE posts SET views = views + 1 WHERE id = ?').bind(postId).run();
 
+    // 回复排序
+    const url = new URL(request.url);
+    const replySort = url.searchParams.get('reply_sort') || 'oldest';
+    let orderClause = 'r.created_at ASC';
+    if (replySort === 'newest') orderClause = 'r.created_at DESC';
+    if (replySort === 'hot') orderClause = 'like_count DESC, r.created_at ASC';
+
     const replies = await env.DB.prepare(
-      'SELECT r.*, u.name AS author_name, u.avatar AS author_avatar FROM replies r JOIN users u ON r.author_id = u.id WHERE r.post_id = ? ORDER BY r.created_at ASC'
+      `SELECT r.*, u.name AS author_name, u.avatar AS author_avatar, (SELECT COUNT(*) FROM likes l WHERE l.reply_id = r.id) AS like_count FROM replies r JOIN users u ON r.author_id = u.id WHERE r.post_id = ? ORDER BY ${orderClause}`
     ).bind(postId).all();
+
+    // 查询当前用户对回复的点赞状态
+    const authUser = await getAuthUser(request, env);
+    const authUserId = authUser ? authUser.userId : null;
+    let replyLikeMap = {};
+    if (authUserId && replies.results.length > 0) {
+      const replyIds = replies.results.map(r => r.id);
+      const placeholders = replyIds.map(() => '?').join(',');
+      const userLikes = await env.DB.prepare(
+        `SELECT reply_id FROM likes WHERE user_id = ? AND reply_id IN (${placeholders})`
+      ).bind(authUserId, ...replyIds).all();
+      userLikes.results.forEach(l => { replyLikeMap[l.reply_id] = true; });
+    }
 
     // 解析 JSON 字段
     const parsedPost = {
@@ -814,7 +834,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
       images: safeJsonParse(post.images, []),
     };
 
-    return jsonResponse({ ...parsedPost, views: (post.views || 0) + 1, replies: replies.results }, 200, origin);
+    // 解析回复
+    const parsedReplies = replies.results.map(r => ({
+      ...r,
+      likes: r.like_count || 0,
+      is_liked: !!replyLikeMap[r.id],
+    }));
+
+    return jsonResponse({ ...parsedPost, views: (post.views || 0) + 1, replies: parsedReplies }, 200, origin);
   }
 
   // POST /api/posts/:id/replies — 添加回复（需认证）
@@ -826,15 +853,25 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     try {
       const body = await request.json();
-      const { content } = body;
+      const { content, parent_id } = body;
       if (!content) return jsonResponse({ error: '回复内容不能为空' }, 400, origin);
+
+      // 校验 parent_id：如果提供了，验证它属于同一帖子
+      if (parent_id) {
+        const parentReply = await env.DB.prepare(
+          'SELECT post_id FROM replies WHERE id = ?'
+        ).bind(parent_id).first();
+        if (!parentReply || parentReply.post_id !== postId) {
+          return jsonResponse({ error: '无效的父回复' }, 400, origin);
+        }
+      }
 
       const post = await env.DB.prepare('SELECT id FROM posts WHERE id = ?').bind(postId).first();
       if (!post) return jsonResponse({ error: '帖子不存在' }, 404, origin);
 
       await env.DB.prepare(
-        'INSERT INTO replies (post_id, author_id, content, created_at) VALUES (?, ?, ?, datetime(\'now\'))'
-      ).bind(postId, authUser.userId, content).run();
+        'INSERT INTO replies (post_id, author_id, content, parent_id, created_at) VALUES (?, ?, ?, ?, datetime(\'now\'))'
+      ).bind(postId, authUser.userId, content, parent_id || null).run();
 
       await env.DB.prepare(
         'UPDATE posts SET replies_count = replies_count + 1, updated_at = datetime(\'now\') WHERE id = ?'
@@ -868,6 +905,28 @@ async function handleApiRoutes(pathname, request, env, origin) {
         'INSERT INTO likes (user_id, post_id, created_at) VALUES (?, ?, datetime(\'now\'))'
       ).bind(authUser.userId, postId).run();
       await env.DB.prepare('UPDATE posts SET likes = likes + 1 WHERE id = ?').bind(postId).run();
+      return jsonResponse({ liked: true }, 200, origin);
+    }
+  }
+
+  // POST /api/replies/:id/like — 切换回复点赞（需认证）
+  const replyLikeMatch = pathname.match(/^\/api\/replies\/(\d+)\/like$/);
+  if (replyLikeMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const replyId = Number(replyLikeMatch[1]);
+
+    const existing = await env.DB.prepare(
+      'SELECT id FROM likes WHERE user_id = ? AND reply_id = ?'
+    ).bind(authUser.userId, replyId).first();
+
+    if (existing) {
+      await env.DB.prepare('DELETE FROM likes WHERE id = ?').bind(existing.id).run();
+      return jsonResponse({ liked: false }, 200, origin);
+    } else {
+      await env.DB.prepare(
+        "INSERT INTO likes (user_id, reply_id, created_at) VALUES (?, ?, datetime('now'))"
+      ).bind(authUser.userId, replyId).run();
       return jsonResponse({ liked: true }, 200, origin);
     }
   }

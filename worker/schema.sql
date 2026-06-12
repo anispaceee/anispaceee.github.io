@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS replies (
   post_id INTEGER NOT NULL REFERENCES posts(id),
   author_id INTEGER NOT NULL REFERENCES users(id),
   content TEXT NOT NULL,
+  parent_id INTEGER DEFAULT NULL REFERENCES replies(id),
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -82,13 +83,14 @@ CREATE TABLE IF NOT EXISTS follows (
   UNIQUE(from_user_id, to_user_id)
 );
 
--- 点赞表（与 Worker 一致：user_id + post_id）
+-- 点赞表（与 Worker 一致：user_id + post_id / reply_id）
 CREATE TABLE IF NOT EXISTS likes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  post_id INTEGER NOT NULL REFERENCES posts(id),
+  post_id INTEGER DEFAULT NULL REFERENCES posts(id),
+  reply_id INTEGER DEFAULT NULL REFERENCES replies(id),
   created_at TEXT DEFAULT (datetime('now')),
-  UNIQUE(user_id, post_id)
+  UNIQUE(user_id, COALESCE(post_id, 0), COALESCE(reply_id, 0))
 );
 
 -- 通知表
@@ -181,11 +183,13 @@ CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_replies_post ON replies(post_id);
+CREATE INDEX IF NOT EXISTS idx_replies_parent ON replies(parent_id);
 CREATE INDEX IF NOT EXISTS idx_collection_user ON collections(user_id);
 CREATE INDEX IF NOT EXISTS idx_collection_subject ON collections(user_id, subject_id);
 CREATE INDEX IF NOT EXISTS idx_follows_from ON follows(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_follows_to ON follows(to_user_id);
 CREATE INDEX IF NOT EXISTS idx_likes_post ON likes(post_id);
+CREATE INDEX IF NOT EXISTS idx_likes_reply ON likes(reply_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_world_messages_created ON world_messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_news_created ON news(created_at DESC);

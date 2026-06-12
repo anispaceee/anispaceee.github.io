@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ForumService } from '../../services/api';
 import { renderMarkdown } from '../../utils/renderMarkdown';
-import { Heart, Loader2, AlertCircle, Trash2 } from 'lucide-react';
+import { Heart, Loader2, AlertCircle, Trash2, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import UserAvatar from '../Common/UserAvatar';
+import RichTextEditor from '../Common/RichTextEditor';
 import './PostDetail.css';
 
 export default function PostDetail() {
@@ -14,6 +15,8 @@ export default function PostDetail() {
   const [post, setPost] = useState(null);
   const [replies, setReplies] = useState([]);
   const [newReply, setNewReply] = useState('');
+  const [replyParentId, setReplyParentId] = useState(null);
+  const [replyMention, setReplyMention] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -22,22 +25,50 @@ export default function PostDetail() {
   const [likeCount, setLikeCount] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [replySort, setReplySort] = useState('oldest');
+  const [replyLikes, setReplyLikes] = useState({});
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const replyInputRef = useRef(null);
+
+  const loadPost = async () => {
+    try {
+      const data = await ForumService.getPostById(id, replySort);
+      setPost(data);
+      const treeReplies = buildReplyTree(data.replies || []);
+      setReplies(treeReplies);
+      setLikeCount(data.likes || 0);
+      const likeState = {};
+      (data.replies || []).forEach(r => {
+        likeState[r.id] = { liked: r.is_liked || false, count: r.likes || 0 };
+      });
+      setReplyLikes(likeState);
+    } catch (err) {
+      setError(err.message || '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadPost = async () => {
-      try {
-        const data = await ForumService.getPostById(id);
-        setPost(data);
-        setReplies(data.replies || []);
-        setLikeCount(data.likes || 0);
-      } catch (err) {
-        setError(err.message || '加载失败');
-      } finally {
-        setLoading(false);
-      }
-    };
     loadPost();
-  }, [id]);
+  }, [id, replySort]);
+
+  const buildReplyTree = (flatReplies) => {
+    const topReplies = [];
+    const childMap = {};
+    flatReplies.forEach(r => {
+      if (r.parent_id) {
+        if (!childMap[r.parent_id]) childMap[r.parent_id] = [];
+        childMap[r.parent_id].push(r);
+      } else {
+        topReplies.push(r);
+      }
+    });
+    return topReplies.map(r => ({
+      ...r,
+      children: childMap[r.id] || [],
+    }));
+  };
 
   const getCategoryLabel = (cat) => {
     const map = { game: '游戏', anime: '动画', novel: '小说', chat: '吹水' };
@@ -48,21 +79,19 @@ export default function PostDetail() {
 
   const handleReply = async () => {
     if (!newReply.trim()) return;
-
     if (!isAuthenticated) {
       setReplyError('请先登录后再回复');
       openAuth();
       return;
     }
-
     setSubmitting(true);
     setReplyError('');
     try {
-      await ForumService.addReply(id, newReply.trim());
-      const data = await ForumService.getPostById(id);
-      setPost(data);
-      setReplies(data.replies || []);
+      await ForumService.addReply(id, newReply.trim(), replyParentId);
+      await loadPost();
       setNewReply('');
+      setReplyParentId(null);
+      setReplyMention('');
     } catch (err) {
       setReplyError(err.message || '回复失败，请重试');
     } finally {
@@ -70,18 +99,40 @@ export default function PostDetail() {
     }
   };
 
+  const handleReplyTo = (reply) => {
+    if (!isAuthenticated) { openAuth(); return; }
+    // 如果回复的是二级回复，parent_id 指向其父级（一级）
+    setReplyParentId(reply.parent_id || reply.id);
+    setReplyMention(`@${reply.author_name || '未知用户'} `);
+    setNewReply(`@${reply.author_name || '未知用户'} `);
+    replyInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+      const textarea = document.querySelector('.reply-form .rich-textarea');
+      if (textarea) textarea.focus();
+    }, 100);
+  };
+
   const handleToggleLike = async () => {
-    if (!isAuthenticated) {
-      openAuth();
-      return;
-    }
+    if (!isAuthenticated) { openAuth(); return; }
     try {
       const result = await ForumService.toggleLike(id);
       setLiked(result.liked);
       setLikeCount(prev => result.liked ? prev + 1 : Math.max(0, prev - 1));
-    } catch {
-      // 静默失败
-    }
+    } catch { /* 静默 */ }
+  };
+
+  const handleToggleReplyLike = async (replyId) => {
+    if (!isAuthenticated) { openAuth(); return; }
+    try {
+      const result = await ForumService.toggleReplyLike(replyId);
+      setReplyLikes(prev => ({
+        ...prev,
+        [replyId]: {
+          liked: result.liked,
+          count: Math.max(0, (prev[replyId]?.count || 0) + (result.liked ? 1 : -1)),
+        },
+      }));
+    } catch { /* 静默 */ }
   };
 
   const handleDelete = async () => {
@@ -94,6 +145,10 @@ export default function PostDetail() {
       setDeleting(false);
       setShowDeleteConfirm(false);
     }
+  };
+
+  const toggleExpandReplies = (parentId) => {
+    setExpandedReplies(prev => ({ ...prev, [parentId]: !prev[parentId] }));
   };
 
   if (loading) {
@@ -123,6 +178,7 @@ export default function PostDetail() {
   const authorAvatar = post.author_avatar || '';
   const postImages = Array.isArray(post.images) ? post.images : [];
   const postTags = Array.isArray(post.tags) ? post.tags : [];
+  const totalReplies = (post.replies || []).length;
 
   return (
     <div className="post-detail-page">
@@ -195,49 +251,112 @@ export default function PostDetail() {
         )}
 
         <div className="replies-section">
-          <h2 className="replies-title">回复 ({replies.length})</h2>
+          <div className="replies-header">
+            <h2 className="replies-title">回复 ({totalReplies})</h2>
+            <div className="reply-sort-pills">
+              <button className={`reply-sort-pill ${replySort === 'oldest' ? 'active' : ''}`} onClick={() => setReplySort('oldest')}>最早</button>
+              <button className={`reply-sort-pill ${replySort === 'newest' ? 'active' : ''}`} onClick={() => setReplySort('newest')}>最新</button>
+              <button className={`reply-sort-pill ${replySort === 'hot' ? 'active' : ''}`} onClick={() => setReplySort('hot')}>最热</button>
+            </div>
+          </div>
 
           <div className="replies-list">
             {replies.map(reply => {
               const replyName = reply.author_name || '未知用户';
               const replyAvatar = reply.author_avatar || '';
+              const replyLikeState = replyLikes[reply.id] || { liked: false, count: 0 };
+              const hasChildren = reply.children && reply.children.length > 0;
+              const isExpanded = expandedReplies[reply.id] !== false;
+
               return (
                 <div key={reply.id} className="reply-item">
-                  <UserAvatar userId={reply.author_id} src={replyAvatar} alt={replyName} size={32} className="reply-avatar" />
-                  <div className="reply-body">
-                    <div className="reply-header">
-                      <span className="reply-name">{replyName}</span>
-                      <span className="reply-time">{reply.created_at}</span>
+                  <div className="reply-main">
+                    <UserAvatar userId={reply.author_id} src={replyAvatar} alt={replyName} size={32} className="reply-avatar" />
+                    <div className="reply-body">
+                      <div className="reply-header">
+                        <span className="reply-name">{replyName}</span>
+                        <span className="reply-time">{reply.created_at}</span>
+                      </div>
+                      <div className="reply-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(reply.content) }} />
+                      <div className="reply-actions">
+                        <button className="reply-action-btn" onClick={() => handleReplyTo(reply)}>
+                          <MessageCircle size={12} /> 回复
+                        </button>
+                        <button className={`reply-action-btn like ${replyLikeState.liked ? 'liked' : ''}`} onClick={() => handleToggleReplyLike(reply.id)}>
+                          <Heart size={12} /> {replyLikeState.count || 0}
+                        </button>
+                      </div>
                     </div>
-                    <div className="reply-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(reply.content) }} />
                   </div>
+
+                  {hasChildren && (
+                    <div className="reply-nested">
+                      {(isExpanded ? reply.children : reply.children.slice(0, 3)).map(child => {
+                        const childName = child.author_name || '未知用户';
+                        const childAvatar = child.author_avatar || '';
+                        const childLikeState = replyLikes[child.id] || { liked: false, count: 0 };
+                        return (
+                          <div key={child.id} className="reply-nested-item">
+                            <UserAvatar userId={child.author_id} src={childAvatar} alt={childName} size={24} className="reply-avatar small" />
+                            <div className="reply-body">
+                              <div className="reply-header">
+                                <span className="reply-name">{childName}</span>
+                                <span className="reply-time">{child.created_at}</span>
+                              </div>
+                              <div className="reply-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(child.content) }} />
+                              <div className="reply-actions">
+                                <button className="reply-action-btn" onClick={() => handleReplyTo(child)}>
+                                  <MessageCircle size={12} /> 回复
+                                </button>
+                                <button className={`reply-action-btn like ${childLikeState.liked ? 'liked' : ''}`} onClick={() => handleToggleReplyLike(child.id)}>
+                                  <Heart size={12} /> {childLikeState.count || 0}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {reply.children.length > 3 && (
+                        <button className="reply-expand-btn" onClick={() => toggleExpandReplies(reply.id)}>
+                          {isExpanded ? <><ChevronUp size={12} /> 收起</> : <><ChevronDown size={12} /> 展开 {reply.children.length} 条回复</>}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
 
-          <div className="reply-form">
+          <div className="reply-form" ref={replyInputRef}>
+            {replyParentId && (
+              <div className="reply-indicator">
+                <span>回复 {replyMention.trim()}</span>
+                <button className="reply-indicator-clear" onClick={() => { setReplyParentId(null); setReplyMention(''); setNewReply(''); }}>✕</button>
+              </div>
+            )}
             {replyError && (
               <div className="reply-error">
                 <AlertCircle size={14} />
                 <span>{replyError}</span>
               </div>
             )}
-            <textarea
-              placeholder={isAuthenticated ? '写下你的回复...' : '请先登录后再回复'}
+            <RichTextEditor
               value={newReply}
-              onChange={e => setNewReply(e.target.value)}
-              className="reply-input"
-              rows={3}
+              onChange={setNewReply}
+              placeholder={isAuthenticated ? '写下你的回复...' : '请先登录后再回复'}
               disabled={!isAuthenticated}
+              rows={3}
             />
-            <button
-              className="reply-btn"
-              onClick={isAuthenticated ? handleReply : () => openAuth()}
-              disabled={!newReply.trim() || submitting}
-            >
-              {submitting ? '回复中...' : isAuthenticated ? '回复' : '登录后回复'}
-            </button>
+            <div className="reply-form-footer">
+              <button
+                className="reply-btn"
+                onClick={isAuthenticated ? handleReply : () => openAuth()}
+                disabled={!newReply.trim() || submitting}
+              >
+                {submitting ? '回复中...' : isAuthenticated ? '回复' : '登录后回复'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
