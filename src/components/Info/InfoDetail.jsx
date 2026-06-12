@@ -645,10 +645,12 @@ export default function InfoDetail() {
         >
           <img src={subject.images.large} alt="" style={{ display: 'none' }} onError={() => setBgFailed(true)} />
           <div className="detail-bg-overlay" />
+          <div className="detail-bg-blur" style={{ backdropFilter: `blur(${Math.min(40, scrollY * 0.08)}px)`, WebkitBackdropFilter: `blur(${Math.min(40, scrollY * 0.08)}px)` }} />
         </div>
       ) : (
         <div className="detail-page-background detail-page-bg-fallback">
           <div className="detail-bg-overlay" />
+          <div className="detail-bg-blur" />
         </div>
       )}
       <div className="detail-hero">

@@ -3,13 +3,14 @@
 .detail-page-background { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-size: cover; background-position: center; background-repeat: no-repeat; z-index: 0; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; transform: scale(1.02); }
 .detail-page-bg-fallback { background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%); transform: none; }
 .detail-bg-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.7) 100%); z-index: 0; }
+.detail-bg-blur { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 
 .detail-hero { position: relative; height: 100vh; display: flex; align-items: center; justify-content: center; padding: 0 40px; z-index: 1; transition: opacity 0.1s ease; }
 .detail-hero-title { font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 2px 16px rgba(0,0,0,0.5); max-width: 800px; line-height: 1.3; text-align: center; }
 .typewriter-cursor { animation: blink 0.8s step-end infinite; color: var(--primary); font-weight: 300; margin-left: 2px; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-.detail-container { width: 100%; margin: 0 auto; padding: 24px 48px; position: relative; z-index: 2; background: rgba(0,0,0,0.35); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-radius: var(--radius-xl) var(--radius-xl) 0 0; color: #fff; }
+.detail-container { width: 100%; margin: 0 auto; padding: 24px 48px; position: relative; z-index: 2; background: rgba(0,0,0,0.35); border-radius: var(--radius-xl) var(--radius-xl) 0 0; color: #fff; }
 .detail-container .detail-breadcrumb { color: rgba(255,255,255,0.5); }
 .detail-container .breadcrumb-link { color: rgba(255,255,255,0.7); }
 .detail-container .breadcrumb-current { color: rgba(255,255,255,0.8); }
