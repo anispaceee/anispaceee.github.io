@@ -1019,58 +1019,6 @@ export default function InfoDetail() {
                       })()}
                     </div>
 
-                    <div className="bgm-comments-section">
-                      <div className="bgm-comments-header">
-                        <h3 className="bgm-comments-title">Bangumi 社区评论</h3>
-                        <div className="bgm-comments-toolbar">
-                          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="bgm-sort-select">
-                            <option value="latest">最新</option>
-                            <option value="hottest">最热</option>
-                          </select>
-                          <select value={commentsPerPage} onChange={e => setCommentsPerPage(parseInt(e.target.value))} className="bgm-perpage-select">
-                            <option value="10">10</option>
-                            <option value="20">20</option>
-                            <option value="50">50</option>
-                          </select>
-                        </div>
-                      </div>
-                      {activeRatingFilter !== null && (
-                        <div className="bgm-filter-bar">
-                          <Filter size={12} /> 筛选: {activeRatingFilter}分
-                          <button className="bgm-filter-clear" onClick={() => setActiveRatingFilter(null)}>清除筛选</button>
-                        </div>
-                      )}
-                      {bgmCommentsLoading && bgmComments.length === 0 ? (
-                        <div className="bgm-comments-loading"><Loader2 size={20} className="vp-spin" /> 加载评论中...</div>
-                      ) : filteredBgmComments.length === 0 ? (
-                        <div className="detail-no-comments">暂无评论</div>
-                      ) : (
-                        <>
-                          <div className="bgm-comments-list">
-                            {filteredBgmComments.slice(0, commentsPerPage).map(c => (
-                              <div key={c.id} className="bgm-comment-item">
-                                <img src={c.avatar} alt="" className="bgm-comment-avatar" onError={e => { e.target.src = FALLBACK_AVATAR; }} loading="lazy" />
-                                <div className="bgm-comment-body">
-                                  <div className="bgm-comment-header">
-                                    <span className="bgm-comment-name">{c.username}</span>
-                                    {c.score && <span className="comment-score-badge">⭐ {c.score}</span>}
-                                    {c.createdAt && <span className="bgm-comment-time">{new Date(c.createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}</span>}
-                                  </div>
-                                  <p className="bgm-comment-content">{c.content}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          {bgmCommentsHasMore && activeRatingFilter === null && (
-                            <div className="bgm-comments-more">
-                              <button className="bgm-load-more" onClick={loadMoreComments} disabled={bgmCommentsLoading}>
-                                {bgmCommentsLoading ? <Loader2 size={14} className="vp-spin" /> : <ChevronDown size={14} />} 加载更多
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
                   </div>
                 )}
 
