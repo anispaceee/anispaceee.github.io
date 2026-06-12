@@ -28,6 +28,10 @@ export default function DockBar() {
     const saved = StorageService.get('dock_auto_hide_delay');
     return saved || 10;
   });
+  const [firework, setFirework] = useState(() => {
+    const v = localStorage.getItem('anispace_firework');
+    return v === null || v === '1';
+  });
   const dockRef = useRef(null);
   const hideTimerRef = useRef(null);
 
@@ -113,6 +117,11 @@ export default function DockBar() {
   const setAutoHideDelayAndSave = (val) => {
     setAutoHideDelay(val);
     StorageService.set('dock_auto_hide_delay', val);
+  };
+
+  const setFireworkAndSave = (val) => {
+    setFirework(val);
+    localStorage.setItem('anispace_firework', val ? '1' : '0');
   };
 
   const handleAppClick = (appId) => {
@@ -203,6 +212,13 @@ export default function DockBar() {
                         <input type="range" min={3} max={30} step={1} value={autoHideDelay} onChange={e => setAutoHideDelayAndSave(Number(e.target.value))} />
                       </div>
                     )}
+                  </div>
+                </div>
+                <div className="dock-setting-group">
+                  <label>点击烟花效果</label>
+                  <div className="dock-autohide-row">
+                    <button className={`dock-theme-btn ${firework ? 'active' : ''}`} onClick={() => setFireworkAndSave(true)}>开启</button>
+                    <button className={`dock-theme-btn ${!firework ? 'active' : ''}`} onClick={() => setFireworkAndSave(false)}>关闭</button>
                   </div>
                 </div>
                 <div className="dock-setting-group">
