@@ -4,6 +4,8 @@ import { MacCMSSourceFactory, DEFAULT_MACCMS_SOURCES } from './sources/MacCMSSou
 import { DmhySourceFactory } from './sources/DmhySource';
 import { MikanSourceFactory } from './sources/MikanSource';
 import { LocalCacheSourceFactory } from './sources/LocalCacheSource';
+import { SelectorSourceFactory, DEFAULT_SELECTOR_PRESETS } from './sources/SelectorSource';
+import { RSSSourceFactory, DEFAULT_RSS_PRESETS } from './sources/RSSSource';
 
 let initialized = false;
 
@@ -19,6 +21,8 @@ export function initMediaSources(): void {
   mediaSourceManager.registerFactory(new DmhySourceFactory());
   mediaSourceManager.registerFactory(new MikanSourceFactory());
   mediaSourceManager.registerFactory(new LocalCacheSourceFactory());
+  mediaSourceManager.registerFactory(new SelectorSourceFactory());
+  mediaSourceManager.registerFactory(new RSSSourceFactory());
 
   // Clean up deprecated sources from localStorage
   for (const depId of DEPRECATED_SOURCE_IDS) {
@@ -44,6 +48,30 @@ export function initMediaSources(): void {
             name: source.name,
           },
         },
+        enabled: true,
+      });
+    }
+  }
+
+  // Register Selector sources (online streaming sites)
+  for (const preset of DEFAULT_SELECTOR_PRESETS) {
+    if (!existingIds.has(preset.sourceId)) {
+      mediaSourceManager.addRegistration({
+        sourceId: preset.sourceId,
+        factoryId: 'web-selector',
+        config: { arguments: { presetId: preset.sourceId } },
+        enabled: true,
+      });
+    }
+  }
+
+  // Register RSS sources (BT feeds)
+  for (const preset of DEFAULT_RSS_PRESETS) {
+    if (!existingIds.has(preset.sourceId)) {
+      mediaSourceManager.addRegistration({
+        sourceId: preset.sourceId,
+        factoryId: 'rss',
+        config: { arguments: { presetId: preset.sourceId } },
         enabled: true,
       });
     }

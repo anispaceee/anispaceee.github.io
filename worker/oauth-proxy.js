@@ -2147,6 +2147,822 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
+  // ── 武藏也创作者平台 API ──
+
+  // GET /api/works/my — 我的作品列表（需认证，需在 /api/works/:id 之前匹配）
+  if (method === 'GET' && pathname === '/api/works/my') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(100, Math.max(1, Number(sp.get('limit')) || 20));
+    const offset = (page - 1) * limit;
+
+    const works = await env.DB.prepare(
+      'SELECT * FROM works WHERE author_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?'
+    ).bind(authUser.userId, limit, offset).all();
+
+    const countResult = await env.DB.prepare(
+      'SELECT COUNT(*) AS total FROM works WHERE author_id = ?'
+    ).bind(authUser.userId).first();
+
+    return jsonResponse({
+      works: works.results,
+      pagination: { page, limit, total: countResult?.total || 0 },
+    }, 200, origin);
+  }
+
+  // GET /api/works — 作品列表（支持 type/sort/page/limit/search 参数）
+  if (method === 'GET' && pathname === '/api/works') {
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(100, Math.max(1, Number(sp.get('limit')) || 20));
+    const sort = sp.get('sort') || 'latest';
+    const type = sp.get('type') || '';
+    const search = sp.get('search') || '';
+    const offset = (page - 1) * limit;
+
+    const conditions = [];
+    const bindParams = [];
+
+    if (type) {
+      conditions.push('type = ?');
+      bindParams.push(type);
+    }
+    if (search) {
+      conditions.push('(title LIKE ? OR description LIKE ?)');
+      bindParams.push(`%${search}%`, `%${search}%`);
+    }
+
+    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    let orderClause = 'ORDER BY created_at DESC';
+    if (sort === 'hot') {
+      orderClause = 'ORDER BY (views + likes_count * 3 + comments_count * 5) DESC, created_at DESC';
+    } else if (sort === 'views') {
+      orderClause = 'ORDER BY views DESC, created_at DESC';
+    } else if (sort === 'likes') {
+      orderClause = 'ORDER BY likes_count DESC, created_at DESC';
+    }
+
+    const works = await env.DB.prepare(
+      `SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id ${whereClause} ${orderClause} LIMIT ? OFFSET ?`
+    ).bind(...bindParams, limit, offset).all();
+
+    const countResult = await env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM works w ${whereClause}`
+    ).bind(...bindParams).first();
+
+    return jsonResponse({
+      works: works.results,
+      pagination: { page, limit, total: countResult?.total || 0 },
+    }, 200, origin);
+  }
+
+  // POST /api/works — 创建作品（需认证）
+  if (method === 'POST' && pathname === '/api/works') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { type, title, description, cover, tags, status } = body;
+      if (!title || !type) return jsonResponse({ error: '标题和类型不能为空' }, 400, origin);
+      if (!['novel', 'manga', 'galgame'].includes(type)) return jsonResponse({ error: '类型必须为 novel、manga 或 galgame' }, 400, origin);
+
+      const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : '[]';
+
+      const result = await env.DB.prepare(
+        "INSERT INTO works (author_id, type, title, description, cover, tags, status, views, likes_count, favorites_count, comments_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, datetime('now'), datetime('now'))"
+      ).bind(authUser.userId, type, title, description || null, cover || null, tagsJson, status || 'ongoing').run();
+
+      const work = await env.DB.prepare(
+        'SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id WHERE w.id = ?'
+      ).bind(result.meta.last_row_id).first();
+
+      return jsonResponse({
+        ...work,
+        tags: typeof work.tags === 'string' ? JSON.parse(work.tags) : work.tags,
+      }, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '创建作品失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/works/:id — 作品详情
+  const workMatch = pathname.match(/^\/api\/works\/(\d+)$/);
+  if (workMatch && method === 'GET') {
+    const workId = Number(workMatch[1]);
+    const work = await env.DB.prepare(
+      'SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id WHERE w.id = ?'
+    ).bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+    // 根据 type 查询关联数据
+    let relatedData = {};
+    if (work.type === 'novel') {
+      const chapters = await env.DB.prepare(
+        'SELECT id, title, chapter_number, word_count, created_at, updated_at FROM novel_chapters WHERE work_id = ? ORDER BY chapter_number ASC'
+      ).bind(workId).all();
+      relatedData.chapters = chapters.results;
+    } else if (work.type === 'manga') {
+      const chapters = await env.DB.prepare(
+        'SELECT * FROM manga_chapters WHERE work_id = ? ORDER BY chapter_number ASC'
+      ).bind(workId).all();
+      // 为每话获取页面
+      for (const ch of chapters.results) {
+        const pages = await env.DB.prepare(
+          'SELECT * FROM manga_pages WHERE chapter_id = ? ORDER BY page_number ASC'
+        ).bind(ch.id).all();
+        ch.pages = pages.results;
+      }
+      relatedData.chapters = chapters.results;
+    } else if (work.type === 'galgame') {
+      const downloads = await env.DB.prepare(
+        'SELECT * FROM galgame_downloads WHERE work_id = ?'
+      ).bind(workId).all();
+      const previews = await env.DB.prepare(
+        'SELECT * FROM galgame_previews WHERE work_id = ? ORDER BY sort_order ASC'
+      ).bind(workId).all();
+      relatedData.downloads = downloads.results;
+      relatedData.previews = previews.results;
+    }
+
+    return jsonResponse({
+      ...work,
+      tags: typeof work.tags === 'string' ? JSON.parse(work.tags) : work.tags,
+      ...relatedData,
+    }, 200, origin);
+  }
+
+  // PUT /api/works/:id — 更新作品（仅作者本人）
+  if (workMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(workMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权编辑他人作品' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { title, description, cover, tags, status } = body;
+      const tagsJson = tags ? JSON.stringify(tags) : undefined;
+
+      await env.DB.prepare(
+        "UPDATE works SET title = COALESCE(?, title), description = COALESCE(?, description), cover = COALESCE(?, cover), tags = COALESCE(?, tags), status = COALESCE(?, status), updated_at = datetime('now') WHERE id = ?"
+      ).bind(title || null, description || null, cover || null, tagsJson || null, status || null, workId).run();
+
+      const updated = await env.DB.prepare(
+        'SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id WHERE w.id = ?'
+      ).bind(workId).first();
+
+      return jsonResponse({
+        ...updated,
+        tags: typeof updated.tags === 'string' ? JSON.parse(updated.tags) : updated.tags,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新作品失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id — 删除作品（仅作者本人/管理员）
+  if (workMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(workMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权删除他人作品' }, 403, origin);
+
+    try {
+      const batch = [];
+      if (work.type === 'novel') {
+        batch.push(env.DB.prepare('DELETE FROM novel_chapters WHERE work_id = ?').bind(workId));
+      } else if (work.type === 'manga') {
+        batch.push(env.DB.prepare('DELETE FROM manga_pages WHERE chapter_id IN (SELECT id FROM manga_chapters WHERE work_id = ?)').bind(workId));
+        batch.push(env.DB.prepare('DELETE FROM manga_chapters WHERE work_id = ?').bind(workId));
+      } else if (work.type === 'galgame') {
+        batch.push(env.DB.prepare('DELETE FROM galgame_downloads WHERE work_id = ?').bind(workId));
+        batch.push(env.DB.prepare('DELETE FROM galgame_previews WHERE work_id = ?').bind(workId));
+      }
+      batch.push(env.DB.prepare('DELETE FROM work_likes WHERE work_id = ?').bind(workId));
+      batch.push(env.DB.prepare('DELETE FROM work_favorites WHERE work_id = ?').bind(workId));
+      batch.push(env.DB.prepare('DELETE FROM work_comments WHERE work_id = ?').bind(workId));
+      batch.push(env.DB.prepare('DELETE FROM work_reports WHERE work_id = ?').bind(workId));
+      batch.push(env.DB.prepare('DELETE FROM reading_progress WHERE work_id = ?').bind(workId));
+      batch.push(env.DB.prepare('DELETE FROM works WHERE id = ?').bind(workId));
+      await env.DB.batch(batch);
+
+      return jsonResponse({ message: '已删除作品' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '删除作品失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/works/:id/like — 点赞/取消点赞（toggle）
+  const workLikeMatch = pathname.match(/^\/api\/works\/(\d+)\/like$/);
+  if (workLikeMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(workLikeMatch[1]);
+
+    const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+    const existing = await env.DB.prepare(
+      'SELECT id FROM work_likes WHERE user_id = ? AND work_id = ?'
+    ).bind(authUser.userId, workId).first();
+
+    if (existing) {
+      await env.DB.prepare('DELETE FROM work_likes WHERE id = ?').bind(existing.id).run();
+      await env.DB.prepare('UPDATE works SET likes_count = MAX(likes_count - 1, 0) WHERE id = ?').bind(workId).run();
+      return jsonResponse({ liked: false }, 200, origin);
+    } else {
+      await env.DB.prepare(
+        "INSERT INTO work_likes (user_id, work_id, created_at) VALUES (?, ?, datetime('now'))"
+      ).bind(authUser.userId, workId).run();
+      await env.DB.prepare('UPDATE works SET likes_count = likes_count + 1, updated_at = datetime(\'now\') WHERE id = ?').bind(workId).run();
+      return jsonResponse({ liked: true }, 200, origin);
+    }
+  }
+
+  // POST /api/works/:id/favorite — 收藏/取消收藏（toggle）
+  const workFavMatch = pathname.match(/^\/api\/works\/(\d+)\/favorite$/);
+  if (workFavMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(workFavMatch[1]);
+
+    const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+    const existing = await env.DB.prepare(
+      'SELECT id FROM work_favorites WHERE user_id = ? AND work_id = ?'
+    ).bind(authUser.userId, workId).first();
+
+    if (existing) {
+      await env.DB.prepare('DELETE FROM work_favorites WHERE id = ?').bind(existing.id).run();
+      await env.DB.prepare('UPDATE works SET favorites_count = MAX(favorites_count - 1, 0) WHERE id = ?').bind(workId).run();
+      return jsonResponse({ favorited: false }, 200, origin);
+    } else {
+      await env.DB.prepare(
+        "INSERT INTO work_favorites (user_id, work_id, created_at) VALUES (?, ?, datetime('now'))"
+      ).bind(authUser.userId, workId).run();
+      await env.DB.prepare('UPDATE works SET favorites_count = favorites_count + 1, updated_at = datetime(\'now\') WHERE id = ?').bind(workId).run();
+      return jsonResponse({ favorited: true }, 200, origin);
+    }
+  }
+
+  // POST /api/works/:id/view — 记录浏览
+  const workViewMatch = pathname.match(/^\/api\/works\/(\d+)\/view$/);
+  if (workViewMatch && method === 'POST') {
+    const workId = Number(workViewMatch[1]);
+    const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+    await env.DB.prepare('UPDATE works SET views = views + 1 WHERE id = ?').bind(workId).run();
+    return jsonResponse({ viewed: true }, 200, origin);
+  }
+
+  // GET /api/works/:id/comments — 评论列表
+  const workCommentsMatch = pathname.match(/^\/api\/works\/(\d+)\/comments$/);
+  if (workCommentsMatch && method === 'GET') {
+    const workId = Number(workCommentsMatch[1]);
+    const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+    const comments = await env.DB.prepare(
+      'SELECT c.*, u.name AS author_name, u.avatar AS author_avatar FROM work_comments c JOIN users u ON c.user_id = u.id WHERE c.work_id = ? ORDER BY c.created_at ASC'
+    ).bind(workId).all();
+
+    return jsonResponse(comments.results, 200, origin);
+  }
+
+  // POST /api/works/:id/comments — 发表评论
+  if (workCommentsMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(workCommentsMatch[1]);
+
+    try {
+      const body = await request.json();
+      const { content, parent_id } = body;
+      if (!content) return jsonResponse({ error: '评论内容不能为空' }, 400, origin);
+
+      const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+      if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+      await env.DB.prepare(
+        "INSERT INTO work_comments (work_id, user_id, content, parent_id, created_at) VALUES (?, ?, ?, ?, datetime('now'))"
+      ).bind(workId, authUser.userId, content, parent_id || null).run();
+
+      await env.DB.prepare("UPDATE works SET comments_count = comments_count + 1, updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+      const comment = await env.DB.prepare(
+        'SELECT c.*, u.name AS author_name, u.avatar AS author_avatar FROM work_comments c JOIN users u ON c.user_id = u.id WHERE c.work_id = ? ORDER BY c.created_at DESC LIMIT 1'
+      ).bind(workId).first();
+
+      return jsonResponse(comment, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '评论失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/works/:id/report — 举报作品
+  const workReportMatch = pathname.match(/^\/api\/works\/(\d+)\/report$/);
+  if (workReportMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(workReportMatch[1]);
+
+    try {
+      const body = await request.json();
+      const { reason } = body;
+      if (!reason) return jsonResponse({ error: '举报原因不能为空' }, 400, origin);
+
+      const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+      if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+      await env.DB.prepare(
+        "INSERT INTO work_reports (work_id, user_id, reason, created_at) VALUES (?, ?, ?, datetime('now'))"
+      ).bind(workId, authUser.userId, reason).run();
+
+      return jsonResponse({ message: '举报已提交' }, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '举报失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ── 小说章节 API ──
+
+  // PUT /api/works/:id/chapters/reorder — 章节排序（需在 /chapters/:cid 之前匹配）
+  const chapterReorderMatch = pathname.match(/^\/api\/works\/(\d+)\/chapters\/reorder$/);
+  if (chapterReorderMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(chapterReorderMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+    if (work.type !== 'novel') return jsonResponse({ error: '仅小说类型支持章节' }, 400, origin);
+
+    try {
+      const body = await request.json();
+      const { order } = body; // [{ id: 1, chapter_number: 1 }, ...]
+      if (!Array.isArray(order)) return jsonResponse({ error: 'order 必须为数组' }, 400, origin);
+
+      const batch = order.map(item =>
+        env.DB.prepare('UPDATE novel_chapters SET chapter_number = ? WHERE id = ? AND work_id = ?')
+          .bind(item.chapter_number, item.id, workId)
+      );
+      batch.push(env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId));
+      await env.DB.batch(batch);
+
+      return jsonResponse({ message: '排序已更新' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '排序失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/works/:id/chapters — 章节列表（不含 content）
+  const chaptersMatch = pathname.match(/^\/api\/works\/(\d+)\/chapters$/);
+  if (chaptersMatch && method === 'GET') {
+    const workId = Number(chaptersMatch[1]);
+    const work = await env.DB.prepare('SELECT id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.type !== 'novel') return jsonResponse({ error: '仅小说类型支持章节' }, 400, origin);
+
+    const chapters = await env.DB.prepare(
+      'SELECT id, title, chapter_number, word_count, created_at, updated_at FROM novel_chapters WHERE work_id = ? ORDER BY chapter_number ASC'
+    ).bind(workId).all();
+
+    return jsonResponse(chapters.results, 200, origin);
+  }
+
+  // POST /api/works/:id/chapters — 添加章节
+  if (chaptersMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(chaptersMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+    if (work.type !== 'novel') return jsonResponse({ error: '仅小说类型支持章节' }, 400, origin);
+
+    try {
+      const body = await request.json();
+      const { title, content, chapter_number } = body;
+      if (!title || !content) return jsonResponse({ error: '标题和内容不能为空' }, 400, origin);
+
+      const wordCount = content.length;
+
+      // 自动计算 chapter_number
+      let chapterNum = chapter_number;
+      if (!chapterNum) {
+        const maxChapter = await env.DB.prepare(
+          'SELECT MAX(chapter_number) AS max_num FROM novel_chapters WHERE work_id = ?'
+        ).bind(workId).first();
+        chapterNum = (maxChapter?.max_num || 0) + 1;
+      }
+
+      const result = await env.DB.prepare(
+        "INSERT INTO novel_chapters (work_id, title, content, chapter_number, word_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))"
+      ).bind(workId, title, content, chapterNum, wordCount).run();
+
+      await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+      const chapter = await env.DB.prepare('SELECT * FROM novel_chapters WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(chapter, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '添加章节失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/works/:id/chapters/:cid — 章节详情（含 content）
+  const chapterDetailMatch = pathname.match(/^\/api\/works\/(\d+)\/chapters\/(\d+)$/);
+  if (chapterDetailMatch && method === 'GET') {
+    const workId = Number(chapterDetailMatch[1]);
+    const chapterId = Number(chapterDetailMatch[2]);
+
+    const chapter = await env.DB.prepare(
+      'SELECT * FROM novel_chapters WHERE id = ? AND work_id = ?'
+    ).bind(chapterId, workId).first();
+    if (!chapter) return jsonResponse({ error: '章节不存在' }, 404, origin);
+
+    return jsonResponse(chapter, 200, origin);
+  }
+
+  // PUT /api/works/:id/chapters/:cid — 更新章节
+  if (chapterDetailMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(chapterDetailMatch[1]);
+    const chapterId = Number(chapterDetailMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { title, content, chapter_number } = body;
+
+      const wordCount = content ? content.length : undefined;
+
+      await env.DB.prepare(
+        "UPDATE novel_chapters SET title = COALESCE(?, title), content = COALESCE(?, content), chapter_number = COALESCE(?, chapter_number), word_count = COALESCE(?, word_count), updated_at = datetime('now') WHERE id = ? AND work_id = ?"
+      ).bind(title || null, content || null, chapter_number || null, wordCount || null, chapterId, workId).run();
+
+      await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+      const updated = await env.DB.prepare('SELECT * FROM novel_chapters WHERE id = ?').bind(chapterId).first();
+      return jsonResponse(updated, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新章节失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id/chapters/:cid — 删除章节
+  if (chapterDetailMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(chapterDetailMatch[1]);
+    const chapterId = Number(chapterDetailMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM novel_chapters WHERE id = ? AND work_id = ?').bind(chapterId, workId).run();
+    await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+    return jsonResponse({ message: '已删除章节' }, 200, origin);
+  }
+
+  // ── 漫画话数与页面 API ──
+
+  // GET /api/works/:id/manga-chapters — 话数列表（含页面）
+  const mangaChaptersMatch = pathname.match(/^\/api\/works\/(\d+)\/manga-chapters$/);
+  if (mangaChaptersMatch && method === 'GET') {
+    const workId = Number(mangaChaptersMatch[1]);
+    const work = await env.DB.prepare('SELECT id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.type !== 'manga') return jsonResponse({ error: '仅漫画类型支持话数' }, 400, origin);
+
+    const chapters = await env.DB.prepare(
+      'SELECT * FROM manga_chapters WHERE work_id = ? ORDER BY chapter_number ASC'
+    ).bind(workId).all();
+
+    for (const ch of chapters.results) {
+      const pages = await env.DB.prepare(
+        'SELECT * FROM manga_pages WHERE chapter_id = ? ORDER BY page_number ASC'
+      ).bind(ch.id).all();
+      ch.pages = pages.results;
+    }
+
+    return jsonResponse(chapters.results, 200, origin);
+  }
+
+  // POST /api/works/:id/manga-chapters — 添加话
+  if (mangaChaptersMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(mangaChaptersMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+    if (work.type !== 'manga') return jsonResponse({ error: '仅漫画类型支持话数' }, 400, origin);
+
+    try {
+      const body = await request.json();
+      const { title, chapter_number } = body;
+      if (!title) return jsonResponse({ error: '标题不能为空' }, 400, origin);
+
+      let chapterNum = chapter_number;
+      if (!chapterNum) {
+        const maxChapter = await env.DB.prepare(
+          'SELECT MAX(chapter_number) AS max_num FROM manga_chapters WHERE work_id = ?'
+        ).bind(workId).first();
+        chapterNum = (maxChapter?.max_num || 0) + 1;
+      }
+
+      const result = await env.DB.prepare(
+        "INSERT INTO manga_chapters (work_id, title, chapter_number, created_at) VALUES (?, ?, ?, datetime('now'))"
+      ).bind(workId, title, chapterNum).run();
+
+      await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+      const chapter = await env.DB.prepare('SELECT * FROM manga_chapters WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(chapter, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '添加话数失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id/manga-chapters/:cid — 删除话
+  const mangaChapterDeleteMatch = pathname.match(/^\/api\/works\/(\d+)\/manga-chapters\/(\d+)$/);
+  if (mangaChapterDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(mangaChapterDeleteMatch[1]);
+    const chapterId = Number(mangaChapterDeleteMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    const batch = [
+      env.DB.prepare('DELETE FROM manga_pages WHERE chapter_id = ?').bind(chapterId),
+      env.DB.prepare('DELETE FROM manga_chapters WHERE id = ? AND work_id = ?').bind(chapterId, workId),
+      env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId),
+    ];
+    await env.DB.batch(batch);
+
+    return jsonResponse({ message: '已删除话数' }, 200, origin);
+  }
+
+  // POST /api/works/:id/manga-chapters/:cid/pages — 上传页面图片
+  const mangaPagesMatch = pathname.match(/^\/api\/works\/(\d+)\/manga-chapters\/(\d+)\/pages$/);
+  if (mangaPagesMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(mangaPagesMatch[1]);
+    const chapterId = Number(mangaPagesMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { pages } = body; // [{ image_url, page_number }]
+      if (!Array.isArray(pages) || pages.length === 0) return jsonResponse({ error: 'pages 不能为空' }, 400, origin);
+
+      const batch = pages.map(p => {
+        const pageNum = p.page_number;
+        return env.DB.prepare(
+          "INSERT INTO manga_pages (chapter_id, image_url, page_number, created_at) VALUES (?, ?, ?, datetime('now'))"
+        ).bind(chapterId, p.image_url, pageNum);
+      });
+      batch.push(env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId));
+      await env.DB.batch(batch);
+
+      const insertedPages = await env.DB.prepare(
+        'SELECT * FROM manga_pages WHERE chapter_id = ? ORDER BY page_number ASC'
+      ).bind(chapterId).all();
+
+      return jsonResponse(insertedPages.results, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '上传页面失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id/manga-pages/:pid — 删除页面
+  const mangaPageDeleteMatch = pathname.match(/^\/api\/works\/(\d+)\/manga-pages\/(\d+)$/);
+  if (mangaPageDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(mangaPageDeleteMatch[1]);
+    const pageId = Number(mangaPageDeleteMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM manga_pages WHERE id = ?').bind(pageId).run();
+    await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+    return jsonResponse({ message: '已删除页面' }, 200, origin);
+  }
+
+  // ── Galgame API ──
+
+  // POST /api/works/:id/downloads — 添加下载链接
+  const downloadsMatch = pathname.match(/^\/api\/works\/(\d+)\/downloads$/);
+  if (downloadsMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(downloadsMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+    if (work.type !== 'galgame') return jsonResponse({ error: '仅 Galgame 类型支持下载链接' }, 400, origin);
+
+    try {
+      const body = await request.json();
+      const { platform, url, label } = body;
+      if (!platform || !url) return jsonResponse({ error: '平台和链接不能为空' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        "INSERT INTO galgame_downloads (work_id, platform, url, label, created_at) VALUES (?, ?, ?, ?, datetime('now'))"
+      ).bind(workId, platform, url, label || null).run();
+
+      await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+      const download = await env.DB.prepare('SELECT * FROM galgame_downloads WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(download, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '添加下载链接失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // PUT /api/works/:id/downloads/:did — 更新下载链接
+  const downloadDetailMatch = pathname.match(/^\/api\/works\/(\d+)\/downloads\/(\d+)$/);
+  if (downloadDetailMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(downloadDetailMatch[1]);
+    const downloadId = Number(downloadDetailMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { platform, url, label } = body;
+
+      await env.DB.prepare(
+        "UPDATE galgame_downloads SET platform = COALESCE(?, platform), url = COALESCE(?, url), label = COALESCE(?, label) WHERE id = ? AND work_id = ?"
+      ).bind(platform || null, url || null, label || null, downloadId, workId).run();
+
+      await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+      const updated = await env.DB.prepare('SELECT * FROM galgame_downloads WHERE id = ?').bind(downloadId).first();
+      return jsonResponse(updated, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新下载链接失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id/downloads/:did — 删除下载链接
+  if (downloadDetailMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(downloadDetailMatch[1]);
+    const downloadId = Number(downloadDetailMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM galgame_downloads WHERE id = ? AND work_id = ?').bind(downloadId, workId).run();
+    await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+    return jsonResponse({ message: '已删除下载链接' }, 200, origin);
+  }
+
+  // POST /api/works/:id/previews — 上传预览图
+  const previewsMatch = pathname.match(/^\/api\/works\/(\d+)\/previews$/);
+  if (previewsMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(previewsMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+    if (work.type !== 'galgame') return jsonResponse({ error: '仅 Galgame 类型支持预览图' }, 400, origin);
+
+    try {
+      const body = await request.json();
+      const { image_url, sort_order } = body;
+      if (!image_url) return jsonResponse({ error: '图片链接不能为空' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        "INSERT INTO galgame_previews (work_id, image_url, sort_order, created_at) VALUES (?, ?, ?, datetime('now'))"
+      ).bind(workId, image_url, sort_order || 0).run();
+
+      await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+      const preview = await env.DB.prepare('SELECT * FROM galgame_previews WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(preview, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '上传预览图失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id/previews/:pid — 删除预览图
+  const previewDeleteMatch = pathname.match(/^\/api\/works\/(\d+)\/previews\/(\d+)$/);
+  if (previewDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(previewDeleteMatch[1]);
+    const previewId = Number(previewDeleteMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM galgame_previews WHERE id = ? AND work_id = ?').bind(previewId, workId).run();
+    await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
+
+    return jsonResponse({ message: '已删除预览图' }, 200, origin);
+  }
+
+  // ── 阅读进度 API ──
+
+  // GET /api/reading-progress — 用户所有进度（需认证）
+  if (method === 'GET' && pathname === '/api/reading-progress') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const progress = await env.DB.prepare(
+      'SELECT rp.*, w.title AS work_title, w.cover AS work_cover, w.type AS work_type FROM reading_progress rp JOIN works w ON rp.work_id = w.id WHERE rp.user_id = ? ORDER BY rp.updated_at DESC'
+    ).bind(authUser.userId).all();
+
+    return jsonResponse(progress.results, 200, origin);
+  }
+
+  // GET /api/reading-progress/:workId — 单作品进度
+  const progressMatch = pathname.match(/^\/api\/reading-progress\/(\d+)$/);
+  if (progressMatch && method === 'GET') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(progressMatch[1]);
+
+    const progress = await env.DB.prepare(
+      'SELECT * FROM reading_progress WHERE user_id = ? AND work_id = ?'
+    ).bind(authUser.userId, workId).first();
+
+    return jsonResponse(progress || null, 200, origin);
+  }
+
+  // PUT /api/reading-progress/:workId — 更新进度（INSERT ON CONFLICT DO UPDATE）
+  if (progressMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(progressMatch[1]);
+
+    try {
+      const body = await request.json();
+      const { chapter_id, page_number, percentage } = body;
+
+      const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+      if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+      await env.DB.prepare(
+        "INSERT INTO reading_progress (user_id, work_id, chapter_id, page_number, percentage, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now')) ON CONFLICT(user_id, work_id) DO UPDATE SET chapter_id = COALESCE(excluded.chapter_id, reading_progress.chapter_id), page_number = COALESCE(excluded.page_number, reading_progress.page_number), percentage = COALESCE(excluded.percentage, reading_progress.percentage), updated_at = datetime('now')"
+      ).bind(authUser.userId, workId, chapter_id || null, page_number || null, percentage || null).run();
+
+      const progress = await env.DB.prepare(
+        'SELECT * FROM reading_progress WHERE user_id = ? AND work_id = ?'
+      ).bind(authUser.userId, workId).first();
+
+      return jsonResponse(progress, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新进度失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // 未匹配的 API 路由
   return null;
 }
@@ -2170,6 +2986,8 @@ const RL_LIMITS = {
   '/api/favorites': 20,
   '/api/friends': 20,
   '/api/friend-posts': 20,
+  '/api/works': 20,       // 作品创建/编辑/互动
+  '/api/reading-progress': 30, // 阅读进度更新
 };
 
 const rlStore = new Map(); // key: `${ip}:${pathGroup}`, value: { count, resetAt }
@@ -2235,7 +3053,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }
@@ -2638,6 +3456,303 @@ export default {
         return new Response(body, { status: res.status, headers: resHeaders });
       } catch (err) {
         return jsonResponse({ error: 'Mikan 代理请求失败' }, 500, origin);
+      }
+    }
+
+    // ─── Selector 源：通用 CSS Selector 搜索 ─────────────────
+    // POST /api/selector/search
+    // 请求体: { searchUrl, selectors, keyword, baseUrl }
+    // 返回: { items: [{ title, url, cover }], total }
+    if (method === 'POST' && url.pathname === '/api/selector/search') {
+      try {
+        const body = await request.json();
+        const { searchUrl, selectors, keyword, baseUrl } = body;
+        if (!searchUrl || !keyword || !selectors) {
+          return jsonResponse({ error: '缺少必要参数' }, 400, origin);
+        }
+
+        const targetUrl = searchUrl.replace('{keyword}', encodeURIComponent(keyword));
+        if (!isSafeTargetUrl(targetUrl) && !isSafeTargetUrl(targetUrl.replace('https://', 'http://'))) {
+          return jsonResponse({ error: '目标 URL 不安全' }, 400, origin);
+        }
+
+        const res = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html',
+          },
+        });
+        const html = await res.text();
+
+        // 使用 HTMLRewriter 解析 HTML
+        const items = [];
+        let currentItem = null;
+        let inList = false;
+
+        // 简单的 HTML 解析（Worker 中 HTMLRewriter 不支持 CSS 选择器，使用正则提取）
+        const listRegex = new RegExp(selectors.list || '<body>', 'i');
+        const itemRegex = new RegExp(selectors.item || '<a[^>]*>', 'gi');
+        const titleRegex = selectors.title ? new RegExp(selectors.title, 'i') : null;
+        const linkRegex = selectors.link ? new RegExp(selectors.link, 'i') : /href=["']([^"']+)["']/i;
+        const coverRegex = selectors.cover ? new RegExp(selectors.cover, 'i') : null;
+
+        // 使用更健壮的解析方式：提取所有匹配项
+        const itemMatches = html.match(itemRegex) || [];
+        for (const itemHtml of itemMatches.slice(0, 50)) {
+          const titleMatch = titleRegex ? itemHtml.match(titleRegex) : itemHtml.match(/>([^<]+)</);
+          const linkMatch = itemHtml.match(linkRegex);
+          const coverMatch = coverRegex ? itemHtml.match(coverRegex) : itemHtml.match(/src=["']([^"']+)["']/i);
+
+          if (titleMatch || linkMatch) {
+            const title = titleMatch ? (titleMatch[1] || titleMatch[0]).trim() : '';
+            let link = linkMatch ? linkMatch[1] : '';
+            const cover = coverMatch ? coverMatch[1] : '';
+
+            // 相对 URL 转绝对 URL
+            if (link && !link.startsWith('http')) {
+              const base = baseUrl || new URL(targetUrl).origin;
+              link = link.startsWith('/') ? `${base}${link}` : `${base}/${link}`;
+            }
+            if (cover && !cover.startsWith('http')) {
+              const base = baseUrl || new URL(targetUrl).origin;
+              const absCover = cover.startsWith('/') ? `${base}${cover}` : `${base}/${cover}`;
+              currentItem = { title, url: link, cover: absCover };
+            } else {
+              currentItem = { title, url: link, cover };
+            }
+
+            if (currentItem.title || currentItem.url) {
+              items.push(currentItem);
+            }
+          }
+        }
+
+        return jsonResponse({ items, total: items.length }, 200, origin);
+      } catch (err) {
+        return jsonResponse({ error: `Selector 搜索失败: ${err.message}` }, 500, origin);
+      }
+    }
+
+    // ─── Selector 源：剧集提取 ─────────────────────────────
+    // POST /api/selector/episode
+    // 请求体: { url, baseUrl, selectors }
+    // 返回: { episodes: [{ title, url }] }
+    if (method === 'POST' && url.pathname === '/api/selector/episode') {
+      try {
+        const body = await request.json();
+        const { url: pageUrl, baseUrl, selectors } = body;
+        if (!pageUrl || !selectors) {
+          return jsonResponse({ error: '缺少必要参数' }, 400, origin);
+        }
+
+        if (!isSafeTargetUrl(pageUrl) && !isSafeTargetUrl(pageUrl.replace('https://', 'http://'))) {
+          return jsonResponse({ error: '目标 URL 不安全' }, 400, origin);
+        }
+
+        const res = await fetch(pageUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html',
+          },
+        });
+        const html = await res.text();
+
+        const episodes = [];
+        const episodeItemRegex = new RegExp(selectors.episodeItem || '<a[^>]*>', 'gi');
+        const episodeTitleRegex = selectors.episodeTitle ? new RegExp(selectors.episodeTitle, 'i') : />([^<]+)</;
+        const episodeUrlRegex = selectors.episodeUrl ? new RegExp(selectors.episodeUrl, 'i') : /href=["']([^"']+)["']/i;
+
+        const episodeMatches = html.match(episodeItemRegex) || [];
+        for (const epHtml of episodeMatches.slice(0, 200)) {
+          const titleMatch = epHtml.match(episodeTitleRegex);
+          const urlMatch = epHtml.match(episodeUrlRegex);
+
+          if (titleMatch || urlMatch) {
+            const title = titleMatch ? (titleMatch[1] || titleMatch[0]).trim() : '';
+            let epUrl = urlMatch ? urlMatch[1] : '';
+
+            if (epUrl && !epUrl.startsWith('http')) {
+              const base = baseUrl || new URL(pageUrl).origin;
+              epUrl = epUrl.startsWith('/') ? `${base}${epUrl}` : `${base}/${epUrl}`;
+            }
+
+            if (title || epUrl) {
+              episodes.push({ title, url: epUrl });
+            }
+          }
+        }
+
+        // 如果有 playSelectors，尝试提取 m3u8 链接
+        if (selectors.videoSource && episodes.length > 0) {
+          const videoSourceRegex = new RegExp(selectors.videoSource, 'gi');
+          const m3u8Matches = html.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/gi) || [];
+          const mp4Matches = html.match(/https?:\/\/[^\s"'"'<>]+\.mp4[^\s"'<>]*/gi) || [];
+          const videoUrls = [...m3u8Matches, ...mp4Matches];
+
+          if (videoUrls.length > 0) {
+            // 将视频 URL 附加到剧集信息中
+            for (let i = 0; i < episodes.length && i < videoUrls.length; i++) {
+              episodes[i].videoUrl = videoUrls[i];
+            }
+          }
+        }
+
+        return jsonResponse({ episodes }, 200, origin);
+      } catch (err) {
+        return jsonResponse({ error: `剧集提取失败: ${err.message}` }, 500, origin);
+      }
+    }
+
+    // ─── RSS 源：通用 RSS 获取 ─────────────────────────────
+    // GET /api/rss/fetch?url=xxx
+    // 返回: { items: [{ title, link, pubDate, size, description }] }
+    if (url.pathname === '/api/rss/fetch') {
+      const rssUrl = url.searchParams.get('url');
+      if (!rssUrl) {
+        return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
+      }
+
+      if (!isSafeTargetUrl(rssUrl) && !isSafeTargetUrl(rssUrl.replace('https://', 'http://'))) {
+        return jsonResponse({ error: '目标 URL 不安全' }, 400, origin);
+      }
+
+      // Check cache
+      const cache = caches.default;
+      const cacheKey = new Request(rssUrl, { method: 'GET' });
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        const data = await cached.json();
+        const headers = new Headers();
+        headers.set('Content-Type', 'application/json');
+        headers.set('X-Cache', 'HIT');
+        Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+        return new Response(JSON.stringify(data), { status: 200, headers });
+      }
+
+      try {
+        const res = await fetch(rssUrl, {
+          headers: {
+            'User-Agent': 'ANISpace/1.0',
+            'Accept': 'application/xml, application/rss+xml, text/xml',
+          },
+        });
+        const xml = await res.text();
+
+        // 解析 RSS XML
+        const items = [];
+        const itemRegex = /<item[\s>]*>([\s\S]*?)<\/item>/gi;
+        let itemMatch;
+        while ((itemMatch = itemRegex.exec(xml)) !== null) {
+          const itemXml = itemMatch[1];
+          const title = (itemXml.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) ||
+                        itemXml.match(/<title>([\s\S]*?)<\/title>/i))?.[1]?.trim() || '';
+          const link = (itemXml.match(/<link><!\[CDATA\[([\s\S]*?)\]\]><\/link>/i) ||
+                       itemXml.match(/<link>([\s\S]*?)<\/link>/i))?.[1]?.trim() || '';
+          const pubDate = (itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/i))?.[1]?.trim() || '';
+          const description = (itemXml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/i) ||
+                              itemXml.match(/<description>([\s\S]*?)<\/description>/i))?.[1]?.trim() || '';
+          const enclosure = itemXml.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*length=["']([^"']*)["']/i);
+          const size = enclosure ? enclosure[2] : '';
+
+          if (title) {
+            items.push({
+              title,
+              link: enclosure ? enclosure[1] : link,
+              pubDate,
+              size,
+              description: description.replace(/<[^>]+>/g, ''),
+            });
+          }
+        }
+
+        const data = { items, total: items.length };
+
+        // Cache for 5 minutes
+        const cacheResponse = new Response(JSON.stringify(data), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': `public, max-age=${CACHE_TTL_SHORT}`,
+          },
+        });
+        try { await cache.put(cacheKey, cacheResponse); } catch {}
+
+        return jsonResponse(data, 200, origin);
+      } catch (err) {
+        return jsonResponse({ error: `RSS 获取失败: ${err.message}` }, 500, origin);
+      }
+    }
+
+    // ─── Mikan 索引：Bangumi ID → Mikan 番剧 ─────────────
+    // GET /api/mikan/subject/:bgmId
+    // 返回: { bgmId, mikanId, items: [{ title, link, pubDate, size }] }
+    if (url.pathname.match(/^\/api\/mikan\/subject\/\d+$/)) {
+      const bgmId = url.pathname.split('/').pop();
+      if (!bgmId) {
+        return jsonResponse({ error: '缺少 Bangumi ID' }, 400, origin);
+      }
+
+      // 先通过 Mikan 搜索 Bangumi ID
+      const searchUrl = `https://mikanani.me/Home/Search?searchstr=${encodeURIComponent(`bgm:${bgmId}`)}`;
+      try {
+        const res = await fetch(searchUrl, {
+          headers: {
+            'User-Agent': 'ANISpace/1.0',
+            'Accept': 'text/html',
+          },
+        });
+        const html = await res.text();
+
+        // 从搜索结果中提取番剧链接
+        const subjectRegex = /href="\/Home\/Bangumi\/(\d+)"[^>]*>([^<]*)</gi;
+        let subjectMatch;
+        const subjects = [];
+        while ((subjectMatch = subjectRegex.exec(html)) !== null) {
+          subjects.push({ mikanId: subjectMatch[1], title: subjectMatch[2].trim() });
+        }
+
+        if (subjects.length === 0) {
+          // 回退：用普通关键词搜索
+          return jsonResponse({ bgmId, mikanId: null, items: [], hint: '未找到关联番剧，请使用关键词搜索' }, 200, origin);
+        }
+
+        // 获取第一个匹配番剧的 RSS
+        const mikanId = subjects[0].mikanId;
+        const rssUrl = `https://mikanani.me/RSS/MyBangumi?bangumiId=${mikanId}`;
+        const rssRes = await fetch(rssUrl, {
+          headers: {
+            'User-Agent': 'ANISpace/1.0',
+            'Accept': 'application/xml',
+          },
+        });
+        const rssXml = await rssRes.text();
+
+        // 解析 RSS
+        const items = [];
+        const itemRegex = /<item[\s>]*>([\s\S]*?)<\/item>/gi;
+        let itemMatch;
+        while ((itemMatch = itemRegex.exec(rssXml)) !== null) {
+          const itemXml = itemMatch[1];
+          const title = (itemXml.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) ||
+                        itemXml.match(/<title>([\s\S]*?)<\/title>/i))?.[1]?.trim() || '';
+          const link = (itemXml.match(/<link><!\[CDATA\[([\s\S]*?)\]\]><\/link>/i) ||
+                       itemXml.match(/<link>([\s\S]*?)<\/link>/i))?.[1]?.trim() || '';
+          const enclosure = itemXml.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*length=["']([^"']*)["']/i);
+          const pubDate = (itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/i))?.[1]?.trim() || '';
+          const size = enclosure ? enclosure[2] : '';
+
+          if (title) {
+            items.push({
+              title,
+              link: enclosure ? enclosure[1] : link,
+              pubDate,
+              size,
+            });
+          }
+        }
+
+        return jsonResponse({ bgmId, mikanId, items, total: items.length }, 200, origin);
+      } catch (err) {
+        return jsonResponse({ error: `Mikan 索引查询失败: ${err.message}` }, 500, origin);
       }
     }
 

@@ -20,6 +20,10 @@ import TouchGalApp from './components/TouchGal/TouchGalApp'
 import Club from './components/Club/Club'
 import Wiki from './components/Wiki/Wiki'
 import FriendLinks from './components/FriendLinks/FriendLinks'
+import MusashiHome from './components/Musashi/MusashiHome';
+import WorkDetail from './components/Musashi/WorkDetail';
+import WorkCreate from './components/Musashi/WorkCreate';
+import NovelReader from './components/Musashi/NovelReader';
 import NewsDetail from './components/NewsZone/NewsDetail'
 import NewsZone from './components/NewsZone/NewsZone'
 import AuthModal from './components/Common/AuthModal'
@@ -124,6 +128,11 @@ function AppInner() {
           <Route path="/club" element={<Club />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<FriendLinks />} />
+          <Route path="/musashi/new" element={<WorkCreate />} />
+          <Route path="/musashi/:workId/read" element={<NovelReader />} />
+          <Route path="/musashi/:workId/read/:chapter" element={<NovelReader />} />
+          <Route path="/musashi/:workId" element={<WorkDetail />} />
+          <Route path="/musashi" element={<MusashiHome />} />
           <Route path="/news" element={<NewsZone />} />
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<UserProfilePage />} />

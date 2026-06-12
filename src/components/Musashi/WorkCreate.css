@@ -1,0 +1,254 @@
+/* ─── WorkCreate 作品创建页 ─── */
+
+.work-create {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+/* 未登录提示 */
+.work-create-auth-hint {
+  text-align: center;
+  padding: 48px 20px;
+  font-size: 16px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+}
+
+/* 标题 */
+.work-create-heading {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+/* Step 1: 类型选择 */
+.work-type-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.work-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.work-type-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.work-type-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.work-type-icon {
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.work-type-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.work-type-desc {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+/* Step 2: 头部 */
+.work-create-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.work-create-header .work-create-heading {
+  margin-bottom: 0;
+}
+
+.work-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.work-back-btn:hover {
+  background: var(--border-primary);
+  color: var(--text-primary);
+}
+
+/* 表单 */
+.work-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.work-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.work-required {
+  color: var(--error);
+}
+
+.work-form-input {
+  padding: 10px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  font-size: 14px;
+  width: 100%;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.work-form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+  outline: none;
+}
+
+.work-form-textarea {
+  padding: 10px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  font-size: 14px;
+  width: 100%;
+  resize: vertical;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.work-form-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+  outline: none;
+}
+
+/* 药丸选择器 */
+.work-form-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.work-pill {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.work-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.work-pill.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* 错误提示 */
+.work-form-error {
+  padding: 8px 12px;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--error);
+}
+
+/* 按钮组 */
+.work-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.work-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 24px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.work-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.work-btn-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-primary);
+}
+
+.work-btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.work-btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.work-btn-secondary:hover:not(:disabled) {
+  background: var(--border-primary);
+  color: var(--text-primary);
+}
+
+/* 加载旋转动画 */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

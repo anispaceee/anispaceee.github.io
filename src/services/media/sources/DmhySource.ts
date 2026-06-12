@@ -17,6 +17,7 @@ import {
   FileSize,
 } from '../types';
 import { MatchEngine } from '../MatchEngine';
+import { parseRawTitle } from '../RawTitleParser';
 import oauthConfig from '../../../../oauth.config.js';
 
 const DMHY_FACTORY_ID = 'dmhy';
@@ -92,6 +93,7 @@ class DmhySource implements MediaSource {
       }
 
       const infoHash = this.extractInfoHash(result.magnetLink);
+      const parsed = parseRawTitle(result.title);
 
       const media: Media = {
         mediaId: `dmhy_${infoHash}`,
@@ -101,25 +103,25 @@ class DmhySource implements MediaSource {
         publishedTime: 0,
         location: MediaSourceLocation.ONLINE,
         kind: MediaSourceKind.BITTORRENT,
-        episodeRange: { sort: request.episodeSort },
+        episodeRange: { sort: parsed.episodeSort || request.episodeSort },
         download: {
           kind: 'magnet',
           url: result.magnetLink,
         },
         properties: {
-          subjectName: '',
+          subjectName: parsed.subjectName || '',
           episodeName: '',
-          subtitleLanguageIds: result.subtitleGroup ? ['CHS'] : [],
-          resolution: '',
-          alliance: result.subtitleGroup || '',
+          subtitleLanguageIds: parsed.subtitleLanguageIds.length > 0 ? parsed.subtitleLanguageIds : (parsed.alliance ? ['CHS'] : []),
+          resolution: parsed.resolution,
+          alliance: parsed.alliance || result.subtitleGroup || '',
           size: result.size
             ? FileSize.of(parseFloat(result.size) || 0, result.size.replace(/[0-9.]/g, '').toUpperCase())
             : FileSize.Unspecified,
-          subtitleKind: SubtitleKind.CLOSED_OR_EXTERNAL_DISCOVER,
+          subtitleKind: parsed.subtitleKind || SubtitleKind.CLOSED_OR_EXTERNAL_DISCOVER,
           tier: this.info.tier,
           // 旧兼容字段
           fileSize: result.size,
-          subtitleGroup: result.subtitleGroup,
+          subtitleGroup: parsed.alliance || result.subtitleGroup,
         },
       };
 

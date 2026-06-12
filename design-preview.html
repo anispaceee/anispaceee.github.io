@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANISpace - 站内观看标签页设计</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --primary: #e886a2;
+    --primary-hover: #d63384;
+    --primary-bg: rgba(232, 134, 162, 0.08);
+    --secondary: #a855f7;
+    --secondary-bg: rgba(168, 85, 247, 0.08);
+    --success: #4ecdc4;
+    --warning: #f9a825;
+    --error: #ef4444;
+    --bg-card: rgba(255, 255, 255, 0.72);
+    --bg-input: rgba(245, 240, 242, 0.8);
+    --bg-secondary: #f0f0f2;
+    --text-primary: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-tertiary: #86868b;
+    --text-quaternary: #aeaeb2;
+    --border-primary: #e5e5ea;
+    --border-secondary: #f0f0f2;
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 20px;
+    --radius-xl: 16px;
+    --radius-cover: 10px;
+    --shadow-md: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-primary: 0 2px 8px rgba(232,134,162,0.25);
+    --transition-fast: 0.15s ease;
+    --tag-anime: #e886a2;
+    --tag-novel: #a855f7;
+    --tag-game: #4ecdc4;
+  }
+
+  [data-theme="dark"] {
+    --bg-card: #2c2c2e;
+    --bg-input: #1c1c1e;
+    --bg-secondary: #3a3a3c;
+    --text-primary: #e5e5ea;
+    --text-secondary: #98989d;
+    --text-tertiary: #8e8e93;
+    --text-quaternary: #636366;
+    --border-primary: #38383a;
+    --border-secondary: #2c2c2e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f5f5f7;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  /* === 模拟页面容器 === */
+  .page-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  /* === 两栏布局 === */
+  .detail-two-column { display: flex; gap: 28px; align-items: flex-start; }
+  .detail-sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 24px; }
+  .detail-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+
+  /* === 侧边栏 === */
+  .detail-cover { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: var(--radius-cover); box-shadow: var(--shadow-md); }
+  .detail-score-box {
+    background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
+    border-radius: var(--radius-md); padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    border: 1px solid rgba(232,134,162,0.15);  }
+  .score-box-main { display: flex; align-items: center; gap: 10px; }
+  .score-box-num { font-size: 32px; font-weight: 800; color: var(--warning); line-height: 1; }
+  .score-box-stars { display: flex; gap: 1px; color: var(--warning); font-size: 14px; }
+  .score-box-label { font-size: 12px; color: var(--text-tertiary); }
+  .score-box-count { font-size: 11px; color: var(--text-quaternary); }
+
+  .detail-watch-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 38px; border-radius: var(--radius-lg);
+    background: var(--primary); color: #fff; font-size: 14px; font-weight: 700;
+    box-shadow: var(--shadow-primary); transition: all var(--transition-fast);
+    border: none; cursor: pointer;
+  }
+  .detail-watch-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+  .detail-mark-group { display: flex; gap: 4px; flex-wrap: wrap; }
+  .detail-mark-btn {
+    padding: 5px 10px; border-radius: var(--radius-lg); font-size: 11px; font-weight: 600;
+    background: var(--bg-input); color: var(--text-tertiary);
+    border: 1px solid var(--border-secondary); transition: all var(--transition-fast);
+    cursor: pointer;
+  }
+  .detail-mark-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .detail-mark-btn.active { color: #fff; border-color: transparent; }
+  .detail-mark-btn.active.mark-doing { background: var(--warning); }
+
+  .detail-collection-mini {
+    background: var(--bg-input); border-radius: var(--radius-md);
+    padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .collection-mini-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .collection-mini-label { color: var(--text-tertiary); }
+  .collection-mini-num { font-weight: 700; }
+  .collection-mini-num.doing { color: var(--warning); }
+  .collection-mini-num.collect { color: var(--success); }
+  .collection-mini-num.wish { color: var(--secondary); }
+
+  /* === 主内容区 === */
+  .detail-title { font-size: 26px; font-weight: 800; line-height: 1.3; margin-bottom: 4px; }
+  .detail-original-name { font-size: 14px; color: var(--text-tertiary); margin-bottom: 0; }
+  .detail-type-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600; padding: 3px 12px;
+    border-radius: var(--radius-sm); color: #fff;
+  }
+  .detail-type-badge.type-anime { background: var(--tag-anime); }
+  .detail-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+
+  /* === Tab 区 === */
+  .detail-tabs { margin-top: 8px; }
+  .detail-tabs-header { display: flex; gap: 0; border-bottom: 2px solid var(--border-secondary); margin-bottom: 20px; }
+  .detail-tab {
+    padding: 10px 24px; font-size: 14px; font-weight: 600;
+    color: var(--text-tertiary); border-bottom: 2px solid transparent;
+    margin-bottom: -2px; transition: all var(--transition-fast);
+    background: none; border-left: none; border-right: none; border-top: none; cursor: pointer;
+  }
+  .detail-tab:hover { color: var(--text-primary); }
+  .detail-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* === 站内观看 Tab 内容 === */
+  .watch-tab-layout {
+    display: flex; gap: 20px; align-items: flex-start;
+  }
+  .watch-resources {
+    flex: 1; min-width: 0;
+  }
+  .watch-episodes {
+    width: 220px; flex-shrink: 0;
+    background: var(--bg-input);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-primary);
+    position: sticky; top: 24px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+
+  /* 剧集侧栏 */
+  .ep-sidebar-header {
+    padding: 12px 14px;
+    font-size: 13px; font-weight: 700;
+    border-bottom: 1px solid var(--border-primary);
+    display: flex; align-items: center; gap: 6px;
+    color: var(--text-primary);
+  }
+  .ep-sidebar-header .ep-count {
+    font-size: 11px; font-weight: 500; color: var(--text-quaternary);
+    background: var(--bg-card); padding: 1px 6px; border-radius: var(--radius-xs);
+  }
+  .ep-list {
+    padding: 8px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .ep-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer; transition: all var(--transition-fast);
+    border: 1px solid transparent;
+  }
+  .ep-item:hover { background: var(--bg-card); color: var(--text-primary); }
+  .ep-item.active {
+    background: var(--primary-bg); color: var(--primary);
+    border-color: rgba(232,134,162,0.2); font-weight: 600;
+  }
+  .ep-item .ep-num { width: 28px; text-align: center; flex-shrink: 0; }
+  .ep-item .ep-title {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; color: var(--text-tertiary);
+  }
+  .ep-item.active .ep-title { color: var(--primary); }
+  .ep-item .ep-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--success); flex-shrink: 0; opacity: 0;
+  }
+  .ep-item.watched .ep-dot { opacity: 1; }
+
+  /* 资源列表 */
+  .resources-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .resources-title {
+    font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+    padding-bottom: 10px; border-bottom: 2px solid var(--border-secondary);
+  }
+  .resources-ep-badge {
+    font-size: 12px; font-weight: 600; padding: 2px 10px;
+    border-radius: var(--radius-lg); background: var(--primary); color: #fff;
+  }
+
+  .source-group {
+    margin-bottom: 10px;
+    background: var(--bg-input);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-primary);
+    overflow: hidden;
+  }
+  .source-group-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
+    cursor: pointer; transition: background var(--transition-fast);
+  }
+  .source-group-header:hover { background: var(--primary-bg); }
+  .source-group-icon {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+  .source-group-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .source-group-count {
+    margin-left: auto; font-size: 11px; color: var(--text-quaternary);
+    background: var(--bg-card); padding: 1px 8px; border-radius: var(--radius-xs);
+  }
+  .source-group-items { padding: 6px 8px; }
+
+  .source-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius-sm);
+    cursor: pointer; transition: all var(--transition-fast);
+  }
+  .source-item:hover { background: var(--primary-bg); }
+  .match-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 6px;
+    border-radius: var(--radius-xs); flex-shrink: 0;
+  }
+  .match-badge.exact { background: rgba(78,205,196,0.12); color: var(--success); }
+  .match-badge.fuzzy { background: rgba(249,168,37,0.12); color: var(--warning); }
+  .source-item-title {
+    font-size: 13px; font-weight: 500; color: var(--text-primary);
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .source-item-props { display: flex; gap: 4px; flex-shrink: 0; }
+  .prop-tag {
+    font-size: 10px; padding: 2px 5px; border-radius: var(--radius-xs);
+    background: var(--bg-card); color: var(--text-quaternary);
+  }
+  .play-btn {
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 14px; border-radius: var(--radius-lg);
+    background: var(--primary); color: #fff;
+    font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+    transition: all var(--transition-fast); flex-shrink: 0;
+  }
+  .play-btn:hover { background: var(--primary-hover); box-shadow: var(--shadow-primary); transform: translateY(-1px); }
+  .play-btn.buffer { background: var(--warning); color: #333; }
+
+  /* 加载状态 */
+  .resources-loading {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 40px; color: var(--text-tertiary); font-size: 14px;
+  }
+  .loading-spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border-secondary);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 空状态 */
+  .resources-empty {
+    text-align: center; padding: 48px 20px; color: var(--text-quaternary);
+  }
+  .resources-empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .resources-empty-text { font-size: 14px; margin-bottom: 4px; }
+  .resources-empty-hint { font-size: 12px; }
+
+  /* 未选择剧集提示 */
+  .no-ep-selected {
+    text-align: center; padding: 60px 20px; color: var(--text-quaternary);
+  }
+  .no-ep-selected-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+  .no-ep-selected-text { font-size: 15px; font-weight: 500; margin-bottom: 4px; color: var(--text-tertiary); }
+  .no-ep-selected-hint { font-size: 13px; }
+
+  /* === 设计说明 === */
+  .design-notes {
+    margin-top: 40px; padding: 20px 24px;
+    background: var(--bg-input); border-radius: var(--radius-md);
+    border: 1px solid var(--border-primary);
+  }
+  .design-notes h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--primary); }
+  .design-notes ul { list-style: none; padding: 0; }
+  .design-notes li {
+    font-size: 13px; color: var(--text-secondary);
+    padding: 4px 0 4px 18px; position: relative; line-height: 1.6;
+  }
+  .design-notes li::before { content: '→'; position: absolute; left: 0; color: var(--primary); }
+
+  .section-divider {
+    margin: 16px 0; border: none; border-top: 1px solid var(--border-primary);
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="detail-two-column">
+    <!-- 左侧边栏（与现有 InfoDetail 完全一致） -->
+    <div class="detail-sidebar">
+      <div class="detail-cover-wrap">
+        <img class="detail-cover" src="https://lain.bgm.tv/pic/cover/l/fd/42/389800_7C5J8.jpg" alt="葬送的芙莉莲" style="opacity:1">
+      </div>
+
+      <div class="detail-score-box">
+        <div class="score-box-main">
+          <span class="score-box-num">8.8</span>
+          <div>
+            <div class="score-box-stars">★★★★☆</div>
+            <div class="score-box-count">12,345 人评分</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="detail-watch-btn">▶ 立即观看</button>
+
+      <div class="detail-mark-group">
+        <button class="detail-mark-btn">想看</button>
+        <button class="detail-mark-btn active mark-doing">在看</button>
+        <button class="detail-mark-btn">看过</button>
+        <button class="detail-mark-btn">搁置</button>
+        <button class="detail-mark-btn">抛弃</button>
+      </div>
+
+      <div class="detail-collection-mini">
+        <div class="collection-mini-row"><span class="collection-mini-label">想看</span><span class="collection-mini-num wish">1.8万</span></div>
+        <div class="collection-mini-row"><span class="collection-mini-label">在看</span><span class="collection-mini-num doing">5.2万</span></div>
+        <div class="collection-mini-row"><span class="collection-mini-label">看过</span><span class="collection-mini-num collect">3.1万</span></div>
+      </div>
+    </div>
+
+    <!-- 右侧主内容区 -->
+    <div class="detail-main">
+      <div class="detail-title-section">
+        <div class="detail-title-row">
+          <span class="detail-type-badge type-anime">TV动画</span>
+        </div>
+        <h1 class="detail-title">葬送的芙莉莲</h1>
+        <p class="detail-original-name">Sousou no Frieren · 葬送的フリーレン</p>
+      </div>
+
+      <!-- Tab 区 -->
+      <div class="detail-tabs">
+        <div class="detail-tabs-header">
+          <button class="detail-tab">详情</button>
+          <button class="detail-tab">条目介绍</button>
+          <button class="detail-tab">出场角色</button>
+          <button class="detail-tab">评论区</button>
+          <button class="detail-tab active">站内观看</button>
+        </div>
+
+        <div class="detail-tab-content">
+          <!-- 站内观看 Tab：左侧资源 + 右侧剧集 -->
+          <div class="watch-tab-layout">
+            <!-- 左侧：资源搜索结果 -->
+            <div class="watch-resources">
+              <div class="resources-header">
+                <div class="resources-title">
+                  资源搜索
+                  <span class="resources-ep-badge">第1话</span>
+                </div>
+              </div>
+
+              <!-- 量子资源 -->
+              <div class="source-group">
+                <div class="source-group-header">
+                  <div class="source-group-icon" style="background:linear-gradient(135deg,#e886a2,#a855f7)">量</div>
+                  <span class="source-group-name">量子资源</span>
+                  <span class="source-group-count">2条</span>
+                </div>
+                <div class="source-group-items">
+                  <div class="source-item">
+                    <span class="match-badge exact">精确</span>
+                    <span class="source-item-title">葬送的芙莉莲 - 第01集</span>
+                    <div class="source-item-props">
+                      <span class="prop-tag">1080P</span>
+                    </div>
+                    <button class="play-btn">▶ 播放</button>
+                  </div>
+                  <div class="source-item">
+                    <span class="match-badge fuzzy">模糊</span>
+                    <span class="source-item-title">葬送的芙莉莲 - 第01集</span>
+                    <div class="source-item-props">
+                      <span class="prop-tag">720P</span>
+                    </div>
+                    <button class="play-btn">▶ 播放</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 暴风资源 -->
+              <div class="source-group">
+                <div class="source-group-header">
+                  <div class="source-group-icon" style="background:linear-gradient(135deg,#4ecdc4,#44b09e)">暴</div>
+                  <span class="source-group-name">暴风资源</span>
+                  <span class="source-group-count">1条</span>
+                </div>
+                <div class="source-group-items">
+                  <div class="source-item">
+                    <span class="match-badge exact">精确</span>
+                    <span class="source-item-title">葬送的芙莉莲 - 第01集</span>
+                    <div class="source-item-props">
+                      <span class="prop-tag">1080P</span>
+                      <span class="prop-tag">简繁</span>
+                    </div>
+                    <button class="play-btn">▶ 播放</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 非凡资源 -->
+              <div class="source-group">
+                <div class="source-group-header">
+                  <div class="source-group-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)">非</div>
+                  <span class="source-group-name">非凡资源</span>
+                  <span class="source-group-count">1条</span>
+                </div>
+                <div class="source-group-items">
+                  <div class="source-item">
+                    <span class="match-badge exact">精确</span>
+                    <span class="source-item-title">葬送的芙莉莲 - 第01集</span>
+                    <div class="source-item-props">
+                      <span class="prop-tag">m3u8</span>
+                    </div>
+                    <button class="play-btn">▶ 播放</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 动漫花园 -->
+              <div class="source-group">
+                <div class="source-group-header">
+                  <div class="source-group-icon" style="background:linear-gradient(135deg,#ffe66d,#f9a825)">花</div>
+                  <span class="source-group-name">动漫花园</span>
+                  <span class="source-group-count">1条</span>
+                </div>
+                <div class="source-group-items">
+                  <div class="source-item">
+                    <span class="match-badge exact">精确</span>
+                    <span class="source-item-title">[桜都字幕组] 葬送的芙莉莲 01 [1080P]</span>
+                    <div class="source-item-props">
+                      <span class="prop-tag">BT</span>
+                      <span class="prop-tag">1080P</span>
+                    </div>
+                    <button class="play-btn buffer">⏳ 缓冲</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧：剧集选择 -->
+            <div class="watch-episodes">
+              <div class="ep-sidebar-header">
+                剧集 <span class="ep-count">28话</span>
+              </div>
+              <div class="ep-list">
+                <div class="ep-item active watched"><span class="ep-num">1</span><span class="ep-title">旅行的终点</span><span class="ep-dot"></span></div>
+                <div class="ep-item watched"><span class="ep-num">2</span><span class="ep-title">不该有的手段</span><span class="ep-dot"></span></div>
+                <div class="ep-item watched"><span class="ep-num">3</span><span class="ep-title">独行的魔法使</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">4</span><span class="ep-title">斩龙之剑</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">5</span><span class="ep-title">亡灵的幻影</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">6</span><span class="ep-title">英雄之证</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">7</span><span class="ep-title">似曾相识的对话</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">8</span><span class="ep-title">弗伦的试炼</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">9</span><span class="ep-title">一級魔法使試驗</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">10</span><span class="ep-title">强者的余裕</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">11</span><span class="ep-title">冬天的回忆</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">12</span><span class="ep-title">本该是温柔的魔法使</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">13</span><span class="ep-title">故乡的味觉</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">14</span><span class="ep-title">微不足道的愿望</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">15</span><span class="ep-title">回溯的香气</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">16</span><span class="ep-title">遥远的远方</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">17</span><span class="ep-title">出会いの手がかり</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">18</span><span class="ep-title">第一級魔法使試驗</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">19</span><span class="ep-title">合格与否</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">20</span><span class="ep-title">杀意的魔法</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">21</span><span class="ep-title">魔法使的合理判断</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">22</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">23</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">24</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">25</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">26</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">27</span><span class="ep-dot"></span></div>
+                <div class="ep-item"><span class="ep-num">28</span><span class="ep-dot"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设计说明 -->
+  <div class="design-notes">
+    <h3>设计说明</h3>
+    <ul>
+      <li>「站内观看」标签仅对动画/三次元类型条目显示</li>
+      <li>标签内采用左右布局：左侧资源搜索结果（flex:1），右侧剧集列表（220px 固定宽度）</li>
+      <li>右侧剧集列表为 sticky 定位，滚动时固定在视口内</li>
+      <li>点击剧集 → 自动搜索该集资源 → 左侧显示结果</li>
+      <li>资源按源分组，每组可展开/折叠，精确匹配优先</li>
+      <li>点击「播放」按钮跳转到独立播放页 /video/play/:id/:ep</li>
+      <li>BT 资源显示「缓冲」按钮（黄色），提示需要 P2P 下载</li>
+      <li>已观看剧集右侧显示绿色小圆点</li>
+      <li>所有样式复用现有 InfoDetail.css 的设计语言（圆角、间距、颜色、字体）</li>
+      <li>去除独立视频区（/video 路由），导航栏「禁書目錄」不再链接到视频区</li>
+      <li>SubjectDetail 页面重定向到 InfoDetail?tab=watch</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

@@ -31,8 +31,9 @@ const ROOT = join(__dirname, '..');
 const TMP = join(ROOT, '.tmp-import');
 const SOURCE_URL = 'https://raw.githubusercontent.com/bangumi-data/bangumi-data/master/data/items/latest.json';
 const UA = 'ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace; import-script)';
-const BATCH = 50; // D1 SQL 语句长度限制 100KB，每条 INSERT ~2KB，50 条 = 100KB
+const BATCH = 50; // 分批模式：D1 SQL 语句长度限制 100KB，每条 INSERT ~2KB，50 条 = 100KB
 const DB_NAME = process.env.ANISPACE_D1_NAME || 'anispace-db';
+const MODE = process.env.ANISPACE_IMPORT_MODE || 'single'; // 'single' = 单大文件（推荐），'batch' = 分批
 
 function extractAliases(item) {
   const set = new Set();
@@ -115,6 +116,7 @@ function rowToInsert(r) {
 async function main() {
   console.log('=== ANISpace bangumi-data 全量导入 ===');
   console.log('源:', SOURCE_URL);
+  console.log('模式:', MODE === 'single' ? '单大 SQL 文件（推荐）' : '分批导入');
 
   // 1. 拉取
   console.log('[1/3] 拉取 latest.json ...');
@@ -126,44 +128,71 @@ async function main() {
   console.log(`  共 ${items.length} 条`);
 
   // 2. 归一化
-  console.log('[2/3] 归一化 + 分批生成 SQL ...');
+  console.log('[2/3] 归一化 ...');
   mkdirSync(TMP, { recursive: true });
   const rows = items.map(normalize).filter(r => r.id > 0);
-  const files = [];
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const slice = rows.slice(i, i + BATCH);
+  console.log(`  有效条目: ${rows.length}`);
+
+  // 3. 生成 SQL
+  if (MODE === 'single') {
+    // 单大文件模式
+    console.log('[3/3] 生成单大 SQL 文件 ...');
+    const sqlPath = join(TMP, 'full-import.sql');
     const sql = [
       'BEGIN TRANSACTION;',
-      ...slice.map(rowToInsert),
+      ...rows.map(rowToInsert),
       'COMMIT;',
     ].join('\n');
-    const path = join(TMP, `batch-${String(Math.floor(i / BATCH)).padStart(3, '0')}.sql`);
-    writeFileSync(path, sql, 'utf8');
-    files.push(path);
-  }
-  console.log(`  生成 ${files.length} 个分片（每片 ${BATCH} 条）`);
+    writeFileSync(sqlPath, sql, 'utf8');
+    const sizeMB = (sql.length / 1024 / 1024).toFixed(2);
+    console.log(`  文件大小: ${sizeMB} MB`);
+    console.log(`  文件路径: ${sqlPath}`);
 
-  // 3. 顺序导入
-  console.log('[3/3] 导入 D1 ...');
-  let ok = 0;
-  for (const f of files) {
-    try {
-      execSync(`npx wrangler d1 execute ${DB_NAME} --remote --file "${f}"`, {
-        cwd: ROOT,
-        stdio: 'pipe',
-      });
-      ok += BATCH;
-      process.stdout.write(`\r  已导入 ${Math.min(ok, rows.length)}/${rows.length}`);
-    } catch (e) {
-      console.error(`\n  [!] 失败: ${f}`);
-      console.error(e.message);
-      throw e;
+    // 直接导入
+    console.log('\n执行导入命令:');
+    console.log(`npx wrangler d1 execute ${DB_NAME} --remote --file "${sqlPath}"`);
+    console.log('\n预计耗时: 2-5 分钟');
+    console.log('\n导入完成后可删除临时文件:');
+    console.log(`rm -rf "${TMP}"`);
+  } else {
+    // 分批模式
+    console.log('[3/3] 分批生成 SQL + 导入 ...');
+    const files = [];
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const slice = rows.slice(i, i + BATCH);
+      const sql = [
+        'BEGIN TRANSACTION;',
+        ...slice.map(rowToInsert),
+        'COMMIT;',
+      ].join('\n');
+      const path = join(TMP, `batch-${String(Math.floor(i / BATCH)).padStart(4, '0')}.sql`);
+      writeFileSync(path, sql, 'utf8');
+      files.push(path);
     }
+    console.log(`  生成 ${files.length} 个分片（每片 ${BATCH} 条）`);
+
+    // 顺序导入
+    let ok = 0;
+    for (const f of files) {
+      try {
+        execSync(`npx wrangler d1 execute ${DB_NAME} --remote --file "${f}"`, {
+          cwd: ROOT,
+          stdio: 'pipe',
+        });
+        ok += BATCH;
+        const pct = Math.min(100, Math.round(ok / rows.length * 100));
+        process.stdout.write(`\r  进度: ${pct}% (${Math.min(ok, rows.length)}/${rows.length})`);
+      } catch (e) {
+        console.error(`\n  [!] 失败: ${f}`);
+        console.error(e.message);
+        throw e;
+      }
+    }
+    console.log('\n=== 导入完成 ===');
+    console.log('总条数:', rows.length);
+    console.log('SQL 分片保留在:', TMP);
+    console.log('可手动清理: rm -rf', TMP);
   }
-  console.log('\n=== 导入完成 ===');
-  console.log('总条数:', rows.length);
-  console.log('SQL 分片保留在:', TMP);
-  console.log('可手动清理: rm -rf', TMP);
 }
 
 main().catch(err => {

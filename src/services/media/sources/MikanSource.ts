@@ -17,6 +17,7 @@ import {
   FileSize,
 } from '../types';
 import { MatchEngine } from '../MatchEngine';
+import { parseRawTitle } from '../RawTitleParser';
 import oauthConfig from '../../../../oauth.config.js';
 
 const MIKAN_FACTORY_ID = 'mikan';
@@ -70,7 +71,58 @@ class MikanSource implements MediaSource {
   }
 
   async fetch(request: MediaFetchRequest): Promise<PagedResult<MediaMatch>> {
-    const keyword = request.subjectNames[0] || '';
+    const matches: MediaMatch[] = [];
+
+    // Step 1: 尝试 Bangumi ID 索引精确匹配
+    if (request.subjectId && this.proxyBase) {
+      try {
+        const indexRes = await fetch(`${this.proxyBase}/api/mikan/subject/${request.subjectId}`);
+        if (indexRes.ok) {
+          const indexData = await indexRes.json();
+          if (indexData.items && indexData.items.length > 0) {
+            // 索引匹配成功，所有结果标记为 EXACT
+            for (const item of indexData.items.slice(0, 50)) {
+              const parsed = parseRawTitle(item.title);
+              const magnetHash = extractMagnetHash(item.link || '');
+              const media: Media = {
+                mediaId: `mikan_idx_${magnetHash}`,
+                sourceId: 'mikan',
+                title: item.title,
+                originalTitle: item.title,
+                publishedTime: item.pubDate ? new Date(item.pubDate).getTime() : 0,
+                location: MediaSourceLocation.ONLINE,
+                kind: MediaSourceKind.BITTORRENT,
+                episodeRange: { sort: parsed.episodeSort || request.episodeSort },
+                download: { kind: 'magnet', url: item.link || '' },
+                properties: {
+                  subjectName: parsed.subjectName || '',
+                  episodeName: '',
+                  subtitleLanguageIds: parsed.subtitleLanguageIds,
+                  resolution: parsed.resolution,
+                  alliance: parsed.alliance,
+                  size: item.size ? FileSize.of(parseFloat(item.size) || 0, 'B') : FileSize.Unspecified,
+                  subtitleKind: parsed.subtitleKind || SubtitleKind.CLOSED_OR_EXTERNAL_DISCOVER,
+                  tier: this.info.tier,
+                  fileSize: item.size,
+                  subtitleGroup: parsed.alliance,
+                },
+              };
+              matches.push({ media, matchKind: MatchKind.EXACT });
+            }
+            if (matches.length > 0) {
+              return { items: MatchEngine.sortMatches(matches), total: matches.length, page: 1, pagecount: 1, hasMore: false };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[MikanSource] index lookup failed, falling back to keyword search:', err);
+      }
+    }
+
+    // Step 2: 回退到关键词搜索
+    const keyword = request.subjectNames.length > 1
+      ? request.subjectNames[request.subjectNames.length - 1]
+      : (request.subjectNames[0] || '');
     if (!keyword) {
       return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
     }
@@ -84,18 +136,17 @@ class MikanSource implements MediaSource {
       return { items: [], total: 0, page: 1, pagecount: 0, hasMore: false };
     }
 
-    const matches: MediaMatch[] = [];
-
     for (const item of items) {
-      const matchKind = MatchEngine.computeMatchKind(item.title, request);
+      const parsed = parseRawTitle(item.title);
+      const matchKind = MatchEngine.computeMatchKind(item.title, request, {
+        sort: parsed.episodeSort || request.episodeSort,
+      });
       if (matchKind === null) continue;
 
       const epMatch = MatchEngine.matchEpisode(item.title, request.episodeSort);
       const finalKind = epMatch ? MatchKind.EXACT : matchKind;
 
       const magnetHash = extractMagnetHash(item.magnet);
-      const subtitleGroup = extractSubtitleGroup(item.title);
-      const fileSize = extractFileSize(item.title);
 
       const media: Media = {
         mediaId: `mikan_${magnetHash}`,
@@ -105,25 +156,20 @@ class MikanSource implements MediaSource {
         publishedTime: 0,
         location: MediaSourceLocation.ONLINE,
         kind: MediaSourceKind.BITTORRENT,
-        episodeRange: { sort: request.episodeSort },
-        download: {
-          kind: 'magnet',
-          url: item.magnet,
-        },
+        episodeRange: { sort: parsed.episodeSort || request.episodeSort },
+        download: { kind: 'magnet', url: item.magnet },
         properties: {
-          subjectName: '',
+          subjectName: parsed.subjectName || '',
           episodeName: '',
-          subtitleLanguageIds: subtitleGroup ? ['CHS'] : [],
-          resolution: '',
-          alliance: subtitleGroup || '',
-          size: fileSize
-            ? FileSize.of(parseFloat(fileSize) || 0, fileSize.replace(/[0-9.]/g, '').toUpperCase())
-            : FileSize.Unspecified,
-          subtitleKind: SubtitleKind.CLOSED_OR_EXTERNAL_DISCOVER,
+          subtitleLanguageIds: parsed.subtitleLanguageIds.length > 0 ? parsed.subtitleLanguageIds : (parsed.alliance ? ['CHS'] : []),
+          resolution: parsed.resolution,
+          alliance: parsed.alliance,
+          size: FileSize.Unspecified,
+          subtitleKind: parsed.subtitleKind || SubtitleKind.CLOSED_OR_EXTERNAL_DISCOVER,
           tier: this.info.tier,
           // 旧兼容字段
-          fileSize,
-          subtitleGroup,
+          fileSize: '',
+          subtitleGroup: parsed.alliance,
         },
       };
 
