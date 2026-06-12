@@ -9,17 +9,17 @@
   pointer-events: none;
 }
 
-/* 隐藏时的触发横条 - 乳白透明 */
+/* 隐藏时的触发横条 - 对比色磨砂 */
 .dock-trigger-bar {
   pointer-events: auto;
   position: fixed;
-  bottom: 4px;
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
   width: 200px;
   height: 4px;
-  border-radius: 4px 4px 0 0;
-  background: rgba(255, 255, 255, 0.45);
+  border-radius: 4px;
+  background: rgba(60, 60, 60, 0.45);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
@@ -29,14 +29,20 @@
 .dock-trigger-bar:hover {
   height: 8px;
   width: 260px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(60, 60, 60, 0.6);
 }
 
 [data-theme="dark"] .dock-trigger-bar {
-  background: rgba(200, 200, 200, 0.3);
+  background: rgba(240, 235, 230, 0.45);
 }
 [data-theme="dark"] .dock-trigger-bar:hover {
-  background: rgba(200, 200, 200, 0.5);
+  background: rgba(240, 235, 230, 0.6);
+}
+[data-theme="high-contrast"] .dock-trigger-bar {
+  background: rgba(40, 40, 40, 0.55);
+}
+[data-theme="high-contrast"] .dock-trigger-bar:hover {
+  background: rgba(40, 40, 40, 0.7);
 }
 
 /* ─── Dock 主栏 ─── */
