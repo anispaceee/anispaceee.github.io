@@ -183,7 +183,7 @@ export default function InfoDetail() {
         clearInterval(timer);
         setTimeout(() => setShowCursor(false), 1500);
       }
-    }, 80);
+    }, 150);
     return () => clearInterval(timer);
   }, [heroTitle]);
   // 标签折叠状态
