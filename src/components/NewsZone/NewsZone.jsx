@@ -197,6 +197,17 @@ export default function NewsZone() {
           <span className="news-zone-subtitle">二次元业界动态 · 新番导视 · 多源聚合</span>
         </div>
         <div className="news-zone-actions">
+          <button
+            className={`news-refresh-btn ${refreshing ? 'spinning' : ''}`}
+            onClick={() => handleRefresh('')}
+            disabled={refreshing}
+            title="刷新资讯"
+          >
+            <RefreshCw size={14} />
+          </button>
+          <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
+            <Plus size={14} /> 投稿
+          </button>
           <div className="news-zone-tabs">
             <button
               className={`news-zone-tab ${activeTab === 'feed' ? 'active' : ''}`}
@@ -211,21 +222,6 @@ export default function NewsZone() {
               <Tv size={14} /> 放送表
             </button>
           </div>
-          {activeTab === 'feed' && (
-            <>
-              <button
-                className={`news-refresh-btn ${refreshing ? 'spinning' : ''}`}
-                onClick={() => handleRefresh('')}
-                disabled={refreshing}
-                title="刷新资讯"
-              >
-                <RefreshCw size={14} />
-              </button>
-              <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
-                <Plus size={14} /> 投稿
-              </button>
-            </>
-          )}
         </div>
       </div>
 
