@@ -21,6 +21,7 @@ import Club from './components/Club/Club'
 import Wiki from './components/Wiki/Wiki'
 import FriendLinks from './components/FriendLinks/FriendLinks'
 import NewsDetail from './components/NewsZone/NewsDetail'
+import NewsZone from './components/NewsZone/NewsZone'
 import AuthModal from './components/Common/AuthModal'
 import Live2DWidget from './components/Common/Live2DWidget'
 import FireworkEffect from './components/Common/FireworkEffect'
@@ -123,6 +124,7 @@ function AppInner() {
           <Route path="/club" element={<Club />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<FriendLinks />} />
+          <Route path="/news" element={<NewsZone />} />
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/user/:userId" element={<UserProfilePage />} />

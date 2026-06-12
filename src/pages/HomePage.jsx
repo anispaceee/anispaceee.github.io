@@ -172,6 +172,17 @@ export default function HomePage() {
         const data = await NewsService.getCustomNews(1, 5);
         setNewsItems((data.news || []).slice(0, 5));
       } catch {}
+      try {
+        const feedData = await NewsService.getNewsFeed({ limit: 5 });
+        const feedItems = (feedData.news || []).map(n => ({
+          ...n,
+          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'gamersky' ? '游民星空' : n.source,
+        }));
+        setNewsItems(prev => {
+          const existing = prev.filter(p => !feedItems.find(f => f.title === p.title));
+          return [...feedItems, ...existing].slice(0, 5);
+        });
+      } catch {}
     };
     loadHomeData();
   }, []);
