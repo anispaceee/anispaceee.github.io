@@ -468,10 +468,11 @@ export const FriendPostService = {
 // ─── ForumService ───
 // 帖子、回复、点赞，走后端 API
 export const ForumService = {
-  async getPosts(page = 1, limit = 50, category = '', sort = 'latest') {
+  async getPosts(page = 1, limit = 50, category = '', sort = 'latest', authorId = '') {
     const params = new URLSearchParams({ page, limit });
     if (category) params.set('category', category);
     if (sort && sort !== 'latest') params.set('sort', sort);
+    if (authorId) params.set('authorId', authorId);
     return await apiRequest(`/api/posts?${params}`);
   },
 
@@ -634,8 +635,10 @@ export const WorldChannelService = {
 // ─── NewsService ───
 // 自定义新闻，走后端 API
 export const NewsService = {
-  async getCustomNews(page = 1, limit = 20) {
-    return await apiRequest(`/api/news?page=${page}&limit=${limit}`);
+  async getCustomNews(page = 1, limit = 20, authorId = '') {
+    const params = new URLSearchParams({ page, limit });
+    if (authorId) params.set('authorId', authorId);
+    return await apiRequest(`/api/news?${params}`);
   },
 
   async createNews(data) {
@@ -673,6 +676,41 @@ export const NewsService = {
   // 实时刷新指定源
   async refreshSource(source) {
     return await apiRequest(`/api/news/refresh?source=${encodeURIComponent(source)}`);
+  },
+};
+
+// ─── UserGuestbookService ───
+// 用户留言板，走后端 API
+export const UserGuestbookService = {
+  async getMessages(userId, page = 1, limit = 20) {
+    return apiRequest(`/api/user-guestbook/${userId}?page=${page}&limit=${limit}`);
+  },
+
+  async postMessage(userId, content, reply_to_id = null) {
+    return apiRequest(`/api/user-guestbook/${userId}`, {
+      method: 'POST',
+      body: JSON.stringify({ content, reply_to_id }),
+    });
+  },
+
+  async deleteMessage(userId, messageId) {
+    return apiRequest(`/api/user-guestbook/${userId}/${messageId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async updateGuestbookSettings(userId, allow_guestbook) {
+    return apiRequest(`/api/users/${userId}/guestbook-settings`, {
+      method: 'PUT',
+      body: JSON.stringify({ allow_guestbook }),
+    });
+  },
+
+  async updateProfileVisibility(userId, settings) {
+    return apiRequest(`/api/users/${userId}/profile-visibility`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
   },
 };
 

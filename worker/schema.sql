@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS users (
   preferences TEXT DEFAULT '{}',
   allow_profile_view INTEGER DEFAULT 1,
   allow_comments_public INTEGER DEFAULT 1,
+  allow_guestbook INTEGER DEFAULT 1,
+  show_posts INTEGER DEFAULT 1,
+  show_news INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   UNIQUE(provider, provider_id)
@@ -414,3 +417,17 @@ CREATE INDEX idx_work_likes_user ON work_likes(user_id);
 CREATE INDEX idx_work_likes_work ON work_likes(work_id);
 CREATE INDEX idx_reading_progress_user ON reading_progress(user_id);
 CREATE INDEX idx_work_reports_status ON work_reports(status, created_at DESC);
+
+-- 用户留言板表
+CREATE TABLE IF NOT EXISTS user_guestbook (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  author_id INTEGER NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  reply_to_id INTEGER DEFAULT NULL REFERENCES user_guestbook(id),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_guestbook_user ON user_guestbook(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_guestbook_author ON user_guestbook(author_id);
+CREATE INDEX IF NOT EXISTS idx_guestbook_reply ON user_guestbook(reply_to_id);

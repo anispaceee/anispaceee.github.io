@@ -723,9 +723,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     let whereClause = '';
     const bindParams = [];
+    const authorId = sp.get('authorId');
     if (category) {
       whereClause = 'WHERE p.category = ?';
       bindParams.push(category);
+    }
+    if (authorId) {
+      whereClause = whereClause ? whereClause + ' AND p.author_id = ?' : 'WHERE p.author_id = ?';
+      bindParams.push(Number(authorId));
     }
 
     // 排序：latest=按时间, hot=综合热度, replies=按回复数
@@ -1097,7 +1102,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
     const requests = await env.DB.prepare(
-      "SELECT fr.*, u.name AS to_user_name, u.avatar AS to_user_avatar, u.username AS to_user_username FROM friend_requests fr JOIN users u ON fr.to_user_id = u.id WHERE fr.from_user_id = ? ORDER BY fr.created_at DESC"
+      "SELECT fr.*, u.name AS to_user_name, u.avatar AS to_user_avatar, u.username AS to_user_username FROM friend_requests fr JOIN users u ON fr.to_user_id = u.id WHERE fr.from_user_id = ? AND fr.status = 'pending' ORDER BY fr.created_at DESC"
     ).bind(authUser.userId).all();
 
     return jsonResponse(requests.results, 200, origin);
@@ -1296,6 +1301,121 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }, 200, origin);
   }
 
+  // ═══ 用户留言板 API ═══
+
+  // GET /api/user-guestbook/:userId — 获取用户留言板
+  const guestbookMatch = pathname.match(/^\/api\/user-guestbook\/(\d+)$/);
+  if (guestbookMatch && method === 'GET') {
+    const userId = Number(guestbookMatch[1]);
+    const user = await env.DB.prepare('SELECT allow_guestbook FROM users WHERE id = ?').bind(userId).first();
+    if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+    if (!user.allow_guestbook) return jsonResponse({ error: '该用户已关闭留言板' }, 403, origin);
+
+    const page = Math.max(1, Number(new URL(request.url).searchParams.get('page')) || 1);
+    const limit = Math.min(50, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 20));
+    const offset = (page - 1) * limit;
+
+    const messages = await env.DB.prepare(
+      'SELECT g.id, g.content, g.reply_to_id, g.created_at, u.id AS author_id, u.name AS author_name, u.avatar AS author_avatar FROM user_guestbook g JOIN users u ON g.author_id = u.id WHERE g.user_id = ? ORDER BY g.created_at DESC LIMIT ? OFFSET ?'
+    ).bind(userId, limit, offset).all();
+
+    const countResult = await env.DB.prepare('SELECT COUNT(*) AS total FROM user_guestbook WHERE user_id = ?').bind(userId).first();
+    return jsonResponse({
+      messages: messages.results || [],
+      pagination: { page, limit, total: countResult.total },
+    }, 200, origin);
+  }
+
+  // POST /api/user-guestbook/:userId — 在用户留言板留言（需认证）
+  if (guestbookMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const userId = Number(guestbookMatch[1]);
+    const user = await env.DB.prepare('SELECT allow_guestbook FROM users WHERE id = ?').bind(userId).first();
+    if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+    if (!user.allow_guestbook) return jsonResponse({ error: '该用户已关闭留言板' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { content, reply_to_id } = body;
+      if (!content || !content.trim()) return jsonResponse({ error: '留言内容不能为空' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO user_guestbook (user_id, author_id, content, reply_to_id, created_at) VALUES (?, ?, ?, ?, datetime(\'now\'))'
+      ).bind(userId, authUser.userId, content.trim(), reply_to_id || null).run();
+
+      const message = await env.DB.prepare(
+        'SELECT g.id, g.content, g.reply_to_id, g.created_at, u.id AS author_id, u.name AS author_name, u.avatar AS author_avatar FROM user_guestbook g JOIN users u ON g.author_id = u.id WHERE g.id = ?'
+      ).bind(result.meta.last_row_id).first();
+      return jsonResponse(message, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '留言失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/user-guestbook/:userId/:messageId — 删除留言（需认证，仅留言板主人或留言作者可删）
+  const guestbookMsgMatch = pathname.match(/^\/api\/user-guestbook\/(\d+)\/(\d+)$/);
+  if (guestbookMsgMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const userId = Number(guestbookMsgMatch[1]);
+    const messageId = Number(guestbookMsgMatch[2]);
+
+    const message = await env.DB.prepare('SELECT * FROM user_guestbook WHERE id = ?').bind(messageId).first();
+    if (!message) return jsonResponse({ error: '留言不存在' }, 404, origin);
+    // 仅留言板主人或留言作者可删除
+    if (authUser.userId !== message.user_id && authUser.userId !== message.author_id) {
+      return jsonResponse({ error: '无权删除' }, 403, origin);
+    }
+
+    await env.DB.prepare('DELETE FROM user_guestbook WHERE id = ?').bind(messageId).run();
+    return jsonResponse({ message: '已删除' }, 200, origin);
+  }
+
+  // PUT /api/users/:id/guestbook-settings — 更新留言板开关（需认证，仅本人）
+  const guestbookSettingsMatch = pathname.match(/^\/api\/users\/(\d+)\/guestbook-settings$/);
+  if (guestbookSettingsMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const userId = Number(guestbookSettingsMatch[1]);
+    if (authUser.userId !== userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { allow_guestbook } = body;
+      if (typeof allow_guestbook !== 'number') return jsonResponse({ error: '参数错误' }, 400, origin);
+
+      await env.DB.prepare('UPDATE users SET allow_guestbook = ? WHERE id = ?').bind(allow_guestbook, userId).run();
+      return jsonResponse({ message: '已更新' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // PUT /api/users/:id/profile-visibility — 更新发帖/资讯显示开关（需认证，仅本人）
+  const profileVisMatch = pathname.match(/^\/api\/users\/(\d+)\/profile-visibility$/);
+  if (profileVisMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const userId = Number(profileVisMatch[1]);
+    if (authUser.userId !== userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const updates = {};
+      if (typeof body.show_posts === 'number') updates.show_posts = body.show_posts;
+      if (typeof body.show_news === 'number') updates.show_news = body.show_news;
+      if (Object.keys(updates).length === 0) return jsonResponse({ error: '无更新参数' }, 400, origin);
+
+      const setClause = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      const values = [...Object.values(updates), userId];
+      await env.DB.prepare(`UPDATE users SET ${setClause} WHERE id = ?`).bind(...values).run();
+      return jsonResponse({ message: '已更新' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // POST /api/notifications — 创建通知
   if (method === 'POST' && pathname === '/api/notifications') {
     try {
@@ -1402,15 +1522,25 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
   // GET /api/news — 新闻列表
   if (method === 'GET' && pathname === '/api/news') {
-    const page = Math.max(1, Number(new URL(request.url).searchParams.get('page')) || 1);
-    const limit = Math.min(100, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 20));
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(100, Math.max(1, Number(sp.get('limit')) || 20));
     const offset = (page - 1) * limit;
+    const authorId = sp.get('authorId');
 
-    const news = await env.DB.prepare(
-      'SELECT * FROM news ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    ).bind(limit, offset).all();
+    let query, countQuery, params;
+    if (authorId) {
+      query = 'SELECT * FROM news WHERE author_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?';
+      countQuery = 'SELECT COUNT(*) AS total FROM news WHERE author_id = ?';
+      params = [Number(authorId), limit, offset];
+    } else {
+      query = 'SELECT * FROM news ORDER BY created_at DESC LIMIT ? OFFSET ?';
+      countQuery = 'SELECT COUNT(*) AS total FROM news';
+      params = [limit, offset];
+    }
 
-    const countResult = await env.DB.prepare('SELECT COUNT(*) AS total FROM news').first();
+    const news = await env.DB.prepare(query).bind(...params).all();
+    const countResult = await env.DB.prepare(countQuery).bind(...(authorId ? [Number(authorId)] : [])).first();
     return jsonResponse({
       news: news.results,
       pagination: { page, limit, total: countResult.total },
@@ -3119,7 +3249,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }

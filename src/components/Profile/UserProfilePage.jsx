@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { FriendService, FollowService, CollectionMarkService, UserService, MailService, BangumiAuthService, GitHubAuthService, StorageService } from '../../services/api';
-import { Calendar, MapPin, Heart, LinkIcon, Shield, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search } from 'lucide-react';
+import { FriendService, FollowService, CollectionMarkService, UserService, MailService, BangumiAuthService, GitHubAuthService, StorageService, UserGuestbookService, ForumService, NewsService } from '../../services/api';
+import { Calendar, MapPin, Heart, LinkIcon, Shield, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2 } from 'lucide-react';
 import { SubjectCard } from '../Common/CommonComponents';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import ActivityHeatmap from './ActivityHeatmap';
@@ -75,6 +75,18 @@ export default function UserProfilePage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // ─── 留言板状态 ───
+  const [guestbookMessages, setGuestbookMessages] = useState([]);
+  const [guestbookLoading, setGuestbookLoading] = useState(false);
+  const [guestbookInput, setGuestbookInput] = useState('');
+  const [guestbookSubmitting, setGuestbookSubmitting] = useState(false);
+
+  // ─── 发帖/资讯状态 ───
+  const [userPosts, setUserPosts] = useState([]);
+  const [userNews, setUserNews] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [newsLoading, setNewsLoading] = useState(false);
 
   // ─── 加载用户信息 ───
   useEffect(() => {
@@ -195,6 +207,42 @@ export default function UserProfilePage() {
     };
     loadFriendData();
   }, [isSelf, currentUser]);
+
+  // ─── 加载留言板 ───
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    if (!isSelf && !userInfo?.allow_guestbook) return;
+    setGuestbookLoading(true);
+    UserGuestbookService.getMessages(parseInt(effectiveUserId))
+      .then(data => {
+        const msgs = data?.messages || data || [];
+        setGuestbookMessages(Array.isArray(msgs) ? msgs : []);
+      })
+      .catch(() => setGuestbookMessages([]))
+      .finally(() => setGuestbookLoading(false));
+  }, [effectiveUserId, userInfo?.allow_guestbook]);
+
+  // ─── 加载用户发帖 ───
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    if (!isSelf && !userInfo?.show_posts) return;
+    setPostsLoading(true);
+    ForumService.getPosts(1, 10, '', 'latest', effectiveUserId)
+      .then(data => setUserPosts(data?.posts || []))
+      .catch(() => setUserPosts([]))
+      .finally(() => setPostsLoading(false));
+  }, [effectiveUserId, userInfo?.show_posts]);
+
+  // ─── 加载用户资讯 ───
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    if (!isSelf && !userInfo?.show_news) return;
+    setNewsLoading(true);
+    NewsService.getCustomNews(1, 10, effectiveUserId)
+      .then(data => setUserNews(data?.news || []))
+      .catch(() => setUserNews([]))
+      .finally(() => setNewsLoading(false));
+  }, [effectiveUserId, userInfo?.show_news]);
 
   // ─── 计算属性 ───
   const totalMarks = userMarks.length;
@@ -636,21 +684,33 @@ export default function UserProfilePage() {
                 </div>
               )}
 
-              {/* ─── 标签页切换（仅自己主页显示好友标签） ─── */}
-              {isSelf && (
-                <div className="user-profile-tabs">
-                  <button className={`user-profile-tab ${activeTab === 'collections' ? 'active' : ''}`} onClick={() => setActiveTab('collections')}>
-                    <BookOpen size={14} /> 收藏
-                  </button>
+              {/* ─── 标签页切换 ─── */}
+              <div className="user-profile-tabs">
+                <button className={`user-profile-tab ${activeTab === 'collections' ? 'active' : ''}`} onClick={() => setActiveTab('collections')}>
+                  <BookOpen size={14} /> 收藏
+                </button>
+                {isSelf && (
                   <button className={`user-profile-tab ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
                     <Users size={14} /> 好友
                     {receivedRequests.length > 0 && <span className="user-profile-tab-badge">{receivedRequests.length}</span>}
                   </button>
-                </div>
-              )}
+                )}
+                <button className={`user-profile-tab ${activeTab === 'guestbook' ? 'active' : ''}`} onClick={() => setActiveTab('guestbook')}>
+                  <MessageSquare size={14} /> 留言
+                </button>
+                <button className={`user-profile-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>
+                  <MessageCircle size={14} /> 评论
+                </button>
+                <button className={`user-profile-tab ${activeTab === 'news' ? 'active' : ''}`} onClick={() => setActiveTab('news')}>
+                  <Newspaper size={14} /> 资讯
+                </button>
+                <button className={`user-profile-tab ${activeTab === 'posts' ? 'active' : ''}`} onClick={() => setActiveTab('posts')}>
+                  <BookOpen size={14} /> 发帖
+                </button>
+              </div>
 
               {/* ─── 收藏标签页 ─── */}
-              {(!isSelf || activeTab === 'collections') && (
+              {activeTab === 'collections' && (
                 <>
                   {/* 活跃度热力图（他人主页在主内容区显示） */}
                   {!isSelf && (
@@ -902,6 +962,246 @@ export default function UserProfilePage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* ─── 留言板标签页 ─── */}
+              {activeTab === 'guestbook' && (
+                <div className="user-profile-guestbook-tab">
+                  {/* 留言板关闭提示 */}
+                  {!userInfo?.allow_guestbook && !isSelf && (
+                    <div className="category-empty">
+                      <Lock size={32} />
+                      <p>该用户已关闭留言板</p>
+                    </div>
+                  )}
+                  {(userInfo?.allow_guestbook || isSelf) && (
+                    <>
+                      {/* 留言板开关（仅自己主页） */}
+                      {isSelf && (
+                        <div className="guestbook-toggle">
+                          <span>留言板</span>
+                          <button
+                            className={`guestbook-toggle-btn ${userInfo?.allow_guestbook ? 'on' : 'off'}`}
+                            onClick={async () => {
+                              const newVal = userInfo?.allow_guestbook ? 0 : 1;
+                              try {
+                                await UserGuestbookService.updateGuestbookSettings(currentUser.id, newVal);
+                                setUserInfo(prev => ({ ...prev, allow_guestbook: newVal }));
+                              } catch {}
+                            }}
+                          >
+                            {userInfo?.allow_guestbook ? '已开启' : '已关闭'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* 留言输入框（需登录且留言板开启） */}
+                      {isAuthenticated && userInfo?.allow_guestbook && (
+                        <div className="guestbook-input-wrap">
+                          <textarea
+                            className="guestbook-input"
+                            placeholder="写一句留言吧~"
+                            value={guestbookInput}
+                            onChange={e => setGuestbookInput(e.target.value)}
+                            rows={2}
+                          />
+                          <button
+                            className="guestbook-send-btn"
+                            disabled={!guestbookInput.trim() || guestbookSubmitting}
+                            onClick={async () => {
+                              if (!guestbookInput.trim()) return;
+                              setGuestbookSubmitting(true);
+                              try {
+                                const newMsg = await UserGuestbookService.postMessage(
+                                  parseInt(effectiveUserId),
+                                  guestbookInput.trim()
+                                );
+                                setGuestbookMessages(prev => [newMsg, ...prev]);
+                                setGuestbookInput('');
+                              } catch (err) {
+                                alert(err.message || '留言失败');
+                              } finally {
+                                setGuestbookSubmitting(false);
+                              }
+                            }}
+                          >
+                            {guestbookSubmitting ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* 留言列表 */}
+                      {guestbookLoading ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-quaternary)' }}>
+                          <Loader2 size={20} className="spin" />
+                        </div>
+                      ) : guestbookMessages.length > 0 ? (
+                        <div className="guestbook-list">
+                          {guestbookMessages.map(msg => (
+                            <div key={msg.id} className="guestbook-item">
+                              <div className="guestbook-item-header">
+                                <Link to={`/user/${msg.author_id}`} className="guestbook-author">
+                                  <img src={msg.author_avatar || FALLBACK_IMG} alt="" className="guestbook-author-avatar" loading="lazy" onError={e => { e.target.src = FALLBACK_IMG; }} />
+                                  <span className="guestbook-author-name">{msg.author_name || '用户'}</span>
+                                </Link>
+                                <span className="guestbook-time">{new Date(msg.created_at).toLocaleDateString('zh-CN')}</span>
+                                {/* 删除按钮：留言板主人或留言作者 */}
+                                {isAuthenticated && (currentUser?.id === msg.author_id || currentUser?.id === parseInt(effectiveUserId)) && (
+                                  <button className="guestbook-delete-btn" onClick={async () => {
+                                    if (!confirm('确定删除这条留言？')) return;
+                                    try {
+                                      await UserGuestbookService.deleteMessage(parseInt(effectiveUserId), msg.id);
+                                      setGuestbookMessages(prev => prev.filter(m => m.id !== msg.id));
+                                    } catch {}
+                                  }}>
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+                              <p className="guestbook-content">{msg.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="category-empty">暂无留言</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ─── 评论标签页 ─── */}
+              {activeTab === 'comments' && (
+                <div className="user-profile-comments-tab">
+                  {commentsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-quaternary)' }}>
+                      <Loader2 size={20} className="spin" />
+                    </div>
+                  ) : userComments.length > 0 ? (
+                    <div className="user-profile-comments">
+                      {userComments.map(comment => (
+                        <div key={comment.id} className="user-profile-comment-item">
+                          <div className="comment-item-header">
+                            {comment.subject_name && (
+                              <Link
+                                to={`/info/${comment.subject_type === 1 ? 'novel' : comment.subject_type === 4 ? 'game' : 'anime'}/${comment.subject_id}`}
+                                className="comment-subject-link"
+                              >
+                                {comment.subject_name}
+                              </Link>
+                            )}
+                            {comment.score > 0 && (
+                              <span className="comment-score">
+                                <Star size={10} fill="var(--accent-warm)" style={{ color: 'var(--accent-warm)' }} /> {comment.score}
+                              </span>
+                            )}
+                          </div>
+                          {comment.content && (
+                            <p className="comment-item-content">{comment.content.length > 200 ? comment.content.substring(0, 200) + '...' : comment.content}</p>
+                          )}
+                          <span className="comment-item-time">{new Date(comment.created_at).toLocaleDateString('zh-CN')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="category-empty">暂无评论</div>
+                  )}
+                </div>
+              )}
+
+              {/* ─── 资讯标签页 ─── */}
+              {activeTab === 'news' && (
+                <div className="user-profile-news-tab">
+                  {/* 资讯显示开关（仅自己主页） */}
+                  {isSelf && (
+                    <div className="guestbook-toggle">
+                      <span>在主页显示资讯</span>
+                      <button
+                        className={`guestbook-toggle-btn ${userInfo?.show_news ? 'on' : 'off'}`}
+                        onClick={async () => {
+                          const newVal = userInfo?.show_news ? 0 : 1;
+                          try {
+                            await UserGuestbookService.updateProfileVisibility(currentUser.id, { show_news: newVal });
+                            setUserInfo(prev => ({ ...prev, show_news: newVal }));
+                          } catch {}
+                        }}
+                      >
+                        {userInfo?.show_news ? '已开启' : '已关闭'}
+                      </button>
+                    </div>
+                  )}
+                  {!isSelf && !userInfo?.show_news ? (
+                    <div className="category-empty">
+                      <Lock size={32} />
+                      <p>该用户已隐藏资讯</p>
+                    </div>
+                  ) : newsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-quaternary)' }}>
+                      <Loader2 size={20} className="spin" />
+                    </div>
+                  ) : userNews.length > 0 ? (
+                    <div className="user-profile-news-list">
+                      {userNews.map(item => (
+                        <Link key={item.id} to={`/news/${item.id}`} className="user-profile-news-item">
+                          <div className="news-item-info">
+                            <span className="news-item-title">{item.title}</span>
+                            <span className="news-item-meta">{item.source || '原创'} · {new Date(item.created_at).toLocaleDateString('zh-CN')}</span>
+                          </div>
+                          {item.cover && <img src={item.cover} alt="" className="news-item-cover" loading="lazy" onError={e => { e.target.style.display = 'none'; }} />}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="category-empty">暂无资讯</div>
+                  )}
+                </div>
+              )}
+
+              {/* ─── 发帖标签页 ─── */}
+              {activeTab === 'posts' && (
+                <div className="user-profile-posts-tab">
+                  {/* 发帖显示开关（仅自己主页） */}
+                  {isSelf && (
+                    <div className="guestbook-toggle">
+                      <span>在主页显示发帖</span>
+                      <button
+                        className={`guestbook-toggle-btn ${userInfo?.show_posts ? 'on' : 'off'}`}
+                        onClick={async () => {
+                          const newVal = userInfo?.show_posts ? 0 : 1;
+                          try {
+                            await UserGuestbookService.updateProfileVisibility(currentUser.id, { show_posts: newVal });
+                            setUserInfo(prev => ({ ...prev, show_posts: newVal }));
+                          } catch {}
+                        }}
+                      >
+                        {userInfo?.show_posts ? '已开启' : '已关闭'}
+                      </button>
+                    </div>
+                  )}
+                  {!isSelf && !userInfo?.show_posts ? (
+                    <div className="category-empty">
+                      <Lock size={32} />
+                      <p>该用户已隐藏发帖</p>
+                    </div>
+                  ) : postsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-quaternary)' }}>
+                      <Loader2 size={20} className="spin" />
+                    </div>
+                  ) : userPosts.length > 0 ? (
+                    <div className="user-profile-posts-list">
+                      {userPosts.map(post => (
+                        <Link key={post.id} to={`/forum/${post.id}`} className="user-profile-post-item">
+                          <div className="post-item-info">
+                            <span className="post-item-title">{post.title}</span>
+                            <span className="post-item-meta">{post.category || '综合'} · {new Date(post.created_at).toLocaleDateString('zh-CN')} · {post.views || 0} 浏览</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="category-empty">暂无发帖</div>
+                  )}
                 </div>
               )}
             </>

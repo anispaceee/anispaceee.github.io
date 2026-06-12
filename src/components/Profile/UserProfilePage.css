@@ -1029,6 +1029,241 @@
   font-size: 12px;
 }
 
+/* ─── 留言板样式 ─── */
+.guestbook-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-secondary);
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.guestbook-toggle-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.guestbook-toggle-btn.on {
+  background: var(--primary);
+  color: #fff;
+}
+
+.guestbook-toggle-btn.off {
+  background: var(--bg-input);
+  color: var(--text-quaternary);
+}
+
+.guestbook-input-wrap {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.guestbook-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 13px;
+  resize: none;
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.guestbook-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.guestbook-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
+.guestbook-send-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+.guestbook-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.guestbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guestbook-item {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  border: 1px solid var(--border-secondary);
+  transition: all var(--transition-fast);
+}
+
+.guestbook-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.guestbook-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.guestbook-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.guestbook-author:hover .guestbook-author-name {
+  color: var(--primary);
+}
+
+.guestbook-author-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.guestbook-author-name {
+  font-size: 13px;
+  font-weight: 600;
+  transition: color var(--transition-fast);
+}
+
+.guestbook-time {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  margin-left: auto;
+}
+
+.guestbook-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-quaternary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  opacity: 0;
+}
+
+.guestbook-item:hover .guestbook-delete-btn {
+  opacity: 1;
+}
+
+.guestbook-delete-btn:hover {
+  background: rgba(245, 108, 108, 0.1);
+  color: var(--error);
+}
+
+.guestbook-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  word-break: break-word;
+}
+
+/* ─── 资讯/发帖列表样式 ─── */
+.user-profile-news-list,
+.user-profile-posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-profile-news-item,
+.user-profile-post-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-secondary);
+  text-decoration: none;
+  color: inherit;
+  transition: all var(--transition-fast);
+}
+
+.user-profile-news-item:hover,
+.user-profile-post-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+  border-color: var(--primary-light);
+}
+
+.news-item-info,
+.post-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.news-item-title,
+.post-item-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.news-item-meta,
+.post-item-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--text-quaternary);
+  margin-top: 4px;
+}
+
+.news-item-cover {
+  width: 60px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 /* ─── 响应式 ─── */
 @media (max-width: 900px) {
   .user-profile-layout {
