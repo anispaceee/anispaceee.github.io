@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useCallback, useRef } from 'react'
 const WindowManagerContext = createContext(null);
 
 const DEFAULT_WINDOW_CONFIG = {
-  music: { title: '音乐', icon: '🎵', width: 420, height: 560, minWidth: 300, minHeight: 400 },
+  music: { title: '音乐', icon: '🎵', width: 740, height: 700, minWidth: 440, minHeight: 500 },
   friends: { title: 'LeMU', icon: '👥', width: 480, height: 600, minWidth: 300, minHeight: 400 },
   amadeus: { title: 'Navi', icon: '🧠', width: 680, height: 520, minWidth: 400, minHeight: 400 },
   world: { title: '世界线', icon: '💬', width: 450, height: 550, minWidth: 300, minHeight: 400 },

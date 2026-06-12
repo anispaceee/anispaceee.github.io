@@ -87,7 +87,6 @@ export default function DockBar() {
   };
 
   const launcherApps = [
-    { id: 'touchgal', icon: <Gamepad2 size={18} />, label: 'TouchGal' },
     { id: 'club', icon: <Coffee size={18} />, label: 'Tea Time！' },
     { id: 'friends', icon: <Users size={18} />, label: '好友空间' },
     { id: 'music', icon: <Music size={18} />, label: '音乐' },
@@ -120,7 +119,6 @@ export default function DockBar() {
 
   const dockItems = [
     { key: 'launcher', icon: <ChevronUp size={16} />, label: '应用', active: showLauncher, onClick: () => { setShowLauncher(prev => !prev); setActivePanel(null); } },
-    { key: 'touchgal', icon: <Gamepad2 size={16} />, label: 'TouchGal', active: windows.touchgal?.open && !windows.touchgal.minimized, onClick: () => handleAppClick('touchgal') },
     { key: 'club', icon: <Coffee size={16} />, label: 'Tea Time！', active: windows.club?.open && !windows.club.minimized, onClick: () => handleAppClick('club') },
     { key: 'world', icon: <Globe size={16} />, label: '世界线', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
     { key: 'amadeus', icon: <Brain size={16} />, label: 'Navi', active: windows.amadeus?.open && !windows.amadeus.minimized, onClick: () => handleAppClick('amadeus') },
