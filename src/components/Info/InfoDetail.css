@@ -66,9 +66,6 @@
 .detail-container .detail-source-picker { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
 .detail-container .detail-source-item { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
 .detail-container .detail-source-name { color: rgba(255,255,255,0.8); }
-.detail-container .vertical-rating-dist .vrd-bar-track { background: rgba(255,255,255,0.1); }
-.detail-container .vrd-score { color: rgba(255,255,255,0.6); }
-.detail-container .vrd-pct { color: rgba(255,255,255,0.3); }
 .detail-container .detail-tags-toggle { color: rgba(255,255,255,0.5); }
 .detail-container .bgm-comments-section { border-top-color: rgba(255,255,255,0.1); }
 .detail-container .bgm-comments-title { color: #fff; }
@@ -330,18 +327,39 @@
 .bgm-load-more:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
 .bgm-load-more:disabled { opacity: 0.6; }
 
-/* 评分分布组件 */
+/* 评分分布组件 - 终端进度条风格 */
 .vertical-rating-dist { padding: 4px 0; }
-.vrd-bars { display: flex; align-items: flex-end; gap: 4px; height: 140px; padding: 0 4px; }
-.vrd-bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; cursor: pointer; padding: 2px 1px; border-radius: var(--radius-xs); transition: all var(--transition-fast); background: none; }
-.vrd-bar-col:hover { background: var(--bg-card); }
-.vrd-bar-col.active { background: var(--primary-bg); }
-.vrd-bar-col.dimmed { opacity: 0.3; }
-.vrd-pct { font-size: 9px; color: var(--text-quaternary); margin-bottom: 2px; white-space: nowrap; }
-.vrd-bar-track { flex: 1; width: 100%; max-width: 14px; background: var(--bg-card); border-radius: 6px; position: relative; display: flex; align-items: flex-end; }
-.vrd-bar-fill { width: 100%; border-radius: 6px; transition: height 0.3s ease; min-height: 2px; }
-.vrd-score { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 2px; }
-.vrd-filter-hint { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--primary-bg); border-radius: var(--radius-sm); margin-top: 6px; font-size: 11px; color: var(--primary); font-weight: 600; }
+.terminal-rating-bars { display: flex; flex-direction: column; gap: 2px; }
+.terminal-rating-row {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 11px; line-height: 1.4;
+  padding: 2px 4px; border-radius: 3px;
+  background: none; border: none; cursor: pointer;
+  transition: all 0.15s ease; color: rgba(255,255,255,0.6);
+  text-align: left; width: 100%;
+}
+.terminal-rating-row:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
+.terminal-rating-row.active { background: rgba(232,67,147,0.12); color: #fff; }
+.terminal-rating-row.dimmed { opacity: 0.3; }
+.terminal-rating-score {
+  width: 18px; text-align: right; flex-shrink: 0;
+  font-weight: 700; color: rgba(255,255,255,0.4);
+}
+.terminal-rating-row:hover .terminal-rating-score { color: var(--primary); }
+.terminal-rating-row.active .terminal-rating-score { color: var(--primary); }
+.terminal-rating-bar {
+  flex: 1; letter-spacing: -1px; color: var(--primary);
+  white-space: nowrap; overflow: hidden;
+}
+.terminal-rating-row.dimmed .terminal-rating-bar { color: rgba(232,67,147,0.3); }
+.terminal-rating-pct {
+  width: 38px; text-align: right; flex-shrink: 0;
+  color: rgba(255,255,255,0.3); font-size: 10px;
+}
+.terminal-rating-row:hover .terminal-rating-pct { color: rgba(255,255,255,0.6); }
+.terminal-rating-row.active .terminal-rating-pct { color: rgba(255,255,255,0.7); }
+.vrd-filter-hint { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: rgba(232,67,147,0.08); border-radius: var(--radius-sm); margin-top: 6px; font-size: 11px; color: var(--primary); font-weight: 600; }
 .vrd-filter-clear { margin-left: auto; padding: 2px 6px; background: var(--primary); color: #fff; border-radius: 4px; font-size: 10px; font-weight: 600; }
 
 /* ============ 站内观看 Tab ============ */
@@ -426,7 +444,5 @@
   .detail-title { font-size: 20px; }
   .detail-tabs-header { overflow-x: auto; }
   .detail-tab { padding: 8px 16px; font-size: 13px; white-space: nowrap; }
-  .vrd-bars { height: 110px; gap: 2px; }
-  .vrd-bar-track { max-width: 10px; }
   .breadcrumb-current { max-width: 160px; }
 }

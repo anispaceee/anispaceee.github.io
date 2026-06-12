@@ -45,22 +45,21 @@ function VerticalRatingDistribution({ rating, onFilterChange, activeFilter }) {
   };
 
   return (
-    <div className="vertical-rating-dist">
-      <div className="vrd-bars">
+    <div className="vertical-rating-dist terminal-rating">
+      <div className="terminal-rating-bars">
         {[10,9,8,7,6,5,4,3,2,1].map(s => {
           const count = counts[s] || 0;
-          const pct = (count / maxCount) * 100;
           const totalPct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+          const filled = Math.round((count / maxCount) * 10);
+          const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
           const isActive = activeFilter === s;
           const isAnyFilter = activeFilter !== null;
           return (
-            <button key={s} className={`vrd-bar-col ${isActive ? 'active' : ''} ${isAnyFilter && !isActive ? 'dimmed' : ''}`}
+            <button key={s} className={`terminal-rating-row ${isActive ? 'active' : ''} ${isAnyFilter && !isActive ? 'dimmed' : ''}`}
               onClick={() => onFilterChange(activeFilter === s ? null : s)} title={`${s}分: ${count}人 (${totalPct}%)`}>
-              <span className="vrd-pct">{totalPct}%</span>
-              <div className="vrd-bar-track">
-                <div className="vrd-bar-fill" style={{ height: `${pct}%`, background: scoreColors[s] || 'var(--primary)' }} />
-              </div>
-              <span className="vrd-score">{s}</span>
+              <span className="terminal-rating-score">{s}</span>
+              <span className="terminal-rating-bar">{bar}</span>
+              <span className="terminal-rating-pct">{totalPct}%</span>
             </button>
           );
         })}
