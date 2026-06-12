@@ -167,7 +167,7 @@ const CHAT_HISTORY_KEY = 'acg_amadeus_history';
 const PERSONA_LIST_KEY = 'acg_navi_personas';
 const ACTIVE_PERSONA_KEY = 'acg_navi_active_persona';
 const MAX_HISTORY = 200;
-const DEFAULT_LLM_CONFIG = { provider: 'local', apiKey: '', baseUrl: '', model: '' };
+const DEFAULT_LLM_CONFIG = { provider: 'local', apiKey: '', baseUrl: '', model: '', remember: false };
 const QUICK_REPLIES = ['推荐番剧', '命运石之门', '有什么功能？', '聊聊游戏', '讲个笑话'];
 
 function makeGreetingMessage(persona) {
@@ -219,10 +219,9 @@ export default function Amadeus() {
   const [showSettings, setShowSettings] = useState(false);
   const [editingOC, setEditingOC] = useState(null); // 正在编辑的 OC 对象，null 表示未打开
   const [llmConfig, setLlmConfig] = useState(() => {
-    // M-8: 使用 sessionStorage 替代 localStorage，避免 API Key 持久化泄露
     try {
-      const saved = sessionStorage.getItem(LLM_CONFIG_KEY);
-      return saved ? JSON.parse(saved) : DEFAULT_LLM_CONFIG;
+      const raw = localStorage.getItem(LLM_CONFIG_KEY) || sessionStorage.getItem(LLM_CONFIG_KEY);
+      return raw ? { ...DEFAULT_LLM_CONFIG, ...JSON.parse(raw) } : DEFAULT_LLM_CONFIG;
     } catch {
       return DEFAULT_LLM_CONFIG;
     }
@@ -390,7 +389,38 @@ export default function Amadeus() {
     if (activePersonaId === id) switchPersona(PRESET_PERSONAS[0].id);
     setEditingOC(null);
   };
-  const saveConfig = () => { setLlmConfig(configDraft); sessionStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(configDraft)); setConfigSaved(true); setTimeout(() => setConfigSaved(false), 2000); };
+  const saveConfig = () => {
+    setLlmConfig(configDraft);
+    const json = JSON.stringify(configDraft);
+    if (configDraft.remember) {
+      localStorage.setItem(LLM_CONFIG_KEY, json);
+      sessionStorage.removeItem(LLM_CONFIG_KEY);
+    } else {
+      sessionStorage.setItem(LLM_CONFIG_KEY, json);
+      localStorage.removeItem(LLM_CONFIG_KEY);
+    }
+    setConfigSaved(true);
+    setTimeout(() => setConfigSaved(false), 2000);
+  };
+
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(''); // '', 'ok', 'fail'
+
+  const handleTestConnection = async () => {
+    setTesting(true); setTestResult(''); setLlmError('');
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 15000);
+    try {
+      await testConnection(configDraft, controller.signal);
+      setTestResult('ok');
+    } catch (err) {
+      setTestResult('fail');
+      setLlmError(err.message || '连接失败');
+    } finally {
+      clearTimeout(tid);
+      setTesting(false);
+    }
+  };
   const handleEmojiSelect = (emoji) => { setInput(prev => prev + emoji); };
 
   const renderContent = (content) => content.split('\n').map((line, i) => {
@@ -483,6 +513,16 @@ export default function Amadeus() {
                   <div className="amadeus-settings-group"><label><Key size={12} /> API Key</label><input type="password" placeholder="输入API Key" value={configDraft.apiKey} onChange={e => setConfigDraft(prev => ({ ...prev, apiKey: e.target.value }))} /></div>
                   <div className="amadeus-settings-group"><label><Server size={12} /> API 地址</label><input placeholder="API URL" value={configDraft.baseUrl} onChange={e => setConfigDraft(prev => ({ ...prev, baseUrl: e.target.value }))} /></div>
                   <div className="amadeus-settings-group"><label>模型</label><input placeholder="模型名称" value={configDraft.model} onChange={e => setConfigDraft(prev => ({ ...prev, model: e.target.value }))} /></div>
+                  <div className="amadeus-settings-group amadeus-remember-row">
+                    <label><input type="checkbox" checked={!!configDraft.remember} onChange={e => setConfigDraft(prev => ({ ...prev, remember: e.target.checked }))} /> 记住 API Key（保存在本机浏览器）</label>
+                  </div>
+                  <div className="amadeus-settings-group">
+                    <button className="amadeus-test-btn" onClick={handleTestConnection} disabled={testing}>
+                      {testing ? '测试中…' : '测试连接'}
+                      {testResult === 'ok' && <Check size={14} />}
+                      {testResult === 'fail' && <AlertCircle size={14} />}
+                    </button>
+                  </div>
                 </>
               )}
               <div className="amadeus-settings-actions">
