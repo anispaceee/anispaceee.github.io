@@ -495,7 +495,7 @@ export default function HomePage() {
               <div className="home-random-header">
                 <h2 className="home-section-title"><Sparkles size={18} /> 随·心·斩！</h2>
               </div>
-              <RandomRecommendCard subject={randomSubject} loading={randomLoading} onRefresh={fetchRandom} />
+              <RandomRecommendCard subject={randomSubject} loading={randomLoading} onRefresh={() => fetchRandom()} activeType={randomType} onTypeChange={handleRandomTypeChange} />
             </div>
 
             {/* 每日放送 */}

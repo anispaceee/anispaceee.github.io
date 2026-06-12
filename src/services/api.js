@@ -476,8 +476,8 @@ export const ForumService = {
     return await apiRequest(`/api/posts?${params}`);
   },
 
-  async getPostById(id) {
-    return await apiRequest(`/api/posts/${id}`);
+  async getPostById(id, replySort = 'oldest') {
+    return await apiRequest(`/api/posts/${id}?reply_sort=${replySort}`);
   },
 
   async createPost(data) {
@@ -487,10 +487,12 @@ export const ForumService = {
     });
   },
 
-  async addReply(postId, content) {
+  async addReply(postId, content, parentId = null) {
+    const body = { content };
+    if (parentId) body.parent_id = parentId;
     return await apiRequest(`/api/posts/${postId}/replies`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(body),
     });
   },
 
@@ -503,6 +505,12 @@ export const ForumService = {
   async deletePost(postId) {
     return await apiRequest(`/api/posts/${postId}`, {
       method: 'DELETE',
+    });
+  },
+
+  async toggleReplyLike(replyId) {
+    return await apiRequest(`/api/replies/${replyId}/like`, {
+      method: 'POST',
     });
   },
 
@@ -936,6 +944,26 @@ export const BangumiService = {
     return result;
   },
 
+  async browseSubjects(type = 2, sort = 'rank', limit = 30, offset = 0) {
+    let url = `${this.BASE_URL}/v0/subjects?type=${type}&limit=${limit}&offset=${offset}`;
+    if (sort) url += `&sort=${sort}`;
+    const cacheKey = this._cacheKey('browse', `${type}_${sort}_${limit}_${offset}`);
+    try {
+      const data = await this._request(url, cacheKey, true, 300);
+      if (data && Array.isArray(data.data)) {
+        return {
+          data: data.data.map(normalizeSubject).filter(Boolean),
+          total: data.total || 0,
+          limit: data.limit || limit,
+          offset: data.offset || offset,
+        };
+      }
+      return { data: [], total: 0, limit, offset };
+    } catch {
+      return { data: [], total: 0, limit, offset };
+    }
+  },
+
   async searchPersons(keyword, limit = 24, offset = 0) {
     const url = `${this.BASE_URL}/v0/persons?keyword=${encodeURIComponent(keyword)}&limit=${limit}&offset=${offset}`;
     const cacheKey = this._cacheKey('search_persons', `${keyword}_${limit}_${offset}`);
@@ -1005,58 +1033,77 @@ export const BangumiService = {
 
   clearCache() { CacheManager.clearAll(); },
 
-  async getRandomSubject(excludeIds = []) {
-    const HISTORY_KEY = 'acg_random_history';
+  async getRandomSubject(type = 0, excludeIds = []) {
+    const HISTORY_KEY_PREFIX = 'acg_random_history';
     const MAX_HISTORY = 50;
-    const FALLBACK_IDS = [12,323,590,1142,1319,1840,2001,2692,3228,4312,5033,6487,7662,8733,9914,10659,11661,12661,13761,15061];
+    const SCORE_THRESHOLD = 6.5;
+    // Bangumi type: 1=小说, 2=动画, 3=音乐, 4=游戏, 6=三次元
+    const TYPE_MAP = { anime: 2, game: 4, novel: 1, real: 6 };
+    const typeCode = typeof type === 'string' ? TYPE_MAP[type] : type; // 0=全部
 
+    const getHistoryKey = () => `${HISTORY_KEY_PREFIX}_${typeCode || 'all'}`;
     const loadHistory = () => {
       try {
-        const raw = localStorage.getItem(HISTORY_KEY);
+        const raw = localStorage.getItem(getHistoryKey());
         return raw ? JSON.parse(raw) : [];
       } catch { return []; }
     };
-
     const saveHistory = (ids) => {
       const trimmed = ids.slice(-MAX_HISTORY);
-      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed)); } catch {}
+      try { localStorage.setItem(getHistoryKey(), JSON.stringify(trimmed)); } catch {}
     };
 
     const history = loadHistory();
     const allExcluded = [...new Set([...excludeIds, ...history])];
 
-    // /browse 端点已废弃(404)，改用 calendar 数据
-    try {
-      const calendarData = await this.getCalendar();
-      if (Array.isArray(calendarData)) {
-        const allItems = calendarData.flatMap(day => day.items || []);
-        const candidates = allItems
-          .filter(s => s && s.id && !allExcluded.includes(s.id) && (s.rating?.score || s.score || 0) > 6);
-        if (candidates.length > 0) {
-          const selected = candidates[Math.floor(Math.random() * candidates.length)];
-          history.push(selected.id);
-          saveHistory(history);
-          return selected;
-        }
-      }
-    } catch {}
+    const pickRandom = (candidates) => {
+      if (candidates.length === 0) return null;
+      const selected = candidates[Math.floor(Math.random() * candidates.length)];
+      history.push(selected.id);
+      saveHistory(history);
+      return selected;
+    };
 
-    // fallback: 使用固定 ID 列表
-    const available = FALLBACK_IDS.filter(id => !allExcluded.includes(id));
-    const pool = available.length > 0 ? available : FALLBACK_IDS;
-    const pickId = pool[Math.floor(Math.random() * pool.length)];
-    try {
-      const subject = await this.getSubject(pickId);
-      if (subject) {
-        const normalized = normalizeSubject(subject);
-        history.push(pickId);
-        saveHistory(history);
-        return normalized;
-      }
-      return null;
-    } catch {
-      return null;
+    // 1. 动画类型优先从 calendar 获取（数据更丰富）
+    if (typeCode === 2 || typeCode === 0) {
+      try {
+        const calendarData = await this.getCalendar();
+        if (Array.isArray(calendarData)) {
+          let allItems = calendarData.flatMap(day => day.items || []);
+          if (typeCode === 2) allItems = allItems.filter(s => s.type === 2);
+          const candidates = allItems
+            .filter(s => s && s.id && !allExcluded.includes(s.id) && (s.rating?.score || s.score || 0) >= SCORE_THRESHOLD);
+          if (candidates.length > 0) return pickRandom(candidates);
+        }
+      } catch {}
     }
+
+    // 2. 使用 /v0/subjects 端点按类型浏览高分条目
+    const typesToBrowse = typeCode === 0 ? [2, 4, 1, 6] : [typeCode];
+    for (const t of typesToBrowse) {
+      try {
+        const result = await this.browseSubjects(t, 'rank', 50);
+        if (result.data && result.data.length > 0) {
+          const candidates = result.data
+            .filter(s => s && s.id && !allExcluded.includes(s.id) && (s.rating?.score || s.score || 0) >= SCORE_THRESHOLD);
+          if (candidates.length > 0) return pickRandom(candidates);
+        }
+      } catch {}
+    }
+
+    // 3. fallback: 降低评分要求再试一次
+    for (const t of typesToBrowse) {
+      try {
+        const result = await this.browseSubjects(t, 'rank', 50);
+        if (result.data && result.data.length > 0) {
+          const candidates = result.data
+            .filter(s => s && s.id && !allExcluded.includes(s.id) && (s.rating?.score || s.score || 0) > 5);
+          if (candidates.length > 0) return pickRandom(candidates);
+        }
+      } catch {}
+    }
+
+    return null;
   },
 };
 
