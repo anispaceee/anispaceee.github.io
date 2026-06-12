@@ -165,6 +165,27 @@ export default function InfoDetail() {
 
   // Tab 状态
   const [activeTab, setActiveTab] = useState('summary');
+  const [displayedTitle, setDisplayedTitle] = useState('');
+  const [showCursor, setShowCursor] = useState(true);
+  const heroTitle = subject?.name_cn || subject?.name || '';
+
+  // 打字机效果
+  useEffect(() => {
+    if (!heroTitle) return;
+    setDisplayedTitle('');
+    setShowCursor(true);
+    let i = 0;
+    const timer = setInterval(() => {
+      if (i < heroTitle.length) {
+        setDisplayedTitle(heroTitle.slice(0, i + 1));
+        i++;
+      } else {
+        clearInterval(timer);
+        setTimeout(() => setShowCursor(false), 1500);
+      }
+    }, 80);
+    return () => clearInterval(timer);
+  }, [heroTitle]);
   // 标签折叠状态
   const [tagsExpanded, setTagsExpanded] = useState(false);
 
@@ -632,8 +653,9 @@ export default function InfoDetail() {
         </div>
       )}
       <div className="detail-hero">
-        <h1 className="detail-hero-title" style={{ opacity: Math.max(0, 1 - scrollY / 200) }}>
-          {subject.name_cn || subject.name}
+        <h1 className="detail-hero-title" style={{ opacity: Math.max(0, 1 - scrollY / 200), textAlign: 'center', width: '100%' }}>
+          <span className="typewriter-text">{displayedTitle}</span>
+          {showCursor && <span className="typewriter-cursor">|</span>}
         </h1>
       </div>
       <div 

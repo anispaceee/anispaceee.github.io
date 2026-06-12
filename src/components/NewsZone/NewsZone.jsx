@@ -85,6 +85,9 @@ export default function NewsZone() {
 
   useEffect(() => {
     loadData(1);
+    // 每5分钟自动刷新数据
+    const timer = setInterval(() => loadData(1), 5 * 60 * 1000);
+    return () => clearInterval(timer);
   }, [loadData]);
 
   // 无限滚动
