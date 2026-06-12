@@ -3544,11 +3544,17 @@ export default {
         let inList = false;
 
         // 简单的 HTML 解析（Worker 中 HTMLRewriter 不支持 CSS 选择器，使用正则提取）
-        const listRegex = new RegExp(selectors.list || '<body>', 'i');
-        const itemRegex = new RegExp(selectors.item || '<a[^>]*>', 'gi');
-        const titleRegex = selectors.title ? new RegExp(selectors.title, 'i') : null;
-        const linkRegex = selectors.link ? new RegExp(selectors.link, 'i') : /href=["']([^"']+)["']/i;
-        const coverRegex = selectors.cover ? new RegExp(selectors.cover, 'i') : null;
+        // 使用 try-catch 包裹正则构造，防止用户传入无效正则导致 500
+        let listRegex, itemRegex, titleRegex, linkRegex, coverRegex;
+        try {
+          listRegex = new RegExp(selectors.list || '<body>', 'i');
+          itemRegex = new RegExp(selectors.item || '<a[^>]*>', 'gi');
+          titleRegex = selectors.title ? new RegExp(selectors.title, 'i') : null;
+          linkRegex = selectors.link ? new RegExp(selectors.link, 'i') : /href=["']([^"']+)["']/i;
+          coverRegex = selectors.cover ? new RegExp(selectors.cover, 'i') : null;
+        } catch (regexErr) {
+          return jsonResponse({ error: `选择器正则语法错误: ${regexErr.message}` }, 400, origin);
+        }
 
         // 使用更健壮的解析方式：提取所有匹配项
         const itemMatches = html.match(itemRegex) || [];
@@ -3618,9 +3624,14 @@ export default {
         const html = await res.text();
 
         const episodes = [];
-        const episodeItemRegex = new RegExp(selectors.episodeItem || '<a[^>]*>', 'gi');
-        const episodeTitleRegex = selectors.episodeTitle ? new RegExp(selectors.episodeTitle, 'i') : />([^<]+)</;
-        const episodeUrlRegex = selectors.episodeUrl ? new RegExp(selectors.episodeUrl, 'i') : /href=["']([^"']+)["']/i;
+        let episodeItemRegex, episodeTitleRegex, episodeUrlRegex;
+        try {
+          episodeItemRegex = new RegExp(selectors.episodeItem || '<a[^>]*>', 'gi');
+          episodeTitleRegex = selectors.episodeTitle ? new RegExp(selectors.episodeTitle, 'i') : />([^<]+)</;
+          episodeUrlRegex = selectors.episodeUrl ? new RegExp(selectors.episodeUrl, 'i') : /href=["']([^"']+)["']/i;
+        } catch (regexErr) {
+          return jsonResponse({ error: `选择器正则语法错误: ${regexErr.message}` }, 400, origin);
+        }
 
         const episodeMatches = html.match(episodeItemRegex) || [];
         for (const epHtml of episodeMatches.slice(0, 200)) {
@@ -3644,9 +3655,14 @@ export default {
 
         // 如果有 playSelectors，尝试提取 m3u8 链接
         if (selectors.videoSource && episodes.length > 0) {
-          const videoSourceRegex = new RegExp(selectors.videoSource, 'gi');
+          let videoSourceRegex;
+          try {
+            videoSourceRegex = new RegExp(selectors.videoSource, 'gi');
+          } catch (regexErr) {
+            return jsonResponse({ error: `视频源选择器正则语法错误: ${regexErr.message}` }, 400, origin);
+          }
           const m3u8Matches = html.match(/https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/gi) || [];
-          const mp4Matches = html.match(/https?:\/\/[^\s"'"'<>]+\.mp4[^\s"'<>]*/gi) || [];
+          const mp4Matches = html.match(/https?:\/\/[^\s"'<>]+\.mp4[^\s"'<>]*/gi) || [];
           const videoUrls = [...m3u8Matches, ...mp4Matches];
 
           if (videoUrls.length > 0) {
@@ -3666,7 +3682,7 @@ export default {
     // ─── RSS 源：通用 RSS 获取 ─────────────────────────────
     // GET /api/rss/fetch?url=xxx
     // 返回: { items: [{ title, link, pubDate, size, description }] }
-    if (url.pathname === '/api/rss/fetch') {
+    if (method === 'GET' && url.pathname === '/api/rss/fetch') {
       const rssUrl = url.searchParams.get('url');
       if (!rssUrl) {
         return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
@@ -3745,7 +3761,7 @@ export default {
     // ─── Mikan 索引：Bangumi ID → Mikan 番剧 ─────────────
     // GET /api/mikan/subject/:bgmId
     // 返回: { bgmId, mikanId, items: [{ title, link, pubDate, size }] }
-    if (url.pathname.match(/^\/api\/mikan\/subject\/\d+$/)) {
+    if (method === 'GET' && url.pathname.match(/^\/api\/mikan\/subject\/\d+$/)) {
       const bgmId = url.pathname.split('/').pop();
       if (!bgmId) {
         return jsonResponse({ error: '缺少 Bangumi ID' }, 400, origin);

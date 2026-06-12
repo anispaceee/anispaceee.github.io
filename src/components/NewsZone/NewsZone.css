@@ -110,6 +110,16 @@
 /* Preview area */
 .news-preview { min-height: 200px; padding: 12px; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); font-size: 14px; color: var(--text-primary); line-height: 1.6; overflow-y: auto; max-height: 400px; }
 
+/* Cover image upload */
+.news-cover-upload { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px; border: 2px dashed var(--border-secondary); border-radius: var(--radius-md); color: var(--text-tertiary); font-size: 13px; cursor: pointer; transition: all var(--transition-fast); aspect-ratio: 16/9; max-height: 160px; }
+.news-cover-upload:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+.news-cover-preview { position: relative; border-radius: var(--radius-md); overflow: hidden; max-height: 160px; aspect-ratio: 16/9; }
+.news-cover-preview img { width: 100%; height: 100%; object-fit: cover; }
+.news-cover-remove { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%; }
+.news-cover-remove:hover { background: var(--error); }
+.news-cover-url-input { margin-top: 6px; padding: 8px 10px; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); width: 100%; }
+.news-cover-url-input:focus { border-color: var(--primary); outline: none; }
+
 /* ─── 资讯详情页 ─── */
 .news-detail { display: flex; flex-direction: column; gap: 16px; }
 .news-detail-back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--primary); font-weight: 500; text-decoration: none; width: fit-content; }

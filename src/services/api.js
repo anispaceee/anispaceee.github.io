@@ -649,6 +649,19 @@ export const NewsService = {
     return await apiRequest(`/api/news/${id}`);
   },
 
+  async updateNews(id, data) {
+    return await apiRequest(`/api/news/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteNews(id) {
+    return await apiRequest(`/api/news/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   // 聚合资讯流（爬取的多源数据）
   async getNewsFeed({ page = 1, limit = 20, source = '', category = '' } = {}) {
     const params = new URLSearchParams({ page, limit });

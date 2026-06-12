@@ -28,10 +28,10 @@ class DanDanPlayProvider implements DanmakuProvider {
         rawBase = import.meta.env.VITE_OAUTH_PROXY_URL;
       }
     } catch {}
-    const base = rawBase || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+    const base = rawBase || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
     // Safety check: override stale URL pointing to old workers.dev subdomain
     this.proxyBase = base.includes('lyw2373314970')
-      ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
+      ? 'https://anispace-oauth-proxy.lyw2373314970.workers.dev'
       : base;
   }
 

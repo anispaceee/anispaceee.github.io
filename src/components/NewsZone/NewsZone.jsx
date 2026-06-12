@@ -12,10 +12,12 @@ const SOURCE_CONFIG = {
   bangumi_hot: { label: 'Bangumi 热门', color: '#e8674f', icon: Flame },
   gamersky: { label: '游民星空', color: '#3b82f6', icon: Newspaper },
   '3dmgame': { label: '3DMGame', color: '#f59e0b', icon: Gamepad2 },
+  ymgal: { label: '月幕 Galgame', color: '#a855f7', icon: Sparkles },
+  cngal: { label: 'CnGal', color: '#06b6d4', icon: Book },
   custom: { label: '站内资讯', color: '#10b981', icon: Sparkles },
 };
 
-const CATEGORIES = ['全部', '新番导视', '热门推荐', '业界动态', '新作速报', '新作发售'];
+const CATEGORIES = ['全部', '新番导视', '热门推荐', '业界动态', '新作发售', 'Gal档案', '每周速报'];
 
 export default function NewsZone() {
   const navigate = useNavigate();
@@ -29,13 +31,15 @@ export default function NewsZone() {
   const [refreshing, setRefreshing] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [submitMode, setSubmitMode] = useState('link');
-  const [applyForm, setApplyForm] = useState({ title: '', source: '', link: '', category: '' });
+  const [applyForm, setApplyForm] = useState({ title: '', source: '', link: '', category: '', cover: '' });
   const [articleContent, setArticleContent] = useState('');
   const [articleImages, setArticleImages] = useState([]);
+  const [coverPreview, setCoverPreview] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const carouselTimerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const coverInputRef = useRef(null);
   const textareaRef = useRef(null);
 
   // 合并所有资讯
@@ -100,9 +104,10 @@ export default function NewsZone() {
 
   // 提交资讯
   const resetForm = () => {
-    setApplyForm({ title: '', source: '', link: '', category: '' });
+    setApplyForm({ title: '', source: '', link: '', category: '', cover: '' });
     setArticleContent('');
     setArticleImages([]);
+    setCoverPreview('');
     setShowPreview(false);
     setSubmitMode('link');
   };
@@ -130,6 +135,7 @@ export default function NewsZone() {
           source: applyForm.source.trim(),
           link: applyForm.link.trim(),
           category: applyForm.category || '业界动态',
+          cover: applyForm.cover.trim() || coverPreview || '',
         });
       } else {
         if (!applyForm.title.trim() || !articleContent.trim()) {
@@ -142,6 +148,7 @@ export default function NewsZone() {
           source: applyForm.source.trim(),
           category: applyForm.category || '业界动态',
           content: articleContent,
+          cover: applyForm.cover.trim() || coverPreview || '',
           images: articleImages,
         });
       }
@@ -170,6 +177,18 @@ export default function NewsZone() {
       };
       reader.readAsDataURL(file);
     });
+    e.target.value = '';
+  };
+
+  const handleCoverUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCoverPreview(ev.target.result);
+      setApplyForm(prev => ({ ...prev, cover: ev.target.result }));
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
@@ -389,6 +408,23 @@ export default function NewsZone() {
             </div>
 
             <div className="news-apply-body">
+              {/* 封面图上传（两种模式共用） */}
+              <div className="news-form-group">
+                <label>封面图</label>
+                <input ref={coverInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverUpload} />
+                {coverPreview ? (
+                  <div className="news-cover-preview">
+                    <img src={coverPreview} alt="封面预览" />
+                    <button className="news-cover-remove" onClick={() => { setCoverPreview(''); setApplyForm(prev => ({ ...prev, cover: '' })); }}><X size={12} /></button>
+                  </div>
+                ) : (
+                  <div className="news-cover-upload" onClick={() => coverInputRef.current?.click()}>
+                    <ImageIcon size={20} /> 点击上传封面图
+                  </div>
+                )}
+                <input type="url" placeholder="或输入封面图 URL" value={applyForm.cover && !coverPreview ? applyForm.cover : ''} onChange={e => { setApplyForm(prev => ({ ...prev, cover: e.target.value })); setCoverPreview(''); }} className="news-cover-url-input" />
+              </div>
+
               {submitMode === 'link' ? (
                 <>
                   <div className="news-form-group">
@@ -419,6 +455,10 @@ export default function NewsZone() {
                     <input type="text" placeholder="例如：XX新作深度评测" value={applyForm.title} onChange={e => setApplyForm(prev => ({ ...prev, title: e.target.value }))} />
                   </div>
                   <div className="news-form-group">
+                    <label>来源</label>
+                    <input type="text" placeholder="可选，例如：本人原创" value={applyForm.source} onChange={e => setApplyForm(prev => ({ ...prev, source: e.target.value }))} />
+                  </div>
+                  <div className="news-form-group">
                     <label>分类</label>
                     <select value={applyForm.category || '业界动态'} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
                       {CATEGORIES.filter(c => c !== '全部').map(cat => (
@@ -434,6 +474,7 @@ export default function NewsZone() {
                       <button className="news-toolbar-btn" onClick={() => insertMarkdown('[', '](url)', '链接文字')} title="链接"><LinkIcon size={14} /></button>
                       <button className="news-toolbar-btn" onClick={() => insertMarkdown('- ', '', '列表项')} title="列表"><List size={14} /></button>
                       <button className="news-toolbar-btn" onClick={() => insertMarkdown('> ', '', '引用')} title="引用"><Quote size={14} /></button>
+                      <button className="news-toolbar-btn" onClick={() => insertMarkdown('### ', '', '标题')} title="标题"><Bold size={14} /></button>
                       <button className="news-toolbar-btn" onClick={() => fileInputRef.current?.click()} title="上传图片"><ImageIcon size={14} /></button>
                       <button className={`news-toolbar-btn ${showPreview ? 'active' : ''}`} onClick={() => setShowPreview(!showPreview)} title="预览">
                         {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}

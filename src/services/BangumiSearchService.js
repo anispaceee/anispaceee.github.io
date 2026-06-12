@@ -12,9 +12,9 @@
 
 import { ApiError } from './api.js';
 
-const _rawApiBase = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+const _rawApiBase = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
 const API_BASE = _rawApiBase.includes('lyw2373314970')
-  ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
+  ? 'https://anispace-oauth-proxy.lyw2373314970.workers.dev'
   : _rawApiBase;
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
 const MAX_Q_LEN = 100;
