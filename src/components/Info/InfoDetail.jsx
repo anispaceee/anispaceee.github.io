@@ -644,8 +644,7 @@ export default function InfoDetail() {
           style={{ backgroundImage: `url(${subject.images.large})` }}
         >
           <img src={subject.images.large} alt="" style={{ display: 'none' }} onError={() => setBgFailed(true)} />
-          <div className="detail-bg-overlay" style={{ opacity: 0.3 + Math.min(0.5, scrollY * 0.002) }} />
-          <div className="detail-bg-blur" style={{ backdropFilter: `blur(${Math.min(40, scrollY * 0.08)}px)`, WebkitBackdropFilter: `blur(${Math.min(40, scrollY * 0.08)}px)` }} />
+          <div className="detail-bg-overlay" />
         </div>
       ) : (
         <div className="detail-page-background detail-page-bg-fallback">
@@ -661,9 +660,9 @@ export default function InfoDetail() {
       <div 
         className="detail-container"
         style={{
-          opacity: scrollY < 50 ? 0 : Math.min(1, Math.max(0, (scrollY - 50) / 100)),
-          transform: `translateY(${Math.max(0, 60 - scrollY * 0.6)}px)`,
-          transition: 'opacity 0.1s ease, transform 0.1s ease',
+          opacity: scrollY < 50 ? 0 : Math.min(1, Math.max(0, (scrollY - 50) / 150)),
+          transform: `translateY(${Math.max(0, 40 - scrollY * 0.4)}px)`,
+          transition: 'opacity 0.15s ease, transform 0.15s ease',
         }}
       >
         <div className="detail-breadcrumb">
