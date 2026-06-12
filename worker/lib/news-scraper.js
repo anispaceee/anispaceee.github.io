@@ -286,7 +286,7 @@ export async function scrapeSingleSource(sourceName) {
     bangumi_calendar: scrapeBangumiCalendar,
     bangumi_hot: scrapeBangumiHot,
     gamersky: scrapeGamersky,
-    3dmgame: scrape3DMGame,
+    '3dmgame': scrape3DMGame,
   };
 
   const fn = scrapers[sourceName];

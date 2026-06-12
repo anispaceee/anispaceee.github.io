@@ -234,7 +234,7 @@ function jsonResponse(data, status = 200, origin = '*') {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
       ...corsHeaders(origin),
     },
   });
@@ -316,7 +316,7 @@ async function handleBangumiProxy(pathname, searchParams, request, env, origin) 
     const cacheResponse = new Response(responseBody, {
       status: res.status,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': `public, max-age=${ttl}`,
       },
     });
@@ -2321,7 +2321,7 @@ export default {
         return new Response(data, {
           status: res.status,
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': origin || '*',
             'Cache-Control': 'public, max-age=300', // Cache 5 minutes
           },
@@ -2522,7 +2522,7 @@ export default {
           const cacheResponse = new Response(body, {
             status: res.status,
             headers: {
-              'Content-Type': 'application/json',
+              'Content-Type': 'application/json; charset=utf-8',
               'Cache-Control': `public, max-age=${CACHE_TTL_SHORT}`,
             },
           });
