@@ -237,6 +237,9 @@ export default function Amadeus() {
   const recognitionRef = useRef(null);
   const abortRef = useRef(null);
   const mountedRef = useRef(true);
+  const msgIdRef = useRef(0);
+  const nextId = () => `m${++msgIdRef.current}`;
+  const messagesRef = useRef(messages);
   const [speechSupported] = useState(() => 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 
   // 组件卸载时取消进行中的请求
@@ -248,6 +251,7 @@ export default function Amadeus() {
   }, []);
 
   useEffect(() => { StorageService.set(CHAT_HISTORY_KEY, messages.length > MAX_HISTORY ? messages.slice(-MAX_HISTORY) : messages); }, [messages]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
   useEffect(() => { StorageService.set(PERSONA_LIST_KEY, customPersonas); }, [customPersonas]);
   useEffect(() => { StorageService.set(ACTIVE_PERSONA_KEY, activePersonaId); }, [activePersonaId]);
@@ -307,18 +311,21 @@ export default function Amadeus() {
     abortRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    const userMsg = { id: Date.now().toString(), role: 'user', content: text.trim(), timestamp: new Date().toISOString() };
-    const history = [...messages, userMsg];
+    const userMsg = { id: nextId(), role: 'user', content: text.trim(), timestamp: new Date().toISOString() };
+    const history = [...messagesRef.current, userMsg];
+    messagesRef.current = history;
     setMessages(history);
     setInput('');
     setIsTyping(true);
     setLlmError('');
 
-    const assistantId = (Date.now() + 1).toString();
+    const assistantId = nextId();
 
     try {
       if (llmConfig.provider !== 'local') {
-        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', expression: activePersona.expressionBias || 'normal', timestamp: new Date().toISOString() }]);
+        const placeholder = { id: assistantId, role: 'assistant', content: '', expression: activePersona.expressionBias || 'normal', timestamp: new Date().toISOString() };
+        messagesRef.current = [...messagesRef.current, placeholder];
+        setMessages(prev => [...prev, placeholder]);
         const apiMessages = history.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content }));
         const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona), apiMessages, {
           signal: controller.signal,
@@ -358,7 +365,7 @@ export default function Amadeus() {
       setLlmError(err.message);
     } finally {
       clearTimeout(timeoutId);
-      setIsTyping(false);
+      if (abortRef.current === controller) setIsTyping(false);
     }
   }, [messages, llmConfig, voiceEnabled, activePersona, runActions, speak, switchExpression]);
 

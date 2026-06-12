@@ -75,7 +75,7 @@ export async function testConnection(config, signal) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
-    body: JSON.stringify({ model: defaultModel(config), messages: [{ role: 'user', content: 'ping' }], max_tokens: 1, stream: false }),
+    body: JSON.stringify({ model: defaultModel(config), messages: [{ role: 'user', content: 'ping' }], max_tokens: 16, stream: false }),
     signal,
   });
   if (!res.ok) throw new Error(`连接失败: ${res.status}`);
