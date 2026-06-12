@@ -186,6 +186,8 @@ export interface EpisodeRange {
 export interface MediaDownload {
   kind: 'http' | 'magnet' | 'torrent' | 'local';
   url: string;
+  /** Worker 代理 URL（作为 CORS 回退） */
+  proxyUrl?: string;
   headers?: Record<string, string>;
 }
 

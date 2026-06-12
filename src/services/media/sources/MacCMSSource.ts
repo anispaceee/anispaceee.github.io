@@ -221,6 +221,7 @@ class MacCMSSource implements MediaSource {
           download: {
             kind: 'http',
             url: this.buildStreamUrl(ep.url),
+            proxyUrl: this.buildProxyUrl(ep.url),
           },
           properties: {
             subjectName: item.vod_name || '',
@@ -311,11 +312,18 @@ class MacCMSSource implements MediaSource {
   }
 
   private buildStreamUrl(videoUrl: string): string {
+    // 直接返回原始 URL，让前端直连
+    // Worker 代理会导致 CDN 检测到海外 IP 返回 404
+    // 前端会尝试直连，CORS 失败时回退到 Worker 代理
+    return videoUrl;
+  }
+
+  /** 构建 Worker 代理 URL（作为 CORS 回退） */
+  private buildProxyUrl(videoUrl: string): string {
     if (this.proxyBase) {
-      // Pass the source site's base URL as referer for CDN anti-hotlinking
       return `${this.proxyBase}/api/video/stream?url=${encodeURIComponent(videoUrl)}&referer=${encodeURIComponent(this.baseUrl + '/')}`;
     }
-    return videoUrl;
+    return '';
   }
 }
 
