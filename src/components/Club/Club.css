@@ -1,25 +1,28 @@
-/* ===== Tea Time! - WeChat PC Style Layout ===== */
+/* ===== Tea Time! - ANISpace Moe Style Layout ===== */
 
-/* Page container: full height, no padding (immersive) */
+/* Page container: full height, immersive */
 .club-page {
   display: flex;
-  height: calc(100vh - 60px); /* minus header */
+  height: calc(100vh - var(--header-height, 60px));
   max-width: var(--max-content, 1200px);
   margin: 0 auto;
-  background: var(--bg-primary, #fff);
+  background: var(--bg-body);
   overflow: hidden;
+  border-radius: var(--radius-lg);
 }
 
 /* ===== Left Nav Bar (icon strip) ===== */
 .club-nav {
   width: 56px;
   flex-shrink: 0;
-  background: var(--bg-nav, #2e2e2e);
+  background: linear-gradient(180deg, var(--primary-bg) 0%, rgba(245, 198, 208, 0.3) 100%);
+  backdrop-filter: blur(var(--blur-md));
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 12px 0;
   gap: 4px;
+  border-right: 1px solid var(--border-secondary);
 }
 
 .club-nav-top {
@@ -37,20 +40,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  color: var(--text-nav-inactive, #999);
-  transition: all 0.2s ease;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
   cursor: pointer;
 }
 
 .club-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-nav-hover, #ccc);
+  background: rgba(232, 134, 162, 0.12);
+  color: var(--primary);
 }
 
 .club-nav-btn.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--primary, #ff6b9d);
+  background: var(--primary);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-primary);
 }
 
 .club-nav-badge {
@@ -60,11 +64,11 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: #f44336;
+  background: var(--error);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -75,11 +79,13 @@
 .club-sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: var(--bg-sidebar, #f7f7f7);
-  border-right: 1px solid var(--border-secondary, #e8e8e8);
+  background: var(--bg-sidebar);
+  backdrop-filter: blur(var(--blur-sm));
+  border-right: 1px solid var(--border-secondary);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .club-sidebar-content {
@@ -100,21 +106,23 @@
 .club-sidebar-search input {
   flex: 1;
   padding: 6px 12px;
-  background: var(--bg-input, #e8e8e8);
-  border: none;
-  border-radius: 4px;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
   font-size: 13px;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
   outline: none;
+  transition: all var(--transition-fast);
 }
 
 .club-sidebar-search input:focus {
-  background: #fff;
-  box-shadow: 0 0 0 1px var(--primary, #ff6b9d);
+  background: var(--bg-input-focus);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(232, 134, 162, 0.15);
 }
 
 .club-sidebar-search svg {
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   flex-shrink: 0;
 }
 
@@ -132,18 +140,25 @@
 
 .club-filter-pill {
   padding: 3px 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-full);
   font-size: 11px;
   white-space: nowrap;
-  background: var(--bg-input, #e8e8e8);
-  color: var(--text-secondary, #666);
-  transition: all 0.2s ease;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
   flex-shrink: 0;
 }
 
+.club-filter-pill:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
 .club-filter-pill.active {
-  background: var(--primary, #ff6b9d);
-  color: #fff;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-primary);
 }
 
 /* Conversation list */
@@ -159,27 +174,31 @@
   gap: 10px;
   padding: 10px 12px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all var(--transition-fast);
   position: relative;
+  border-radius: var(--radius-sm);
+  margin: 0 6px;
 }
 
 .club-conversation-item:hover {
-  background: var(--bg-hover, #e8e8e8);
+  background: var(--bg-card-hover);
 }
 
 .club-conversation-item.active {
-  background: var(--primary-bg, rgba(255, 107, 157, 0.08));
+  background: var(--primary-bg);
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .club-conv-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  border-radius: 6px;
-  background: var(--bg-card, #fff);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-xs);
   flex-shrink: 0;
 }
 
@@ -201,7 +220,7 @@
 .club-conv-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -217,13 +236,13 @@
 
 .club-conv-time {
   font-size: 11px;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   flex-shrink: 0;
 }
 
 .club-conv-meta {
   font-size: 11px;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   flex-shrink: 0;
 }
 
@@ -236,7 +255,7 @@
 
 .club-conv-preview {
   font-size: 12px;
-  color: var(--text-tertiary, #888);
+  color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -248,11 +267,11 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: #f44336;
-  color: #fff;
+  background: var(--primary);
+  color: var(--text-on-primary);
   font-size: 10px;
   font-weight: 700;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -264,22 +283,23 @@
   align-items: center;
   gap: 2px;
   padding: 2px 8px;
-  background: var(--primary, #ff6b9d);
-  color: #fff;
-  border-radius: 10px;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-full);
   font-size: 10px;
   font-weight: 600;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .club-join-mini:hover {
-  background: var(--primary-hover, #e85a8a);
+  background: var(--primary-hover);
+  transform: scale(1.05);
 }
 
 .club-joined-tag {
   font-size: 10px;
-  color: var(--primary, #ff6b9d);
+  color: var(--primary);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -292,7 +312,7 @@
 .club-section-header {
   font-size: 11px;
   font-weight: 700;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   padding: 8px 12px 4px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -306,7 +326,7 @@
   justify-content: center;
   gap: 8px;
   padding: 40px 0;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   font-size: 13px;
 }
 
@@ -315,22 +335,22 @@
   position: absolute;
   bottom: 20px;
   right: 20px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--primary, #ff6b9d);
-  color: #fff;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: var(--text-on-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.4);
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-primary);
+  transition: all var(--transition-normal);
   z-index: 5;
 }
 
 .club-create-float-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(255, 107, 157, 0.5);
+  transform: scale(1.1) rotate(90deg);
+  box-shadow: 0 6px 20px rgba(232, 134, 162, 0.4);
 }
 
 /* Discover list */
@@ -347,7 +367,7 @@
 .club-discover-type {
   font-size: 12px;
   font-weight: 700;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   padding: 8px 12px 4px;
 }
 
@@ -357,11 +377,13 @@
   gap: 10px;
   padding: 8px 12px;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all var(--transition-fast);
+  border-radius: var(--radius-sm);
+  margin: 0 6px;
 }
 
 .club-discover-item:hover {
-  background: var(--bg-hover, #e8e8e8);
+  background: var(--bg-card-hover);
 }
 
 /* Settings */
@@ -372,13 +394,13 @@
 .club-settings-section h3 {
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .club-settings-empty {
   font-size: 12px;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   padding: 8px 0;
 }
 
@@ -387,13 +409,13 @@
   align-items: center;
   gap: 10px;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .club-settings-item:hover {
-  background: var(--bg-hover, #e8e8e8);
+  background: var(--bg-card-hover);
 }
 
 /* ===== Main Chat Area ===== */
@@ -401,7 +423,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--bg-chat, #f0f0f0);
+  background: var(--primary-bg);
   min-width: 0;
   overflow: hidden;
 }
@@ -414,12 +436,12 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
 }
 
 .club-chat-empty p {
   font-size: 14px;
-  color: var(--text-tertiary, #888);
+  color: var(--text-tertiary);
 }
 
 /* Chat header */
@@ -428,19 +450,20 @@
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: var(--bg-card, #fff);
-  border-bottom: 1px solid var(--border-secondary, #e8e8e8);
+  background: var(--bg-card);
+  backdrop-filter: blur(var(--blur-sm));
+  border-bottom: 1px solid var(--border-secondary);
   flex-shrink: 0;
 }
 
 .club-chat-back {
-  display: none; /* hidden on desktop, shown on mobile */
+  display: none;
   width: 28px;
   height: 28px;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: var(--text-secondary, #666);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
 }
 
 .club-chat-header-icon {
@@ -455,7 +478,7 @@
 .club-chat-header-info h3 {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -463,7 +486,7 @@
 
 .club-chat-header-meta {
   font-size: 11px;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
 }
 
 .club-chat-header-actions {
@@ -478,18 +501,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  color: var(--text-secondary, #666);
-  transition: all 0.15s ease;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
 }
 
 .club-header-action:hover {
-  background: var(--bg-hover, #e8e8e8);
-  color: var(--text-primary, #333);
+  background: var(--primary-bg);
+  color: var(--primary);
 }
 
 .club-header-action.leave:hover {
-  color: #f44336;
+  color: var(--error);
+  background: rgba(232, 134, 134, 0.1);
 }
 
 /* Announcement banner */
@@ -498,16 +522,17 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #fff8e1;
-  border-bottom: 1px solid #ffe082;
+  background: var(--warning);
+  opacity: 0.9;
+  border-bottom: 1px solid rgba(247, 215, 142, 0.5);
   font-size: 13px;
-  color: #856404;
+  color: #6d5a10;
   flex-shrink: 0;
 }
 
 .club-announcement-banner svg {
   flex-shrink: 0;
-  color: #ffc107;
+  color: #d4a017;
 }
 
 .club-announcement-banner span {
@@ -519,7 +544,7 @@
 
 .club-announcement-time {
   font-size: 11px;
-  color: #a0855e;
+  color: #8a7530;
   flex-shrink: 0;
 }
 
@@ -529,8 +554,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: #a0855e;
+  border-radius: var(--radius-full);
+  color: #8a7530;
   flex-shrink: 0;
 }
 
@@ -544,30 +569,32 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #fff8e1;
-  border-bottom: 1px solid #ffe082;
+  background: rgba(247, 215, 142, 0.3);
+  border-bottom: 1px solid rgba(247, 215, 142, 0.5);
   flex-shrink: 0;
 }
 
 .club-announce-form input {
   flex: 1;
   padding: 6px 12px;
-  border: 1px solid #ffe082;
-  border-radius: 4px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   outline: none;
-  background: #fff;
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .club-announce-form input:focus {
-  border-color: var(--primary, #ff6b9d);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(232, 134, 162, 0.15);
 }
 
 .club-announce-form button {
   padding: 6px 14px;
-  background: var(--primary, #ff6b9d);
-  color: #fff;
-  border-radius: 4px;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
 }
@@ -579,8 +606,8 @@
 .club-announce-cancel {
   padding: 6px 14px;
   background: transparent;
-  color: var(--text-tertiary, #888);
-  border-radius: 4px;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
@@ -604,10 +631,10 @@
 
 .club-msg-system span {
   font-size: 11px;
-  color: var(--text-quaternary, #999);
-  background: rgba(0, 0, 0, 0.04);
-  padding: 2px 10px;
-  border-radius: 4px;
+  color: var(--text-quaternary);
+  background: var(--bg-card);
+  padding: 2px 12px;
+  border-radius: var(--radius-full);
 }
 
 /* User message */
@@ -625,9 +652,10 @@
 .club-msg-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
 }
 
 .club-msg-body {
@@ -639,7 +667,7 @@
 .club-msg-name {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-tertiary, #888);
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -651,26 +679,29 @@
 
 .club-msg-time {
   font-size: 10px;
-  color: var(--text-quaternary, #999);
+  color: var(--text-quaternary);
   font-weight: 400;
 }
 
 .club-msg-bubble {
   font-size: 14px;
-  color: var(--text-primary, #333);
-  padding: 8px 12px;
-  background: var(--bg-card, #fff);
-  border-radius: 8px;
-  border-top-left-radius: 2px;
+  color: var(--text-primary);
+  padding: 8px 14px;
+  background: var(--bg-card);
+  backdrop-filter: blur(var(--blur-sm));
+  border-radius: var(--radius-md);
+  border-top-left-radius: 4px;
   line-height: 1.5;
   word-break: break-word;
+  box-shadow: var(--shadow-xs);
 }
 
 .club-msg.self .club-msg-bubble {
-  background: var(--primary, #ff6b9d);
-  color: #fff;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 2px;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: 4px;
+  box-shadow: var(--shadow-primary);
 }
 
 /* Input area */
@@ -679,25 +710,28 @@
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: var(--bg-card, #fff);
-  border-top: 1px solid var(--border-secondary, #e8e8e8);
+  background: var(--bg-card);
+  backdrop-filter: blur(var(--blur-sm));
+  border-top: 1px solid var(--border-secondary);
   flex-shrink: 0;
 }
 
 .club-chat-input-area input {
   flex: 1;
   padding: 8px 14px;
-  background: var(--bg-input, #f0f0f0);
-  border: 1px solid var(--border-secondary, #e8e8e8);
-  border-radius: 6px;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
   font-size: 14px;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
   outline: none;
+  transition: all var(--transition-fast);
 }
 
 .club-chat-input-area input:focus {
-  border-color: var(--primary, #ff6b9d);
-  background: #fff;
+  border-color: var(--primary);
+  background: var(--bg-input-focus);
+  box-shadow: 0 0 0 3px rgba(232, 134, 162, 0.15);
 }
 
 .club-send-btn {
@@ -706,18 +740,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  background: var(--primary, #ff6b9d);
-  color: #fff;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-primary);
+  transition: all var(--transition-fast);
 }
 
 .club-send-btn:hover:not(:disabled) {
-  background: var(--primary-hover, #e85a8a);
+  background: var(--primary-hover);
+  transform: scale(1.05);
 }
 
 .club-send-btn:disabled {
   opacity: 0.4;
+  box-shadow: none;
 }
 
 /* Muted notice */
@@ -728,10 +765,10 @@
   justify-content: center;
   gap: 6px;
   padding: 10px;
-  background: #fff3e0;
-  color: #e65100;
+  background: rgba(247, 185, 142, 0.15);
+  color: #c06a1a;
   font-size: 13px;
-  border-radius: 6px;
+  border-radius: var(--radius-full);
 }
 
 /* Join prompt */
@@ -742,14 +779,14 @@
   justify-content: center;
   gap: 12px;
   padding: 20px;
-  background: var(--bg-card, #fff);
-  border-top: 1px solid var(--border-secondary, #e8e8e8);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-secondary);
   flex-shrink: 0;
 }
 
 .club-join-prompt p {
   font-size: 14px;
-  color: var(--text-tertiary, #888);
+  color: var(--text-tertiary);
 }
 
 .club-join-btn-large {
@@ -757,18 +794,19 @@
   align-items: center;
   gap: 6px;
   padding: 8px 24px;
-  background: var(--primary, #ff6b9d);
-  color: #fff;
-  border-radius: 20px;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-full);
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-primary);
+  transition: all var(--transition-normal);
 }
 
 .club-join-btn-large:hover {
-  background: var(--primary-hover, #e85a8a);
-  transform: translateY(-1px);
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(232, 134, 162, 0.35);
 }
 
 /* ===== Members Panel (overlay) ===== */
@@ -778,11 +816,11 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: var(--z-modal);
   animation: fadeIn 0.15s ease;
 }
 
@@ -794,9 +832,11 @@
 .club-members-panel {
   width: 380px;
   max-height: 70vh;
-  background: var(--bg-card, #fff);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  background: var(--bg-elevated);
+  backdrop-filter: blur(var(--blur-lg));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-glass);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -813,13 +853,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-secondary, #e8e8e8);
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .club-members-panel-header h3 {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
 }
 
 .club-members-panel-header button {
@@ -828,12 +868,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: var(--text-tertiary, #888);
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
 }
 
 .club-members-panel-header button:hover {
-  background: var(--bg-hover, #e8e8e8);
+  background: var(--primary-bg);
+  color: var(--primary);
 }
 
 .club-members-panel-list {
@@ -848,17 +889,17 @@
   align-items: center;
   gap: 10px;
   padding: 8px 20px;
-  transition: background 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .club-member-row:hover {
-  background: var(--bg-hover, #f5f5f5);
+  background: var(--primary-bg);
 }
 
 .club-member-avatar-lg {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
 }
 
@@ -874,25 +915,25 @@
 .club-member-name-lg {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
 }
 
 .club-member-role {
   font-size: 10px;
   padding: 1px 6px;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   gap: 2px;
 }
 
 .club-member-role.president { background: #fff3cd; color: #856404; }
-.club-member-role.admin { background: #d1ecf1; color: #0c5460; }
-.club-member-role.member { background: var(--bg-input, #f0f0f0); color: var(--text-quaternary, #999); }
+.club-member-role.admin { background: var(--accent-cool); color: #2a6f8a; }
+.club-member-role.member { background: var(--bg-input); color: var(--text-quaternary); }
 
 .club-member-muted {
   font-size: 10px;
-  color: #e65100;
+  color: #c06a1a;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -909,14 +950,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  color: var(--text-quaternary, #999);
-  transition: all 0.15s ease;
+  border-radius: var(--radius-sm);
+  color: var(--text-quaternary);
+  transition: all var(--transition-fast);
 }
 
 .club-member-op:hover {
-  background: var(--primary-bg, rgba(255, 107, 157, 0.08));
-  color: var(--primary, #ff6b9d);
+  background: var(--primary-bg);
+  color: var(--primary);
 }
 
 /* ===== Create Club Modal ===== */
@@ -926,20 +967,22 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: var(--z-modal);
   animation: fadeIn 0.15s ease;
 }
 
 .club-modal {
   width: 420px;
   max-height: 80vh;
-  background: var(--bg-card, #fff);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  background: var(--bg-elevated);
+  backdrop-filter: blur(var(--blur-lg));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-glass);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -951,13 +994,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-secondary, #e8e8e8);
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .club-modal-header h3 {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
 }
 
 .club-modal-header button {
@@ -966,12 +1009,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: var(--text-tertiary, #888);
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
 }
 
 .club-modal-header button:hover {
-  background: var(--bg-hover, #e8e8e8);
+  background: var(--primary-bg);
+  color: var(--primary);
 }
 
 .club-modal-body {
@@ -985,18 +1029,20 @@
 .club-modal-body input,
 .club-modal-body textarea {
   padding: 8px 12px;
-  background: var(--bg-input, #f0f0f0);
-  border: 1px solid var(--border-secondary, #e8e8e8);
-  border-radius: 6px;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  color: var(--text-primary, #333);
+  color: var(--text-primary);
   outline: none;
+  transition: all var(--transition-fast);
 }
 
 .club-modal-body input:focus,
 .club-modal-body textarea:focus {
-  border-color: var(--primary, #ff6b9d);
-  background: #fff;
+  border-color: var(--primary);
+  background: var(--bg-input-focus);
+  box-shadow: 0 0 0 3px rgba(232, 134, 162, 0.15);
 }
 
 .club-type-select {
@@ -1010,16 +1056,21 @@
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  border-radius: 16px;
-  background: var(--bg-input, #f0f0f0);
+  border-radius: var(--radius-full);
+  background: var(--bg-input);
   font-size: 12px;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.club-type-btn:hover {
+  background: var(--primary-bg);
 }
 
 .club-type-btn.active {
-  background: var(--primary-bg, rgba(255, 107, 157, 0.1));
-  color: var(--primary, #ff6b9d);
-  border: 1px solid var(--primary, #ff6b9d);
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .club-type-icon { font-size: 14px; }
@@ -1030,32 +1081,34 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 20px;
-  border-top: 1px solid var(--border-secondary, #e8e8e8);
+  border-top: 1px solid var(--border-secondary);
 }
 
 .club-modal-cancel {
   padding: 6px 18px;
-  background: var(--bg-input, #f0f0f0);
-  color: var(--text-secondary, #666);
-  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
 .club-modal-submit {
   padding: 6px 18px;
-  background: var(--primary, #ff6b9d);
-  color: #fff;
-  border-radius: 6px;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
+  box-shadow: var(--shadow-primary);
 }
 
-.club-modal-submit:disabled { opacity: 0.5; }
+.club-modal-submit:disabled { opacity: 0.5; box-shadow: none; }
 
 /* ===== Mobile Responsive ===== */
 @media (max-width: 768px) {
   .club-page {
     height: calc(100vh - 52px);
+    border-radius: 0;
   }
 
   .club-nav {
