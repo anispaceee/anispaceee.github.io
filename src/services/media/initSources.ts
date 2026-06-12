@@ -10,7 +10,7 @@ import { RSSSourceFactory, DEFAULT_RSS_PRESETS } from './sources/RSSSource';
 let initialized = false;
 
 // 已知失效的源 ID，需要从 localStorage 中清理
-const DEPRECATED_SOURCE_IDS = ['kuapi', 'guangsu', 'sdzy'];
+const DEPRECATED_SOURCE_IDS = ['kuapi', 'guangsu', 'sdzy', 'sakura'];
 
 export function initMediaSources(): void {
   if (initialized) return;

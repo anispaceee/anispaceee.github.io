@@ -1106,14 +1106,29 @@ export default function InfoDetail() {
                           bfzy: 'linear-gradient(135deg,#4ecdc4,#44b09e)',
                           kuaikan: 'linear-gradient(135deg,#f093fb,#f5576c)',
                           ffzy: 'linear-gradient(135deg,#4facfe,#00f2fe)',
+                          '919dm': 'linear-gradient(135deg,#ff9a9e,#fad0c4)',
+                          age: 'linear-gradient(135deg,#a18cd1,#fbc2eb)',
                           dmhy: 'linear-gradient(135deg,#ffe66d,#f9a825)',
                           mikan: 'linear-gradient(135deg,#ff9a9e,#fecfef)',
+                          acgrip: 'linear-gradient(135deg,#89f7fe,#66a6ff)',
+                          nyaa: 'linear-gradient(135deg,#fddb92,#d1fdff)',
+                          breadio: 'linear-gradient(135deg,#c3cfe2,#f5f7fa)',
                           local_cache: 'linear-gradient(135deg,#a8edea,#fed6e3)',
                         };
                         const sourceNames = {
                           lizi: '量子资源', feisu: '飞速资源', bfzy: '暴风资源',
-                          kuaikan: '快看资源', ffzy: '非凡资源', dmhy: '动漫花园',
-                          mikan: '蜜柑计划', local_cache: '本地缓存',
+                          kuaikan: '快看资源', ffzy: '非凡资源', '919dm': '樱花动漫',
+                          age: 'AGE动漫', dmhy: '动漫花园', mikan: '蜜柑计划',
+                          acgrip: 'ACG.RIP', nyaa: 'Nyaa', breadio: 'Breadio',
+                          local_cache: '本地缓存',
+                        };
+                        const isBT = (m) => m.media.download?.kind === 'torrent' || m.media.download?.kind === 'magnet' || m.media.kind === MediaSourceKind.BITTORRENT;
+                        const copyToClipboard = (text) => {
+                          navigator.clipboard.writeText(text).then(() => {
+                            // 简单提示
+                            const btn = document.activeElement;
+                            if (btn) { btn.textContent = '已复制!'; setTimeout(() => { btn.textContent = '复制链接'; }, 1500); }
+                          }).catch(() => {});
                         };
                         return Object.values(groups).map(g => (
                           <div key={g.sourceId} className="source-group">
@@ -1125,28 +1140,36 @@ export default function InfoDetail() {
                               <span className="source-group-count">{g.items.length}条</span>
                             </div>
                             <div className="source-group-items">
-                              {g.items.map((m, i) => (
-                                <div key={i} className="source-item" onClick={() => {
-                                  if (m.media.download?.url) {
-                                    navigate(`/video/play/${subject.id}/${selectedEp?.sort || selectedEp?.ep || 1}`, {
-                                      state: { media: m.media, episode: selectedEp, subject }
-                                    });
-                                  }
-                                }}>
-                                  <span className={`match-badge ${m.matchKind === MatchKind.EXACT ? 'exact' : 'fuzzy'}`}>
-                                    {m.matchKind === MatchKind.EXACT ? '精确' : '模糊'}
-                                  </span>
-                                  <span className="source-item-title">{m.media.title}</span>
-                                  <div className="source-item-props">
-                                    {m.media.download?.kind === 'http' && <span className="prop-tag">在线</span>}
-                                    {(m.media.download?.kind === 'torrent' || m.media.download?.kind === 'magnet' || m.media.kind === MediaSourceKind.BITTORRENT) && <span className="prop-tag">BT</span>}
-                                    {m.media.properties?.tier && <span className="prop-tag">{m.media.properties.tier}</span>}
+                              {g.items.map((m, i) => {
+                                const bt = isBT(m);
+                                return (
+                                  <div key={i} className="source-item" onClick={() => {
+                                    if (!bt && m.media.download?.url) {
+                                      navigate(`/video/play/${subject.id}/${selectedEp?.sort || selectedEp?.ep || 1}`, {
+                                        state: { media: m.media, episode: selectedEp, subject }
+                                      });
+                                    }
+                                  }}>
+                                    <span className={`match-badge ${m.matchKind === MatchKind.EXACT ? 'exact' : 'fuzzy'}`}>
+                                      {m.matchKind === MatchKind.EXACT ? '精确' : '模糊'}
+                                    </span>
+                                    <span className="source-item-title">{m.media.title}</span>
+                                    <div className="source-item-props">
+                                      {!bt && <span className="prop-tag prop-online">在线</span>}
+                                      {bt && <span className="prop-tag prop-bt">BT</span>}
+                                      {m.media.properties?.resolution && <span className="prop-tag">{m.media.properties.resolution}</span>}
+                                      {m.media.properties?.alliance && <span className="prop-tag">{m.media.properties.alliance}</span>}
+                                    </div>
+                                    {!bt ? (
+                                      <button className="play-btn">▶ 播放</button>
+                                    ) : (
+                                      <button className="play-btn copy-btn" onClick={(e) => { e.stopPropagation(); copyToClipboard(m.media.download?.url || ''); }}>
+                                        复制链接
+                                      </button>
+                                    )}
                                   </div>
-                                  <button className={`play-btn ${(m.media.download?.kind === 'torrent' || m.media.download?.kind === 'magnet' || m.media.kind === MediaSourceKind.BITTORRENT) ? 'buffer' : ''}`}>
-                                    {(m.media.download?.kind === 'torrent' || m.media.download?.kind === 'magnet' || m.media.kind === MediaSourceKind.BITTORRENT) ? '⏳ 缓冲' : '▶ 播放'}
-                                  </button>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         ));

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { BangumiService } from '../../services/api';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
 import { danmakuService } from '../../services/media/DanmakuService';
@@ -16,9 +16,15 @@ const loadPlayerLibs = Promise.all([
 export default function VideoPlayer() {
   const { subjectId, episodeId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const sourceId = searchParams.get('sourceId') || '';
   const mediaId = searchParams.get('mediaId') || '';
+
+  // 从 InfoDetail 传递的 state 中获取已选资源
+  const passedMedia = location.state?.media || null;
+  const passedEpisode = location.state?.episode || null;
+  const passedSubject = location.state?.subject || null;
 
   const [subject, setSubject] = useState(null);
   const [episodes, setEpisodes] = useState([]);
@@ -53,6 +59,59 @@ export default function VideoPlayer() {
       setDanmakuList([]);
 
       try {
+        // 0. 如果从 InfoDetail 传递了已选资源，直接使用
+        if (passedMedia && passedSubject) {
+          setSubject(passedSubject);
+          coverRef.current = passedSubject?.images?.large || passedSubject?.images?.common || '';
+
+          // 获取剧集列表
+          const eps = await BangumiService.getSubjectEpisodes(subjectId).catch(() => []);
+          if (cancelled) return;
+          setEpisodes(Array.isArray(eps) ? eps : []);
+
+          // 直接使用传递的媒体资源
+          setCurrentMedia(passedMedia);
+          setMediaMatches([{ media: passedMedia, matchKind: 'exact' }]);
+
+          // 获取弹幕
+          const currentEp = Array.isArray(eps)
+            ? eps.find(ep => String(ep.sort || ep.episode_sort) === String(episodeId))
+            : null;
+          const bangumiEpId = currentEp?.id ? String(currentEp.id) : '';
+          if (bangumiEpId) {
+            try {
+              const danmaku = await danmakuService.fetchDanmaku(bangumiEpId);
+              if (!cancelled) setDanmakuList(danmaku);
+            } catch (err) {
+              console.warn('[VideoPlayer] danmaku fetch failed:', err);
+            }
+          }
+
+          // 后台异步搜索更多资源（不阻塞播放）
+          const subjectNames = [];
+          if (passedSubject?.name_cn) subjectNames.push(passedSubject.name_cn);
+          if (passedSubject?.name) subjectNames.push(passedSubject.name);
+          const request = {
+            subjectId: String(subjectId),
+            subjectNames,
+            episodeSort: String(episodeId || ''),
+            episodeName: '',
+          };
+          mediaSourceManager.fetchAll(request).then(result => {
+            if (cancelled) return;
+            const allMatches = result.results || [];
+            // 去重：排除已选资源
+            const existingId = passedMedia.mediaId;
+            const newMatches = allMatches.filter(m => m.media.mediaId !== existingId);
+            setMediaMatches([{ media: passedMedia, matchKind: 'exact' }, ...newMatches]);
+          }).catch(err => {
+            console.warn('[VideoPlayer] background fetch failed:', err);
+          });
+
+          if (!cancelled) setLoading(false);
+          return;
+        }
+
         // 1. Fetch subject detail
         const sub = await BangumiService.getSubjectDetail(subjectId);
         if (cancelled) return;

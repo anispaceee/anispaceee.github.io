@@ -192,8 +192,13 @@ class MacCMSSource implements MediaSource {
 
     for (const group of sortedEpisodes) {
       for (const ep of group.episodes) {
-        const epMatch = MatchEngine.matchEpisode(ep.name, request.episodeSort);
-        const finalKind = epMatch ? MatchKind.EXACT : matchKind;
+        // 从集数名中提取数字（支持 "第1集"、"01"、"第01话"、"EP01" 等格式）
+        const epNum = this.extractEpNumber(ep.name);
+        const targetEpNum = request.episodeSort ? parseInt(request.episodeSort, 10) : NaN;
+
+        // 集数匹配：数字相等即为精确匹配
+        const isEpMatch = !isNaN(epNum) && !isNaN(targetEpNum) && epNum === targetEpNum;
+        const finalKind = isEpMatch ? MatchKind.EXACT : matchKind;
 
         // 跳过没有有效 URL 的条目
         if (!ep.url || ep.url === 'undefined' || ep.url === 'null') continue;
@@ -201,6 +206,8 @@ class MacCMSSource implements MediaSource {
         // Filter out non-playable URLs (share pages, embed pages, etc.)
         // Only keep direct video stream URLs (m3u8, mp4, flv, etc.)
         if (!this.isPlayableUrl(ep.url)) continue;
+
+        const epSortStr = !isNaN(epNum) ? String(epNum) : ep.name;
 
         const media: Media = {
           mediaId: `${this.sourceId}_${item.vod_id}_${ep.name}`,
@@ -210,7 +217,7 @@ class MacCMSSource implements MediaSource {
           publishedTime: 0,
           location: MediaSourceLocation.ONLINE,
           kind: MediaSourceKind.WEB,
-          episodeRange: { sort: ep.name.replace(/[^0-9]/g, '') || ep.name, name: ep.name },
+          episodeRange: { sort: epSortStr, name: ep.name },
           download: {
             kind: 'http',
             url: this.buildStreamUrl(ep.url),
@@ -239,6 +246,30 @@ class MacCMSSource implements MediaSource {
         matches.push({ media, matchKind: finalKind });
       }
     }
+  }
+
+  /**
+   * 从集数名中提取数字。
+   * 支持 "第1集"、"01"、"第01话"、"EP01"、"第1话" 等格式。
+   */
+  private extractEpNumber(name: string): number {
+    // 尝试 "第X集/话/話" 格式
+    const cnMatch = name.match(/第\s*(\d+)\s*[集话話]/);
+    if (cnMatch) return parseInt(cnMatch[1], 10);
+
+    // 尝试 "EP01" 格式
+    const epMatch = name.match(/EP\s*(\d+)/i);
+    if (epMatch) return parseInt(epMatch[1], 10);
+
+    // 尝试纯数字（"01"、"1"）
+    const numMatch = name.match(/^(\d+)$/);
+    if (numMatch) return parseInt(numMatch[1], 10);
+
+    // 尝试提取第一个数字
+    const anyNum = name.match(/(\d+)/);
+    if (anyNum) return parseInt(anyNum[1], 10);
+
+    return NaN;
   }
 
   /**
@@ -313,4 +344,5 @@ export const DEFAULT_MACCMS_SOURCES = [
   { sourceId: 'bfzy', name: '暴风资源', baseUrl: 'https://bfzyapi.com' },
   { sourceId: 'kuaikan', name: '快看资源', baseUrl: 'https://www.kuaikan-api.com' },
   { sourceId: 'ffzy', name: '非凡资源', baseUrl: 'https://cj.ffzyapi.com' },
+  { sourceId: '919dm', name: '樱花动漫', baseUrl: 'https://www.919dm.com' },
 ];

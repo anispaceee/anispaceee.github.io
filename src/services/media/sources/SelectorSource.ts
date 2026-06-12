@@ -50,41 +50,25 @@ export const DEFAULT_SELECTOR_PRESETS: SelectorPreset[] = [
   {
     sourceId: 'age',
     name: 'AGE动漫',
-    baseUrl: 'https://www.agedm.org',
-    searchUrl: 'https://www.agedm.org/search?keyword={keyword}',
+    baseUrl: 'https://www.agedm.io',
+    searchUrl: 'https://www.agedm.io/search?keyword={keyword}',
     selectors: {
+      // AGE动漫搜索结果在 <div class="card-list"> 内
+      // 每个结果是一个包含动漫信息的卡片
       list: '<div class="card-list">',
-      item: '<a[^>]*class="card-item"[^>]*>',
+      item: '<a[^>]*href="/detail/\\d+"[^>]*>',
       title: 'title=["\']([^"\']+)["\']',
-      link: 'href=["\']([^"\']+)["\']',
-      cover: 'data-original=["\']([^"\']+)["\']',
+      link: 'href="(/detail/\\d+)"',
+      cover: '(?:src|data-original)=["\']([^"\']+)["\']',
     },
     episodeSelectors: {
-      episodeItem: '<a[^>]*class="[^"]*episode[^"]*"[^>]*>',
+      // AGE动漫详情页：集数链接格式 <a href="/play/{id}/{线路}/{集数}">
+      episodeItem: '<a[^>]*href="/play/\\d+/\\d+/\\d+"[^>]*>',
       episodeTitle: '>([^<]+)</a>',
-      episodeUrl: 'href=["\']([^"\']+)["\']',
+      episodeUrl: 'href="(/play/\\d+/\\d+/\\d+)"',
       videoSource: 'https?://[^\\s"\']+\\.m3u8[^\\s"\']*',
     },
     tier: 1,
-  },
-  {
-    sourceId: 'sakura',
-    name: '樱花动漫',
-    baseUrl: 'https://www.sakura.com',
-    searchUrl: 'https://www.sakura.com/search?keyword={keyword}',
-    selectors: {
-      item: '<a[^>]*class="[^"]*stui-vodlist__box[^"]*"[^>]*>',
-      title: 'title=["\']([^"\']+)["\']',
-      link: 'href=["\']([^"\']+)["\']',
-      cover: 'data-original=["\']([^"\']+)["\']',
-    },
-    episodeSelectors: {
-      episodeItem: '<a[^>]*href=["\'][^"\']*play[^"\']*["\'][^>]*>',
-      episodeTitle: '>([^<]+)</a>',
-      episodeUrl: 'href=["\']([^"\']+)["\']',
-      videoSource: 'https?://[^\\s"\']+\\.m3u8[^\\s"\']*',
-    },
-    tier: 2,
   },
 ];
 
