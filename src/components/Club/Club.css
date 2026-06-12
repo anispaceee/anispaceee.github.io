@@ -1,6 +1,6 @@
-/* ===== Tea Time! - ANISpace Moe Style Layout ===== */
+/* ===== Tea Time! - ANISpace Moe Style ===== */
 
-/* Page container: full height, immersive */
+/* Page container */
 .club-page {
   display: flex;
   height: calc(100vh - var(--header-height, 60px));
@@ -8,59 +8,74 @@
   margin: 0 auto;
   background: var(--bg-body);
   overflow: hidden;
-  border-radius: var(--radius-lg);
 }
 
-/* ===== Left Nav Bar (icon strip) ===== */
+/* ===== Left Nav Bar — cute pill nav ===== */
 .club-nav {
-  width: 56px;
+  width: 80px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, var(--primary-bg) 0%, rgba(245, 198, 208, 0.3) 100%);
+  background: var(--bg-card);
   backdrop-filter: blur(var(--blur-md));
+  border-right: 1px solid var(--border-secondary);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 0;
-  gap: 4px;
-  border-right: 1px solid var(--border-secondary);
+  padding: 16px 0;
+  gap: 6px;
+}
+
+.club-nav-logo {
+  font-size: 28px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 2px 4px rgba(232, 134, 162, 0.3));
 }
 
 .club-nav-top {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 1;
 }
 
 .club-nav-btn {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 64px;
+  padding: 8px 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
+  gap: 3px;
+  border-radius: var(--radius-md);
   color: var(--text-tertiary);
-  transition: all var(--transition-fast);
+  transition: all var(--transition-normal);
   cursor: pointer;
 }
 
+.club-nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
 .club-nav-btn:hover {
-  background: rgba(232, 134, 162, 0.12);
+  background: var(--primary-bg);
   color: var(--primary);
+  transform: translateY(-2px);
 }
 
 .club-nav-btn.active {
   background: var(--primary);
   color: var(--text-on-primary);
   box-shadow: var(--shadow-primary);
+  transform: translateY(-2px);
 }
 
 .club-nav-badge {
   position: absolute;
   top: 2px;
-  right: 2px;
+  right: 4px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -73,15 +88,14 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
+  box-shadow: 0 1px 4px rgba(232, 134, 134, 0.4);
 }
 
-/* ===== Sidebar (conversation list) ===== */
+/* ===== Sidebar — warm card list ===== */
 .club-sidebar {
-  width: 260px;
+  width: 280px;
   flex-shrink: 0;
-  background: var(--bg-sidebar);
-  backdrop-filter: blur(var(--blur-sm));
-  border-right: 1px solid var(--border-secondary);
+  background: var(--bg-body);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -99,15 +113,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 12px 8px;
+  padding: 16px 14px 8px;
   flex-shrink: 0;
 }
 
 .club-sidebar-search input {
   flex: 1;
-  padding: 6px 12px;
-  background: var(--bg-input);
-  border: 1px solid transparent;
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
   border-radius: var(--radius-full);
   font-size: 13px;
   color: var(--text-primary);
@@ -116,7 +130,6 @@
 }
 
 .club-sidebar-search input:focus {
-  background: var(--bg-input-focus);
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(232, 134, 162, 0.15);
 }
@@ -130,7 +143,7 @@
 .club-filter-pills {
   display: flex;
   gap: 4px;
-  padding: 0 12px 8px;
+  padding: 4px 14px 10px;
   overflow-x: auto;
   flex-shrink: 0;
   scrollbar-width: none;
@@ -139,25 +152,27 @@
 .club-filter-pills::-webkit-scrollbar { display: none; }
 
 .club-filter-pill {
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: var(--radius-full);
   font-size: 11px;
   white-space: nowrap;
-  background: var(--bg-input);
+  background: var(--bg-card);
   color: var(--text-secondary);
-  border: 1px solid transparent;
+  border: 1px solid var(--border-secondary);
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
 
 .club-filter-pill:hover {
-  background: var(--primary-bg);
+  border-color: var(--primary);
   color: var(--primary);
+  background: var(--primary-bg);
 }
 
 .club-filter-pill.active {
   background: var(--primary);
   color: var(--text-on-primary);
+  border-color: var(--primary);
   box-shadow: var(--shadow-primary);
 }
 
@@ -165,6 +180,7 @@
 .club-conversation-list {
   flex: 1;
   overflow-y: auto;
+  padding: 0 10px;
   scrollbar-width: thin;
 }
 
@@ -176,29 +192,33 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   position: relative;
-  border-radius: var(--radius-sm);
-  margin: 0 6px;
+  border-radius: var(--radius-md);
+  margin-bottom: 4px;
+  background: var(--bg-card);
+  border: 1px solid transparent;
 }
 
 .club-conversation-item:hover {
-  background: var(--bg-card-hover);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
 }
 
 .club-conversation-item.active {
   background: var(--primary-bg);
-  box-shadow: inset 3px 0 0 var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(232, 134, 162, 0.15);
 }
 
 .club-conv-icon {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-xs);
+  border-radius: var(--radius-md);
+  background: var(--primary-bg);
   flex-shrink: 0;
 }
 
@@ -235,13 +255,13 @@
 }
 
 .club-conv-time {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-quaternary);
   flex-shrink: 0;
 }
 
 .club-conv-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-quaternary);
   flex-shrink: 0;
 }
@@ -264,9 +284,9 @@
 }
 
 .club-conv-unread {
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   background: var(--primary);
   color: var(--text-on-primary);
   font-size: 10px;
@@ -276,6 +296,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(232, 134, 162, 0.4);
 }
 
 .club-join-mini {
@@ -313,7 +334,7 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--text-quaternary);
-  padding: 8px 12px 4px;
+  padding: 10px 14px 4px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -335,8 +356,8 @@
   position: absolute;
   bottom: 20px;
   right: 20px;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-full);
   background: var(--primary);
   color: var(--text-on-primary);
@@ -358,6 +379,7 @@
   flex: 1;
   overflow-y: auto;
   scrollbar-width: thin;
+  padding: 0 10px;
 }
 
 .club-discover-section {
@@ -368,7 +390,7 @@
   font-size: 12px;
   font-weight: 700;
   color: var(--text-quaternary);
-  padding: 8px 12px 4px;
+  padding: 8px 4px 4px;
 }
 
 .club-discover-item {
@@ -378,17 +400,21 @@
   padding: 8px 12px;
   cursor: pointer;
   transition: all var(--transition-fast);
-  border-radius: var(--radius-sm);
-  margin: 0 6px;
+  border-radius: var(--radius-md);
+  margin-bottom: 4px;
+  background: var(--bg-card);
+  border: 1px solid transparent;
 }
 
 .club-discover-item:hover {
-  background: var(--bg-card-hover);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
 }
 
 /* Settings */
 .club-settings-section {
-  padding: 12px;
+  padding: 12px 14px;
 }
 
 .club-settings-section h3 {
@@ -408,22 +434,27 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px;
-  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
+  background: var(--bg-card);
+  margin-bottom: 4px;
+  border: 1px solid transparent;
 }
 
 .club-settings-item:hover {
-  background: var(--bg-card-hover);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
 }
 
-/* ===== Main Chat Area ===== */
+/* ===== Main Chat Area — soft & warm ===== */
 .club-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--primary-bg);
+  background: linear-gradient(180deg, var(--primary-bg) 0%, var(--bg-body) 40%);
   min-width: 0;
   overflow: hidden;
 }
@@ -615,10 +646,10 @@
 .club-chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   scrollbar-width: thin;
 }
 
@@ -633,8 +664,9 @@
   font-size: 11px;
   color: var(--text-quaternary);
   background: var(--bg-card);
-  padding: 2px 12px;
+  padding: 3px 14px;
   border-radius: var(--radius-full);
+  border: 1px solid var(--border-secondary);
 }
 
 /* User message */
@@ -652,16 +684,16 @@
 .club-msg-avatar {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   object-fit: cover;
   flex-shrink: 0;
-  box-shadow: var(--shadow-xs);
+  border: 2px solid var(--primary-bg);
 }
 
 .club-msg-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .club-msg-name {
@@ -686,22 +718,24 @@
 .club-msg-bubble {
   font-size: 14px;
   color: var(--text-primary);
-  padding: 8px 14px;
+  padding: 10px 14px;
   background: var(--bg-card);
   backdrop-filter: blur(var(--blur-sm));
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border-top-left-radius: 4px;
   line-height: 1.5;
   word-break: break-word;
   box-shadow: var(--shadow-xs);
+  border: 1px solid var(--border-secondary);
 }
 
 .club-msg.self .club-msg-bubble {
   background: var(--primary);
   color: var(--text-on-primary);
-  border-top-left-radius: var(--radius-md);
+  border-top-left-radius: var(--radius-lg);
   border-top-right-radius: 4px;
   box-shadow: var(--shadow-primary);
+  border-color: transparent;
 }
 
 /* Input area */
@@ -718,7 +752,7 @@
 
 .club-chat-input-area input {
   flex: 1;
-  padding: 8px 14px;
+  padding: 10px 16px;
   background: var(--bg-input);
   border: 1px solid transparent;
   border-radius: var(--radius-full);
@@ -735,8 +769,8 @@
 }
 
 .club-send-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -749,7 +783,7 @@
 
 .club-send-btn:hover:not(:disabled) {
   background: var(--primary-hover);
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 .club-send-btn:disabled {
@@ -778,7 +812,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 20px;
+  padding: 24px;
   background: var(--bg-card);
   border-top: 1px solid var(--border-secondary);
   flex-shrink: 0;
@@ -793,7 +827,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 24px;
+  padding: 10px 28px;
   background: var(--primary);
   color: var(--text-on-primary);
   border-radius: var(--radius-full);
@@ -840,12 +874,12 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideUp 0.2s ease;
+  animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from { transform: translateY(20px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 .club-members-panel-header {
@@ -901,6 +935,7 @@
   height: 32px;
   border-radius: var(--radius-sm);
   object-fit: cover;
+  border: 2px solid var(--primary-bg);
 }
 
 .club-member-info {
@@ -986,7 +1021,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideUp 0.2s ease;
+  animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .club-modal-header {
@@ -1057,13 +1092,14 @@
   gap: 4px;
   padding: 6px 12px;
   border-radius: var(--radius-full);
-  background: var(--bg-input);
+  background: var(--bg-card);
   font-size: 12px;
   transition: all var(--transition-fast);
-  border: 1px solid transparent;
+  border: 1px solid var(--border-secondary);
 }
 
 .club-type-btn:hover {
+  border-color: var(--primary);
   background: var(--primary-bg);
 }
 
@@ -1096,7 +1132,7 @@
   padding: 6px 18px;
   background: var(--primary);
   color: var(--text-on-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-size: 13px;
   font-weight: 600;
   box-shadow: var(--shadow-primary);
@@ -1108,16 +1144,24 @@
 @media (max-width: 768px) {
   .club-page {
     height: calc(100vh - 52px);
-    border-radius: 0;
   }
 
   .club-nav {
-    width: 48px;
+    width: 60px;
+  }
+
+  .club-nav-logo {
+    font-size: 22px;
+    margin-bottom: 8px;
   }
 
   .club-nav-btn {
-    width: 36px;
-    height: 36px;
+    width: 48px;
+    padding: 6px 0;
+  }
+
+  .club-nav-label {
+    font-size: 9px;
   }
 
   .club-sidebar {
@@ -1128,7 +1172,7 @@
   .club-main {
     position: absolute;
     top: 0;
-    left: 48px;
+    left: 60px;
     right: 0;
     bottom: 0;
     z-index: 10;

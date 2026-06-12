@@ -761,6 +761,7 @@ export default function Club() {
     <div className="club-page">
       {/* Left nav bar */}
       <nav className="club-nav">
+        <div className="club-nav-logo">☕</div>
         <div className="club-nav-top">
           {NAV_TABS.map(tab => {
             const Icon = tab.icon;
@@ -773,9 +774,9 @@ export default function Club() {
                 key={tab.key}
                 className={`club-nav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => { setActiveTab(tab.key); setSearchQuery(''); setFilterType('all'); }}
-                title={tab.label}
               >
-                <Icon size={20} />
+                <Icon size={18} />
+                <span className="club-nav-label">{tab.label}</span>
                 {badge > 0 && <span className="club-nav-badge">{badge > 99 ? '99+' : badge}</span>}
               </button>
             );
