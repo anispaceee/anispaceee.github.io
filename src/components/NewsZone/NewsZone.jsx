@@ -31,6 +31,10 @@ export default function NewsZone() {
   const [applyForm, setApplyForm] = useState({ title: '', source: '', link: '', category: '', cover: '' });
   const [coverPreview, setCoverPreview] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef(null);
   const carouselTimerRef = useRef(null);
   const coverInputRef = useRef(null);
 
@@ -46,29 +50,58 @@ export default function NewsZone() {
   });
 
   // 加载数据
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (pageNum = 1, append = false) => {
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
     try {
+      const limit = 20;
       const [feedData, customData] = await Promise.allSettled([
-        NewsService.getNewsFeed({ page: 1, limit: 50 }),
-        NewsService.getCustomNews(1, 50),
+        NewsService.getNewsFeed({ page: pageNum, limit }),
+        NewsService.getCustomNews(pageNum, limit),
       ]);
-      if (feedData.status === 'fulfilled') {
-        setFeedNews(feedData.value?.news || []);
+      const newFeed = feedData.status === 'fulfilled' ? (feedData.value?.news || []) : [];
+      const newCustom = customData.status === 'fulfilled' ? (customData.value?.news || []) : [];
+      const newItems = [...newFeed, ...newCustom.map(n => ({ ...n, source: 'custom' }))];
+
+      if (append) {
+        setFeedNews(prev => {
+          const existingIds = new Set(prev.map(n => `${n.source}-${n.source_id || n.id}`));
+          const unique = newItems.filter(n => !existingIds.has(`${n.source}-${n.source_id || n.id}`));
+          return [...prev, ...unique];
+        });
+      } else {
+        setFeedNews(newFeed);
+        setCustomNews(newCustom);
       }
-      if (customData.status === 'fulfilled') {
-        setCustomNews(customData.value?.news || []);
-      }
+      setHasMore(newItems.length >= limit);
     } catch {
       // 静默失败
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData();
+    loadData(1);
   }, [loadData]);
+
+  // 无限滚动
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          loadData(nextPage, true);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, page, loadData]);
 
   // 轮播自动播放
   useEffect(() => {
@@ -251,11 +284,11 @@ export default function NewsZone() {
         ))}
       </div>
 
-      {/* 资讯卡片流 */}
+      {/* 资讯瀑布流 */}
       {loading ? (
         <div className="news-loading"><Loader2 size={16} className="spinning" /> 雨何时停？</div>
       ) : (
-        <div className="news-card-grid">
+        <div className="news-masonry">
           {filteredNews.length === 0 ? (
             <div className="news-empty">暂无资讯，点击刷新获取最新内容</div>
           ) : (
@@ -269,44 +302,42 @@ export default function NewsZone() {
 
               return (
                 <div
-                  key={`${news.source}-${news.id}`}
-                  className={`news-card ${news.cover ? 'news-card-with-cover' : ''}`}
+                  key={`${news.source}-${news.id || news.source_id}`}
+                  className="news-masonry-item"
                   onClick={handleClick}
                   style={{ cursor: 'pointer' }}
                 >
                   {news.cover && (
-                    <div className="news-card-cover">
+                    <div className="news-masonry-cover">
                       <img src={news.cover} alt="" loading="lazy" />
                     </div>
                   )}
-                  <div className="news-card-body">
-                    <div className="news-card-meta">
-                      <span className="news-card-source-badge" style={{ backgroundColor: getSourceColor(news.source) }}>
+                  <div className="news-masonry-body">
+                    <div className="news-masonry-meta">
+                      <span className="news-masonry-source" style={{ backgroundColor: getSourceColor(news.source) }}>
                         {getSourceLabel(news.source)}
                       </span>
                       {news.category && (
-                        <span className="news-card-category">{news.category}</span>
+                        <span className="news-masonry-category">{news.category}</span>
                       )}
-                      <span className="news-card-date">
+                    </div>
+                    <h3 className="news-masonry-title">{news.title}</h3>
+                    {news.summary && (
+                      <p className="news-masonry-summary">{news.summary}</p>
+                    )}
+                    <div className="news-masonry-footer">
+                      <span className="news-masonry-date">
                         <Calendar size={10} /> {news.created_at?.split('T')[0] || ''}
                       </span>
-                    </div>
-                    <h3 className="news-card-title">{news.title}</h3>
-                    {news.summary && (
-                      <p className="news-card-summary">{news.summary}</p>
-                    )}
-                    <div className="news-card-footer">
                       {isArticle ? (
-                        <span className="news-card-action">阅读全文</span>
+                        <span className="news-masonry-action">阅读全文</span>
                       ) : news.link ? (
-                        <span className="news-card-action" onClick={e => e.stopPropagation()}>
-                          <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-card-ext-link">
-                            <ExternalLink size={12} /> 查看原文
-                          </a>
-                        </span>
+                        <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-masonry-ext" onClick={e => e.stopPropagation()}>
+                          <ExternalLink size={10} /> 原文
+                        </a>
                       ) : null}
                       {news.extra?.rating && (
-                        <span className="news-card-rating">★ {news.extra.rating}</span>
+                        <span className="news-masonry-rating">★ {news.extra.rating}</span>
                       )}
                     </div>
                   </div>
@@ -314,6 +345,11 @@ export default function NewsZone() {
               );
             })
           )}
+          {/* 无限滚动哨兵 */}
+          <div ref={sentinelRef} className="news-scroll-sentinel">
+            {loadingMore && <div className="news-loading-more"><Loader2 size={14} className="spinning" /> 加载更多...</div>}
+            {!hasMore && filteredNews.length > 0 && <div className="news-no-more">— 已加载全部 —</div>}
+          </div>
         </div>
       )}
 
@@ -328,8 +364,7 @@ export default function NewsZone() {
 
             <div className="news-submit-tabs">
               <button
-                className={`news-submit-tab ${submitMode === 'link' ? 'active' : ''}`}
-                onClick={() => setSubmitMode('link')}
+                className="news-submit-tab active"
               >
                 🔗 短讯
               </button>
