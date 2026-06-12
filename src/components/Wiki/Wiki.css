@@ -7,6 +7,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.wiki-immersive-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 0;
+  border-radius: inherit;
+}
+.wiki-immersive-bg-overlay ~ .wiki-immersive-center {
+  position: relative;
+  z-index: 1;
+}
+.wiki-immersive-bg-overlay ~ .wiki-immersive-center .wiki-immersive-title {
+  -webkit-text-fill-color: #fff;
+}
+.wiki-immersive-bg-overlay ~ .wiki-immersive-center .wiki-immersive-subtitle {
+  color: rgba(255,255,255,0.6);
 }
 .wiki-immersive-center {
   display: flex;
@@ -125,6 +148,48 @@
 /* ─── 分页 ─── */
 .wiki-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-secondary); }
 .wiki-pagination button { padding: 6px 14px; background: var(--bg-input); border-radius: 20px; font-size: 13px; color: var(--text-secondary); }
+
+/* ─── 自定义背景 FAB 按钮 ─── */
+.wiki-bg-fab-group {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+}
+.wiki-bg-fab {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+.wiki-bg-fab:hover {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  transform: scale(1.08);
+}
+.wiki-bg-fab-clear {
+  width: 36px;
+  height: 36px;
+  background: rgba(232,67,147,0.2);
+  color: rgba(232,67,147,0.8);
+}
+.wiki-bg-fab-clear:hover {
+  background: rgba(232,67,147,0.35);
+  color: #e84393;
+}
 .wiki-pagination button:disabled { opacity: 0.4; }
 .wiki-pagination button:hover:not(:disabled) { background: var(--primary-bg); color: var(--primary); }
 .wiki-pagination span { font-size: 13px; color: var(--text-quaternary); }

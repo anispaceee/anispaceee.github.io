@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
 import { SubjectCard } from '../Common/CommonComponents';
-import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2, ShieldOff } from 'lucide-react';
+import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2, ShieldOff, ImagePlus, X } from 'lucide-react';
 import { typeToKey, extractPreview } from '../../utils/subjectType';
 import './Wiki.css';
 
@@ -20,6 +20,7 @@ const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/sv
 
 const HISTORY_KEY = 'anispace_search_history';
 const NSFW_FILTER_KEY = 'anispace_filter_nsfw';
+const BG_IMAGE_KEY = 'anispace_wiki_bg_image';
 const MAX_HISTORY = 12;
 
 function getSearchHistory() {
@@ -69,6 +70,8 @@ export default function Wiki() {
 
   const [hasSearched, setHasSearched] = useState(() => !!searchParams.get('q'));
   const [searchHistory, setSearchHistory] = useState(getSearchHistory);
+  const [customBg, setCustomBg] = useState(() => localStorage.getItem(BG_IMAGE_KEY) || '');
+  const bgInputRef = useRef(null);
 
   const initialSearchDone = useRef(false);
 
@@ -248,12 +251,32 @@ export default function Wiki() {
     });
   };
 
+  const handleBgUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      localStorage.setItem(BG_IMAGE_KEY, dataUrl);
+      setCustomBg(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleBgClear = () => {
+    localStorage.removeItem(BG_IMAGE_KEY);
+    setCustomBg('');
+  };
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   // 沉浸式首页模式
   if (!hasSearched) {
     return (
-      <div className="wiki-immersive">
+      <div className="wiki-immersive" style={customBg ? { backgroundImage: `url(${customBg})` } : undefined}>
+        {customBg && <div className="wiki-immersive-bg-overlay" />}
         <div className="wiki-immersive-center">
           <h1 className="wiki-immersive-title">インデックスIndex</h1>
           <p className="wiki-immersive-subtitle">发现你的下一部番</p>
@@ -375,6 +398,17 @@ export default function Wiki() {
               </div>
             </div>
           )}
+        </div>
+        <input ref={bgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBgUpload} />
+        <div className="wiki-bg-fab-group">
+          {customBg && (
+            <button className="wiki-bg-fab wiki-bg-fab-clear" onClick={handleBgClear} title="移除背景">
+              <X size={16} />
+            </button>
+          )}
+          <button className="wiki-bg-fab" onClick={() => bgInputRef.current?.click()} title="自定义背景">
+            <ImagePlus size={18} />
+          </button>
         </div>
       </div>
     );
