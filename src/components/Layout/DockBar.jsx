@@ -227,27 +227,33 @@ export default function DockBar() {
       )}
 
       <div className="dock-bar">
-        {dockItems.map((item, i) => (
-          <div key={item.key} className="dock-item-wrap">
-            {item.href ? (
-              <a href={item.href} className={`dock-btn ${item.active ? 'active' : ''}`} title={item.label}>
-                {item.icon}
-              </a>
-            ) : (
-              <button
-                className={`dock-btn ${item.active ? 'active' : ''}`}
-                onClick={item.onClick || (() => togglePanel(item.key))}
-                title={item.label}
-              >
-                {item.icon}
-                {item.key === 'music' && playing && <span className="dock-btn-playing" />}
-                {windows[item.key]?.open && item.key !== 'launcher' && <span className="dock-btn-indicator" />}
-                {item.badge > 0 && <span className="dock-btn-badge">{item.badge > 99 ? '99+' : item.badge}</span>}
-              </button>
-            )}
-            {i < dockItems.length - 1 && <div className="dock-separator" />}
-          </div>
-        ))}
+        {dockItems.map((item, i) => {
+          // 在 launcher 后和 settings 前显示分隔线
+          const showSeparator = item.key === 'club' || item.key === 'settings';
+          return (
+            <div key={item.key} className="dock-item-wrap">
+              {showSeparator && <div className="dock-separator" />}
+              {item.href ? (
+                <a href={item.href} className={`dock-btn ${item.active ? 'active' : ''}`} title={item.label}>
+                  {item.icon}
+                  <span className="dock-btn-tooltip">{item.label}</span>
+                </a>
+              ) : (
+                <button
+                  className={`dock-btn ${item.active ? 'active' : ''}`}
+                  onClick={item.onClick || (() => togglePanel(item.key))}
+                  title={item.label}
+                >
+                  {item.icon}
+                  {item.key === 'music' && playing && <span className="dock-btn-playing" />}
+                  {windows[item.key]?.open && item.key !== 'launcher' && <span className="dock-btn-indicator" />}
+                  {item.badge > 0 && <span className="dock-btn-badge">{item.badge > 99 ? '99+' : item.badge}</span>}
+                  <span className="dock-btn-tooltip">{item.label}</span>
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
