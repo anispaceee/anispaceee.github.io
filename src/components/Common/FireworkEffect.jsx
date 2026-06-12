@@ -1,15 +1,39 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const FIREWORK_KEY = 'anispace_firework';
 
-function isFireworkOn() {
+export function isFireworkOn() {
   const v = localStorage.getItem(FIREWORK_KEY);
   return v === null || v === '1';
 }
 
+export function setFireworkOn(val) {
+  localStorage.setItem(FIREWORK_KEY, val ? '1' : '0');
+  // 派发自定义事件，让 FireworkEffect 实时响应
+  window.dispatchEvent(new CustomEvent('firework-setting-change', { detail: val }));
+}
+
 export default function FireworkEffect() {
+  const [enabled, setEnabled] = useState(() => isFireworkOn());
+
+  // 监听设置变化
   useEffect(() => {
-    if (!isFireworkOn()) return;
+    const handler = (e) => setEnabled(e.detail);
+    window.addEventListener('firework-setting-change', handler);
+    return () => window.removeEventListener('firework-setting-change', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) {
+      // 关闭时：移除事件监听 + 隐藏 canvas
+      const canvas = document.querySelector('canvas[style*="pointer-events:none"]');
+      if (canvas) canvas.style.display = 'none';
+      return;
+    }
+
+    // 开启时：显示 canvas + 初始化烟花
+    const canvas = document.querySelector('canvas[style*="pointer-events:none"]');
+    if (canvas) canvas.style.display = '';
 
     let cancelled = false;
 
@@ -52,12 +76,10 @@ export default function FireworkEffect() {
           },
         ],
       });
-    }).catch(() => {
-      // mouse-firework 加载失败时静默忽略
-    });
+    }).catch(() => {});
 
     return () => { cancelled = true; };
-  }, []);
+  }, [enabled]);
 
   return null;
 }

@@ -5,6 +5,7 @@ import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
 import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2, Globe } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
+import { setFireworkOn } from '../Common/FireworkEffect';
 import './DockBar.css';
 
 export default function DockBar() {
@@ -121,7 +122,7 @@ export default function DockBar() {
 
   const setFireworkAndSave = (val) => {
     setFirework(val);
-    localStorage.setItem('anispace_firework', val ? '1' : '0');
+    setFireworkOn(val);
   };
 
   const handleAppClick = (appId) => {
