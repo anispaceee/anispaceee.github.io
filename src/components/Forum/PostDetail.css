@@ -42,9 +42,9 @@
 .reply-avatar.small { width: 24px; height: 24px; }
 .reply-body { flex: 1; min-width: 0; }
 .reply-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.reply-name { font-size: 13px; font-weight: 600; }
+.reply-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .reply-time { font-size: 11px; color: var(--text-quaternary); margin-left: auto; }
-.reply-content { font-size: 14px; line-height: 1.6; }
+.reply-content { font-size: 14px; line-height: 1.6; color: var(--text-primary); }
 
 /* 回复操作按钮 */
 .reply-actions { display: flex; gap: 12px; margin-top: 6px; }
