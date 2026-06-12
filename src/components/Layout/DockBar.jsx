@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
@@ -19,8 +19,19 @@ export default function DockBar() {
   const [dockHidden, setDockHidden] = useState(false);
   const [hoveringTrigger, setHoveringTrigger] = useState(false);
   const [hoveringDock, setHoveringDock] = useState(false);
+  const [hoveredIndex, setHoveredIndex] = useState(-1);
   const dockRef = useRef(null);
   const hideTimerRef = useRef(null);
+
+  // macOS 风格 magnification：计算每个图标的缩放比例
+  const getScale = useCallback((index) => {
+    if (hoveredIndex < 0) return 1;
+    const dist = Math.abs(index - hoveredIndex);
+    if (dist === 0) return 1.3;    // 当前 hover
+    if (dist === 1) return 1.12;   // 相邻
+    if (dist === 2) return 1.03;   // 次相邻
+    return 1;
+  }, [hoveredIndex]);
 
   // 启动/重置隐藏计时器
   const startHideTimer = useRef(() => {});
@@ -130,7 +141,7 @@ export default function DockBar() {
   ];
 
   return (
-    <div ref={dockRef} className={`dock-bar-wrapper ${dockHidden ? 'dock-hidden' : ''}`} onMouseEnter={() => setHoveringDock(true)} onMouseLeave={() => setHoveringDock(false)}>
+    <div ref={dockRef} className={`dock-bar-wrapper ${dockHidden ? 'dock-hidden' : ''}`}>
       {/* 隐藏时的触发横条 */}
       {dockHidden && (
         <div
@@ -226,15 +237,21 @@ export default function DockBar() {
         </div>
       )}
 
-      <div className="dock-bar">
+      <div className="dock-bar"
+        onMouseEnter={() => setHoveringDock(true)}
+        onMouseLeave={() => { setHoveringDock(false); setHoveredIndex(-1); }}
+      >
         {dockItems.map((item, i) => {
           // 在 launcher 后和 settings 前显示分隔线
           const showSeparator = item.key === 'club' || item.key === 'settings';
+          const scale = getScale(i);
           return (
-            <div key={item.key} className="dock-item-wrap">
+            <div key={item.key} className="dock-item-wrap" style={{ transform: `scale(${scale})`, transformOrigin: 'bottom center', transition: 'transform 0.2s cubic-bezier(0.25, 1, 0.5, 1)' }}>
               {showSeparator && <div className="dock-separator" />}
               {item.href ? (
-                <a href={item.href} className={`dock-btn ${item.active ? 'active' : ''}`} title={item.label}>
+                <a href={item.href} className={`dock-btn ${item.active ? 'active' : ''}`} title={item.label}
+                  onMouseEnter={() => setHoveredIndex(i)}
+                >
                   {item.icon}
                   <span className="dock-btn-tooltip">{item.label}</span>
                 </a>
@@ -243,6 +260,7 @@ export default function DockBar() {
                   className={`dock-btn ${item.active ? 'active' : ''}`}
                   onClick={item.onClick || (() => togglePanel(item.key))}
                   title={item.label}
+                  onMouseEnter={() => setHoveredIndex(i)}
                 >
                   {item.icon}
                   {item.key === 'music' && playing && <span className="dock-btn-playing" />}
