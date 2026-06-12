@@ -3511,7 +3511,7 @@ export default {
     // POST /api/selector/search
     // 请求体: { searchUrl, selectors, keyword, baseUrl }
     // 返回: { items: [{ title, url, cover }], total }
-    if (method === 'POST' && url.pathname === '/api/selector/search') {
+    if (request.method === 'POST' && url.pathname === '/api/selector/search') {
       try {
         let body;
         try {
@@ -3597,7 +3597,7 @@ export default {
     // POST /api/selector/episode
     // 请求体: { url, baseUrl, selectors }
     // 返回: { episodes: [{ title, url }] }
-    if (method === 'POST' && url.pathname === '/api/selector/episode') {
+    if (request.method === 'POST' && url.pathname === '/api/selector/episode') {
       try {
         let body;
         try {
@@ -3682,7 +3682,7 @@ export default {
     // ─── RSS 源：通用 RSS 获取 ─────────────────────────────
     // GET /api/rss/fetch?url=xxx
     // 返回: { items: [{ title, link, pubDate, size, description }] }
-    if (method === 'GET' && url.pathname === '/api/rss/fetch') {
+    if (request.method === 'GET' && url.pathname === '/api/rss/fetch') {
       const rssUrl = url.searchParams.get('url');
       if (!rssUrl) {
         return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
@@ -3693,17 +3693,19 @@ export default {
       }
 
       // Check cache
-      const cache = caches.default;
-      const cacheKey = new Request(rssUrl, { method: 'GET' });
-      const cached = await cache.match(cacheKey);
-      if (cached) {
-        const data = await cached.json();
-        const headers = new Headers();
-        headers.set('Content-Type', 'application/json');
-        headers.set('X-Cache', 'HIT');
-        Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
-        return new Response(JSON.stringify(data), { status: 200, headers });
-      }
+      try {
+        const cache = caches.default;
+        const cacheKey = new Request(rssUrl, { method: 'GET' });
+        const cached = await cache.match(cacheKey);
+        if (cached) {
+          const data = await cached.json();
+          const headers = new Headers();
+          headers.set('Content-Type', 'application/json');
+          headers.set('X-Cache', 'HIT');
+          Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+          return new Response(JSON.stringify(data), { status: 200, headers });
+        }
+      } catch {}
 
       try {
         const res = await fetch(rssUrl, {
@@ -3761,7 +3763,7 @@ export default {
     // ─── Mikan 索引：Bangumi ID → Mikan 番剧 ─────────────
     // GET /api/mikan/subject/:bgmId
     // 返回: { bgmId, mikanId, items: [{ title, link, pubDate, size }] }
-    if (method === 'GET' && url.pathname.match(/^\/api\/mikan\/subject\/\d+$/)) {
+    if (request.method === 'GET' && url.pathname.match(/^\/api\/mikan\/subject\/\d+$/)) {
       const bgmId = url.pathname.split('/').pop();
       if (!bgmId) {
         return jsonResponse({ error: '缺少 Bangumi ID' }, 400, origin);
