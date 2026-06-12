@@ -238,12 +238,14 @@ export default function Amadeus() {
   const abortRef = useRef(null);
   const mountedRef = useRef(true);
   const msgIdRef = useRef(0);
-  const nextId = () => `m${++msgIdRef.current}`;
+  // 全局唯一 id：优先 randomUUID（跨会话/同毫秒都不撞），降级用计数器+时间戳
+  const nextId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `m${++msgIdRef.current}-${Date.now()}`);
   const messagesRef = useRef(messages);
   const [speechSupported] = useState(() => 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 
   // 组件卸载时取消进行中的请求
   useEffect(() => {
+    mountedRef.current = true; // StrictMode 下会先卸载再挂载，需在挂载时重置
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();
