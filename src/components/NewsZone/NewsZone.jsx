@@ -73,7 +73,8 @@ export default function NewsZone() {
         setFeedNews(newFeed);
         setCustomNews(newCustom);
       }
-      setHasMore(newItems.length >= limit);
+      // 任一数据源仍返回满页才认为还有更多，避免合并后长度恒 >= limit 导致永不结束
+      setHasMore(newFeed.length >= limit || newCustom.length >= limit);
     } catch {
       // 静默失败
     } finally {

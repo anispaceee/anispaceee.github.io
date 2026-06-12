@@ -4,7 +4,7 @@ const API_BASE = '/api';
 
 // ─── 请求辅助函数，自动附加 Authorization header ───
 async function apiFetch(path, options = {}) {
-  const token = sessionStorage.getItem('acg_auth_token');
+  const token = sessionStorage.getItem('acg_jwt_token');
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });

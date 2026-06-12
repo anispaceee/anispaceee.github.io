@@ -27,8 +27,13 @@ function loadCoreScript() {
       return;
     }
     if (coreLoading) {
+      let waited = 0;
       const check = setInterval(() => {
-        if (coreLoaded && window.loadlive2d) { clearInterval(check); resolve(); }
+        if (coreLoaded && window.loadlive2d) { clearInterval(check); resolve(); return; }
+        // 另一处加载失败（onerror 会把 coreLoading 置回 false）→ 停止轮询并 reject，避免 interval 泄漏
+        if (!coreLoading) { clearInterval(check); reject(new Error('Failed to load live2d core')); return; }
+        waited += 100;
+        if (waited >= 15000) { clearInterval(check); reject(new Error('Live2D core load timeout')); }
       }, 100);
       return;
     }

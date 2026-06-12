@@ -47,25 +47,30 @@ export function MusicProvider({ children }) {
 
   // Pre-import default playlist on first load
   useEffect(() => {
-    if (savedPlaylists.length === 0) {
-      NetEaseMusicService.getPlaylistDetail(DEFAULT_PLAYLIST_ID).then(data => {
-        if (data && data.tracks && data.tracks.length > 0) {
-          const saved = [{
-            id: Date.now().toString(),
-            name: data.name || '默认歌单',
-            cover: data.coverImgUrl || data.tracks[0]?.albumCover || '',
-            server: 'netease',
-            sourceId: DEFAULT_PLAYLIST_ID,
-            songCount: data.tracks.length,
-            songs: data.tracks,
-            createdAt: new Date().toISOString(),
-          }];
-          setSavedPlaylists(saved);
-          StorageService.set(PLAYLIST_STORAGE, saved);
-          setPlaylist(data.tracks);
-        }
-      }).catch(() => {});
-    }
+    if (savedPlaylists.length !== 0) return;
+    let cancelled = false;
+    NetEaseMusicService.getPlaylistDetail(DEFAULT_PLAYLIST_ID).then(data => {
+      if (cancelled || !data || !data.tracks || data.tracks.length === 0) return;
+      const saved = [{
+        id: Date.now().toString(),
+        name: data.name || '默认歌单',
+        cover: data.coverImgUrl || data.tracks[0]?.albumCover || '',
+        server: 'netease',
+        sourceId: DEFAULT_PLAYLIST_ID,
+        songCount: data.tracks.length,
+        songs: data.tracks,
+        createdAt: new Date().toISOString(),
+      }];
+      // 仅在用户尚未导入任何歌单时写入，避免异步返回覆盖用户已选歌单
+      setSavedPlaylists(prev => {
+        if (prev.length > 0) return prev;
+        StorageService.set(PLAYLIST_STORAGE, saved);
+        return saved;
+      });
+      // 仅在当前播放列表为空时填充默认歌单，避免打断用户已开始的播放
+      setPlaylist(prev => (prev && prev.length > 0 ? prev : data.tracks));
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   // Audio event handlers - registered once, use refs for callbacks

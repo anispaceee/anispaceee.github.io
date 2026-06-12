@@ -47,8 +47,12 @@ export class MatchEngine {
    * 支持 01、第1集、EP01、#01 等格式。
    */
   static matchEpisode(title: string, episodeSort: string): boolean {
+    // 空集数或非数字时不做匹配，否则 "".padStart(2,'0') => "00" 会用 /\b0\b/ 等误匹配大量无关标题
+    if (!episodeSort) return false;
+    const parsed = parseInt(episodeSort, 10);
+    if (Number.isNaN(parsed)) return false;
     const sort = episodeSort.padStart(2, '0');
-    const numSort = String(parseInt(sort, 10));
+    const numSort = String(parsed);
     const patterns = [
       new RegExp(`[^0-9]${sort}[^0-9]`),
       new RegExp(`第${sort}集`),

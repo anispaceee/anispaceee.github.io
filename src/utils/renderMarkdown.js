@@ -17,8 +17,10 @@ export function renderMarkdown(text) {
       safeUrl(url) ? `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${t}</a>` : t
     )
     .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/\n/g, '<br/>');
-  html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+    .replace(/^- (.+)$/gm, '<li>$1</li>');
+  // 先把连续的 <li> 行合并进 <ul>，再转换换行，
+  // 否则贪婪匹配会把列表项之间的普通段落一起卷进 <ul>
+  html = html.replace(/(?:<li>[^\n]*<\/li>\n?)+/g, m => `<ul>${m.replace(/\n/g, '')}</ul>`);
+  html = html.replace(/\n/g, '<br/>');
   return html;
 }

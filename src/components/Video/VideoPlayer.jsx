@@ -37,6 +37,9 @@ export default function VideoPlayer() {
   const hlsRef = useRef(null);
   const torrentRef = useRef(null);
   const coverRef = useRef('');
+  // 弹幕用 ref 镜像，供 DPlayer apiBackend 读取，避免弹幕异步加载后整个播放器重建
+  const danmakuListRef = useRef([]);
+  useEffect(() => { danmakuListRef.current = danmakuList; }, [danmakuList]);
 
   // Fetch subject detail, episodes, and media matches
   useEffect(() => {
@@ -355,31 +358,30 @@ export default function VideoPlayer() {
             volume: 0.7,
           };
 
-          // Add danmaku only if we have data
-          if (danmakuList.length > 0) {
-            playerConfig.danmaku = {
-              id: `${subjectId}_${episodeId}`,
-              maximum: 1000,
-              bottom: '10%',
-              unlimited: false,
-            };
-            playerConfig.apiBackend = {
-              read: (endpoint, callback) => {
-                callback({
-                  data: danmakuList.map(d => ({
-                    time: d.time,
-                    type: d.type,
-                    color: parseInt(d.color.replace('#', ''), 16),
-                    author: d.author,
-                    text: d.text,
-                  })),
-                });
-              },
-              send: (endpoint, danmaku, callback) => {
-                callback();
-              },
-            };
-          }
+          // 始终接入弹幕 apiBackend，从 ref 读取当前弹幕，
+          // 这样弹幕异步加载完成时无需重建播放器（read 在 loadedmetadata 后调用，届时多已就绪）
+          playerConfig.danmaku = {
+            id: `${subjectId}_${episodeId}`,
+            maximum: 1000,
+            bottom: '10%',
+            unlimited: false,
+          };
+          playerConfig.apiBackend = {
+            read: (endpoint, callback) => {
+              callback({
+                data: danmakuListRef.current.map(d => ({
+                  time: d.time,
+                  type: d.type,
+                  color: parseInt(String(d.color || '#ffffff').replace('#', ''), 16) || 0xffffff,
+                  author: d.author,
+                  text: d.text,
+                })),
+              });
+            },
+            send: (endpoint, danmaku, callback) => {
+              callback();
+            },
+          };
 
           const dp = new DPlayer(playerConfig);
 
@@ -440,7 +442,7 @@ export default function VideoPlayer() {
         }
       };
     }
-  }, [currentMedia, subjectId, episodeId, danmakuList]);
+  }, [currentMedia, subjectId, episodeId]);
 
   // Group media matches by sourceId
   const sourceGroups = useMemo(() => {
