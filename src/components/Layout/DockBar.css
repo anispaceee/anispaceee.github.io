@@ -13,7 +13,7 @@
 .dock-trigger-bar {
   pointer-events: auto;
   position: fixed;
-  bottom: 0;
+  bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
   width: 200px;
