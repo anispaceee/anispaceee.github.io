@@ -17,7 +17,10 @@ const PAGE_ROUTES = {
 export const COMMANDS = [
   {
     name: 'help', aliases: ['?'], description: '显示所有命令',
-    run: () => COMMANDS.map(c => `  ${c.name.padEnd(8)} - ${c.description}`),
+    run: () => COMMANDS.map(c => {
+      const names = [c.name, ...(c.aliases || [])].join('|');
+      return `  ${names.padEnd(14)} - ${c.description}`;
+    }),
   },
   {
     name: 'clear', description: '清屏',
@@ -40,9 +43,9 @@ export const COMMANDS = [
     run: (args, ctx) => {
       const key = args[0];
       if (!key) return { type: 'error', text: '用法: goto <页名>，如 goto news' };
-      const route = PAGE_ROUTES[key.toLowerCase()] || PAGE_ROUTES[key];
+      const route = PAGE_ROUTES[key.toLowerCase()];
       if (!route) {
-        const pages = [...new Set(Object.keys(PAGE_ROUTES))].filter(k => /^[a-z]+$/.test(k)).join(' ');
+        const pages = Object.keys(PAGE_ROUTES).join(' ');
         return { type: 'error', text: `未知页面: ${key}。可用: ${pages}` };
       }
       ctx.navigate(route);
@@ -89,6 +92,7 @@ export const COMMANDS = [
       const text = args.join(' ').trim();
       if (!text) return { type: 'error', text: '用法: say <内容>' };
       try {
+        // sendMessage(userId, content)：内容必须作第二个参数，第一参仅占位
         await ctx.services.WorldChannelService.sendMessage(ctx.currentUser.id, text);
         return `已发送到世界线: ${text}`;
       } catch {
