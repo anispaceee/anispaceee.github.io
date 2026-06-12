@@ -50,8 +50,8 @@ function VerticalRatingDistribution({ rating, onFilterChange, activeFilter }) {
         {[10,9,8,7,6,5,4,3,2,1].map(s => {
           const count = counts[s] || 0;
           const totalPct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-          const filled = Math.round((count / maxCount) * 10);
-          const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+          const filled = Math.round((count / maxCount) * 20);
+          const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
           const isActive = activeFilter === s;
           const isAnyFilter = activeFilter !== null;
           return (
