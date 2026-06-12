@@ -110,6 +110,7 @@ function WindowLayer() {
             {win.id === 'world' && <WorldChannel />}
             {win.id === 'notifications' && <Notifications />}
             {win.id === 'touchgal' && <TouchGalApp />}
+            {win.id === 'club' && <Club />}
           </AppWindow>
         );
       })}

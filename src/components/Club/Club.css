@@ -3,11 +3,16 @@
 /* Page container */
 .club-page {
   display: flex;
+  height: 100%;
+  background: var(--bg-body);
+  overflow: hidden;
+}
+
+/* When used as a route page (not in window), constrain height */
+.club-page:not(.app-window-content .club-page) {
   height: calc(100vh - var(--header-height, 60px));
   max-width: var(--max-content, 1200px);
   margin: 0 auto;
-  background: var(--bg-body);
-  overflow: hidden;
 }
 
 /* ===== Left Nav Bar — cute pill nav ===== */

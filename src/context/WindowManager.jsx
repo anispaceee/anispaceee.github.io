@@ -9,6 +9,7 @@ const DEFAULT_WINDOW_CONFIG = {
   world: { title: '世界线', icon: '💬', width: 450, height: 550, minWidth: 300, minHeight: 400 },
   notifications: { title: '通知', icon: '🔔', width: 800, height: 600, minWidth: 400, minHeight: 400 },
   touchgal: { title: 'TouchGal', icon: '🎮', width: 1000, height: 700, minWidth: 600, minHeight: 500 },
+  club: { title: 'Tea Time！', icon: '☕', width: 900, height: 650, minWidth: 600, minHeight: 450 },
 };
 
 let nextZIndex = 1000;

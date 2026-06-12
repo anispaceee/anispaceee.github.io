@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
-import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare } from 'lucide-react';
+import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import './DockBar.css';
 
@@ -16,7 +16,47 @@ export default function DockBar() {
   const [showLauncher, setShowLauncher] = useState(false);
   const [launcherIndex, setLauncherIndex] = useState(-1);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [dockHidden, setDockHidden] = useState(false);
+  const [hoveringTrigger, setHoveringTrigger] = useState(false);
   const dockRef = useRef(null);
+  const hideTimerRef = useRef(null);
+
+  // 10s 无行为自动隐藏 Dock
+  const resetHideTimer = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setDockHidden(true);
+    }, 10000);
+  };
+
+  useEffect(() => {
+    resetHideTimer();
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    const handleActivity = () => {
+      setDockHidden(false);
+      resetHideTimer();
+    };
+    events.forEach(e => document.addEventListener(e, handleActivity, { passive: true }));
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      events.forEach(e => document.removeEventListener(e, handleActivity));
+    };
+  }, []);
+
+  // 鼠标移入 trigger bar 时弹出 Dock
+  useEffect(() => {
+    if (hoveringTrigger) {
+      setDockHidden(false);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    }
+  }, [hoveringTrigger]);
+
+  // Dock 弹出后重新开始计时
+  useEffect(() => {
+    if (!dockHidden && !hoveringTrigger) {
+      resetHideTimer();
+    }
+  }, [dockHidden, hoveringTrigger]);
 
   useEffect(() => {
     setUnreadCount(getUnreadCount());
@@ -57,6 +97,7 @@ export default function DockBar() {
 
   const launcherApps = [
     { id: 'touchgal', icon: <Gamepad2 size={18} />, label: 'TouchGal' },
+    { id: 'club', icon: <Coffee size={18} />, label: 'Tea Time！' },
     { id: 'friends', icon: <Users size={18} />, label: '好友空间' },
     { id: 'music', icon: <Music size={18} />, label: '音乐' },
     { id: 'amadeus', icon: <Brain size={18} />, label: 'Navi' },
@@ -89,6 +130,7 @@ export default function DockBar() {
   const dockItems = [
     { key: 'launcher', icon: <ChevronUp size={16} />, label: '应用', active: showLauncher, onClick: () => { setShowLauncher(prev => !prev); setActivePanel(null); } },
     { key: 'touchgal', icon: <Gamepad2 size={16} />, label: 'TouchGal', active: windows.touchgal?.open && !windows.touchgal.minimized, onClick: () => handleAppClick('touchgal') },
+    { key: 'club', icon: <Coffee size={16} />, label: 'Tea Time！', active: windows.club?.open && !windows.club.minimized, onClick: () => handleAppClick('club') },
     { key: 'world', icon: <MessageCircle size={16} />, label: '世界线', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
     { key: 'amadeus', icon: <Brain size={16} />, label: 'Navi', active: windows.amadeus?.open && !windows.amadeus.minimized, onClick: () => handleAppClick('amadeus') },
     { key: 'music', icon: <Music size={16} />, label: '音乐', active: windows.music?.open && !windows.music.minimized || activePanel === 'music', onClick: () => handleAppClick('music') },
@@ -99,7 +141,15 @@ export default function DockBar() {
   ];
 
   return (
-    <div ref={dockRef} className="dock-bar-wrapper">
+    <div ref={dockRef} className={`dock-bar-wrapper ${dockHidden ? 'dock-hidden' : ''}`}>
+      {/* 隐藏时的触发横条 */}
+      {dockHidden && (
+        <div
+          className="dock-trigger-bar"
+          onMouseEnter={() => setHoveringTrigger(true)}
+          onMouseLeave={() => setHoveringTrigger(false)}
+        />
+      )}
       {showLauncher && (
         <div className="dock-launcher">
           {launcherApps.map((app, i) => (
