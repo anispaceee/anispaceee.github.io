@@ -44,12 +44,8 @@ export default function MinimizedBar({ id, icon, title, bottom = 80, children })
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {children || (
-        <>
-          <span className="minimized-bar-icon">{icon}</span>
-          <span className="minimized-bar-title">{title}</span>
-        </>
-      )}
+      <span className="minimized-bar-icon">{icon}</span>
+      {children || <span className="minimized-bar-title">{title}</span>}
     </div>
   );
 }

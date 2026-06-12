@@ -60,11 +60,13 @@
   background: rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
   font-size: 18px;
+  color: var(--text-secondary);
 }
 
 [data-theme="dark"] .minimized-bar-icon,
 [data-theme="high-contrast"] .minimized-bar-icon {
   background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
 }
 
 .minimized-bar-title {
@@ -147,6 +149,56 @@
 }
 
 .minimized-bar-btn-play:hover {
+  background: var(--primary-active);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+/* Navi 输入框 */
+.minimized-bar-navi {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.minimized-bar-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.minimized-bar-input:focus {
+  border-color: var(--primary);
+}
+
+.minimized-bar-input::placeholder {
+  color: var(--text-quaternary);
+}
+
+[data-theme="dark"] .minimized-bar-input,
+[data-theme="high-contrast"] .minimized-bar-input {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.minimized-bar-btn-send {
+  width: 28px;
+  height: 28px;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.minimized-bar-btn-send:hover {
   background: var(--primary-active);
   color: #fff;
   transform: scale(1.08);

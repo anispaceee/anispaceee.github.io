@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useParams } from 'react-router-dom'
-import { lazy, Suspense, Component } from 'react'
+import { lazy, Suspense, Component, useState, useEffect } from 'react'
 import Layout from './components/Layout/Layout'
 import HomePage from './pages/HomePage'
 import OAuthCallback from './pages/OAuthCallback'
@@ -15,7 +15,7 @@ import MusicPlayer from './components/Music/MusicPlayer'
 import MinimizedBar from './components/Layout/MinimizedBar'
 import LoginNotificationBar from './components/Layout/LoginNotificationBar'
 import { useMusic, FALLBACK_COVER } from './context/MusicContext'
-import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Music, Brain, Coffee, Globe, Users, Bell, Gamepad2, Send } from 'lucide-react'
 import Amadeus from './components/Amadeus/Amadeus'
 import FriendSpace from './components/FriendSpace/FriendSpace'
 import Notifications from './components/Notification/Notifications'
@@ -40,7 +40,8 @@ import DockBar from './components/Layout/DockBar'
 import AppWindow from './components/Layout/AppWindow'
 import { WindowManagerProvider, useWindowManager } from './context/WindowManager'
 import { MusicProvider } from './context/MusicContext'
-import { StorageService } from './services/api'
+import { StorageService, WorldChannelService, FriendPostService } from './services/api'
+import { useApp } from './context/AppContext'
 import { initMediaSources } from './services/media/initSources'
 
 // Error Boundary to prevent white screen when a component crashes
@@ -121,8 +122,109 @@ function WindowLayer() {
   );
 }
 
+// 各APP的lucide图标映射
+const APP_ICONS = {
+  music: Music,
+  friends: Users,
+  amadeus: Brain,
+  world: Globe,
+  notifications: Bell,
+  touchgal: Gamepad2,
+  club: Coffee,
+};
+
+// Tea Time! 最小化小组件
+function ClubMinimizedWidget() {
+  const [latestMsg, setLatestMsg] = useState(null);
+  useEffect(() => {
+    const clubs = StorageService.get('acg_clubs', []);
+    if (clubs.length > 0) {
+      const allMsgs = clubs.flatMap(c => (c.messages || []).filter(m => m.type !== 'system'));
+      allMsgs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (allMsgs.length > 0) setLatestMsg(allMsgs[0]);
+    }
+  }, []);
+  if (!latestMsg) return <span className="minimized-bar-title">Tea Time！</span>;
+  return (
+    <div className="minimized-bar-info">
+      <span className="minimized-bar-name">{latestMsg.content}</span>
+      <span className="minimized-bar-artist">{latestMsg.userId || '系统'}</span>
+    </div>
+  );
+}
+
+// Navi 最小化小组件：发送框
+function NaviMinimizedWidget() {
+  const { openWindow } = useWindowManager();
+  const [input, setInput] = useState('');
+  const handleSend = (e) => {
+    e.stopPropagation();
+    if (!input.trim()) return;
+    // 将消息存入sessionStorage，Navi打开时读取
+    sessionStorage.setItem('navi_pending_msg', input.trim());
+    openWindow('amadeus');
+    setInput('');
+  };
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleSend(e);
+    e.stopPropagation();
+  };
+  return (
+    <div className="minimized-bar-navi" onClick={e => e.stopPropagation()}>
+      <input
+        className="minimized-bar-input"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="问 Navi..."
+      />
+      <button className="minimized-bar-btn minimized-bar-btn-send" onClick={handleSend}>
+        <Send size={14} />
+      </button>
+    </div>
+  );
+}
+
+// 世界线最小化小组件
+function WorldMinimizedWidget() {
+  const [latestPost, setLatestPost] = useState(null);
+  useEffect(() => {
+    WorldChannelService.getMessages(1, 1).then(data => {
+      const msgs = data.messages || [];
+      if (msgs.length > 0) setLatestPost(msgs[0]);
+    }).catch(() => {});
+  }, []);
+  if (!latestPost) return <span className="minimized-bar-title">世界线</span>;
+  return (
+    <div className="minimized-bar-info">
+      <span className="minimized-bar-name">{latestPost.author_name || '匿名'}</span>
+      <span className="minimized-bar-artist">{latestPost.content?.slice(0, 30) || ''}</span>
+    </div>
+  );
+}
+
+// LeMU 最小化小组件
+function LeMUMinimizedWidget() {
+  const { currentUser, isAuthenticated } = useApp();
+  const [latestPost, setLatestPost] = useState(null);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    FriendPostService.getFeed(1, 1).then(data => {
+      const posts = data.posts || [];
+      if (posts.length > 0) setLatestPost(posts[0]);
+    }).catch(() => {});
+  }, [isAuthenticated]);
+  if (!latestPost) return <span className="minimized-bar-title">LeMU</span>;
+  return (
+    <div className="minimized-bar-info">
+      <span className="minimized-bar-name">{latestPost.author_name || '好友'}</span>
+      <span className="minimized-bar-artist">{latestPost.content?.slice(0, 30) || ''}</span>
+    </div>
+  );
+}
+
 function MinimizedBars() {
-  const { windows } = useWindowManager();
+  const { windows, openWindow } = useWindowManager();
   const { currentSong, playing, togglePlay, playNext, playPrev } = useMusic();
 
   // 音乐横条：歌曲播放中且窗口未打开或最小化时显示
@@ -133,51 +235,88 @@ function MinimizedBars() {
   // 构建横条列表，音乐在最底部
   const bars = [];
   if (musicVisible) {
-    bars.push({ id: 'music', icon: '🎵', title: '音乐', isMusic: true });
+    bars.push({ id: 'music' });
   }
   otherMinimized.forEach(w => {
-    bars.push({ id: w.id, icon: w.icon, title: w.title, isMusic: false });
+    bars.push({ id: w.id });
   });
 
   if (bars.length === 0) return null;
+
+  const renderBarContent = (barId, bottom) => {
+    const IconComp = APP_ICONS[barId];
+
+    switch (barId) {
+      case 'music':
+        return (
+          <MinimizedBar key="music" id="music" icon={IconComp ? <IconComp size={18} /> : '🎵'} title="音乐" bottom={bottom}>
+            <img
+              src={currentSong.albumCover || FALLBACK_COVER}
+              alt=""
+              className="minimized-bar-cover"
+              loading="lazy"
+              onError={e => { e.target.src = FALLBACK_COVER; }}
+            />
+            <div className="minimized-bar-info">
+              <span className="minimized-bar-name">{currentSong.name}</span>
+              <span className="minimized-bar-artist">{currentSong.artists}</span>
+            </div>
+            <div className="minimized-bar-controls">
+              <button className="minimized-bar-btn" onClick={playPrev} title="上一首">
+                <SkipBack size={14} />
+              </button>
+              <button className="minimized-bar-btn minimized-bar-btn-play" onClick={togglePlay} title={playing ? '暂停' : '播放'}>
+                {playing ? <Pause size={16} /> : <Play size={16} />}
+              </button>
+              <button className="minimized-bar-btn" onClick={playNext} title="下一首">
+                <SkipForward size={14} />
+              </button>
+            </div>
+          </MinimizedBar>
+        );
+
+      case 'club':
+        return (
+          <MinimizedBar key="club" id="club" icon={<Coffee size={18} />} title="Tea Time！" bottom={bottom}>
+            <ClubMinimizedWidget />
+          </MinimizedBar>
+        );
+
+      case 'amadeus':
+        return (
+          <MinimizedBar key="amadeus" id="amadeus" icon={<Brain size={18} />} title="Navi" bottom={bottom}>
+            <NaviMinimizedWidget />
+          </MinimizedBar>
+        );
+
+      case 'world':
+        return (
+          <MinimizedBar key="world" id="world" icon={<Globe size={18} />} title="世界线" bottom={bottom}>
+            <WorldMinimizedWidget />
+          </MinimizedBar>
+        );
+
+      case 'friends':
+        return (
+          <MinimizedBar key="friends" id="friends" icon={<Users size={18} />} title="LeMU" bottom={bottom}>
+            <LeMUMinimizedWidget />
+          </MinimizedBar>
+        );
+
+      default: {
+        const DefaultIcon = IconComp || Bell;
+        return (
+          <MinimizedBar key={barId} id={barId} icon={<DefaultIcon size={18} />} title={barId} bottom={bottom} />
+        );
+      }
+    }
+  };
 
   return (
     <>
       {bars.map((bar, index) => {
         const bottom = 80 + index * 56;
-
-        if (bar.isMusic) {
-          return (
-            <MinimizedBar key={bar.id} id={bar.id} icon={bar.icon} title={bar.title} bottom={bottom}>
-              <img
-                src={currentSong.albumCover || FALLBACK_COVER}
-                alt=""
-                className="minimized-bar-cover"
-                loading="lazy"
-                onError={e => { e.target.src = FALLBACK_COVER; }}
-              />
-              <div className="minimized-bar-info">
-                <span className="minimized-bar-name">{currentSong.name}</span>
-                <span className="minimized-bar-artist">{currentSong.artists}</span>
-              </div>
-              <div className="minimized-bar-controls">
-                <button className="minimized-bar-btn" onClick={playPrev} title="上一首">
-                  <SkipBack size={14} />
-                </button>
-                <button className="minimized-bar-btn minimized-bar-btn-play" onClick={togglePlay} title={playing ? '暂停' : '播放'}>
-                  {playing ? <Pause size={16} /> : <Play size={16} />}
-                </button>
-                <button className="minimized-bar-btn" onClick={playNext} title="下一首">
-                  <SkipForward size={14} />
-                </button>
-              </div>
-            </MinimizedBar>
-          );
-        }
-
-        return (
-          <MinimizedBar key={bar.id} id={bar.id} icon={bar.icon} title={bar.title} bottom={bottom} />
-        );
+        return renderBarContent(bar.id, bottom);
       })}
     </>
   );
