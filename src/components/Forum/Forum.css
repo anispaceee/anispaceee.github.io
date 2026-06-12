@@ -57,6 +57,10 @@
 
 .form-media-section { display: flex; flex-direction: column; gap: 10px; }
 .form-media-upload { display: flex; flex-direction: column; gap: 4px; }
+.image-mode-tabs { display: flex; gap: 0; margin-bottom: 6px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-primary); }
+.image-mode-tab { display: flex; align-items: center; gap: 4px; padding: 6px 14px; font-size: 12px; font-weight: 500; background: var(--bg-input); color: var(--text-secondary); border: none; cursor: pointer; transition: all var(--transition-fast); }
+.image-mode-tab.active { background: var(--primary); color: #fff; }
+.image-mode-tab:not(.active):hover { background: var(--primary-bg); color: var(--primary); }
 .image-url-input-row { display: flex; gap: 8px; align-items: center; }
 .image-url-input { flex: 1; min-width: 0; }
 .media-upload-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-secondary); font-size: 13px; font-weight: 500; border: 1px dashed var(--border-primary); transition: all var(--transition-fast); white-space: nowrap; }

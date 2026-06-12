@@ -659,7 +659,46 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(users.results, 200, origin);
   }
 
-  // (图片上传已改为前端直接输入 URL，不再需要 R2 上传/读取路由)
+  // POST /api/uploads — 图片上传代理（通过 ImgBB API，隐藏 API Key）
+  if (method === 'POST' && pathname === '/api/uploads') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    if (!env.IMGBB_API_KEY) {
+      return jsonResponse({ error: 'ImgBB API Key 未配置' }, 500, origin);
+    }
+
+    try {
+      const formData = await request.formData();
+      const file = formData.get('file');
+      if (!file) return jsonResponse({ error: '缺少 file 字段' }, 400, origin);
+
+      // 转发到 ImgBB API
+      const imgbbForm = new FormData();
+      imgbbForm.append('image', file);
+
+      const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${env.IMGBB_API_KEY}`, {
+        method: 'POST',
+        body: imgbbForm,
+      });
+
+      const imgbbData = await imgbbRes.json();
+      if (!imgbbData.success) {
+        return jsonResponse({ error: 'ImgBB 上传失败', detail: imgbbData.error?.message || '未知错误' }, 502, origin);
+      }
+
+      return jsonResponse({
+        url: imgbbData.data.url,
+        display_url: imgbbData.data.display_url,
+        thumb: imgbbData.data.thumb?.url,
+        delete_url: imgbbData.data.delete_url,
+        width: imgbbData.data.width,
+        height: imgbbData.data.height,
+      }, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '上传失败: ' + err.message }, 500, origin);
+    }
+  }
 
   // GET /api/posts — 帖子列表（分页 + 板块筛选 + 排序）
   if (method === 'GET' && pathname === '/api/posts') {
@@ -2000,6 +2039,7 @@ const RL_WINDOW_MS = 60 * 1000; // 60 秒滑动窗口
 const RL_LIMITS = {
   '/api/auth/login': 5,
   '/api/posts': 10,       // 创建帖子/回复
+  '/api/uploads': 20,     // 图片上传
   '/api/world-messages': 20,
   '/api/private-messages': 20,
   '/api/mails': 10,
@@ -2075,7 +2115,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/bangumi-search')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }

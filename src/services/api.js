@@ -504,6 +504,22 @@ export const ForumService = {
       method: 'DELETE',
     });
   },
+
+  async uploadImage(file) {
+    const token = sessionStorage.getItem('acg_jwt_token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/api/uploads`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `上传失败 ${res.status}`);
+    }
+    return res.json();
+  },
 };
 
 // ─── CollectionMarkService ───

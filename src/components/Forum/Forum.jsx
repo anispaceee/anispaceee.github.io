@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ForumService } from '../../services/api';
 import { renderMarkdown } from '../../utils/renderMarkdown';
-import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, TrendingUp, Clock, Heart, Image, X, Eye, Bold, Italic, Link as LinkIcon, List, Quote, AlertCircle, Loader2, Flame, Hash } from 'lucide-react';
+import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, TrendingUp, Clock, Heart, Image, X, Eye, Bold, Italic, Upload, Link as LinkIcon, List, Quote, AlertCircle, Loader2, Flame, Hash } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import './Forum.css';
 
 const MAX_IMAGES = 5;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 const BOARDS = [
   { key: 'anime', label: '动画', icon: Tv, color: 'var(--tag-anime)', description: '新番讨论 · 旧番回顾 · MAD·AMV' },
@@ -107,6 +109,8 @@ export default function Forum() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState('');
+  const [imageInputMode, setImageInputMode] = useState('upload'); // 'upload' | 'url'
+  const imageInputRef = useRef(null);
 
   // 从后端加载帖子（带 category 和 sort 参数）
   const loadPosts = useCallback(async () => {
@@ -150,6 +154,45 @@ export default function Forum() {
     if (newPost.images.length > MAX_IMAGES) errors.push({ type: 'format', message: `最多添加${MAX_IMAGES}张图片` });
     return errors;
   }, [newPost]);
+
+  const handleImageFileSelect = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const remaining = MAX_IMAGES - newPost.images.length;
+    if (remaining <= 0) {
+      setSubmitError([{ type: 'format', message: `最多添加${MAX_IMAGES}张图片` }]);
+      return;
+    }
+
+    const toUpload = files.slice(0, remaining);
+    setUploadingImages(true);
+    setSubmitError(null);
+
+    for (const file of toUpload) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setSubmitError([{ type: 'format', message: `${file.name} 格式不支持` }]);
+        continue;
+      }
+      if (file.size > MAX_IMAGE_SIZE) {
+        setSubmitError([{ type: 'format', message: `${file.name} 超过10MB` }]);
+        continue;
+      }
+
+      try {
+        const result = await ForumService.uploadImage(file);
+        setNewPost(prev => ({
+          ...prev,
+          images: [...prev.images, result.url],
+        }));
+      } catch (err) {
+        setSubmitError([{ type: 'network', message: `${file.name} 上传失败: ${err.message}` }]);
+      }
+    }
+
+    setUploadingImages(false);
+    e.target.value = '';
+  };
 
   const addImageUrl = () => {
     const url = imageUrlInput.trim();
@@ -327,21 +370,42 @@ export default function Forum() {
 
                   <div className="form-media-section">
                     <div className="form-media-upload">
-                      <div className="image-url-input-row">
-                        <input
-                          type="text"
-                          placeholder="输入图片 URL，回车添加"
-                          value={imageUrlInput}
-                          onChange={e => setImageUrlInput(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
-                          className="form-input image-url-input"
-                          disabled={newPost.images.length >= MAX_IMAGES}
-                        />
-                        <button type="button" className="media-upload-btn" onClick={addImageUrl} disabled={newPost.images.length >= MAX_IMAGES || !imageUrlInput.trim()}>
-                          <Image size={16} /> 添加 ({newPost.images.length}/{MAX_IMAGES})
+                      <div className="image-mode-tabs">
+                        <button type="button" className={`image-mode-tab ${imageInputMode === 'upload' ? 'active' : ''}`} onClick={() => setImageInputMode('upload')}>
+                          <Upload size={14} /> 本地上传
+                        </button>
+                        <button type="button" className={`image-mode-tab ${imageInputMode === 'url' ? 'active' : ''}`} onClick={() => setImageInputMode('url')}>
+                          <LinkIcon size={14} /> 图片链接
                         </button>
                       </div>
-                      <span className="media-hint">输入图片链接地址，支持 JPG/PNG/WebP/GIF</span>
+
+                      {imageInputMode === 'upload' ? (
+                        <>
+                          <button type="button" className="media-upload-btn" onClick={() => imageInputRef.current?.click()} disabled={newPost.images.length >= MAX_IMAGES || uploadingImages}>
+                            <Upload size={16} /> {uploadingImages ? '上传中...' : `选择图片 (${newPost.images.length}/${MAX_IMAGES})`}
+                          </button>
+                          <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple onChange={handleImageFileSelect} hidden />
+                          <span className="media-hint">JPG/PNG/GIF/WebP，单张≤10MB，通过 ImgBB 托管</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="image-url-input-row">
+                            <input
+                              type="text"
+                              placeholder="输入图片 URL，回车添加"
+                              value={imageUrlInput}
+                              onChange={e => setImageUrlInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
+                              className="form-input image-url-input"
+                              disabled={newPost.images.length >= MAX_IMAGES}
+                            />
+                            <button type="button" className="media-upload-btn" onClick={addImageUrl} disabled={newPost.images.length >= MAX_IMAGES || !imageUrlInput.trim()}>
+                              <Image size={16} /> 添加
+                            </button>
+                          </div>
+                          <span className="media-hint">输入图片链接地址</span>
+                        </>
+                      )}
                     </div>
 
                     {newPost.images.length > 0 && (
@@ -371,8 +435,8 @@ export default function Forum() {
 
               <div className="form-actions">
                 <button className="form-cancel" onClick={resetForm}>取消</button>
-                <button className="form-submit" onClick={handleNewPost} disabled={submitting}>
-                  {submitting ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
+                <button className="form-submit" onClick={handleNewPost} disabled={submitting || uploadingImages}>
+                  {submitting || uploadingImages ? <><Loader2 size={14} className="spin" /> 发布中...</> : '发布'}
                 </button>
               </div>
             </div>
