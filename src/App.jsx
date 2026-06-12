@@ -12,7 +12,9 @@ import VideoPlayer from './components/Video/VideoPlayer'
 import Mailbox from './components/Mailbox/Mailbox'
 import Guestbook from './components/Guestbook/Guestbook'
 import MusicPlayer from './components/Music/MusicPlayer'
-import MiniPlayer from './components/Music/MiniPlayer'
+import MinimizedBar from './components/Layout/MinimizedBar'
+import { useMusic, FALLBACK_COVER } from './context/MusicContext'
+import { Play, Pause, SkipBack, SkipForward } from 'lucide-react'
 import Amadeus from './components/Amadeus/Amadeus'
 import FriendSpace from './components/FriendSpace/FriendSpace'
 import Notifications from './components/Notification/Notifications'
@@ -118,6 +120,56 @@ function WindowLayer() {
   );
 }
 
+function MinimizedBars() {
+  const { windows } = useWindowManager();
+  const { currentSong, playing, togglePlay, playNext, playPrev } = useMusic();
+
+  const minimizedWins = Object.values(windows).filter(w => w.open && w.minimized);
+
+  if (minimizedWins.length === 0) return null;
+
+  return (
+    <>
+      {minimizedWins.map((win, index) => {
+        const bottom = 80 + index * 56;
+
+        if (win.id === 'music' && currentSong) {
+          return (
+            <MinimizedBar key={win.id} id={win.id} icon={win.icon} title={win.title} bottom={bottom}>
+              <img
+                src={currentSong.albumCover || FALLBACK_COVER}
+                alt=""
+                className="minimized-bar-cover"
+                loading="lazy"
+                onError={e => { e.target.src = FALLBACK_COVER; }}
+              />
+              <div className="minimized-bar-info">
+                <span className="minimized-bar-name">{currentSong.name}</span>
+                <span className="minimized-bar-artist">{currentSong.artists}</span>
+              </div>
+              <div className="minimized-bar-controls">
+                <button className="minimized-bar-btn" onClick={playPrev} title="上一首">
+                  <SkipBack size={14} />
+                </button>
+                <button className="minimized-bar-btn minimized-bar-btn-play" onClick={togglePlay} title={playing ? '暂停' : '播放'}>
+                  {playing ? <Pause size={16} /> : <Play size={16} />}
+                </button>
+                <button className="minimized-bar-btn" onClick={playNext} title="下一首">
+                  <SkipForward size={14} />
+                </button>
+              </div>
+            </MinimizedBar>
+          );
+        }
+
+        return (
+          <MinimizedBar key={win.id} id={win.id} icon={win.icon} title={win.title} bottom={bottom} />
+        );
+      })}
+    </>
+  );
+}
+
 function AppInner() {
   return (
     <>
@@ -160,7 +212,7 @@ function AppInner() {
       <FireworkEffect />
       <Live2DWidget />
       <WindowLayer />
-      <MiniPlayer />
+      <MinimizedBars />
       <DockBar />
     </>
   )
