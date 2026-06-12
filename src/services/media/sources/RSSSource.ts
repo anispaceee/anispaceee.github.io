@@ -115,8 +115,11 @@ class RSSSource implements MediaSource {
           : link.endsWith('.torrent') ? 'torrent' as const
           : 'http' as const;
 
+        // 稳定 mediaId：优先用 magnet 的 btih 哈希，其次下载链接，最后标题，
+        // 避免每次抓取生成随机 id 导致同一资源重复且无法去重
+        const stableKey = link.match(/btih:([a-z0-9]+)/i)?.[1] || link || item.title;
         const media: Media = {
-          mediaId: `${this.sourceId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          mediaId: `${this.sourceId}_${stableKey}`,
           sourceId: this.sourceId,
           title: item.title,
           originalTitle: item.title,

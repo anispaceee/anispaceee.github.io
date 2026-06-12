@@ -18,6 +18,14 @@ function formatTime(ts) {
   return Math.floor(diff / 86400000) + '天前';
 }
 
+function parseImages(images) {
+  if (Array.isArray(images)) return images;
+  if (typeof images === 'string' && images) {
+    try { const arr = JSON.parse(images); return Array.isArray(arr) ? arr : []; } catch { return []; }
+  }
+  return [];
+}
+
 export default function FriendSpace() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
   const navigate = useNavigate();
@@ -345,9 +353,9 @@ export default function FriendSpace() {
                     )}
                   </div>
                   <div className="space-post-content">{post.content}</div>
-                  {post.images && (Array.isArray(post.images) ? post.images : (() => { try { return JSON.parse(post.images); } catch { return []; } })()).length > 0 && (
+                  {parseImages(post.images).length > 0 && (
                     <div className="space-post-images">
-                      {(Array.isArray(post.images) ? post.images : JSON.parse(post.images)).map((img, i) => <img key={i} src={img} alt="" className="space-post-img" loading="lazy" />)}
+                      {parseImages(post.images).map((img, i) => <img key={i} src={img} alt="" className="space-post-img" loading="lazy" />)}
                     </div>
                   )}
                   <div className="space-post-stats">

@@ -67,6 +67,17 @@ function isSafeTargetUrl(urlStr) {
   }
 }
 
+// 安全解析 D1 文本列中的 JSON（tags/images 等），脏数据/空串不抛错
+function safeJsonParse(value, fallback) {
+  if (typeof value !== 'string') return value ?? fallback;
+  if (value === '') return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 // ─── JWT 辅助函数 ───────────────────────────────────────────
 
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 天，单位秒
@@ -733,8 +744,8 @@ async function handleApiRoutes(pathname, request, env, origin) {
     // 解析 JSON 字段
     const parsedPosts = posts.results.map(p => ({
       ...p,
-      tags: typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags,
-      images: typeof p.images === 'string' ? JSON.parse(p.images) : p.images,
+      tags: safeJsonParse(p.tags, []),
+      images: safeJsonParse(p.images, []),
     }));
 
     const countSql = category ? 'SELECT COUNT(*) AS total FROM posts WHERE category = ?' : 'SELECT COUNT(*) AS total FROM posts';
@@ -765,8 +776,8 @@ async function handleApiRoutes(pathname, request, env, origin) {
       const post = await env.DB.prepare('SELECT * FROM posts WHERE id = ?').bind(result.meta.last_row_id).first();
       return jsonResponse({
         ...post,
-        tags: typeof post.tags === 'string' ? JSON.parse(post.tags) : post.tags,
-        images: typeof post.images === 'string' ? JSON.parse(post.images) : post.images,
+        tags: safeJsonParse(post.tags, []),
+        images: safeJsonParse(post.images, []),
       }, 201, origin);
     } catch (err) {
       return jsonResponse({ error: '创建帖子失败: ' + err.message }, 500, origin);
@@ -792,8 +803,8 @@ async function handleApiRoutes(pathname, request, env, origin) {
     // 解析 JSON 字段
     const parsedPost = {
       ...post,
-      tags: typeof post.tags === 'string' ? JSON.parse(post.tags) : post.tags,
-      images: typeof post.images === 'string' ? JSON.parse(post.images) : post.images,
+      tags: safeJsonParse(post.tags, []),
+      images: safeJsonParse(post.images, []),
     };
 
     return jsonResponse({ ...parsedPost, views: (post.views || 0) + 1, replies: replies.results }, 200, origin);
@@ -2247,9 +2258,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     let orderClause = 'ORDER BY created_at DESC';
     if (sort === 'hot') {
-      orderClause = 'ORDER BY (views + likes_count * 3 + comments_count * 5) DESC, created_at DESC';
+      orderClause = 'ORDER BY (views_count + likes_count * 3 + comments_count * 5) DESC, created_at DESC';
     } else if (sort === 'views') {
-      orderClause = 'ORDER BY views DESC, created_at DESC';
+      orderClause = 'ORDER BY views_count DESC, created_at DESC';
     } else if (sort === 'likes') {
       orderClause = 'ORDER BY likes_count DESC, created_at DESC';
     }
@@ -2282,7 +2293,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : '[]';
 
       const result = await env.DB.prepare(
-        "INSERT INTO works (author_id, type, title, description, cover, tags, status, views, likes_count, favorites_count, comments_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, datetime('now'), datetime('now'))"
+        "INSERT INTO works (author_id, type, title, description, cover_image, tags, status, views_count, likes_count, favorites_count, comments_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, datetime('now'), datetime('now'))"
       ).bind(authUser.userId, type, title, description || null, cover || null, tagsJson, status || 'ongoing').run();
 
       const work = await env.DB.prepare(
@@ -2291,7 +2302,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
       return jsonResponse({
         ...work,
-        tags: typeof work.tags === 'string' ? JSON.parse(work.tags) : work.tags,
+        tags: safeJsonParse(work.tags, []),
       }, 201, origin);
     } catch (err) {
       return jsonResponse({ error: '创建作品失败: ' + err.message }, 500, origin);
@@ -2339,7 +2350,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     return jsonResponse({
       ...work,
-      tags: typeof work.tags === 'string' ? JSON.parse(work.tags) : work.tags,
+      tags: safeJsonParse(work.tags, []),
       ...relatedData,
     }, 200, origin);
   }
@@ -2360,7 +2371,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       const tagsJson = tags ? JSON.stringify(tags) : undefined;
 
       await env.DB.prepare(
-        "UPDATE works SET title = COALESCE(?, title), description = COALESCE(?, description), cover = COALESCE(?, cover), tags = COALESCE(?, tags), status = COALESCE(?, status), updated_at = datetime('now') WHERE id = ?"
+        "UPDATE works SET title = COALESCE(?, title), description = COALESCE(?, description), cover_image = COALESCE(?, cover_image), tags = COALESCE(?, tags), status = COALESCE(?, status), updated_at = datetime('now') WHERE id = ?"
       ).bind(title || null, description || null, cover || null, tagsJson || null, status || null, workId).run();
 
       const updated = await env.DB.prepare(
@@ -2369,7 +2380,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
       return jsonResponse({
         ...updated,
-        tags: typeof updated.tags === 'string' ? JSON.parse(updated.tags) : updated.tags,
+        tags: safeJsonParse(updated.tags, []),
       }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '更新作品失败: ' + err.message }, 500, origin);
@@ -2472,7 +2483,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
     const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
     if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
 
-    await env.DB.prepare('UPDATE works SET views = views + 1 WHERE id = ?').bind(workId).run();
+    await env.DB.prepare('UPDATE works SET views_count = views_count + 1 WHERE id = ?').bind(workId).run();
     return jsonResponse({ viewed: true }, 200, origin);
   }
 
@@ -2788,6 +2799,10 @@ async function handleApiRoutes(pathname, request, env, origin) {
     if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
     if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
+    // 校验该话确实属于此作品，防止越权写入他人章节
+    const chapter = await env.DB.prepare('SELECT id FROM manga_chapters WHERE id = ? AND work_id = ?').bind(chapterId, workId).first();
+    if (!chapter) return jsonResponse({ error: '话数不存在' }, 404, origin);
+
     try {
       const body = await request.json();
       const { pages } = body; // [{ image_url, page_number }]
@@ -2824,7 +2839,10 @@ async function handleApiRoutes(pathname, request, env, origin) {
     if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
     if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
 
-    await env.DB.prepare('DELETE FROM manga_pages WHERE id = ?').bind(pageId).run();
+    // 仅允许删除属于本作品章节下的页面，防止越权删除他人页面
+    await env.DB.prepare(
+      'DELETE FROM manga_pages WHERE id = ? AND chapter_id IN (SELECT id FROM manga_chapters WHERE work_id = ?)'
+    ).bind(pageId, workId).run();
     await env.DB.prepare("UPDATE works SET updated_at = datetime('now') WHERE id = ?").bind(workId).run();
 
     return jsonResponse({ message: '已删除页面' }, 200, origin);
@@ -2964,7 +2982,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
     const progress = await env.DB.prepare(
-      'SELECT rp.*, w.title AS work_title, w.cover AS work_cover, w.type AS work_type FROM reading_progress rp JOIN works w ON rp.work_id = w.id WHERE rp.user_id = ? ORDER BY rp.updated_at DESC'
+      'SELECT rp.*, w.title AS work_title, w.cover_image AS work_cover, w.type AS work_type FROM reading_progress rp JOIN works w ON rp.work_id = w.id WHERE rp.user_id = ? ORDER BY rp.updated_at DESC'
     ).bind(authUser.userId).all();
 
     return jsonResponse(progress.results, 200, origin);
@@ -3249,13 +3267,21 @@ export default {
       // SSRF protection (allow HTTP for video streams from CDNs)
       const streamUrlObj = new URL(streamUrl);
       const streamHost = streamUrlObj.hostname.toLowerCase();
+      // 仅允许 http/https，禁止 file:、gopher: 等协议
+      const okProtocol = streamUrlObj.protocol === 'http:' || streamUrlObj.protocol === 'https:';
       // Block internal/private IPs — use proper IP range checks, not hostname prefix matching
       // (hostname prefix like '172.2' would incorrectly block legitimate domains)
       const isPrivateIp = /^(?:127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(streamHost)
         || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(streamHost)
         || streamHost === 'localhost'
         || streamHost === '[::1]';
-      if (isPrivateIp) {
+      // Block internal/metadata hostnames (cloud metadata, *.internal, *.local)
+      const isInternalHost = streamHost === 'metadata.google.internal'
+        || streamHost === 'metadata.google.internal.'
+        || streamHost === 'metadata'
+        || streamHost.endsWith('.internal')
+        || streamHost.endsWith('.local');
+      if (!okProtocol || isPrivateIp || isInternalHost) {
         return jsonResponse({ error: '目标URL不安全，禁止访问' }, 403, origin);
       }
 
