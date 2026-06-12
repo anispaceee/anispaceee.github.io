@@ -6,7 +6,9 @@ import { Heart, Loader2, AlertCircle, Trash2, MessageCircle, ChevronDown, Chevro
 import { useApp } from '../../context/AppContext';
 import UserAvatar from '../Common/UserAvatar';
 import RichTextEditor from '../Common/RichTextEditor';
+import { ForumLeftSidebar, ForumRightSidebar } from './ForumSidebar';
 import './PostDetail.css';
+import './Forum.css';
 
 export default function PostDetail() {
   const { id } = useParams();
@@ -28,6 +30,7 @@ export default function PostDetail() {
   const [replySort, setReplySort] = useState('oldest');
   const [replyLikes, setReplyLikes] = useState({});
   const [expandedReplies, setExpandedReplies] = useState({});
+  const [allPosts, setAllPosts] = useState([]); // 侧栏数据
   const replyInputRef = useRef(null);
 
   const loadPost = async () => {
@@ -48,6 +51,13 @@ export default function PostDetail() {
       setLoading(false);
     }
   };
+
+  // 加载帖子列表（侧栏数据）
+  useEffect(() => {
+    ForumService.getPosts().then(data => {
+      setAllPosts(Array.isArray(data) ? data : (data.results || []));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadPost();
@@ -153,23 +163,29 @@ export default function PostDetail() {
 
   if (loading) {
     return (
-      <div className="post-detail-page">
-        <div className="post-detail-container" style={{ textAlign: 'center', padding: '60px 0' }}>
+      <div className="forum-page">
+        <ForumLeftSidebar posts={allPosts} activeBoard={null} onBoardChange={() => {}} onNewPost={() => navigate('/forum')} />
+        <div className="post-detail-main" style={{ textAlign: 'center', padding: '60px 0' }}>
           <Loader2 size={32} className="spinning" />
           <p style={{ marginTop: 12, color: 'var(--text-secondary)' }}>雨何时停？</p>
         </div>
+        <ForumRightSidebar posts={allPosts} />
       </div>
     );
   }
 
   if (error || !post) {
     return (
-      <div className="post-detail-page">
-        <div className="post-not-found">
-          <AlertCircle size={48} style={{ color: 'var(--error)' }} />
-          <h2>{error || '帖子不存在'}</h2>
-          <Link to="/forum" className="back-link">返回放課後</Link>
+      <div className="forum-page">
+        <ForumLeftSidebar posts={allPosts} activeBoard={null} onBoardChange={() => {}} onNewPost={() => navigate('/forum')} />
+        <div className="post-detail-main">
+          <div className="post-not-found">
+            <AlertCircle size={48} style={{ color: 'var(--error)' }} />
+            <h2>{error || '帖子不存在'}</h2>
+            <Link to="/forum" className="back-link">返回放課後</Link>
+          </div>
         </div>
+        <ForumRightSidebar posts={allPosts} />
       </div>
     );
   }
@@ -181,8 +197,10 @@ export default function PostDetail() {
   const totalReplies = (post.replies || []).length;
 
   return (
-    <div className="post-detail-page">
-      <div className="post-detail-container">
+    <div className="forum-page">
+      <ForumLeftSidebar posts={allPosts} activeBoard={null} onBoardChange={() => navigate('/forum')} onNewPost={() => navigate('/forum')} />
+
+      <div className="post-detail-main">
         <div className="post-detail-back">
           <Link to="/forum">← 返回放課後</Link>
         </div>
@@ -360,6 +378,8 @@ export default function PostDetail() {
           </div>
         </div>
       </div>
+
+      <ForumRightSidebar posts={allPosts} />
     </div>
   );
 }

@@ -1,9 +1,7 @@
-.post-detail-page { max-width: var(--max-content); margin: 0 auto; padding: 24px 20px; }
-.post-detail-container { display: flex; flex-direction: column; gap: 16px; }
+.post-detail-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .post-detail-back a { font-size: 14px; color: var(--text-link); font-weight: 500; }
 .post-detail-back a:hover { color: var(--text-link-hover); }
 .post-not-found { display: flex; flex-direction: column; align-items: center; padding: 80px 20px; gap: 12px; }
-.post-not-found span { font-size: 48px; }
 .back-link { color: var(--text-link); font-size: 14px; }
 
 .post-detail-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-xs); }

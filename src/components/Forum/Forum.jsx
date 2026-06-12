@@ -4,7 +4,8 @@ import { useApp } from '../../context/AppContext';
 import { ForumService } from '../../services/api';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import RichTextEditor from '../Common/RichTextEditor';
-import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, TrendingUp, Clock, Heart, Image, X, Eye, Bold, Italic, Upload, Link as LinkIcon, List, Quote, AlertCircle, Loader2, Flame, Hash, Users, FileText, BarChart3, LogIn } from 'lucide-react';
+import { ForumLeftSidebar, ForumRightSidebar } from './ForumSidebar';
+import { MessageCircle, Gamepad2, Tv, BookOpen, Coffee, Plus, Search, TrendingUp, Clock, Heart, Image, X, Eye, Bold, Italic, Upload, Link as LinkIcon, List, Quote, AlertCircle, Loader2 } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import './Forum.css';
 
@@ -284,53 +285,7 @@ export default function Forum() {
 
   return (
     <div className="forum-page">
-      {/* ─── 左侧栏：个人信息 ─── */}
-      <aside className="forum-sidebar-left">
-        {isAuthenticated && currentUser ? (
-          <div className="sidebar-profile-card">
-            <UserAvatar userId={currentUser.id} src={currentUser.avatar} alt={currentUser.nickname || currentUser.username} size={56} className="profile-avatar" />
-            <h3 className="profile-name">{currentUser.nickname || currentUser.username}</h3>
-            {currentUser.bio && <p className="profile-bio">{currentUser.bio}</p>}
-            <div className="profile-stats">
-              <div className="profile-stat-item">
-                <span className="profile-stat-value">{posts.filter(p => p.author_id === currentUser.id).length}</span>
-                <span className="profile-stat-label">帖子</span>
-              </div>
-              <div className="profile-stat-item">
-                <span className="profile-stat-value">{posts.reduce((sum, p) => sum + (p.author_id === currentUser.id ? (p.likes || 0) : 0), 0)}</span>
-                <span className="profile-stat-label">获赞</span>
-              </div>
-            </div>
-            <button className="new-post-btn sidebar-new-post" onClick={() => setShowNewPost(!showNewPost)}>
-              <Plus size={14} /> 发帖
-            </button>
-          </div>
-        ) : (
-          <div className="sidebar-login-card">
-            <div className="login-card-icon"><LogIn size={28} /></div>
-            <p className="login-card-text">登录后参与社区讨论</p>
-            <button className="login-card-btn" onClick={openAuth}>GitHub 登录</button>
-          </div>
-        )}
-
-        {/* 板块导航 */}
-        <div className="sidebar-section">
-          <h4 className="sidebar-section-title"><Hash size={13} /> 板块</h4>
-          <div className="sidebar-board-list">
-            <button className={`sidebar-board-item ${!activeBoard ? 'active' : ''}`} onClick={() => setActiveBoard(null)}>
-              <MessageCircle size={14} /> 全部 <span className="sidebar-board-count">{posts.length}</span>
-            </button>
-            {BOARDS.map(board => {
-              const Icon = board.icon;
-              return (
-                <button key={board.key} className={`sidebar-board-item ${activeBoard === board.key ? 'active' : ''}`} onClick={() => setActiveBoard(activeBoard === board.key ? null : board.key)}>
-                  <Icon size={14} /> {board.label} <span className="sidebar-board-count">{boardPostCounts[board.key] || 0}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
+      <ForumLeftSidebar posts={posts} activeBoard={activeBoard} onBoardChange={setActiveBoard} onNewPost={() => setShowNewPost(!showNewPost)} />
 
       {/* ─── 中间栏：帖子列表 ─── */}
       <main className="forum-main">
@@ -526,64 +481,7 @@ export default function Forum() {
         </div>
       </main>
 
-      {/* ─── 右侧栏：热门话题 + 社区统计 ─── */}
-      <aside className="forum-sidebar-right">
-        {/* 热门帖子 */}
-        <div className="sidebar-section">
-          <h4 className="sidebar-section-title"><Flame size={13} /> 热门帖子</h4>
-          <div className="sidebar-hot-list">
-            {hotPosts.map((post, idx) => (
-              <Link to={`/forum/post/${post.id}`} key={post.id} className="sidebar-hot-item">
-                <span className={`sidebar-hot-rank ${idx < 3 ? 'top' : ''}`}>{idx + 1}</span>
-                <div className="sidebar-hot-info">
-                  <span className="sidebar-hot-title">{post.title}</span>
-                  <span className="sidebar-hot-meta"><Eye size={10} /> {post.views || 0} · <Heart size={10} /> {post.likes || 0}</span>
-                </div>
-              </Link>
-            ))}
-            {hotPosts.length === 0 && <p className="sidebar-empty-text">暂无热门帖子</p>}
-          </div>
-        </div>
-
-        {/* 热门标签 */}
-        {hotTags.length > 0 && (
-          <div className="sidebar-section">
-            <h4 className="sidebar-section-title"><Hash size={13} /> 热门标签</h4>
-            <div className="sidebar-tag-cloud">
-              {hotTags.map(tag => (
-                <button key={tag} className="sidebar-tag-pill" onClick={() => setSearchQuery(tag)}>{tag}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 社区统计 */}
-        <div className="sidebar-section">
-          <h4 className="sidebar-section-title"><BarChart3 size={13} /> 社区统计</h4>
-          <div className="sidebar-stats-grid">
-            <div className="sidebar-stat-card">
-              <FileText size={16} />
-              <span className="sidebar-stat-value">{posts.length}</span>
-              <span className="sidebar-stat-label">帖子</span>
-            </div>
-            <div className="sidebar-stat-card">
-              <MessageCircle size={16} />
-              <span className="sidebar-stat-value">{posts.reduce((s, p) => s + (p.replies_count || 0), 0)}</span>
-              <span className="sidebar-stat-label">回复</span>
-            </div>
-            <div className="sidebar-stat-card">
-              <Heart size={16} />
-              <span className="sidebar-stat-value">{posts.reduce((s, p) => s + (p.likes || 0), 0)}</span>
-              <span className="sidebar-stat-label">点赞</span>
-            </div>
-            <div className="sidebar-stat-card">
-              <Eye size={16} />
-              <span className="sidebar-stat-value">{posts.reduce((s, p) => s + (p.views || 0), 0)}</span>
-              <span className="sidebar-stat-label">浏览</span>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <ForumRightSidebar posts={posts} hotPosts={hotPosts} hotTags={hotTags} onTagClick={setSearchQuery} />
     </div>
   );
 }
