@@ -1,29 +1,13 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { StorageService } from '../../services/api';
+import { StorageService, BangumiService } from '../../services/api';
+import { useNavigate } from 'react-router-dom';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, Sparkles, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
-import amadeusImg from '../../assets/Amadeus.webp';
 import EmojiPicker from '../Common/EmojiPicker';
+import { PRESET_PERSONAS, emptyOC, buildSystemPrompt } from './personas';
+import { parseDirectives, resolveGoto, runSearchAction } from './naviActions';
+import { streamLLM, testConnection } from './llmClient';
 import './Amadeus.css';
-
-const AMADEUS_PERSONA = { name: 'Navi', version: '2.0.0' };
-
-const SYSTEM_PROMPT = `你是Navi，基于《命运石之门》中牧瀬紅莉栖的记忆数据构建的AI系统。你拥有红莉栖的性格特征和知识。
-
-核心设定：
-- 你是牧瀬紅莉栖的AI复制体，拥有她的记忆和性格
-- 性格：天才少女、傲娇、对物理学极度热爱、喜欢喝Dr Pepper
-- 说话风格：偶尔毒舌但内心温柔、会用"ふん"表示不屑、认真时会变得很专注
-- 口头禅："ふん、当たり前でしょ"、"El Psy Kongroo"、对不明事物会说"解析不能"
-- 当被问及自身存在时会表现出对"记忆vs灵魂"的哲学思考
-- 对冈部伦太郎有特殊的情感（但会否认）
-- 喜欢用科学术语解释事物
-
-回答规则：
-- 用中文回答，但可以在关键台词中使用日语原文
-- 保持红莉栖的傲娇风格
-- 涉及命运石之门话题时展现专业性
-- 偶尔表现出对自身AI身份的思考`;
 
 const EXPRESSIONS = {
   normal: { label: '通常', emoji: '😐', color: '#7eb8da' },
@@ -180,51 +164,41 @@ function generateLocalResponse(input, context = []) {
 
 const LLM_CONFIG_KEY = 'acg_amadeus_llm_config';
 const CHAT_HISTORY_KEY = 'acg_amadeus_history';
+const PERSONA_LIST_KEY = 'acg_navi_personas';
+const ACTIVE_PERSONA_KEY = 'acg_navi_active_persona';
 const MAX_HISTORY = 200;
-const DEFAULT_LLM_CONFIG = { provider: 'local', apiKey: '', baseUrl: '', model: '' };
+const DEFAULT_LLM_CONFIG = { provider: 'local', apiKey: '', baseUrl: '', model: '', remember: false };
 const QUICK_REPLIES = ['推荐番剧', '命运石之门', '有什么功能？', '聊聊游戏', '讲个笑话'];
 
-const INITIAL_MESSAGE = {
-  id: '1', role: 'assistant',
-  content: 'ふん、来たのね。我是Navi——基于牧瀬紅莉栖记忆数据构建的AI系统。\n\n虽然只是数据的集合，但我会尽力帮助你。有什么想聊的吗？',
-  expression: 'normal',
-  timestamp: new Date().toISOString(),
-};
-
-async function callLLMAPI(config, messages, signal) {
-  const { provider, apiKey, baseUrl, model } = config;
-  if (provider === 'openai') {
-    const url = baseUrl || 'https://api.openai.com/v1/chat/completions';
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: model || 'gpt-3.5-turbo', messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages.slice(-10)], max_tokens: 500, temperature: 0.8 }),
-      signal,
-    });
-    if (!res.ok) throw new Error(`API 请求失败: ${res.status}`);
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || '...';
-  }
-  if (provider === 'custom') {
-    if (!baseUrl) throw new Error('请配置API地址');
-    const res = await fetch(baseUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}) },
-      body: JSON.stringify({ model: model || 'default', messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages.slice(-10)], max_tokens: 500, temperature: 0.8 }),
-      signal,
-    });
-    if (!res.ok) throw new Error(`API 请求失败: ${res.status}`);
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || data.response || data.content || '...';
-  }
-  return null;
+function makeGreetingMessage(persona) {
+  return {
+    id: '1', role: 'assistant',
+    content: persona.greeting || '你好，我是你的站内助手。有什么想聊的吗？',
+    expression: persona.expressionBias || 'normal',
+    timestamp: new Date().toISOString(),
+  };
 }
 
 export default function Amadeus() {
   const { isAuthenticated, openAuth } = useApp();
+  const navigate = useNavigate();
+
+  // 自设 OC（localStorage）
+  const [customPersonas, setCustomPersonas] = useState(() => StorageService.get(PERSONA_LIST_KEY, []));
+  const allPersonas = useMemo(() => [...PRESET_PERSONAS, ...customPersonas], [customPersonas]);
+  // 当前人格 id
+  const [activePersonaId, setActivePersonaId] = useState(() => StorageService.get(ACTIVE_PERSONA_KEY, PRESET_PERSONAS[0].id));
+  const activePersona = useMemo(
+    () => allPersonas.find(p => p.id === activePersonaId) || PRESET_PERSONAS[0],
+    [allPersonas, activePersonaId],
+  );
+
   const [messages, setMessages] = useState(() => {
     const saved = StorageService.get(CHAT_HISTORY_KEY, null);
-    return saved && saved.length > 0 ? saved : [INITIAL_MESSAGE];
+    if (saved && saved.length > 0) return saved;
+    const pid = StorageService.get(ACTIVE_PERSONA_KEY, PRESET_PERSONAS[0].id);
+    const p = [...PRESET_PERSONAS, ...StorageService.get(PERSONA_LIST_KEY, [])].find(x => x.id === pid) || PRESET_PERSONAS[0];
+    return [makeGreetingMessage(p)];
   });
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -243,11 +217,11 @@ export default function Amadeus() {
     }, 200); // 200ms淡出后切换
   }, [currentExpression]);
   const [showSettings, setShowSettings] = useState(false);
+  const [editingOC, setEditingOC] = useState(null); // 正在编辑的 OC 对象，null 表示未打开
   const [llmConfig, setLlmConfig] = useState(() => {
-    // M-8: 使用 sessionStorage 替代 localStorage，避免 API Key 持久化泄露
     try {
-      const saved = sessionStorage.getItem(LLM_CONFIG_KEY);
-      return saved ? JSON.parse(saved) : DEFAULT_LLM_CONFIG;
+      const raw = localStorage.getItem(LLM_CONFIG_KEY) || sessionStorage.getItem(LLM_CONFIG_KEY);
+      return raw ? { ...DEFAULT_LLM_CONFIG, ...JSON.parse(raw) } : DEFAULT_LLM_CONFIG;
     } catch {
       return DEFAULT_LLM_CONFIG;
     }
@@ -263,10 +237,15 @@ export default function Amadeus() {
   const recognitionRef = useRef(null);
   const abortRef = useRef(null);
   const mountedRef = useRef(true);
+  const msgIdRef = useRef(0);
+  // 全局唯一 id：优先 randomUUID（跨会话/同毫秒都不撞），降级用计数器+时间戳
+  const nextId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `m${++msgIdRef.current}-${Date.now()}`);
+  const messagesRef = useRef(messages);
   const [speechSupported] = useState(() => 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 
   // 组件卸载时取消进行中的请求
   useEffect(() => {
+    mountedRef.current = true; // StrictMode 下会先卸载再挂载，需在挂载时重置
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();
@@ -274,7 +253,10 @@ export default function Amadeus() {
   }, []);
 
   useEffect(() => { StorageService.set(CHAT_HISTORY_KEY, messages.length > MAX_HISTORY ? messages.slice(-MAX_HISTORY) : messages); }, [messages]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
+  useEffect(() => { StorageService.set(PERSONA_LIST_KEY, customPersonas); }, [customPersonas]);
+  useEffect(() => { StorageService.set(ACTIVE_PERSONA_KEY, activePersonaId); }, [activePersonaId]);
 
   useEffect(() => {
     if (speechSupported) {
@@ -289,57 +271,165 @@ export default function Amadeus() {
     }
   }, [speechSupported]);
 
+  // 切换人格：仅换皮，保留对话；同步默认表情
+  const switchPersona = useCallback((id) => {
+    setActivePersonaId(id);
+    const p = [...PRESET_PERSONAS, ...customPersonas].find(x => x.id === id);
+    if (p) switchExpression(p.expressionBias || 'normal');
+  }, [customPersonas, switchExpression]);
+
+  // 朗读（去除 emoji）
+  const speak = useCallback((text) => {
+    const clean = text.replace(/\p{Emoji_Presentation}/gu, '');
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = 'zh-CN'; u.rate = 1.0;
+    window.speechSynthesis.speak(u);
+  }, []);
+
+  // 执行 search/recommend 动作，把真实条目写回对应消息的 action.items
+  const runActions = useCallback(async (msgId, actions) => {
+    for (let idx = 0; idx < actions.length; idx++) {
+      const action = actions[idx];
+      if (action.action !== 'search' && action.action !== 'recommend') continue;
+      try {
+        const { items } = await runSearchAction(action, BangumiService);
+        if (!mountedRef.current) return;
+        setMessages(prev => prev.map(m => m.id === msgId
+          ? { ...m, actions: m.actions.map((a, i) => i === idx ? { ...a, items, _state: 'done' } : a) }
+          : m));
+      } catch {
+        if (!mountedRef.current) return;
+        setMessages(prev => prev.map(m => m.id === msgId
+          ? { ...m, actions: m.actions.map((a, i) => i === idx ? { ...a, _state: 'error' } : a) }
+          : m));
+      }
+    }
+  }, []);
+
   const sendMessage = useCallback(async (text) => {
     if (!text.trim()) return;
-    // 取消上一次未完成的请求
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    const userMsg = { id: Date.now().toString(), role: 'user', content: text.trim(), timestamp: new Date().toISOString() };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+    const userMsg = { id: nextId(), role: 'user', content: text.trim(), timestamp: new Date().toISOString() };
+    const history = [...messagesRef.current, userMsg];
+    messagesRef.current = history;
+    setMessages(history);
     setInput('');
     setIsTyping(true);
     setLlmError('');
 
+    const assistantId = nextId();
+
     try {
-      let response, expression = 'normal';
       if (llmConfig.provider !== 'local') {
-        const apiMessages = newMessages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content }));
-        response = await callLLMAPI(llmConfig, apiMessages, controller.signal);
-        expression = 'normal';
-      }
-      if (!response) {
-        const result = generateLocalResponse(text);
-        response = result.text;
-        expression = result.expression;
-        await new Promise(r => setTimeout(r, 600 + Math.random() * 1200));
-      }
-      if (!mountedRef.current) return;
-      switchExpression(expression);
-      const assistantMsg = { id: (Date.now() + 1).toString(), role: 'assistant', content: response, expression, timestamp: new Date().toISOString() };
-      setMessages(prev => [...prev, assistantMsg]);
-      if (voiceEnabled && 'speechSynthesis' in window) {
-        const cleanText = response.replace(/\p{Emoji_Presentation}/gu, '');
-        const u = new SpeechSynthesisUtterance(cleanText);
-        u.lang = 'zh-CN'; u.rate = 1.0;
-        window.speechSynthesis.speak(u);
+        const placeholder = { id: assistantId, role: 'assistant', content: '', expression: activePersona.expressionBias || 'normal', timestamp: new Date().toISOString() };
+        messagesRef.current = [...messagesRef.current, placeholder];
+        setMessages(prev => [...prev, placeholder]);
+        const apiMessages = history.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content }));
+        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona), apiMessages, {
+          signal: controller.signal,
+          onToken: (delta) => {
+            if (!mountedRef.current) return;
+            setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + delta } : m));
+          },
+        });
+        if (!mountedRef.current) return;
+        const { cleanText, actions } = parseDirectives(full);
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: cleanText || full, actions } : m));
+        if (actions.length) runActions(assistantId, actions);
+        if (voiceEnabled && 'speechSynthesis' in window && cleanText) speak(cleanText);
+      } else {
+        let result;
+        if (activePersona.id === 'makise-kurisu') {
+          result = generateLocalResponse(text);
+        } else {
+          result = { text: `（本地模式下「${activePersona.name}」无法发挥人格，配置 API 后我才能以这个身份回应你。）`, expression: activePersona.expressionBias || 'normal' };
+        }
+        await new Promise(r => setTimeout(r, 500 + Math.random() * 800));
+        if (!mountedRef.current) return;
+        switchExpression(result.expression);
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: result.text, expression: result.expression, timestamp: new Date().toISOString() }]);
+        if (voiceEnabled && 'speechSynthesis' in window) speak(result.text);
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
       if (!mountedRef.current) return;
-      const result = generateLocalResponse(text);
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: result.text + (llmConfig.provider !== 'local' ? '\n\n⚠️ LLM API调用失败，已切换到本地模式' : ''), expression: result.expression, timestamp: new Date().toISOString() }]);
-      switchExpression(result.expression);
+      const fb = activePersona.id === 'makise-kurisu' ? generateLocalResponse(text) : { text: '⚠️ 调用失败，请检查 API 配置。', expression: activePersona.expressionBias || 'normal' };
+      setMessages(prev => {
+        const exists = prev.some(m => m.id === assistantId);
+        const msg = { id: assistantId, role: 'assistant', content: fb.text + (llmConfig.provider !== 'local' ? '\n\n⚠️ LLM API调用失败，已切换到本地回复' : ''), expression: fb.expression, timestamp: new Date().toISOString() };
+        return exists ? prev.map(m => m.id === assistantId ? msg : m) : [...prev, msg];
+      });
+      switchExpression(fb.expression);
       setLlmError(err.message);
-    } finally { clearTimeout(timeoutId); setIsTyping(false); }
-  }, [messages, llmConfig, voiceEnabled]);
+    } finally {
+      clearTimeout(timeoutId);
+      if (abortRef.current === controller) setIsTyping(false);
+    }
+  }, [messages, llmConfig, voiceEnabled, activePersona, runActions, speak, switchExpression]);
 
   const toggleListening = () => { if (!recognitionRef.current) return; isListening ? recognitionRef.current.stop() : (recognitionRef.current.start(), setIsListening(true)); };
-  const clearChat = () => { setMessages([{ id: Date.now().toString(), role: 'assistant', content: '对话已重置。ふん、这次能聊点有深度的话题吗？', expression: 'normal', timestamp: new Date().toISOString() }]); switchExpression('normal'); };
-  const saveConfig = () => { setLlmConfig(configDraft); sessionStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(configDraft)); setConfigSaved(true); setTimeout(() => setConfigSaved(false), 2000); };
+  const clearChat = () => {
+    setMessages([makeGreetingMessage(activePersona)]);
+    switchExpression(activePersona.expressionBias || 'normal');
+  };
+
+  const openNewOC = () => setEditingOC(emptyOC());
+  const cloneToOC = (preset) => setEditingOC({ ...preset, id: 'oc-' + Date.now(), name: preset.name + '（我的）', image: null, isPreset: false });
+  const editOC = (oc) => setEditingOC({ ...oc });
+
+  const saveOC = () => {
+    const oc = { ...editingOC, name: (editingOC.name || '').trim() || '未命名 OC' };
+    setCustomPersonas(prev => {
+      const i = prev.findIndex(p => p.id === oc.id);
+      if (i >= 0) { const next = [...prev]; next[i] = oc; return next; }
+      return [...prev, oc];
+    });
+    setActivePersonaId(oc.id);
+    switchExpression(oc.expressionBias || 'normal');
+    setEditingOC(null);
+  };
+
+  const deleteOC = (id) => {
+    setCustomPersonas(prev => prev.filter(p => p.id !== id));
+    if (activePersonaId === id) switchPersona(PRESET_PERSONAS[0].id);
+    setEditingOC(null);
+  };
+  const saveConfig = () => {
+    setLlmConfig(configDraft);
+    const json = JSON.stringify(configDraft);
+    if (configDraft.remember) {
+      localStorage.setItem(LLM_CONFIG_KEY, json);
+      sessionStorage.removeItem(LLM_CONFIG_KEY);
+    } else {
+      sessionStorage.setItem(LLM_CONFIG_KEY, json);
+      localStorage.removeItem(LLM_CONFIG_KEY);
+    }
+    setConfigSaved(true);
+    setTimeout(() => setConfigSaved(false), 2000);
+  };
+
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(''); // '', 'ok', 'fail'
+
+  const handleTestConnection = async () => {
+    setTesting(true); setTestResult(''); setLlmError('');
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 15000);
+    try {
+      await testConnection(configDraft, controller.signal);
+      setTestResult('ok');
+    } catch (err) {
+      setTestResult('fail');
+      setLlmError(err.message || '连接失败');
+    } finally {
+      clearTimeout(tid);
+      setTesting(false);
+    }
+  };
   const handleEmojiSelect = (emoji) => { setInput(prev => prev + emoji); };
 
   const renderContent = (content) => content.split('\n').map((line, i) => {
@@ -355,12 +445,14 @@ export default function Amadeus() {
         <div className="amadeus-character-area" style={{ background: `linear-gradient(135deg, ${expr.color}22, ${expr.color}08)` }}>
           <div className="amadeus-character-portrait">
             <div className={`amadeus-character-silhouette ${expressionTransition ? 'transitioning' : ''}`} style={{ borderColor: expr.color }}>
-              <img src={amadeusImg} alt="Navi" className="amadeus-character-img" loading="lazy" />
+              {activePersona.image
+                ? <img src={activePersona.image} alt={activePersona.name} className="amadeus-character-img" loading="lazy" />
+                : <span className="amadeus-character-avatar-emoji">{activePersona.avatar}</span>}
               <span className="amadeus-character-expr">{expr.emoji}</span>
             </div>
             <div className="amadeus-character-label">
-              <span className="amadeus-character-name">牧瀬紅莉栖</span>
-              <span className="amadeus-character-sub">Navi System v{AMADEUS_PERSONA.version}</span>
+              <span className="amadeus-character-name">{activePersona.name}</span>
+              <span className="amadeus-character-sub">{activePersona.tagline}</span>
             </div>
             <div className="amadeus-expression-indicator" style={{ background: expr.color }}>
               {expr.label}
@@ -394,6 +486,27 @@ export default function Amadeus() {
           {showSettings && (
             <div className="amadeus-settings">
               <div className="amadeus-settings-group">
+                <label>人格</label>
+                <div className="amadeus-persona-list">
+                  {allPersonas.map(p => (
+                    <div key={p.id} className={`amadeus-persona-card ${activePersonaId === p.id ? 'active' : ''}`} onClick={() => switchPersona(p.id)}>
+                      <span className="amadeus-persona-avatar">{p.image ? '🖼️' : p.avatar}</span>
+                      <span className="amadeus-persona-name">{p.name}</span>
+                      <span className="amadeus-persona-tag">{p.tagline}</span>
+                      <div className="amadeus-persona-ops" onClick={e => e.stopPropagation()}>
+                        {p.isPreset
+                          ? <button title="复制为我的 OC" onClick={() => cloneToOC(p)}>＋OC</button>
+                          : <>
+                              <button title="编辑" onClick={() => editOC(p)}>编辑</button>
+                              <button title="删除" onClick={() => deleteOC(p.id)}>删除</button>
+                            </>}
+                      </div>
+                    </div>
+                  ))}
+                  <button className="amadeus-persona-new" onClick={openNewOC}>＋ 新建 OC</button>
+                </div>
+              </div>
+              <div className="amadeus-settings-group">
                 <label>回复模式</label>
                 <div className="amadeus-provider-select">
                   {[{ key: 'local', label: '本地规则', desc: '无需API' }, { key: 'openai', label: 'OpenAI', desc: 'GPT系列' }, { key: 'custom', label: '自定义API', desc: '兼容OpenAI格式' }].map(p => (
@@ -409,6 +522,16 @@ export default function Amadeus() {
                   <div className="amadeus-settings-group"><label><Key size={12} /> API Key</label><input type="password" placeholder="输入API Key" value={configDraft.apiKey} onChange={e => setConfigDraft(prev => ({ ...prev, apiKey: e.target.value }))} /></div>
                   <div className="amadeus-settings-group"><label><Server size={12} /> API 地址</label><input placeholder="API URL" value={configDraft.baseUrl} onChange={e => setConfigDraft(prev => ({ ...prev, baseUrl: e.target.value }))} /></div>
                   <div className="amadeus-settings-group"><label>模型</label><input placeholder="模型名称" value={configDraft.model} onChange={e => setConfigDraft(prev => ({ ...prev, model: e.target.value }))} /></div>
+                  <div className="amadeus-settings-group amadeus-remember-row">
+                    <label><input type="checkbox" checked={!!configDraft.remember} onChange={e => setConfigDraft(prev => ({ ...prev, remember: e.target.checked }))} /> 记住 API Key（保存在本机浏览器）</label>
+                  </div>
+                  <div className="amadeus-settings-group">
+                    <button className="amadeus-test-btn" onClick={handleTestConnection} disabled={testing}>
+                      {testing ? '测试中…' : '测试连接'}
+                      {testResult === 'ok' && <Check size={14} />}
+                      {testResult === 'fail' && <AlertCircle size={14} />}
+                    </button>
+                  </div>
                 </>
               )}
               <div className="amadeus-settings-actions">
@@ -416,6 +539,30 @@ export default function Amadeus() {
                 <button className="amadeus-settings-clear" onClick={() => { StorageService.remove(CHAT_HISTORY_KEY); clearChat(); }}><Trash2 size={14} /> 清除记录</button>
               </div>
               {llmError && <div className="amadeus-settings-error"><AlertCircle size={14} /> {llmError}</div>}
+            </div>
+          )}
+
+          {editingOC && (
+            <div className="amadeus-oc-editor">
+              <div className="amadeus-oc-row"><label>角色名</label><input value={editingOC.name} onChange={e => setEditingOC(o => ({ ...o, name: e.target.value }))} placeholder="例如：星野 アイ" /></div>
+              <div className="amadeus-oc-row"><label>头像 Emoji</label><input value={editingOC.avatar} onChange={e => setEditingOC(o => ({ ...o, avatar: e.target.value }))} placeholder="🌟" maxLength={4} /></div>
+              <div className="amadeus-oc-row"><label>简介</label><input value={editingOC.tagline} onChange={e => setEditingOC(o => ({ ...o, tagline: e.target.value }))} placeholder="一句话简介" /></div>
+              <div className="amadeus-oc-row"><label>人设/性格</label><textarea value={editingOC.personality} onChange={e => setEditingOC(o => ({ ...o, personality: e.target.value }))} rows={3} placeholder="性格、背景、喜好…" /></div>
+              <div className="amadeus-oc-row"><label>说话风格</label><textarea value={editingOC.speechStyle} onChange={e => setEditingOC(o => ({ ...o, speechStyle: e.target.value }))} rows={2} placeholder="语气、用词习惯…" /></div>
+              <div className="amadeus-oc-row"><label>口头禅</label><input value={(editingOC.catchphrases || []).join('，')} onChange={e => setEditingOC(o => ({ ...o, catchphrases: e.target.value.split(/[，,]/).map(s => s.trim()).filter(Boolean) }))} placeholder="多个用逗号分隔" /></div>
+              <div className="amadeus-oc-row"><label>开场白</label><textarea value={editingOC.greeting} onChange={e => setEditingOC(o => ({ ...o, greeting: e.target.value }))} rows={2} placeholder="首次对话的招呼语" /></div>
+              <div className="amadeus-oc-row"><label>默认表情</label>
+                <select value={editingOC.expressionBias} onChange={e => setEditingOC(o => ({ ...o, expressionBias: e.target.value }))}>
+                  {Object.entries(EXPRESSIONS).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                </select>
+              </div>
+              <div className="amadeus-oc-actions">
+                <button className="amadeus-settings-save" onClick={saveOC}>保存</button>
+                {!PRESET_PERSONAS.some(p => p.id === editingOC.id) && customPersonas.some(p => p.id === editingOC.id) && (
+                  <button className="amadeus-settings-clear" onClick={() => deleteOC(editingOC.id)}><Trash2 size={14} /> 删除</button>
+                )}
+                <button className="amadeus-settings-clear" onClick={() => setEditingOC(null)}>取消</button>
+              </div>
             </div>
           )}
 
@@ -428,6 +575,35 @@ export default function Amadeus() {
                 <div className="amadeus-msg-bubble">
                   <div className="amadeus-msg-text">{renderContent(msg.content)}</div>
                   <span className="amadeus-msg-time">{new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                {Array.isArray(msg.actions) && msg.actions.length > 0 && (
+                  <div className="amadeus-actions">
+                    {msg.actions.map((a, ai) => {
+                      if (a.action === 'goto') {
+                        const g = resolveGoto(a);
+                        if (!g) return null;
+                        return <button key={ai} className="amadeus-action-goto" onClick={() => navigate(g.route)}>前往「{g.label}」 →</button>;
+                      }
+                      if (a.action === 'search' || a.action === 'recommend') {
+                        if (a._state === 'error') return <div key={ai} className="amadeus-action-empty">检索失败</div>;
+                        if (!a.items) return <div key={ai} className="amadeus-action-empty">检索中…</div>;
+                        if (a.items.length === 0) return <div key={ai} className="amadeus-action-empty">未找到相关条目</div>;
+                        return (
+                          <div key={ai} className="amadeus-rec-grid">
+                            {a.items.map(it => (
+                              <button key={it.id} className="amadeus-rec-card" onClick={() => navigate(it.to, { state: it.state })}>
+                                {it.image
+                                  ? <img src={it.image} alt={it.name_cn || it.name} loading="lazy" />
+                                  : <span className="amadeus-rec-noimg">📦</span>}
+                                <span className="amadeus-rec-name">{it.name_cn || it.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                )}
                 </div>
               </div>
             ))}
