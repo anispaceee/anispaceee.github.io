@@ -19,6 +19,7 @@
 // ─── ES Module 依赖 ────────────────────────────────────────
 import * as bangumiSync from './lib/bangumi-sync.js';
 import * as bangumiSearch from './lib/bangumi-search.js';
+import * as newsScraper from './lib/news-scraper.js';
 
 // ─── SSRF 防护 ───────────────────────────────────────────
 
@@ -1439,6 +1440,107 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(newsItem, 200, origin);
   }
 
+  // ── Scraped News Feed API ──
+
+  // GET /api/news/feed — 聚合资讯流（从 scraped_news + news 表合并查询）
+  if (method === 'GET' && pathname === '/api/news/feed') {
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(50, Math.max(1, Number(sp.get('limit')) || 20));
+    const source = sp.get('source') || '';
+    const category = sp.get('category') || '';
+    const offset = (page - 1) * limit;
+
+    let whereClause = '';
+    const bindParams = [];
+    const conditions = [];
+
+    if (source) {
+      conditions.push('source = ?');
+      bindParams.push(source);
+    }
+    if (category) {
+      conditions.push('category = ?');
+      bindParams.push(category);
+    }
+    if (conditions.length > 0) {
+      whereClause = 'WHERE ' + conditions.join(' AND ');
+    }
+
+    const scrapedNews = await env.DB.prepare(
+      `SELECT id, source, title, link, summary, cover, category, extra, scraped_at AS created_at FROM scraped_news ${whereClause} ORDER BY scraped_at DESC LIMIT ? OFFSET ?`
+    ).bind(...bindParams, limit, offset).all();
+
+    const countResult = await env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM scraped_news ${whereClause}`
+    ).bind(...bindParams).first();
+
+    // 解析 extra JSON 字段
+    const parsedItems = scrapedNews.results.map(item => {
+      let extra = {};
+      try { extra = JSON.parse(item.extra || '{}'); } catch {}
+      return { ...item, extra };
+    });
+
+    return jsonResponse({
+      news: parsedItems,
+      pagination: { page, limit, total: countResult?.total || 0 },
+    }, 200, origin);
+  }
+
+  // GET /api/news/refresh — 实时爬取指定源（有频率限制）
+  if (method === 'GET' && pathname === '/api/news/refresh') {
+    const sourceName = new URL(request.url).searchParams.get('source') || '';
+    if (!sourceName) {
+      return jsonResponse({ error: '缺少 source 参数' }, 400, origin);
+    }
+
+    // 频率限制：检查最近 5 分钟内是否已刷新
+    const cache = caches.default;
+    const cacheKey = new Request(`https://internal/news-refresh/${sourceName}`, { method: 'GET' });
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return jsonResponse({ error: '刷新太频繁，请稍后再试', cooldown: 300 }, 429, origin);
+    }
+
+    const items = await newsScraper.scrapeSingleSource(sourceName);
+
+    // 写入数据库
+    let inserted = 0;
+    for (const item of items) {
+      try {
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO scraped_news (source, source_id, title, link, summary, cover, category, extra, scraped_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+        ).bind(item.source, item.source_id, item.title, item.link, item.summary, item.cover, item.category, item.extra).run();
+        inserted++;
+      } catch {}
+    }
+
+    // 设置 5 分钟缓存防止频繁刷新
+    const refreshCache = new Response(JSON.stringify({ refreshed: true }), {
+      headers: { 'Cache-Control': 'public, max-age=300' },
+    });
+    try { await cache.put(cacheKey, refreshCache); } catch {}
+
+    return jsonResponse({ source: sourceName, items: items.length, inserted }, 200, origin);
+  }
+
+  // POST /api/news/admin/scrape — 手动触发全量爬取（需 ADMIN_SYNC_TOKEN）
+  if (method === 'POST' && pathname === '/api/news/admin/scrape') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+    try {
+      const result = await newsScraper.runAllScrapers(env.DB);
+      return jsonResponse(result, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '爬取失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // ── Ratings API ──
 
   // GET /api/ratings?subjectId=xxx — 获取某条目的所有评分
@@ -2545,5 +2647,29 @@ export default {
     }
 
     return jsonResponse({ error: 'Not Found' }, 404, origin);
+  },
+
+  // Cron Trigger — 定时任务
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      // 每 30 分钟：资讯爬取
+      try {
+        const result = await newsScraper.runAllScrapers(env.DB);
+        console.log('News scrape result:', JSON.stringify(result));
+      } catch (err) {
+        console.error('News scrape error:', err.message);
+      }
+
+      // 周一/周三 03:00 UTC：bangumi-data 同步
+      const cron = event.cron || '';
+      if (cron === '0 3 * * 1' || cron === '0 3 * * 3') {
+        try {
+          const result = await bangumiSync.runSync(env, { force: false });
+          console.log('Bangumi sync result:', JSON.stringify(result));
+        } catch (err) {
+          console.error('Bangumi sync error:', err.message);
+        }
+      }
+    })());
   },
 };

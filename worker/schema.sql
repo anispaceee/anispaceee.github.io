@@ -238,6 +238,21 @@ CREATE TABLE IF NOT EXISTS friend_post_likes (
   UNIQUE(post_id, user_id)
 );
 
+-- 爬取资讯表（多源聚合）
+CREATE TABLE IF NOT EXISTS scraped_news (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL,
+  source_id TEXT DEFAULT '',
+  title TEXT NOT NULL,
+  link TEXT DEFAULT '',
+  summary TEXT DEFAULT '',
+  cover TEXT DEFAULT '',
+  category TEXT DEFAULT '',
+  extra TEXT DEFAULT '{}',
+  scraped_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(source, source_id)
+);
+
 -- 好友相关索引
 CREATE INDEX IF NOT EXISTS idx_fr_from ON friend_requests(from_user_id);
 CREATE INDEX IF NOT EXISTS idx_fr_to ON friend_requests(to_user_id, status);
@@ -245,3 +260,6 @@ CREATE INDEX IF NOT EXISTS idx_fp_user ON friend_posts(user_id);
 CREATE INDEX IF NOT EXISTS idx_fp_visibility ON friend_posts(visibility);
 CREATE INDEX IF NOT EXISTS idx_fpc_post ON friend_post_comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_fpl_post ON friend_post_likes(post_id);
+CREATE INDEX IF NOT EXISTS idx_scraped_news_source ON scraped_news(source, scraped_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scraped_news_category ON scraped_news(category, scraped_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scraped_news_scraped ON scraped_news(scraped_at DESC);

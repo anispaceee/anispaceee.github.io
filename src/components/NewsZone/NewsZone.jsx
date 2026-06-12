@@ -1,48 +1,32 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Tv, Book, Gamepad2, Plus, ExternalLink, Loader2, AlertCircle, Newspaper, Calendar, Tag, TrendingUp, Bold, Italic, Link as LinkIcon, List, Quote, Image as ImageIcon, Eye, EyeOff, X } from 'lucide-react';
+import { Tv, Book, Gamepad2, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Bold, Italic, Link as LinkIcon, List, Quote, Image as ImageIcon, Eye, EyeOff, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { NewsService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './NewsZone.css';
 
-const NEWS_TABS = [
-  { key: 'anime', label: '动画', icon: Tv, color: '#409eff' },
-  { key: 'novel', label: '小说', icon: Book, color: '#67c23a' },
-  { key: 'game', label: '游戏', icon: Gamepad2, color: '#e6a23c' },
-];
-
-const CATEGORIES = ['新番导视', '新作速报', '业界动态', '新作发售', '文学赏'];
-
-const MOCK_NEWS = {
-  anime: [
-    { id: 1, type: 'link', title: '2026年4月新番导视：30+部新番一览', category: '新番导视', date: '2026-04-01', source: 'ANISpace 编辑部', summary: '2026年4月新番季即将到来，本季将有多部重磅作品开播，包括多部续作和全新IP改编动画。', cover: '' },
-    { id: 2, type: 'link', title: '《咒术回战》第三季制作决定', category: '新作速报', date: '2026-03-28', source: 'MANTANWEB', link: 'https://example.com/jjk-s3', summary: '官方宣布《咒术回战》动画第三季制作决定，将继续由MAPPA负责制作。', cover: '' },
-    { id: 3, type: 'link', title: '《葬送的芙莉莲》获第50届漫画大赏', category: '业界动态', date: '2026-03-25', source: 'ORICON', summary: '《葬送的芙莉莲》荣获第50届讲谈社漫画大赏，同时动画版全球播放量突破5亿。', cover: '' },
-    { id: 4, type: 'link', title: '京都动画新作企划发表会定档6月', category: '业界动态', date: '2026-03-20', source: '京阿尼官网', summary: '京都动画宣布将于6月举办新作发表会，届时将公开多部新制作企划。', cover: '' },
-    { id: 5, type: 'link', title: '《鬼灭之刃》无限城篇剧场版三部作确认', category: '新作速报', date: '2026-03-15', source: '集英社', summary: 'ufotable确认《鬼灭之刃》无限城篇将以三部剧场版形式上映。', cover: '' },
-  ],
-  novel: [
-    { id: 6, type: 'link', title: '第33届电击小说大赏获奖作品公布', category: '文学赏', date: '2026-03-30', source: '电击文库', summary: '第33届电击小说大赏评选结果揭晓，大赏作品将于年内出版。', cover: '' },
-    { id: 7, type: 'link', title: '《86-不存在的战区-》新卷发售决定', category: '新作发售', date: '2026-03-25', source: '电击文库', summary: '安里阿萨所著轻小说《86-不存在的战区-》新卷将于5月发售。', cover: '' },
-    { id: 8, type: 'link', title: 'MF文库J 20周年纪念企划启动', category: '业界动态', date: '2026-03-20', source: 'MF文库J', summary: 'MF文库J启动20周年纪念企划，将推出多部人气作品的新作和联动活动。', cover: '' },
-    { id: 9, type: 'link', title: '《狼与香辛料》新作小说连载开始', category: '新作速报', date: '2026-03-15', source: '电击文库', summary: '支仓冻砂宣布《狼与香辛料》系列新作小说开始连载，故事延续赫萝与罗伦斯的旅程。', cover: '' },
-  ],
-  game: [
-    { id: 10, type: 'link', title: '《恋爱，我就借走咯》宣布官方中文版', category: '新作发售', date: '2026-04-01', source: 'Hikarinagi', summary: 'Galgame新作《恋爱，我就借走咯》宣布将推出官方中文版，预计年内发售。', cover: '' },
-    { id: 11, type: 'link', title: '《久我山栞的死法手账》Steam正式发售', category: '新作发售', date: '2026-03-30', source: 'Laplacian', summary: 'Laplacian第七作《久我山栞的死法手账》正式于Steam平台发售，国区售价69元，首发优惠20%。', cover: '' },
-    { id: 12, type: 'link', title: 'Liar-soft宣布两款新作制作计划', category: '业界动态', date: '2026-03-28', source: 'Liar-soft', summary: 'Liar-soft宣布将制作两款未命名新作，第一部由海原望导演、中村哲也原画，第二部为《エヴァーメイデン》系列续作。', cover: '' },
-    { id: 13, type: 'link', title: '《几度相逢若初见》官中定档本周发售', category: '新作发售', date: '2026-03-25', source: '发行商公告', summary: '备受期待的Galgame《几度相逢若初见》官方中文版定档本周发售，支持Steam平台。', cover: '' },
-    { id: 14, type: 'link', title: 'Key社新作企划情报解禁', category: '业界动态', date: '2026-03-20', source: 'Key/Visual Arts', summary: 'Key社宣布新作企划情报将于下月解禁，麻枝准将担任剧本创作。', cover: '' },
-  ],
+// 来源配置
+const SOURCE_CONFIG = {
+  bangumi_calendar: { label: 'Bangumi 新番', color: '#f09199', icon: Tv },
+  bangumi_hot: { label: 'Bangumi 热门', color: '#e8674f', icon: Flame },
+  gamersky: { label: '游民星空', color: '#3b82f6', icon: Newspaper },
+  '3dmgame': { label: '3DMGame', color: '#f59e0b', icon: Gamepad2 },
+  custom: { label: '站内资讯', color: '#10b981', icon: Sparkles },
 };
+
+const CATEGORIES = ['全部', '新番导视', '热门推荐', '业界动态', '新作速报', '新作发售'];
 
 export default function NewsZone() {
   const navigate = useNavigate();
   const { isAuthenticated, openAuth } = useApp();
-  const [activeTab, setActiveTab] = useState('anime');
-  const [newsList, setNewsList] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [feedNews, setFeedNews] = useState([]);
+  const [customNews, setCustomNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeSource, setActiveSource] = useState('');
+  const [activeCategory, setActiveCategory] = useState('全部');
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [submitMode, setSubmitMode] = useState('link');
   const [applyForm, setApplyForm] = useState({ title: '', source: '', link: '', category: '' });
@@ -50,31 +34,71 @@ export default function NewsZone() {
   const [articleImages, setArticleImages] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const carouselTimerRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
-  useEffect(() => {
-    fetchNews(activeTab);
-  }, [activeTab]);
+  // 合并所有资讯
+  const allNews = [...feedNews, ...customNews.map(n => ({ ...n, source: 'custom' }))];
+  const hotNews = allNews.filter(n => n.cover).slice(0, 5);
 
-  const fetchNews = async (category) => {
+  // 筛选
+  const filteredNews = allNews.filter(n => {
+    if (activeSource && n.source !== activeSource) return false;
+    if (activeCategory !== '全部' && n.category !== activeCategory) return false;
+    return true;
+  });
+
+  // 加载数据
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // 从后端 API 加载用户提交的资讯
-      const data = await NewsService.getCustomNews(1, 50);
-      const customNews = (data.news || []).filter(n => n.category === category);
-
-      // 保留 MOCK 数据作为默认内容
-      const mockData = MOCK_NEWS[category] || [];
-      setNewsList([...customNews, ...mockData]);
+      const [feedData, customData] = await Promise.allSettled([
+        NewsService.getNewsFeed({ page: 1, limit: 50 }),
+        NewsService.getCustomNews(1, 50),
+      ]);
+      if (feedData.status === 'fulfilled') {
+        setFeedNews(feedData.value?.news || []);
+      }
+      if (customData.status === 'fulfilled') {
+        setCustomNews(customData.value?.news || []);
+      }
     } catch {
-      // API 失败时仍显示 MOCK 数据
-      setNewsList(MOCK_NEWS[category] || []);
+      // 静默失败
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // 轮播自动播放
+  useEffect(() => {
+    if (hotNews.length <= 1) return;
+    carouselTimerRef.current = setInterval(() => {
+      setCarouselIndex(prev => (prev + 1) % hotNews.length);
+    }, 5000);
+    return () => clearInterval(carouselTimerRef.current);
+  }, [hotNews.length]);
+
+  // 刷新指定源
+  const handleRefresh = async (source) => {
+    setRefreshing(true);
+    try {
+      if (source) {
+        await NewsService.refreshSource(source);
+      }
+      await loadData();
+    } catch (err) {
+      console.error('刷新失败:', err);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
+  // 提交资讯
   const resetForm = () => {
     setApplyForm({ title: '', source: '', link: '', category: '' });
     setArticleContent('');
@@ -93,7 +117,6 @@ export default function NewsZone() {
       openAuth();
       return;
     }
-
     setSubmitting(true);
     try {
       if (submitMode === 'link') {
@@ -106,7 +129,7 @@ export default function NewsZone() {
           title: applyForm.title.trim(),
           source: applyForm.source.trim(),
           link: applyForm.link.trim(),
-          category: applyForm.category || activeTab,
+          category: applyForm.category || '业界动态',
         });
       } else {
         if (!applyForm.title.trim() || !articleContent.trim()) {
@@ -117,13 +140,13 @@ export default function NewsZone() {
           type: 'article',
           title: applyForm.title.trim(),
           source: applyForm.source.trim(),
-          category: applyForm.category || activeTab,
+          category: applyForm.category || '业界动态',
           content: articleContent,
           images: articleImages,
         });
       }
       handleCloseModal();
-      fetchNews(activeTab);
+      loadData();
     } catch (err) {
       alert(err.message || '提交失败');
     } finally {
@@ -169,95 +192,179 @@ export default function NewsZone() {
     });
   };
 
-  const getCategoryColor = (cat) => {
-    const colors = {
-      '新番导视': '#409eff',
-      '新作速报': '#e6a23c',
-      '业界动态': '#67c23a',
-      '新作发售': '#f56c6c',
-      '文学赏': '#909399',
-    };
-    return colors[cat] || '#409eff';
-  };
-
-  const handleNewsClick = (news) => {
-    if (news.type === 'article') {
-      navigate(`/news/${news.id}`);
-    }
-  };
-
-  const currentNews = newsList;
+  const getSourceLabel = (source) => SOURCE_CONFIG[source]?.label || source;
+  const getSourceColor = (source) => SOURCE_CONFIG[source]?.color || '#6b7280';
 
   return (
     <div className="news-zone">
+      {/* Header */}
       <div className="news-zone-header">
         <div className="news-zone-title">
           <Newspaper size={20} />
           <h2>毒电波！！</h2>
-          <span className="news-zone-subtitle">二次元业界动态 · 新作发售 · 新番导视</span>
+          <span className="news-zone-subtitle">二次元业界动态 · 新番导视 · 多源聚合</span>
         </div>
-        <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
-          <Plus size={14} /> 提交资讯
-        </button>
-      </div>
-
-      <div className="news-tabs">
-        {NEWS_TABS.map(tab => (
+        <div className="news-zone-actions">
           <button
-            key={tab.key}
-            className={`news-tab ${activeTab === tab.key ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.key)}
-            style={{ '--news-color': tab.color }}
+            className={`news-refresh-btn ${refreshing ? 'spinning' : ''}`}
+            onClick={() => handleRefresh('')}
+            disabled={refreshing}
+            title="刷新资讯"
           >
-            <tab.icon size={14} /> {tab.label}
+            <RefreshCw size={14} />
           </button>
-        ))}
+          <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
+            <Plus size={14} /> 投稿
+          </button>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="news-loading"><Loader2 size={16} className="spinning" /> 雨何时停？</div>
-      ) : (
-        <div className="news-list">
-          {currentNews.length === 0 ? (
-            <div className="news-empty">暂无资讯</div>
-          ) : (
-            currentNews.map(news => (
+      {/* 轮播热点 */}
+      {hotNews.length > 0 && (
+        <div className="news-carousel">
+          <div className="news-carousel-track">
+            {hotNews.map((news, idx) => (
               <div
-                key={news.id}
-                className={`news-item ${news.type === 'article' ? 'news-item-article' : ''}`}
-                onClick={() => handleNewsClick(news)}
-                style={{ cursor: news.type === 'article' ? 'pointer' : 'default' }}
+                key={news.id || idx}
+                className={`news-carousel-slide ${idx === carouselIndex ? 'active' : ''}`}
+                style={{ backgroundImage: `url(${news.cover})` }}
+                onClick={() => {
+                  if (news.type === 'article') navigate(`/news/${news.id}`);
+                  else if (news.link) window.open(news.link, '_blank');
+                }}
               >
-                <div className="news-item-content">
-                  <div className="news-item-header">
-                    <span className="news-item-category" style={{ backgroundColor: getCategoryColor(news.category) }}>
-                      {news.category}
-                    </span>
-                    <span className={`news-type-badge ${news.type === 'article' ? 'news-type-article' : 'news-type-link'}`}>
-                      {news.type === 'article' ? '📝 长文' : '🔗 链接'}
-                    </span>
-                    <span className="news-item-date"><Calendar size={10} /> {news.date || news.created_at?.split('T')[0] || ''}</span>
-                    <span className="news-item-source">{news.source}</span>
-                  </div>
-                  <h3 className="news-item-title">{news.title}</h3>
-                  {(news.summary || news.content) && <p className="news-item-summary">{news.summary || news.content?.substring(0, 100)}</p>}
-                  {news.type === 'link' && news.link && (
-                    <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-item-link" onClick={e => e.stopPropagation()}>
-                      <ExternalLink size={12} /> 查看原文
-                    </a>
-                  )}
-                  {news.type === 'article' && (
-                    <span className="news-item-link">
-                      📝 阅读全文
-                    </span>
-                  )}
+                <div className="news-carousel-overlay">
+                  <span className="news-carousel-source" style={{ backgroundColor: getSourceColor(news.source) }}>
+                    {getSourceLabel(news.source)}
+                  </span>
+                  <h3 className="news-carousel-title">{news.title}</h3>
+                  {news.summary && <p className="news-carousel-summary">{news.summary}</p>}
                 </div>
               </div>
-            ))
+            ))}
+          </div>
+          {hotNews.length > 1 && (
+            <>
+              <button className="news-carousel-arrow left" onClick={() => setCarouselIndex(prev => (prev - 1 + hotNews.length) % hotNews.length)}>
+                <ChevronLeft size={18} />
+              </button>
+              <button className="news-carousel-arrow right" onClick={() => setCarouselIndex(prev => (prev + 1) % hotNews.length)}>
+                <ChevronRight size={18} />
+              </button>
+              <div className="news-carousel-dots">
+                {hotNews.map((_, idx) => (
+                  <button
+                    key={idx}
+                    className={`news-carousel-dot ${idx === carouselIndex ? 'active' : ''}`}
+                    onClick={() => setCarouselIndex(idx)}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
 
+      {/* 来源筛选 */}
+      <div className="news-source-filters">
+        <button
+          className={`news-source-filter ${!activeSource ? 'active' : ''}`}
+          onClick={() => setActiveSource('')}
+        >
+          全部来源
+        </button>
+        {Object.entries(SOURCE_CONFIG).map(([key, config]) => (
+          <button
+            key={key}
+            className={`news-source-filter ${activeSource === key ? 'active' : ''}`}
+            style={{ '--source-color': config.color }}
+            onClick={() => setActiveSource(activeSource === key ? '' : key)}
+          >
+            {config.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 分类筛选 */}
+      <div className="news-category-filters">
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            className={`news-category-filter ${activeCategory === cat ? 'active' : ''}`}
+            onClick={() => setActiveCategory(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* 资讯卡片流 */}
+      {loading ? (
+        <div className="news-loading"><Loader2 size={16} className="spinning" /> 雨何时停？</div>
+      ) : (
+        <div className="news-card-grid">
+          {filteredNews.length === 0 ? (
+            <div className="news-empty">暂无资讯，点击刷新获取最新内容</div>
+          ) : (
+            filteredNews.map(news => {
+              const sourceConfig = SOURCE_CONFIG[news.source] || {};
+              const isArticle = news.type === 'article';
+              const handleClick = () => {
+                if (isArticle) navigate(`/news/${news.id}`);
+                else if (news.link) window.open(news.link, '_blank');
+              };
+
+              return (
+                <div
+                  key={`${news.source}-${news.id}`}
+                  className={`news-card ${news.cover ? 'news-card-with-cover' : ''}`}
+                  onClick={handleClick}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {news.cover && (
+                    <div className="news-card-cover">
+                      <img src={news.cover} alt="" loading="lazy" />
+                    </div>
+                  )}
+                  <div className="news-card-body">
+                    <div className="news-card-meta">
+                      <span className="news-card-source-badge" style={{ backgroundColor: getSourceColor(news.source) }}>
+                        {getSourceLabel(news.source)}
+                      </span>
+                      {news.category && (
+                        <span className="news-card-category">{news.category}</span>
+                      )}
+                      <span className="news-card-date">
+                        <Calendar size={10} /> {news.created_at?.split('T')[0] || ''}
+                      </span>
+                    </div>
+                    <h3 className="news-card-title">{news.title}</h3>
+                    {news.summary && (
+                      <p className="news-card-summary">{news.summary}</p>
+                    )}
+                    <div className="news-card-footer">
+                      {isArticle ? (
+                        <span className="news-card-action">阅读全文</span>
+                      ) : news.link ? (
+                        <span className="news-card-action" onClick={e => e.stopPropagation()}>
+                          <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-card-ext-link">
+                            <ExternalLink size={12} /> 查看原文
+                          </a>
+                        </span>
+                      ) : null}
+                      {news.extra?.rating && (
+                        <span className="news-card-rating">★ {news.extra.rating}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* 提交资讯 Modal */}
       {showApplyModal && (
         <div className="news-apply-overlay" onClick={handleCloseModal}>
           <div className="news-apply-modal" onClick={e => e.stopPropagation()}>
@@ -298,8 +405,8 @@ export default function NewsZone() {
                   </div>
                   <div className="news-form-group">
                     <label>分类</label>
-                    <select value={applyForm.category || activeTab} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
-                      {CATEGORIES.map(cat => (
+                    <select value={applyForm.category || '业界动态'} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
+                      {CATEGORIES.filter(c => c !== '全部').map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
@@ -313,8 +420,8 @@ export default function NewsZone() {
                   </div>
                   <div className="news-form-group">
                     <label>分类</label>
-                    <select value={applyForm.category || activeTab} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
-                      {CATEGORIES.map(cat => (
+                    <select value={applyForm.category || '业界动态'} onChange={e => setApplyForm(prev => ({ ...prev, category: e.target.value }))}>
+                      {CATEGORIES.filter(c => c !== '全部').map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
@@ -332,27 +439,14 @@ export default function NewsZone() {
                         {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      style={{ display: 'none' }}
-                      onChange={handleImageUpload}
-                    />
+                    <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleImageUpload} />
                     {showPreview ? (
                       <div className="news-preview">
                         <MarkdownRenderer content={articleContent} />
                         {!articleContent && <p style={{ color: 'var(--text-quaternary)', textAlign: 'center' }}>暂无内容</p>}
                       </div>
                     ) : (
-                      <textarea
-                        ref={textareaRef}
-                        className="news-article-textarea"
-                        placeholder="支持 Markdown 语法，输入文章内容..."
-                        value={articleContent}
-                        onChange={e => setArticleContent(e.target.value)}
-                      />
+                      <textarea ref={textareaRef} className="news-article-textarea" placeholder="支持 Markdown 语法，输入文章内容..." value={articleContent} onChange={e => setArticleContent(e.target.value)} />
                     )}
                     {articleImages.length > 0 && (
                       <div className="news-image-previews">

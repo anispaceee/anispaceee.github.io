@@ -648,6 +648,19 @@ export const NewsService = {
   async getNewsById(id) {
     return await apiRequest(`/api/news/${id}`);
   },
+
+  // 聚合资讯流（爬取的多源数据）
+  async getNewsFeed({ page = 1, limit = 20, source = '', category = '' } = {}) {
+    const params = new URLSearchParams({ page, limit });
+    if (source) params.set('source', source);
+    if (category) params.set('category', category);
+    return await apiRequest(`/api/news/feed?${params.toString()}`);
+  },
+
+  // 实时刷新指定源
+  async refreshSource(source) {
+    return await apiRequest(`/api/news/refresh?source=${encodeURIComponent(source)}`);
+  },
 };
 
 // ─── BangumiService ───
