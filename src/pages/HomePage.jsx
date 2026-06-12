@@ -177,7 +177,7 @@ export default function HomePage() {
         const feedData = await NewsService.getNewsFeed({ limit: 5 });
         const feedItems = (feedData.news || []).map(n => ({
           ...n,
-          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'ymgal' ? '月幕' : n.source === 'cngal' ? 'CnGal' : n.source,
+          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'ymgal' ? '月幕' : n.source === 'hikarinagi' ? '光凪' : n.source === 'cngal' ? 'CnGal' : n.source,
         }));
         setNewsItems(prev => {
           const existing = prev.filter(p => !feedItems.find(f => f.title === p.title));

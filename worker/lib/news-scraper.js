@@ -5,7 +5,8 @@
  * 1. Bangumi Calendar API — 当季新番
  * 2. Bangumi 热门排行 — 高分动画
  * 3. 月幕 Galgame — Galgame 发行/档案（OAuth2 API + HTML 回退）
- * 4. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
+ * 4. HikariNagi — 光凪 Galgame 社区（HTML 爬取）
+ * 5. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
  *
  * 所有爬取结果统一为 { source, source_id, title, link, summary, cover, category, extra }
  */
@@ -202,6 +203,67 @@ async function scrapeYmgal() {
   return items.slice(0, 20);
 }
 
+// ─── HikariNagi (HTML 爬取) ────────────────────────────────
+
+async function scrapeHikariNagi() {
+  const items = [];
+
+  try {
+    const res = await fetch('https://www.hikarinagi.org/', {
+      headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+    });
+    if (!res.ok) return items;
+
+    const html = await res.text();
+
+    // 匹配社区文章链接 /community/article/{id}
+    const articleRe = /href="https?:\/\/www\.hikarinagi\.org\/community\/article\/(\d+)"[^>]*>([\s\S]*?)<\/a>/g;
+    let match;
+    const seen = new Set();
+
+    while ((match = articleRe.exec(html)) !== null && items.length < 10) {
+      const id = match[1];
+      const titleRaw = match[2].replace(/<[^>]*>/g, '').trim();
+      if (!titleRaw || titleRaw.length < 4 || seen.has(id)) continue;
+      seen.add(id);
+      items.push({
+        source: 'hikarinagi',
+        source_id: `hn_${id}`,
+        title: titleRaw,
+        link: `https://www.hikarinagi.org/community/article/${id}`,
+        summary: '光凪 Galgame 社区',
+        cover: '',
+        category: 'Gal档案',
+        extra: JSON.stringify({ id: Number(id), type: 'article' }),
+      });
+    }
+
+    // 匹配 Gal 周报链接
+    const weeklyRe = /href="(https?:\/\/www\.hikarinagi\.org\/community\/article\/(\d+))"[^>]*>[\s\S]*?Gal周报/gi;
+    while ((match = weeklyRe.exec(html)) !== null && items.length < 15) {
+      const url = match[1];
+      const id = match[2];
+      if (seen.has(id)) continue;
+      seen.add(id);
+      // 提取周报标题
+      const titleMatch = match[0].match(/>([^<]*(?:Gal周报|周报)[^<]*)</);
+      const title = titleMatch ? titleMatch[1].trim() : `Gal周报 #${id}`;
+      items.push({
+        source: 'hikarinagi',
+        source_id: `hn_weekly_${id}`,
+        title,
+        link: url,
+        summary: '光凪 Gal 周报',
+        cover: '',
+        category: '每周速报',
+        extra: JSON.stringify({ id: Number(id), type: 'weekly' }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 15);
+}
+
 // ─── CnGal (公开 API) ──────────────────────────────────────
 
 const CNGAL_API = 'https://api.cngal.org/api';
@@ -323,6 +385,7 @@ export async function runAllScrapers(db) {
     { name: 'bangumi_calendar', fn: scrapeBangumiCalendar },
     { name: 'bangumi_hot', fn: scrapeBangumiHot },
     { name: 'ymgal', fn: scrapeYmgal },
+    { name: 'hikarinagi', fn: scrapeHikariNagi },
     { name: 'cngal', fn: scrapeCnGal },
   ];
 
@@ -373,6 +436,7 @@ export async function scrapeSingleSource(sourceName) {
     bangumi_calendar: scrapeBangumiCalendar,
     bangumi_hot: scrapeBangumiHot,
     ymgal: scrapeYmgal,
+    hikarinagi: scrapeHikariNagi,
     cngal: scrapeCnGal,
   };
 
