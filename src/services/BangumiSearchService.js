@@ -12,11 +12,7 @@
 
 import { ApiError } from './api.js';
 
-const _rawApiBase = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
-// lyw2373314970.workers.dev 在中国大陆不可用，自动切换到 afterrainliu
-const API_BASE = _rawApiBase.includes('lyw2373314970')
-  ? 'https://anispace-oauth-proxy.afterrainliu.workers.dev'
-  : _rawApiBase;
+const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.lyw2373314970.workers.dev';
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
 const MAX_Q_LEN = 100;
 
