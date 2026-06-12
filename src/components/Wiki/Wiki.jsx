@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
 import { SubjectCard } from '../Common/CommonComponents';
 import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2, ShieldOff } from 'lucide-react';
+import { typeToKey, extractPreview } from '../../utils/subjectType';
 import './Wiki.css';
 
 const TYPE_OPTIONS = [
@@ -36,23 +37,6 @@ function addSearchHistory(keyword) {
 
 function clearSearchHistory() {
   localStorage.removeItem(HISTORY_KEY);
-}
-
-/** 从搜索结果提取基本信息，用于传递给详情页作为 navigate state */
-function extractPreview(item) {
-  return {
-    id: item.id,
-    name: item.name || '',
-    name_cn: item.name_cn || '',
-    type: item.type,
-    image: item.images?.large || item.images?.common || item.image || '',
-    images: item.images || {},
-  };
-}
-
-/** 根据 type 数值返回路由 typeKey */
-function typeToKey(type) {
-  return type === 1 ? 'novel' : type === 3 ? 'music' : type === 4 ? 'game' : type === 6 ? 'real' : 'anime';
 }
 
 export default function Wiki() {

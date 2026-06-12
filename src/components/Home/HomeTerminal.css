@@ -1,0 +1,123 @@
+/* Terminal - Mac终端风格 */
+.home-terminal-window {
+  background: linear-gradient(180deg, #2d1f2e 0%, #3a2233 100%);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.08);
+  border: 1px solid rgba(232,134,162,0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: macWindowOpen 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+
+.home-terminal-window:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.16), 0 12px 32px rgba(0,0,0,0.12);
+}
+
+.home-terminal-titlebar {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  background: rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.home-terminal-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.home-terminal-ctrl {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: block;
+}
+
+.home-terminal-ctrl.close { background: #FF5A5A; }
+.home-terminal-ctrl.minimize { background: #FFBD2E; }
+.home-terminal-ctrl.maximize { background: #28C840; }
+
+.home-terminal-title {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  font-family: -apple-system, 'SF Mono', 'Menlo', 'Consolas', monospace;
+  pointer-events: none;
+}
+
+.home-terminal-body {
+  flex: 1;
+  padding: 10px 12px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-y: auto;
+  max-height: 200px;
+  min-height: 120px;
+}
+
+.home-terminal-output {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.home-terminal-line {
+  color: rgba(255,220,230,0.85);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.home-terminal-line.hint {
+  color: rgba(232,134,162,0.7);
+  font-style: italic;
+}
+
+.home-terminal-prompt {
+  color: #e8869f;
+  font-weight: 700;
+  user-select: none;
+}
+
+.home-terminal-response {
+  color: rgba(255,200,215,0.75);
+}
+
+.home-terminal-input-line {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.home-terminal-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: rgba(255,220,230,0.9);
+  font-family: inherit;
+  font-size: inherit;
+  caret-color: #e8869f;
+}
+
+.home-terminal-input::placeholder { color: rgba(255,255,255,0.2); }
+
+.home-terminal-line.link {
+  color: #6bb1ff;
+  cursor: pointer;
+}
+.home-terminal-line.link:hover {
+  text-decoration: underline;
+}
+.home-terminal-line.error .home-terminal-response {
+  color: #ff7a7a;
+}
