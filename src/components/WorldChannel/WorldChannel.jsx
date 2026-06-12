@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { WorldChannelService, UserService } from '../../services/api';
-import { Globe, Image, X, Send, Loader2, Users as UsersIcon } from 'lucide-react';
+import { Globe, Image, X, Send, Loader2, Users as UsersIcon, Heart, MessageCircle } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './WorldChannel.css';
@@ -184,27 +184,29 @@ export default function WorldChannel() {
   };
 
   return (
-    <div className="world-channel">
-      {/* 聊天头部 */}
-      <div className="wc-chat-header">
-        <div className="wc-chat-header-left">
-          <Globe size={20} className="wc-chat-header-icon" />
-          <h1 className="wc-chat-title">世界线</h1>
-          <span className="wc-online-badge"><UsersIcon size={12} /> {posts.length}+</span>
+    <div className="wc-mac-window">
+      {/* Mac 窗口标题栏 */}
+      <div className="wc-mac-titlebar">
+        <div className="wc-mac-controls">
+          <span className="wc-mac-ctrl close" />
+          <span className="wc-mac-ctrl minimize" />
+          <span className="wc-mac-ctrl maximize" />
         </div>
+        <span className="wc-mac-title"><Globe size={13} /> 世界线</span>
+        <span className="wc-mac-online"><UsersIcon size={11} /> {posts.length}+</span>
       </div>
 
       {/* 消息区域 */}
-      <div className="wc-messages-area">
+      <div className="wc-mac-messages">
         {loading ? (
-          <div className="wc-loading">
+          <div className="wc-mac-loading">
             <Loader2 size={28} className="spinning" />
             <span>雨何时停？</span>
           </div>
         ) : posts.length === 0 ? (
-          <div className="wc-empty">
+          <div className="wc-mac-empty">
             <Globe size={48} />
-            <p>还没有人发帖，来发第一条吧！</p>
+            <p>还没有人发言，来发第一条吧！</p>
           </div>
         ) : (
           posts.map(post => {
@@ -214,56 +216,54 @@ export default function WorldChannel() {
             const replies = repliesMap[post.id] || [];
 
             return (
-              <div key={post.id} className={`wc-message ${isOwn ? 'wc-message-self' : 'wc-message-other'}`}>
+              <div key={post.id} className={`wc-mac-msg ${isOwn ? 'self' : 'other'}`}>
                 {!isOwn && (
-                  <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={36} className="wc-msg-avatar" />
+                  <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={32} className="wc-mac-msg-avatar" />
                 )}
-                <div className="wc-msg-body">
-                  <div className="wc-msg-header">
-                    {!isOwn && <span className="wc-msg-name">{author?.name || '未知用户'}</span>}
-                    <span className="wc-msg-time">{formatTime(post.created_at)}</span>
-                  </div>
-                  <div className={`wc-msg-bubble ${isOwn ? 'wc-bubble-self' : 'wc-bubble-other'}`}>
-                    <div className="wc-msg-content">
-                      <MarkdownRenderer content={post.content} />
-                    </div>
+                <div className="wc-mac-msg-body">
+                  {!isOwn && <span className="wc-mac-msg-name">{author?.name || '未知用户'}</span>}
+                  <div className={`wc-mac-msg-bubble ${isOwn ? 'bubble-self' : 'bubble-other'}`}>
+                    <MarkdownRenderer content={post.content} />
                     {post.images && post.images.length > 0 && (
-                      <div className="wc-msg-images">
+                      <div className="wc-mac-msg-images">
                         {post.images.map((img, i) => (
-                          <img key={i} src={img} alt="" className="wc-msg-img" onClick={() => setFullscreenImg(img)} loading="lazy" />
+                          <img key={i} src={img} alt="" className="wc-mac-msg-img" onClick={() => setFullscreenImg(img)} loading="lazy" />
                         ))}
                       </div>
                     )}
                   </div>
-                  <div className="wc-msg-actions">
-                    <button className={`wc-msg-action-btn ${post.liked ? 'liked' : ''}`} onClick={() => handleLike(post.id)}>
-                      ❤ {post.likes || 0}
-                    </button>
-                    <button className="wc-msg-action-btn" onClick={() => toggleExpand(post.id)}>
-                      💬 {post.replies_count || 0}
-                    </button>
+                  <div className="wc-mac-msg-footer">
+                    <span className="wc-mac-msg-time">{formatTime(post.created_at)}</span>
+                    <div className="wc-mac-msg-actions">
+                      <button className={`wc-mac-action-btn ${post.liked ? 'liked' : ''}`} onClick={() => handleLike(post.id)}>
+                        <Heart size={12} /> {post.likes || 0}
+                      </button>
+                      <button className="wc-mac-action-btn" onClick={() => toggleExpand(post.id)}>
+                        <MessageCircle size={12} /> {post.replies_count || 0}
+                      </button>
+                    </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="wc-replies-section">
+                    <div className="wc-mac-replies">
                       {replies.length > 0 && (
-                        <div className="wc-replies-list">
+                        <div className="wc-mac-replies-list">
                           {replies.map(reply => {
                             const replyAuthor = reply.author_name ? { name: reply.author_name, avatar: reply.author_avatar } : getUser(reply.author_id);
                             const isReplyOwn = currentUser && reply.author_id === currentUser.id;
                             return (
-                              <div key={reply.id} className={`wc-reply-msg ${isReplyOwn ? 'wc-reply-self' : ''}`}>
-                                {!isReplyOwn && <UserAvatar userId={reply.author_id} src={replyAuthor?.avatar} alt={replyAuthor?.name} size={24} className="wc-reply-avatar" />}
-                                <div className={`wc-reply-bubble ${isReplyOwn ? 'wc-bubble-self' : 'wc-bubble-other'}`}>
-                                  {!isReplyOwn && <span className="wc-reply-name">{replyAuthor?.name || '未知用户'}</span>}
-                                  <span className="wc-reply-text">{reply.content}</span>
+                              <div key={reply.id} className={`wc-mac-reply ${isReplyOwn ? 'reply-self' : 'reply-other'}`}>
+                                {!isReplyOwn && <UserAvatar userId={reply.author_id} src={replyAuthor?.avatar} alt={replyAuthor?.name} size={22} className="wc-mac-reply-avatar" />}
+                                <div className={`wc-mac-reply-bubble ${isReplyOwn ? 'bubble-self' : 'bubble-other'}`}>
+                                  {!isReplyOwn && <span className="wc-mac-reply-name">{replyAuthor?.name || '未知用户'}</span>}
+                                  <span className="wc-mac-reply-text">{reply.content}</span>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
                       )}
-                      <div className="wc-reply-form">
+                      <div className="wc-mac-reply-form">
                         <input
                           type="text"
                           placeholder={isAuthenticated ? '回复...' : '登录后回复'}
@@ -271,95 +271,98 @@ export default function WorldChannel() {
                           onChange={e => setReplyInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
                           onKeyDown={e => e.key === 'Enter' && handleReply(post.id)}
                           disabled={!isAuthenticated}
-                          className="wc-reply-input"
+                          className="wc-mac-reply-input"
                         />
                         <button
-                          className="wc-reply-send"
+                          className="wc-mac-reply-send"
                           onClick={() => handleReply(post.id)}
                           disabled={!replyInputs[post.id]?.trim() || replySubmitting[post.id] || !isAuthenticated}
                         >
-                          {replySubmitting[post.id] ? <Loader2 size={14} className="spinning" /> : <Send size={14} />}
+                          {replySubmitting[post.id] ? <Loader2 size={12} className="spinning" /> : <Send size={12} />}
                         </button>
                       </div>
                     </div>
                   )}
                 </div>
+                {isOwn && (
+                  <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={32} className="wc-mac-msg-avatar" />
+                )}
               </div>
             );
           })
         )}
 
         {hasMore && posts.length > 0 && (
-          <div className="wc-load-more">
-            <button className="wc-load-more-btn" onClick={handleLoadMore}>加载更多</button>
+          <div className="wc-mac-load-more">
+            <button className="wc-mac-load-more-btn" onClick={handleLoadMore}>加载更多</button>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* 输入区域 */}
-      <div className="wc-input-area">
+      <div className="wc-mac-input-area">
         {showNewPost ? (
-          <div className="wc-input-expanded">
+          <div className="wc-mac-input-expanded">
             <textarea
-              className="wc-input-textarea"
-              placeholder="分享你的想法...（支持 Markdown 语法）"
+              className="wc-mac-input-textarea"
+              placeholder="分享你的想法...（支持 Markdown）"
               value={newContent}
               onChange={e => setNewContent(e.target.value)}
               rows={3}
               autoFocus
             />
             {newImages.length > 0 && (
-              <div className="wc-input-images">
+              <div className="wc-mac-input-images">
                 {newImages.map((img, i) => (
-                  <div key={i} className="wc-input-image-thumb">
+                  <div key={i} className="wc-mac-input-thumb">
                     <img src={img.preview} alt="" loading="lazy" />
-                    <button className="wc-input-image-remove" onClick={() => removeImage(i)}><X size={10} /></button>
+                    <button className="wc-mac-input-thumb-remove" onClick={() => removeImage(i)}><X size={10} /></button>
                   </div>
                 ))}
               </div>
             )}
-            <div className="wc-input-actions">
-              <div className="wc-input-tools">
-                <button className="wc-input-tool-btn" onClick={() => imageInputRef.current?.click()} disabled={newImages.length >= 5}>
-                  <Image size={16} />
+            <div className="wc-mac-input-actions">
+              <div className="wc-mac-input-tools">
+                <button className="wc-mac-tool-btn" onClick={() => imageInputRef.current?.click()} disabled={newImages.length >= 5}>
+                  <Image size={14} />
                 </button>
                 <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/gif" multiple onChange={handleImageSelect} hidden />
-                <span className="wc-input-hint">{newImages.length}/5</span>
+                <span className="wc-mac-input-hint">{newImages.length}/5</span>
               </div>
-              <div className="wc-input-submit-row">
-                <button className="wc-input-cancel" onClick={() => { setShowNewPost(false); setNewContent(''); setNewImages([]); }}>取消</button>
-                <button className="wc-input-send" onClick={handleNewPost} disabled={(!newContent.trim() && newImages.length === 0) || submitting}>
-                  {submitting ? <Loader2 size={14} className="spinning" /> : <Send size={14} />} 发送
+              <div className="wc-mac-input-submit">
+                <button className="wc-mac-cancel-btn" onClick={() => { setShowNewPost(false); setNewContent(''); setNewImages([]); }}>取消</button>
+                <button className="wc-mac-send-btn" onClick={handleNewPost} disabled={(!newContent.trim() && newImages.length === 0) || submitting}>
+                  {submitting ? <Loader2 size={12} className="spinning" /> : <Send size={12} />} 发送
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="wc-input-bar">
-            <button className="wc-input-img-btn" onClick={() => imageInputRef.current?.click()}>
-              <Image size={18} />
+          <div className="wc-mac-input-bar">
+            <button className="wc-mac-img-btn" onClick={() => imageInputRef.current?.click()}>
+              <Image size={16} />
             </button>
             <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/gif" multiple onChange={handleImageSelect} hidden />
             <input
               type="text"
-              className="wc-input-pill"
+              className="wc-mac-input"
               placeholder={isAuthenticated ? '说点什么...' : '登录后发言'}
               value={newContent}
               onChange={e => setNewContent(e.target.value)}
-              onFocus={() => { if (newContent.trim() || newImages.length > 0) setShowNewPost(true); }}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   if (!isAuthenticated) { openAuth(); return; }
-                  setShowNewPost(true);
+                  if (newContent.trim()) { handleNewPost(); }
+                  else setShowNewPost(true);
                 }
               }}
               readOnly={!isAuthenticated}
               onClick={() => { if (!isAuthenticated) openAuth(); }}
             />
-            <button className="wc-input-send-pill" onClick={() => { if (!isAuthenticated) { openAuth(); return; } if (newContent.trim()) { setShowNewPost(true); } else setShowNewPost(true); }}>
-              <Send size={16} />
+            <button className="wc-mac-send-pill" onClick={() => { if (!isAuthenticated) { openAuth(); return; } if (newContent.trim()) handleNewPost(); else setShowNewPost(true); }}>
+              <Send size={14} />
             </button>
           </div>
         )}
@@ -367,9 +370,9 @@ export default function WorldChannel() {
 
       {/* 全屏图片 */}
       {fullscreenImg && (
-        <div className="wc-fullscreen-overlay" onClick={() => setFullscreenImg(null)}>
-          <img src={fullscreenImg} alt="" className="wc-fullscreen-img" onClick={e => e.stopPropagation()} />
-          <button className="wc-fullscreen-close" onClick={() => setFullscreenImg(null)}><X size={24} /></button>
+        <div className="wc-mac-fullscreen-overlay" onClick={() => setFullscreenImg(null)}>
+          <img src={fullscreenImg} alt="" className="wc-mac-fullscreen-img" onClick={e => e.stopPropagation()} />
+          <button className="wc-mac-fullscreen-close" onClick={() => setFullscreenImg(null)}><X size={24} /></button>
         </div>
       )}
     </div>

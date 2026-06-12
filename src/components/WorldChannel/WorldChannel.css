@@ -1,463 +1,631 @@
-/* ─── 世界线 - 卡片式帖子流 ─── */
-.world-channel {
-  max-width: var(--max-content);
-  margin: 0 auto;
+/* ─── 世界线 APP - Mac 窗口 + 聊天气泡风格 ─── */
+.wc-mac-window {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--header-height));
-  background: var(--bg-secondary);
+  height: 100%;
+  background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
+  border-radius: 12px;
   overflow: hidden;
 }
 
-/* ─── 头部 ─── */
-.wc-chat-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-secondary);
-  flex-shrink: 0;
+[data-theme="dark"] .wc-mac-window {
+  background: linear-gradient(135deg, rgba(40, 20, 30, 0.95) 0%, rgba(30, 15, 25, 0.98) 100%);
 }
-.wc-chat-header-left {
+
+/* ─── Mac 窗口标题栏 ─── */
+.wc-mac-titlebar {
   display: flex;
   align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(232, 134, 162, 0.1);
   gap: 10px;
-}
-.wc-chat-header-icon {
-  color: var(--primary);
-}
-.wc-chat-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.wc-online-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-
-/* ─── 帖子流区域 ─── */
-.wc-messages-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* ─── 帖子卡片 ─── */
-.wc-message {
-  display: flex;
-  gap: 12px;
-  max-width: 100%;
-  padding: 16px;
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-secondary);
-  box-shadow: var(--shadow-xs);
-  transition: all var(--transition-fast);
-}
-.wc-message:hover {
-  box-shadow: var(--shadow-sm);
-  border-color: var(--border-primary);
-}
-.wc-message-other {
-  align-self: stretch;
-}
-.wc-message-self {
-  align-self: stretch;
-  flex-direction: row;
-}
-.wc-msg-avatar {
   flex-shrink: 0;
-  border-radius: 50%;
-  border: 2px solid var(--primary-bg);
 }
-.wc-msg-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
+
+[data-theme="dark"] .wc-mac-titlebar {
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
 }
-.wc-msg-header {
+
+.wc-mac-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
-.wc-msg-name {
+
+.wc-mac-ctrl {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: block;
+}
+
+.wc-mac-ctrl.close { background: #FF5A5A; }
+.wc-mac-ctrl.minimize { background: #FFBD2E; }
+.wc-mac-ctrl.maximize { background: #28C840; }
+
+.wc-mac-title {
+  flex: 1;
+  text-align: center;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  pointer-events: none;
 }
-.wc-msg-time {
-  font-size: 11px;
+
+.wc-mac-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(232, 134, 162, 0.15);
+  color: var(--primary);
+}
+
+/* ─── 消息区域 ─── */
+.wc-mac-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ─── 加载中 / 空状态 ─── */
+.wc-mac-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 24px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.wc-mac-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 24px;
   color: var(--text-quaternary);
 }
 
-/* 帖子内容 */
-.wc-msg-bubble {
-  padding: 0;
-  border-radius: 0;
-  max-width: 100%;
-  word-break: break-word;
-  background: transparent;
-  color: var(--text-primary);
-}
-.wc-bubble-other,
-.wc-bubble-self {
-  background: transparent;
-  color: var(--text-primary);
-  border-radius: 0;
-}
-.wc-msg-content {
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-primary);
-}
-.wc-msg-content .md-rendered {
-  font-size: 14px;
-  line-height: 1.7;
-}
-.wc-msg-images {
+.wc-mac-empty p { font-size: 15px; color: var(--text-tertiary); }
+
+/* ─── 聊天气泡消息 ─── */
+.wc-mac-msg {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-.wc-msg-img {
-  width: 140px;
-  height: 140px;
-  object-fit: cover;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-.wc-msg-img:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  max-width: 85%;
 }
 
-/* 帖子操作 */
-.wc-msg-actions {
-  display: flex;
-  gap: 8px;
-  padding-top: 6px;
-}
-.wc-msg-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  padding: 4px 10px;
-  border-radius: 20px;
-  transition: all var(--transition-fast);
-}
-.wc-msg-action-btn:hover {
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-.wc-msg-action-btn.liked {
-  color: var(--error);
-  background: rgba(255, 90, 90, 0.08);
-}
+.wc-mac-msg.other { align-self: flex-start; }
+.wc-mac-msg.self { align-self: flex-end; flex-direction: row-reverse; }
 
-/* ─── 回复区域 ─── */
-.wc-replies-section {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-secondary);
-  animation: wc-slideDown 0.15s ease;
-}
-.wc-replies-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.wc-reply-msg {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 8px 12px;
-  background: var(--bg-input);
-  border-radius: var(--radius-md);
-}
-.wc-reply-self {
-  flex-direction: row-reverse;
-  background: var(--primary-bg);
-}
-.wc-reply-avatar {
+.wc-mac-msg-avatar {
   flex-shrink: 0;
   border-radius: 50%;
 }
-.wc-reply-bubble {
-  padding: 0;
-  border-radius: 0;
-  font-size: 13px;
-  max-width: 100%;
-  background: transparent;
+
+.wc-mac-msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
-.wc-reply-name {
+
+.wc-mac-msg.self .wc-mac-msg-body { align-items: flex-end; }
+
+.wc-mac-msg-name {
   font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  padding-left: 2px;
+}
+
+.wc-mac-msg-bubble {
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+  max-width: 320px;
+}
+
+.bubble-other {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(232, 134, 162, 0.08);
+}
+
+.bubble-self {
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+[data-theme="dark"] .bubble-other {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .bubble-self {
+  background: var(--primary);
+}
+
+.wc-mac-msg-bubble .md-rendered {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* 消息图片 */
+.wc-mac-msg-images {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.wc-mac-msg-img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wc-mac-msg-img:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 消息底部（时间+操作） */
+.wc-mac-msg-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.wc-mac-msg.self .wc-mac-msg-footer {
+  flex-direction: row-reverse;
+}
+
+.wc-mac-msg-time {
+  font-size: 10px;
+  color: var(--text-quaternary);
+}
+
+.wc-mac-msg-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.wc-mac-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-quaternary);
+  padding: 2px 6px;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+}
+
+.wc-mac-action-btn:hover {
+  background: rgba(232, 134, 162, 0.1);
+  color: var(--primary);
+}
+
+.wc-mac-action-btn.liked {
+  color: var(--error);
+}
+
+/* ─── 回复区域 ─── */
+.wc-mac-replies {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(232, 134, 162, 0.1);
+  animation: wc-slideDown 0.15s ease;
+}
+
+.wc-mac-replies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.wc-mac-reply {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.wc-mac-reply.reply-other { flex-direction: row; }
+.wc-mac-reply.reply-self { flex-direction: row-reverse; }
+
+.wc-mac-reply-avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.wc-mac-reply-bubble {
+  padding: 5px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  max-width: 200px;
+  word-break: break-word;
+}
+
+.reply-other .wc-mac-reply-bubble {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(232, 134, 162, 0.06);
+}
+
+.reply-self .wc-mac-reply-bubble {
+  background: var(--primary-bg);
+}
+
+[data-theme="dark"] .reply-other .wc-mac-reply-bubble {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.wc-mac-reply-name {
+  font-size: 10px;
   font-weight: 600;
   color: var(--primary);
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
-.wc-reply-text {
-  line-height: 1.5;
-  word-break: break-word;
+
+.wc-mac-reply-text {
+  line-height: 1.4;
   color: var(--text-primary);
 }
-.wc-reply-form {
+
+.wc-mac-reply-form {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
-.wc-reply-input {
+
+.wc-mac-reply-input {
   flex: 1;
-  padding: 8px 16px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  border-radius: 20px;
-  font-size: 13px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(232, 134, 162, 0.12);
+  border-radius: 16px;
+  font-size: 12px;
   color: var(--text-primary);
-  transition: all var(--transition-fast);
-}
-.wc-reply-input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-bg);
   outline: none;
+  transition: all 0.15s ease;
 }
-.wc-reply-input::placeholder { color: var(--text-quaternary); }
-.wc-reply-input:disabled { opacity: 0.5; }
-.wc-reply-send {
+
+.wc-mac-reply-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(232, 134, 162, 0.12);
+}
+
+.wc-mac-reply-input::placeholder { color: var(--text-quaternary); }
+.wc-mac-reply-input:disabled { opacity: 0.5; }
+
+[data-theme="dark"] .wc-mac-reply-input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.wc-mac-reply-send {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(232, 134, 162, 0.3);
+}
+
+.wc-mac-reply-send:hover:not(:disabled) { background: var(--primary-hover); transform: scale(1.05); }
+.wc-mac-reply-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ─── 加载更多 ─── */
+.wc-mac-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.wc-mac-load-more-btn {
+  padding: 6px 20px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
+  border: 1px solid rgba(232, 134, 162, 0.1);
+  transition: all 0.15s ease;
+}
+
+.wc-mac-load-more-btn:hover {
+  background: rgba(232, 134, 162, 0.1);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ─── 输入区域 ─── */
+.wc-mac-input-area {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(232, 134, 162, 0.1);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 10px 12px;
+}
+
+[data-theme="dark"] .wc-mac-input-area {
+  background: rgba(255, 255, 255, 0.04);
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 简洁输入栏 */
+.wc-mac-input-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.wc-mac-img-btn {
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 20px;
-  background: var(--primary);
-  color: #fff;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
-  box-shadow: var(--shadow-primary);
-}
-.wc-reply-send:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
-.wc-reply-send:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* ─── 输入区域 ─── */
-.wc-input-area {
-  flex-shrink: 0;
-  border-top: 1px solid var(--border-secondary);
-  background: var(--bg-card);
-  padding: 14px 20px;
-}
-
-/* 简洁输入栏 */
-.wc-input-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.wc-input-img-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 20px;
+  border-radius: 50%;
   color: var(--text-tertiary);
-  transition: all var(--transition-fast);
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
-.wc-input-img-btn:hover {
-  background: var(--primary-bg);
+
+.wc-mac-img-btn:hover {
+  background: rgba(232, 134, 162, 0.1);
   color: var(--primary);
 }
-.wc-input-pill {
+
+.wc-mac-input {
   flex: 1;
-  padding: 10px 18px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  border-radius: 24px;
-  font-size: 14px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(232, 134, 162, 0.15);
+  border-radius: 20px;
+  font-size: 13px;
   color: var(--text-primary);
   outline: none;
-  transition: all var(--transition-fast);
+  transition: all 0.15s ease;
 }
-.wc-input-pill:focus {
+
+.wc-mac-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-bg);
+  box-shadow: 0 0 0 2px rgba(232, 134, 162, 0.15);
 }
-.wc-input-pill::placeholder { color: var(--text-quaternary); }
-.wc-input-send-pill {
-  width: 36px;
-  height: 36px;
+
+.wc-mac-input::placeholder { color: var(--text-quaternary); }
+
+[data-theme="dark"] .wc-mac-input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.wc-mac-send-pill {
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 20px;
+  border-radius: 50%;
   background: var(--primary);
   color: #fff;
   flex-shrink: 0;
-  transition: all var(--transition-fast);
-  box-shadow: var(--shadow-primary);
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(232, 134, 162, 0.3);
 }
-.wc-input-send-pill:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+.wc-mac-send-pill:hover { background: var(--primary-hover); transform: scale(1.05); }
 
 /* 展开输入区域 */
-.wc-input-expanded {
+.wc-mac-input-expanded {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.wc-input-textarea {
+
+.wc-mac-input-textarea {
   width: 100%;
-  min-height: 80px;
-  padding: 12px 16px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  font-size: 14px;
+  min-height: 72px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(232, 134, 162, 0.15);
+  border-radius: 12px;
+  font-size: 13px;
   color: var(--text-primary);
   resize: vertical;
   line-height: 1.5;
-  transition: border-color var(--transition-fast);
-}
-.wc-input-textarea:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-bg);
   outline: none;
+  transition: border-color 0.15s ease;
 }
-.wc-input-textarea::placeholder { color: var(--text-quaternary); }
-.wc-input-images {
+
+.wc-mac-input-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(232, 134, 162, 0.12);
+}
+
+.wc-mac-input-textarea::placeholder { color: var(--text-quaternary); }
+
+[data-theme="dark"] .wc-mac-input-textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.wc-mac-input-images {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
-.wc-input-image-thumb {
+
+.wc-mac-input-thumb {
   position: relative;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
   overflow: hidden;
 }
-.wc-input-image-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.wc-input-image-remove {
-  position: absolute; top: 2px; right: 2px;
-  width: 16px; height: 16px; border-radius: 50%;
-  background: var(--error); color: #fff;
-  display: flex; align-items: center; justify-content: center;
+
+.wc-mac-input-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.wc-mac-input-thumb-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--error);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.wc-input-actions {
+
+.wc-mac-input-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.wc-input-tools {
+
+.wc-mac-input-tools {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
-.wc-input-tool-btn {
-  display: flex; align-items: center; gap: 4px;
-  padding: 6px 12px; border-radius: 20px;
-  font-size: 13px; color: var(--text-tertiary);
-  transition: all var(--transition-fast);
-}
-.wc-input-tool-btn:hover:not(:disabled) { background: var(--primary-bg); color: var(--primary); }
-.wc-input-tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.wc-input-hint { font-size: 11px; color: var(--text-quaternary); }
-.wc-input-submit-row { display: flex; gap: 8px; }
-.wc-input-cancel {
-  padding: 6px 16px; border-radius: 20px;
-  font-size: 13px; color: var(--text-secondary);
-  transition: all var(--transition-fast);
-}
-.wc-input-cancel:hover { background: var(--bg-input); }
-.wc-input-send {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 20px; border-radius: 20px;
-  font-size: 13px; font-weight: 600;
-  background: var(--primary); color: #fff;
-  box-shadow: var(--shadow-primary);
-  transition: all var(--transition-fast);
-}
-.wc-input-send:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
-.wc-input-send:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ─── 加载更多 ─── */
-.wc-load-more { display: flex; justify-content: center; padding: 8px 0; }
-.wc-load-more-btn {
-  padding: 8px 24px; border-radius: 20px;
-  font-size: 12px; font-weight: 500;
-  background: var(--bg-card); color: var(--text-secondary);
-  border: 1px solid var(--border-secondary);
-  transition: all var(--transition-fast);
+.wc-mac-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  transition: all 0.15s ease;
 }
-.wc-load-more-btn:hover { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); }
 
-/* ─── 加载中 / 空状态 ─── */
-.wc-loading {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 12px; padding: 60px 24px;
-  color: var(--text-tertiary); font-size: 14px;
+.wc-mac-tool-btn:hover:not(:disabled) {
+  background: rgba(232, 134, 162, 0.1);
+  color: var(--primary);
 }
-.wc-empty {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 12px; padding: 80px 24px;
-  color: var(--text-quaternary);
+
+.wc-mac-tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.wc-mac-input-hint { font-size: 10px; color: var(--text-quaternary); }
+
+.wc-mac-input-submit {
+  display: flex;
+  gap: 6px;
 }
-.wc-empty p { font-size: 15px; color: var(--text-tertiary); }
+
+.wc-mac-cancel-btn {
+  padding: 5px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.wc-mac-cancel-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+.wc-mac-send-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(232, 134, 162, 0.3);
+  transition: all 0.15s ease;
+}
+
+.wc-mac-send-btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+.wc-mac-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ─── 全屏图片 ─── */
-.wc-fullscreen-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-  display: flex; align-items: center; justify-content: center;
-  z-index: var(--z-modal); animation: wc-fadeIn 0.2s ease;
+.wc-mac-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  animation: wc-fadeIn 0.2s ease;
 }
-.wc-fullscreen-img {
-  max-width: 90vw; max-height: 90vh; object-fit: contain;
-  border-radius: var(--radius-md);
-}
-.wc-fullscreen-close {
-  position: absolute; top: 20px; right: 20px;
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(255,255,255,0.15); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  transition: all var(--transition-fast);
-}
-.wc-fullscreen-close:hover { background: rgba(255,255,255,0.3); }
 
+.wc-mac-fullscreen-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.wc-mac-fullscreen-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.wc-mac-fullscreen-close:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* ─── 动画 ─── */
 @keyframes wc-fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes wc-slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes wc-slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 .spinning { animation: wc-spin 0.8s linear infinite; }
 @keyframes wc-spin { to { transform: rotate(360deg); } }
 
 /* ─── 响应式 ─── */
 @media (max-width: 768px) {
-  .wc-chat-header { padding: 12px 16px; }
-  .wc-messages-area { padding: 12px 14px; }
-  .wc-message { padding: 12px; }
-  .wc-msg-img { width: 110px; height: 110px; }
-  .wc-input-area { padding: 10px 12px; }
-}
-
-@media (max-width: 480px) {
-  .wc-messages-area { padding: 10px 10px; }
-  .wc-message { padding: 10px; gap: 8px; }
-  .wc-msg-img { width: 90px; height: 90px; }
+  .wc-mac-titlebar { padding: 0 10px; }
+  .wc-mac-messages { padding: 10px 10px; }
+  .wc-mac-msg-bubble { max-width: 240px; }
+  .wc-mac-msg-img { width: 90px; height: 90px; }
+  .wc-mac-input-area { padding: 8px 10px; }
 }
