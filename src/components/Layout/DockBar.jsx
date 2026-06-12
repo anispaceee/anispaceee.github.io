@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
-import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2 } from 'lucide-react';
+import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import './DockBar.css';
 
@@ -62,6 +62,7 @@ export default function DockBar() {
     { id: 'amadeus', icon: <Brain size={18} />, label: 'Navi' },
     { id: 'world', icon: <MessageCircle size={18} />, label: '世界频道' },
     { id: 'notifications', icon: <Bell size={18} />, label: '通知' },
+    ...(isAuthenticated ? [{ id: 'musashi-new', icon: <PenSquare size={18} />, label: '发布作品', href: '/musashi/new' }] : []),
   ];
 
   const handleLauncherKeyDown = (e) => {
@@ -102,16 +103,28 @@ export default function DockBar() {
       {showLauncher && (
         <div className="dock-launcher">
           {launcherApps.map((app, i) => (
-            <button
-              key={app.id}
-              className={`dock-launcher-item ${launcherIndex === i ? 'focused' : ''} ${windows[app.id]?.open ? 'running' : ''}`}
-              onClick={() => handleAppClick(app.id)}
-              onMouseEnter={() => setLauncherIndex(i)}
-            >
-              <span className="dock-launcher-icon">{app.icon}</span>
-              <span className="dock-launcher-label">{app.label}</span>
-              {windows[app.id]?.open && <span className="dock-launcher-dot" />}
-            </button>
+            app.href ? (
+              <a
+                key={app.id}
+                href={app.href}
+                className={`dock-launcher-item ${launcherIndex === i ? 'focused' : ''}`}
+                onMouseEnter={() => setLauncherIndex(i)}
+              >
+                <span className="dock-launcher-icon">{app.icon}</span>
+                <span className="dock-launcher-label">{app.label}</span>
+              </a>
+            ) : (
+              <button
+                key={app.id}
+                className={`dock-launcher-item ${launcherIndex === i ? 'focused' : ''} ${windows[app.id]?.open ? 'running' : ''}`}
+                onClick={() => handleAppClick(app.id)}
+                onMouseEnter={() => setLauncherIndex(i)}
+              >
+                <span className="dock-launcher-icon">{app.icon}</span>
+                <span className="dock-launcher-label">{app.label}</span>
+                {windows[app.id]?.open && <span className="dock-launcher-dot" />}
+              </button>
+            )
           ))}
         </div>
       )}

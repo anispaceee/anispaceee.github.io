@@ -1,0 +1,299 @@
+/* MangaReader — 条漫式漫画阅读器 */
+
+/* ─── Reader Mode: 隐藏 Header 和 DockBar ─── */
+
+body.reader-mode .header,
+body.reader-mode .dock-bar-wrapper {
+  display: none !important;
+}
+
+/* ─── Full-screen Layout ─── */
+
+.mr-reader {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #333;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* ─── Night Mode ─── */
+
+.mr-reader.night-mode {
+  background: #1a1a1e;
+  color: #c8c8c8;
+}
+
+/* ─── Top Bar ─── */
+
+.mr-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.mr-reader.night-mode .mr-topbar {
+  background: rgba(26, 26, 30, 0.8);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.mr-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mr-topbar-title {
+  font-size: 15px;
+  font-weight: 700;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mr-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mr-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.mr-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
+}
+
+.mr-reader.night-mode .mr-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mr-exit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.mr-exit-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
+}
+
+.mr-reader.night-mode .mr-exit-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Chapter Selector ─── */
+
+.mr-chapter-selector {
+  position: relative;
+}
+
+.mr-chapter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.04);
+  transition: all var(--transition-fast);
+}
+
+.mr-chapter-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
+}
+
+.mr-reader.night-mode .mr-chapter-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: #b0b0b0;
+}
+
+.mr-reader.night-mode .mr-chapter-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mr-chapter-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+}
+
+.mr-chapter-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  z-index: 20;
+  padding: 4px;
+  animation: mr-dropdown-in 0.15s ease-out;
+}
+
+@keyframes mr-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mr-chapter-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mr-chapter-option:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+
+.mr-chapter-option.active {
+  background: rgba(232, 134, 162, 0.1);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.mr-reader.night-mode .mr-chapter-dropdown {
+  background: #2a2a2e;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.mr-reader.night-mode .mr-chapter-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mr-reader.night-mode .mr-chapter-option.active {
+  background: rgba(232, 134, 162, 0.15);
+}
+
+/* ─── Pages Area ─── */
+
+.mr-pages-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding-top: 60px;
+  scroll-behavior: smooth;
+}
+
+.mr-pages {
+  max-width: 800px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mr-page-img {
+  width: 100%;
+  display: block;
+}
+
+/* ─── Loading & Error ─── */
+
+.mr-loading,
+.mr-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--text-quaternary);
+  min-height: 60vh;
+}
+
+.mr-loading p,
+.mr-error p {
+  font-size: 14px;
+}
+
+.mr-error-retry {
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  transition: all var(--transition-fast);
+}
+
+.mr-error-retry:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ─── Spinning ─── */
+
+.mr-spinning {
+  animation: mr-spin 0.8s linear infinite;
+}
+
+@keyframes mr-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 768px) {
+  .mr-topbar-title {
+    max-width: 120px;
+  }
+
+  .mr-pages {
+    max-width: 100%;
+  }
+}

@@ -1,0 +1,558 @@
+/* ─── WorkEdit 作品编辑页 ─── */
+
+.work-edit {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+.work-edit-loading,
+.work-edit-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 20px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.work-edit-error h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 头部 */
+.work-edit-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.work-edit-heading {
+  font-size: 20px;
+  font-weight: 800;
+  flex: 1;
+  margin: 0;
+}
+
+.work-edit-type-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+/* 类型管理器区域 */
+.work-edit-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-primary);
+}
+
+/* 危险操作区域 */
+.work-edit-danger-zone {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-primary);
+}
+
+.work-edit-danger-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--error);
+  margin-bottom: 12px;
+}
+
+.work-btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 24px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--error);
+  color: #fff;
+  transition: all var(--transition-fast);
+}
+
+.work-btn-danger:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.work-btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 弹窗遮罩 */
+.work-edit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.work-edit-dialog {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.work-edit-dialog h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.work-edit-dialog p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.work-edit-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ─── 通用管理器组件样式 (cm = content manager) ─── */
+
+.cm-section {
+  margin-top: 8px;
+}
+
+.cm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cm-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.cm-empty {
+  text-align: center;
+  padding: 32px 16px;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+}
+
+/* 列表项 */
+.cm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-fast);
+}
+
+.cm-item:hover {
+  border-color: var(--primary);
+}
+
+.cm-item-idx {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  min-width: 28px;
+  text-align: center;
+}
+
+.cm-item-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-item-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.cm-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cm-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.cm-action-btn:hover:not(:disabled) {
+  background: var(--bg-input);
+  color: var(--primary);
+}
+
+.cm-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cm-action-danger:hover:not(:disabled) {
+  background: #fff5f5;
+  color: var(--error);
+}
+
+/* 小号按钮 */
+.work-btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+/* 弹窗 */
+.cm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.cm-dialog {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 520px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.cm-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cm-dialog-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.cm-dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cm-dialog-close:hover {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.cm-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.cm-content-textarea {
+  min-height: 200px;
+  font-family: inherit;
+}
+
+/* ─── 漫画画数管理 (mcm = manga chapter manager) ─── */
+
+.mcm-chapter-block {
+  margin-bottom: 4px;
+}
+
+.mcm-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.mcm-expand-btn:hover {
+  background: var(--bg-input);
+  color: var(--primary);
+}
+
+.mcm-pages {
+  padding: 12px 14px 12px 52px;
+  background: var(--bg-secondary);
+  border-radius: 0 0 10px 10px;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+
+.mcm-pages-empty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 12px 0;
+}
+
+.mcm-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mcm-page-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-card);
+}
+
+.mcm-page-thumb {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  display: block;
+}
+
+.mcm-page-num {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+.mcm-page-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.mcm-page-item:hover .mcm-page-del {
+  opacity: 1;
+}
+
+.mcm-page-del:hover {
+  background: var(--error);
+}
+
+.mcm-page-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.mcm-page-form .work-form-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.mcm-page-num-input {
+  max-width: 80px;
+}
+
+.mcm-page-form-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.mcm-add-page-btn {
+  margin-top: 8px;
+}
+
+/* ─── Galgame 下载管理 (gdm = galgame download manager) ─── */
+
+.gdm-dl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gdm-dl-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-fast);
+}
+
+.gdm-dl-item:hover {
+  border-color: var(--primary);
+}
+
+.gdm-dl-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.gdm-dl-platform {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--primary-bg);
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.gdm-dl-version {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.gdm-dl-size {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.gdm-dl-pwd {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.gdm-dl-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* 预览图网格 */
+.gdm-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.gdm-preview-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-card);
+}
+
+.gdm-preview-thumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  display: block;
+}
+
+.gdm-preview-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.gdm-preview-item:hover .gdm-preview-del {
+  opacity: 1;
+}
+
+.gdm-preview-del:hover {
+  background: var(--error);
+}

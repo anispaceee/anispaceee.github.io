@@ -1,0 +1,355 @@
+/* MyWorks — 我的作品管理页面 */
+
+.mw-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+/* ─── Header ─── */
+
+.mw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.mw-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.mw-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  transition: all var(--transition-fast);
+}
+
+.mw-create-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ─── Work List ─── */
+
+.mw-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mw-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-fast);
+}
+
+.mw-item:hover {
+  border-color: rgba(232, 134, 162, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* ─── Cover Thumbnail ─── */
+
+.mw-item-cover {
+  width: 56px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-input);
+}
+
+.mw-item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mw-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  color: var(--text-quaternary);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ─── Item Info ─── */
+
+.mw-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mw-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mw-item-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.mw-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--bg-input);
+  flex-shrink: 0;
+}
+
+.mw-status-badge.ongoing {
+  color: #52c41a;
+  background: rgba(82, 196, 26, 0.1);
+}
+
+.mw-item-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mw-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Action Buttons ─── */
+
+.mw-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mw-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.mw-edit-btn {
+  color: var(--primary);
+  background: rgba(232, 134, 162, 0.08);
+}
+
+.mw-edit-btn:hover {
+  background: rgba(232, 134, 162, 0.16);
+}
+
+.mw-visibility-btn {
+  color: var(--text-secondary);
+  background: var(--bg-input);
+}
+
+.mw-visibility-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.mw-delete-btn {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.06);
+}
+
+.mw-delete-btn:hover {
+  background: rgba(255, 77, 79, 0.12);
+}
+
+/* ─── Empty State ─── */
+
+.mw-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 20px;
+  color: var(--text-quaternary);
+}
+
+.mw-empty p {
+  font-size: 14px;
+}
+
+/* ─── Loading ─── */
+
+.mw-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 20px;
+  color: var(--text-quaternary);
+}
+
+.mw-loading p {
+  font-size: 14px;
+}
+
+.mw-spinning {
+  animation: mw-spin 0.8s linear infinite;
+}
+
+@keyframes mw-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.mw-retry-btn {
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  transition: all var(--transition-fast);
+}
+
+.mw-retry-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ─── Delete Confirm Dialog ─── */
+
+.mw-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.mw-confirm-dialog {
+  background: var(--bg-elevated);
+  border-radius: 12px;
+  padding: 24px;
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.mw-confirm-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.mw-confirm-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.mw-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mw-confirm-cancel {
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  transition: all var(--transition-fast);
+}
+
+.mw-confirm-cancel:hover {
+  background: var(--border-primary);
+}
+
+.mw-confirm-delete {
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #ff4d4f;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mw-confirm-delete:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.mw-confirm-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 768px) {
+  .mw-item {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .mw-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .mw-item-title {
+    max-width: 160px;
+  }
+}

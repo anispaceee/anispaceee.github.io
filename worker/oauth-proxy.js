@@ -25,15 +25,15 @@ import * as newsScraper from './lib/news-scraper.js';
 
 /**
  * 校验目标 URL 是否安全，防止 SSRF 攻击
- * - 仅允许 https:// 协议
+ * - 允许 http:// 和 https:// 协议（部分源站仅支持 HTTP）
  * - 禁止 IP 地址、loopback、内网段
  * - 禁止元数据地址
  */
 function isSafeTargetUrl(urlStr) {
   try {
     const u = new URL(urlStr);
-    // 仅允许 HTTPS
-    if (u.protocol !== 'https:') return false;
+    // 允许 HTTP 和 HTTPS（部分 RSS/Selector 源站仅支持 HTTP）
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
 
     const hostname = u.hostname.toLowerCase();
 
@@ -1413,14 +1413,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     try {
       const body = await request.json();
-      const { type, title, source, link, category, content, images } = body;
+      const { type, title, source, link, category, content, cover, images } = body;
       if (!title) return jsonResponse({ error: '标题不能为空' }, 400, origin);
 
       const result = await env.DB.prepare(
-        'INSERT INTO news (author_id, type, title, source, link, category, content, images, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
+        'INSERT INTO news (author_id, type, title, source, link, category, content, cover, images, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
       ).bind(
-        authUser.userId, type || null, title, source || null, link || null,
-        category || null, content || null,
+        authUser.userId, type || 'article', title, source || null, link || null,
+        category || null, content || null, cover || null,
         images ? JSON.stringify(images) : null
       ).run();
 
@@ -1429,6 +1429,54 @@ async function handleApiRoutes(pathname, request, env, origin) {
     } catch (err) {
       return jsonResponse({ error: '创建新闻失败: ' + err.message }, 500, origin);
     }
+  }
+
+  // PUT /api/news/:id — 编辑新闻（需认证，仅作者可编辑）
+  const newsEditMatch = pathname.match(/^\/api\/news\/(\d+)$/);
+  if (newsEditMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const newsId = Number(newsEditMatch[1]);
+    const existing = await env.DB.prepare('SELECT * FROM news WHERE id = ?').bind(newsId).first();
+    if (!existing) return jsonResponse({ error: '新闻不存在' }, 404, origin);
+    if (existing.author_id !== authUser.userId) return jsonResponse({ error: '无权编辑' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { title, source, link, category, content, cover, images } = body;
+      await env.DB.prepare(
+        'UPDATE news SET title = ?, source = ?, link = ?, category = ?, content = ?, cover = ?, images = ? WHERE id = ?'
+      ).bind(
+        title || existing.title,
+        source !== undefined ? source : existing.source,
+        link !== undefined ? link : existing.link,
+        category !== undefined ? category : existing.category,
+        content !== undefined ? content : existing.content,
+        cover !== undefined ? cover : existing.cover,
+        images ? JSON.stringify(images) : existing.images,
+        newsId
+      ).run();
+
+      const updated = await env.DB.prepare('SELECT * FROM news WHERE id = ?').bind(newsId).first();
+      return jsonResponse(updated, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '编辑新闻失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/news/:id — 删除新闻（需认证，仅作者可删除）
+  if (newsEditMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const newsId = Number(newsEditMatch[1]);
+    const existing = await env.DB.prepare('SELECT * FROM news WHERE id = ?').bind(newsId).first();
+    if (!existing) return jsonResponse({ error: '新闻不存在' }, 404, origin);
+    if (existing.author_id !== authUser.userId) return jsonResponse({ error: '无权删除' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM news WHERE id = ?').bind(newsId).run();
+    return jsonResponse({ success: true }, 200, origin);
   }
 
   // GET /api/news/:id — 获取新闻详情
@@ -3465,14 +3513,20 @@ export default {
     // 返回: { items: [{ title, url, cover }], total }
     if (method === 'POST' && url.pathname === '/api/selector/search') {
       try {
-        const body = await request.json();
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          const text = await request.text();
+          try { body = JSON.parse(text); } catch { return jsonResponse({ error: '请求体不是有效的 JSON' }, 400, origin); }
+        }
         const { searchUrl, selectors, keyword, baseUrl } = body;
         if (!searchUrl || !keyword || !selectors) {
           return jsonResponse({ error: '缺少必要参数' }, 400, origin);
         }
 
         const targetUrl = searchUrl.replace('{keyword}', encodeURIComponent(keyword));
-        if (!isSafeTargetUrl(targetUrl) && !isSafeTargetUrl(targetUrl.replace('https://', 'http://'))) {
+        if (!isSafeTargetUrl(targetUrl)) {
           return jsonResponse({ error: '目标 URL 不安全' }, 400, origin);
         }
 
@@ -3539,13 +3593,19 @@ export default {
     // 返回: { episodes: [{ title, url }] }
     if (method === 'POST' && url.pathname === '/api/selector/episode') {
       try {
-        const body = await request.json();
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          const text = await request.text();
+          try { body = JSON.parse(text); } catch { return jsonResponse({ error: '请求体不是有效的 JSON' }, 400, origin); }
+        }
         const { url: pageUrl, baseUrl, selectors } = body;
         if (!pageUrl || !selectors) {
           return jsonResponse({ error: '缺少必要参数' }, 400, origin);
         }
 
-        if (!isSafeTargetUrl(pageUrl) && !isSafeTargetUrl(pageUrl.replace('https://', 'http://'))) {
+        if (!isSafeTargetUrl(pageUrl)) {
           return jsonResponse({ error: '目标 URL 不安全' }, 400, origin);
         }
 
@@ -3612,7 +3672,7 @@ export default {
         return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
       }
 
-      if (!isSafeTargetUrl(rssUrl) && !isSafeTargetUrl(rssUrl.replace('https://', 'http://'))) {
+      if (!isSafeTargetUrl(rssUrl)) {
         return jsonResponse({ error: '目标 URL 不安全' }, 400, origin);
       }
 

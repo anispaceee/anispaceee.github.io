@@ -23,7 +23,10 @@ import FriendLinks from './components/FriendLinks/FriendLinks'
 import MusashiHome from './components/Musashi/MusashiHome';
 import WorkDetail from './components/Musashi/WorkDetail';
 import WorkCreate from './components/Musashi/WorkCreate';
+import WorkEdit from './components/Musashi/WorkEdit';
 import NovelReader from './components/Musashi/NovelReader';
+import MangaReader from './components/Musashi/MangaReader';
+import MyWorks from './components/Musashi/MyWorks';
 import NewsDetail from './components/NewsZone/NewsDetail'
 import NewsZone from './components/NewsZone/NewsZone'
 import AuthModal from './components/Common/AuthModal'
@@ -129,8 +132,12 @@ function AppInner() {
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<FriendLinks />} />
           <Route path="/musashi/new" element={<WorkCreate />} />
+          <Route path="/musashi/:workId/edit" element={<WorkEdit />} />
           <Route path="/musashi/:workId/read" element={<NovelReader />} />
           <Route path="/musashi/:workId/read/:chapter" element={<NovelReader />} />
+          <Route path="/musashi/:workId/comic" element={<MangaReader />} />
+          <Route path="/musashi/:workId/comic/:chapter" element={<MangaReader />} />
+          <Route path="/musashi/my-works" element={<MyWorks />} />
           <Route path="/musashi/:workId" element={<WorkDetail />} />
           <Route path="/musashi" element={<MusashiHome />} />
           <Route path="/news" element={<NewsZone />} />

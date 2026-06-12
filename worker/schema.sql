@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS news (
   link TEXT DEFAULT '',
   category TEXT DEFAULT '',
   content TEXT DEFAULT '',
+  cover TEXT DEFAULT '',
   images TEXT DEFAULT '[]',
   created_at TEXT DEFAULT (datetime('now'))
 );
