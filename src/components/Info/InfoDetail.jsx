@@ -624,7 +624,7 @@ export default function InfoDetail() {
           style={{ backgroundImage: `url(${subject.images.large})` }}
         >
           <img src={subject.images.large} alt="" style={{ display: 'none' }} onError={() => setBgFailed(true)} />
-          <div className="detail-bg-overlay" style={{ opacity: 0.35 + Math.min(0.55, scrollY * 0.002) }} />
+          <div className="detail-bg-overlay" style={{ opacity: 0.3 + Math.min(0.5, scrollY * 0.002) }} />
           <div className="detail-bg-blur" style={{ backdropFilter: `blur(${8 + Math.min(25, scrollY * 0.05)}px)`, WebkitBackdropFilter: `blur(${8 + Math.min(25, scrollY * 0.05)}px)` }} />
         </div>
       ) : (
