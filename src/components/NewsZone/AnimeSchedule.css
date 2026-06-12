@@ -143,155 +143,62 @@
   color: white;
 }
 
-/* ── 放送表主体 — AniBT 风格紧凑列表 ── */
+/* ── 放送表主体 — 卡片网格 ── */
 
 .schedule-content {
-  padding: 0;
+  padding: 0 16px 20px;
 }
 
 .schedule-day-section {
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.schedule-day-section:last-child {
-  border-bottom: none;
+  margin-top: 20px;
 }
 
 .schedule-day-section.today {
   background: linear-gradient(135deg, rgba(240, 145, 153, 0.04), transparent);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 20px -16px 20px -16px;
 }
 
 .schedule-day-header {
-  padding: 10px 16px 6px;
-  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .schedule-day-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
 }
 
 .schedule-today-badge {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 1px 7px;
-  border-radius: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
   background: var(--accent-primary);
   color: white;
 }
 
-/* ── 番剧行 — AniBT 风格：时间 | 封面 | 标题+标签 ── */
-
-.schedule-anime-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.schedule-anime-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 16px;
-  cursor: pointer;
-  transition: background 0.15s;
-  border-bottom: 1px solid rgba(var(--border-primary-rgb, 0, 0, 0), 0.04);
-}
-
-.schedule-anime-row:last-child {
-  border-bottom: none;
-}
-
-.schedule-anime-row:hover {
-  background: var(--bg-secondary);
-}
-
-.schedule-row-time {
-  flex-shrink: 0;
-  width: 40px;
+.schedule-day-count {
   font-size: 12px;
-  font-weight: 500;
   color: var(--text-quaternary);
-  font-variant-numeric: tabular-nums;
 }
 
-.schedule-row-cover {
-  width: 32px;
-  height: 44px;
-  border-radius: 4px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: var(--bg-tertiary);
-}
+/* ── 卡片网格 — 与首页每日放送一致 ── */
 
-.schedule-row-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.schedule-row-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.schedule-row-studio {
-  font-size: 11px;
-  color: var(--text-quaternary);
-  flex-shrink: 0;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.schedule-row-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.schedule-row-format {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 6px;
-  background: var(--bg-tertiary);
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.schedule-row-tag {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  color: white;
-  font-weight: 500;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.schedule-row-rating {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 11px;
-  color: #fbbf24;
-  font-weight: 500;
-  flex-shrink: 0;
+.schedule-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 /* ── 响应式 ── */
@@ -312,11 +219,8 @@
     font-size: 12px;
   }
 
-  .schedule-anime-row {
-    padding: 6px 12px;
-  }
-
-  .schedule-row-studio {
-    display: none;
+  .schedule-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
   }
 }
