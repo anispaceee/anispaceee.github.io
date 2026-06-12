@@ -3,14 +3,11 @@ import { useApp } from '../../context/AppContext';
 import { StorageService, BangumiService } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, Sparkles, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
-import amadeusImg from '../../assets/Amadeus.webp';
 import EmojiPicker from '../Common/EmojiPicker';
 import { PRESET_PERSONAS, emptyOC, buildSystemPrompt } from './personas';
 import { parseDirectives, resolveGoto, runSearchAction } from './naviActions';
 import { streamLLM, testConnection } from './llmClient';
 import './Amadeus.css';
-
-const AMADEUS_PERSONA = { name: 'Navi', version: '2.0.0' };
 
 const EXPRESSIONS = {
   normal: { label: '通常', emoji: '😐', color: '#7eb8da' },
@@ -220,6 +217,7 @@ export default function Amadeus() {
     }, 200); // 200ms淡出后切换
   }, [currentExpression]);
   const [showSettings, setShowSettings] = useState(false);
+  const [editingOC, setEditingOC] = useState(null); // 正在编辑的 OC 对象，null 表示未打开
   const [llmConfig, setLlmConfig] = useState(() => {
     // M-8: 使用 sessionStorage 替代 localStorage，避免 API Key 持久化泄露
     try {
@@ -370,6 +368,28 @@ export default function Amadeus() {
     setMessages([makeGreetingMessage(activePersona)]);
     switchExpression(activePersona.expressionBias || 'normal');
   };
+
+  const openNewOC = () => setEditingOC(emptyOC());
+  const cloneToOC = (preset) => setEditingOC({ ...preset, id: 'oc-' + Date.now(), name: preset.name + '（我的）', image: null, isPreset: false });
+  const editOC = (oc) => setEditingOC({ ...oc });
+
+  const saveOC = () => {
+    const oc = { ...editingOC, name: (editingOC.name || '').trim() || '未命名 OC' };
+    setCustomPersonas(prev => {
+      const i = prev.findIndex(p => p.id === oc.id);
+      if (i >= 0) { const next = [...prev]; next[i] = oc; return next; }
+      return [...prev, oc];
+    });
+    setActivePersonaId(oc.id);
+    switchExpression(oc.expressionBias || 'normal');
+    setEditingOC(null);
+  };
+
+  const deleteOC = (id) => {
+    setCustomPersonas(prev => prev.filter(p => p.id !== id));
+    if (activePersonaId === id) switchPersona(PRESET_PERSONAS[0].id);
+    setEditingOC(null);
+  };
   const saveConfig = () => { setLlmConfig(configDraft); sessionStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(configDraft)); setConfigSaved(true); setTimeout(() => setConfigSaved(false), 2000); };
   const handleEmojiSelect = (emoji) => { setInput(prev => prev + emoji); };
 
@@ -386,12 +406,14 @@ export default function Amadeus() {
         <div className="amadeus-character-area" style={{ background: `linear-gradient(135deg, ${expr.color}22, ${expr.color}08)` }}>
           <div className="amadeus-character-portrait">
             <div className={`amadeus-character-silhouette ${expressionTransition ? 'transitioning' : ''}`} style={{ borderColor: expr.color }}>
-              <img src={amadeusImg} alt="Navi" className="amadeus-character-img" loading="lazy" />
+              {activePersona.image
+                ? <img src={activePersona.image} alt={activePersona.name} className="amadeus-character-img" loading="lazy" />
+                : <span className="amadeus-character-avatar-emoji">{activePersona.avatar}</span>}
               <span className="amadeus-character-expr">{expr.emoji}</span>
             </div>
             <div className="amadeus-character-label">
-              <span className="amadeus-character-name">牧瀬紅莉栖</span>
-              <span className="amadeus-character-sub">Navi System v{AMADEUS_PERSONA.version}</span>
+              <span className="amadeus-character-name">{activePersona.name}</span>
+              <span className="amadeus-character-sub">{activePersona.tagline}</span>
             </div>
             <div className="amadeus-expression-indicator" style={{ background: expr.color }}>
               {expr.label}
@@ -425,6 +447,27 @@ export default function Amadeus() {
           {showSettings && (
             <div className="amadeus-settings">
               <div className="amadeus-settings-group">
+                <label>人格</label>
+                <div className="amadeus-persona-list">
+                  {allPersonas.map(p => (
+                    <div key={p.id} className={`amadeus-persona-card ${activePersonaId === p.id ? 'active' : ''}`} onClick={() => switchPersona(p.id)}>
+                      <span className="amadeus-persona-avatar">{p.image ? '🖼️' : p.avatar}</span>
+                      <span className="amadeus-persona-name">{p.name}</span>
+                      <span className="amadeus-persona-tag">{p.tagline}</span>
+                      <div className="amadeus-persona-ops" onClick={e => e.stopPropagation()}>
+                        {p.isPreset
+                          ? <button title="复制为我的 OC" onClick={() => cloneToOC(p)}>＋OC</button>
+                          : <>
+                              <button title="编辑" onClick={() => editOC(p)}>编辑</button>
+                              <button title="删除" onClick={() => deleteOC(p.id)}>删除</button>
+                            </>}
+                      </div>
+                    </div>
+                  ))}
+                  <button className="amadeus-persona-new" onClick={openNewOC}>＋ 新建 OC</button>
+                </div>
+              </div>
+              <div className="amadeus-settings-group">
                 <label>回复模式</label>
                 <div className="amadeus-provider-select">
                   {[{ key: 'local', label: '本地规则', desc: '无需API' }, { key: 'openai', label: 'OpenAI', desc: 'GPT系列' }, { key: 'custom', label: '自定义API', desc: '兼容OpenAI格式' }].map(p => (
@@ -447,6 +490,30 @@ export default function Amadeus() {
                 <button className="amadeus-settings-clear" onClick={() => { StorageService.remove(CHAT_HISTORY_KEY); clearChat(); }}><Trash2 size={14} /> 清除记录</button>
               </div>
               {llmError && <div className="amadeus-settings-error"><AlertCircle size={14} /> {llmError}</div>}
+            </div>
+          )}
+
+          {editingOC && (
+            <div className="amadeus-oc-editor">
+              <div className="amadeus-oc-row"><label>角色名</label><input value={editingOC.name} onChange={e => setEditingOC(o => ({ ...o, name: e.target.value }))} placeholder="例如：星野 アイ" /></div>
+              <div className="amadeus-oc-row"><label>头像 Emoji</label><input value={editingOC.avatar} onChange={e => setEditingOC(o => ({ ...o, avatar: e.target.value }))} placeholder="🌟" maxLength={4} /></div>
+              <div className="amadeus-oc-row"><label>简介</label><input value={editingOC.tagline} onChange={e => setEditingOC(o => ({ ...o, tagline: e.target.value }))} placeholder="一句话简介" /></div>
+              <div className="amadeus-oc-row"><label>人设/性格</label><textarea value={editingOC.personality} onChange={e => setEditingOC(o => ({ ...o, personality: e.target.value }))} rows={3} placeholder="性格、背景、喜好…" /></div>
+              <div className="amadeus-oc-row"><label>说话风格</label><textarea value={editingOC.speechStyle} onChange={e => setEditingOC(o => ({ ...o, speechStyle: e.target.value }))} rows={2} placeholder="语气、用词习惯…" /></div>
+              <div className="amadeus-oc-row"><label>口头禅</label><input value={(editingOC.catchphrases || []).join('，')} onChange={e => setEditingOC(o => ({ ...o, catchphrases: e.target.value.split(/[，,]/).map(s => s.trim()).filter(Boolean) }))} placeholder="多个用逗号分隔" /></div>
+              <div className="amadeus-oc-row"><label>开场白</label><textarea value={editingOC.greeting} onChange={e => setEditingOC(o => ({ ...o, greeting: e.target.value }))} rows={2} placeholder="首次对话的招呼语" /></div>
+              <div className="amadeus-oc-row"><label>默认表情</label>
+                <select value={editingOC.expressionBias} onChange={e => setEditingOC(o => ({ ...o, expressionBias: e.target.value }))}>
+                  {Object.entries(EXPRESSIONS).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                </select>
+              </div>
+              <div className="amadeus-oc-actions">
+                <button className="amadeus-settings-save" onClick={saveOC}>保存</button>
+                {!PRESET_PERSONAS.some(p => p.id === editingOC.id) && customPersonas.some(p => p.id === editingOC.id) && (
+                  <button className="amadeus-settings-clear" onClick={() => deleteOC(editingOC.id)}><Trash2 size={14} /> 删除</button>
+                )}
+                <button className="amadeus-settings-clear" onClick={() => setEditingOC(null)}>取消</button>
+              </div>
             </div>
           )}
 
