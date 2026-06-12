@@ -13,6 +13,7 @@
   "dependencies": {
     "@pixi/utils": "^6.5.10",
     "dplayer": "^1.27.1",
+    "framer-motion": "^12.40.0",
     "hls.js": "^1.6.16",
     "idb": "^8.0.3",
     "lucide-react": "^1.14.0",
