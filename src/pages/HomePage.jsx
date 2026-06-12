@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { BangumiService, UserService, ForumService, WorldChannelService, NewsService } from '../services/api';
+import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService } from '../services/api';
 import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper, Send, Image, X, Users as UsersIcon } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import UserAvatar from '../components/Common/UserAvatar';
@@ -222,26 +222,59 @@ export default function HomePage() {
   const carouselTrackRef = useRef(null);
   const [carouselTransition, setCarouselTransition] = useState(true);
 
-  // 横滑推荐：加载当季所有在更动画
+  // 横滑推荐：加载当季所有在更动画（优先 AniBT，降级 Bangumi）
   useEffect(() => {
     const loadCarousel = async () => {
       setCarouselLoading(true);
       try {
-        const data = await BangumiService.getCalendar();
-        if (Array.isArray(data)) {
-          // 收集所有在更动画，按评分排序
-          const allItems = data.flatMap(day => day.items || []);
-          const animeItems = allItems.filter(item => item.type === 2);
+        const result = await AniBTService.getSeasonAnime();
+        if (result?.ok && result?.data?.byWeekday) {
+          const allItems = result.data.byWeekday.flatMap(dayGroup =>
+            (dayGroup.animes || []).map(anime => ({
+              id: anime.bgmId,
+              name: anime.title?.japanese || anime.title?.primary || '',
+              name_cn: anime.title?.chinese || anime.title?.primary || '',
+              images: anime.cover ? { large: anime.cover, common: anime.cover, medium: anime.cover } : {},
+              rating: anime.rating ? { score: anime.rating / 10, value: anime.rating / 10 } : {},
+              type: 2,
+              summary: anime.kind || '',
+              url: `/subject/${anime.bgmId}`,
+            }))
+          );
           const seen = new Set();
-          const unique = animeItems.filter(item => {
+          const unique = allItems.filter(item => {
             if (seen.has(item.id)) return false;
             seen.add(item.id);
             return true;
           });
           const sorted = unique.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0));
           setCarouselItems(sorted);
+        } else {
+          // 降级到 Bangumi Calendar
+          const data = await BangumiService.getCalendar();
+          if (Array.isArray(data)) {
+            const allItems = data.flatMap(day => day.items || []);
+            const animeItems = allItems.filter(item => item.type === 2);
+            const seen = new Set();
+            const unique = animeItems.filter(item => { if (seen.has(item.id)) return false; seen.add(item.id); return true; });
+            const sorted = unique.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0));
+            setCarouselItems(sorted);
+          }
         }
-      } catch { setCarouselItems([]); }
+      } catch {
+        // 降级到 Bangumi Calendar
+        try {
+          const data = await BangumiService.getCalendar();
+          if (Array.isArray(data)) {
+            const allItems = data.flatMap(day => day.items || []);
+            const animeItems = allItems.filter(item => item.type === 2);
+            const seen = new Set();
+            const unique = animeItems.filter(item => { if (seen.has(item.id)) return false; seen.add(item.id); return true; });
+            const sorted = unique.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0));
+            setCarouselItems(sorted);
+          }
+        } catch { setCarouselItems([]); }
+      }
       finally { setCarouselLoading(false); }
     };
     loadCarousel();
@@ -356,9 +389,37 @@ export default function HomePage() {
   const fetchCalendar = useCallback(async () => {
     setCalendarLoading(true);
     try {
-      const data = await BangumiService.getCalendar();
-      if (Array.isArray(data)) setCalendarData(data);
-    } catch {} finally { setCalendarLoading(false); }
+      const result = await AniBTService.getSeasonAnime();
+      if (result?.ok && result?.data?.byWeekday) {
+        // 将 AniBT 的 byWeekday 格式转换为与 Bangumi Calendar 兼容的结构
+        const converted = result.data.byWeekday.map(dayGroup => ({
+          weekday: { id: dayGroup.weekday === 7 ? 0 : dayGroup.weekday },
+          items: (dayGroup.animes || []).map(anime => ({
+            id: anime.bgmId,
+            name: anime.title?.japanese || anime.title?.primary || '',
+            name_cn: anime.title?.chinese || anime.title?.primary || '',
+            images: anime.cover ? { large: anime.cover, common: anime.cover, medium: anime.cover } : {},
+            rating: anime.rating ? { score: anime.rating / 10, value: anime.rating / 10 } : {},
+            type: 2,
+            url: `/subject/${anime.bgmId}`,
+            _anibtKind: anime.kind || '',
+            _anibtFormat: anime.format || '',
+            _anibtAiringAt: anime.airingAt || 0,
+          })),
+        }));
+        setCalendarData(converted);
+      } else {
+        // 降级到 Bangumi Calendar
+        const data = await BangumiService.getCalendar();
+        if (Array.isArray(data)) setCalendarData(data);
+      }
+    } catch {
+      // 降级到 Bangumi Calendar
+      try {
+        const data = await BangumiService.getCalendar();
+        if (Array.isArray(data)) setCalendarData(data);
+      } catch {}
+    } finally { setCalendarLoading(false); }
   }, []);
 
   const todayCalendar = calendarData.find(d => d.weekday?.id === activeWeekday);
