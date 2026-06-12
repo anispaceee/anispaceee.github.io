@@ -535,11 +535,6 @@ export default function HomePage() {
             </div>
             <button className="home-banner-arrow home-banner-arrow-left" onClick={prevSlide}><ChevronLeft size={24} /></button>
             <button className="home-banner-arrow home-banner-arrow-right" onClick={nextSlide}><ChevronRight size={24} /></button>
-            <div className="home-banner-dots">
-              {carouselItems.map((_, i) => (
-                <button key={i} className={`home-banner-dot ${i === (carouselIndex - 1 + carouselItems.length) % carouselItems.length ? 'active' : ''}`} onClick={() => goToSlide(i)} />
-              ))}
-            </div>
           </div>
         ) : (
           <div className="home-banner-empty">
