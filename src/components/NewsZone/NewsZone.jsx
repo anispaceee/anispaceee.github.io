@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Tv, Book, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { NewsService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
+import AnimeSchedule from './AnimeSchedule';
 import './NewsZone.css';
 
 // 来源配置
@@ -25,6 +26,7 @@ export default function NewsZone() {
   const [loading, setLoading] = useState(true);
   const [activeSource, setActiveSource] = useState('');
   const [activeCategory, setActiveCategory] = useState('全部');
+  const [activeTab, setActiveTab] = useState('feed');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -195,20 +197,44 @@ export default function NewsZone() {
           <span className="news-zone-subtitle">二次元业界动态 · 新番导视 · 多源聚合</span>
         </div>
         <div className="news-zone-actions">
-          <button
-            className={`news-refresh-btn ${refreshing ? 'spinning' : ''}`}
-            onClick={() => handleRefresh('')}
-            disabled={refreshing}
-            title="刷新资讯"
-          >
-            <RefreshCw size={14} />
-          </button>
-          <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
-            <Plus size={14} /> 投稿
-          </button>
+          <div className="news-zone-tabs">
+            <button
+              className={`news-zone-tab ${activeTab === 'feed' ? 'active' : ''}`}
+              onClick={() => setActiveTab('feed')}
+            >
+              <Newspaper size={14} /> 资讯流
+            </button>
+            <button
+              className={`news-zone-tab ${activeTab === 'schedule' ? 'active' : ''}`}
+              onClick={() => setActiveTab('schedule')}
+            >
+              <Tv size={14} /> 放送表
+            </button>
+          </div>
+          {activeTab === 'feed' && (
+            <>
+              <button
+                className={`news-refresh-btn ${refreshing ? 'spinning' : ''}`}
+                onClick={() => handleRefresh('')}
+                disabled={refreshing}
+                title="刷新资讯"
+              >
+                <RefreshCw size={14} />
+              </button>
+              <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
+                <Plus size={14} /> 投稿
+              </button>
+            </>
+          )}
         </div>
       </div>
 
+      {/* 放送表 Tab */}
+      {activeTab === 'schedule' && <AnimeSchedule />}
+
+      {/* 资讯流 Tab */}
+      {activeTab === 'feed' && (
+        <>
       {/* 全宽大图 Banner 轮播 — 与首页格式一致 */}
       {hotNews.length > 0 && (
         <div className="news-carousel">
@@ -366,6 +392,7 @@ export default function NewsZone() {
           </div>
         </div>
       )}
+      </> )}
 
       {/* 提交资讯 Modal */}
       {showApplyModal && (

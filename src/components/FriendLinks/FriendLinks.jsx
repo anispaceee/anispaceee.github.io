@@ -32,6 +32,30 @@ const LINKS = [
     desc: '光凪 — ACG 资源聚合',
     logo: 'https://www.hikarinagi.org/favicon.ico',
   },
+  {
+    name: 'AniBT',
+    url: 'https://anibt.net/',
+    desc: '番组放送时刻表 — 当季番剧时间线',
+    logo: 'https://anibt.net/favicon.ico',
+  },
+  {
+    name: '同萌',
+    url: 'https://www.ai2.moe/',
+    desc: 'ACG 同萌社 — 二次元综合论坛',
+    logo: 'https://www.ai2.moe/favicon.ico',
+  },
+  {
+    name: '紫缘社',
+    url: 'https://galzy.moe/',
+    desc: 'Galgame 数据库 — 标签检索与评分',
+    logo: 'https://galzy.moe/favicon.ico',
+  },
+  {
+    name: 'ACGDB',
+    url: 'https://acgdb.de/',
+    desc: 'ACG 资源目录 — OpenList 驱动',
+    logo: 'https://acgdb.de/favicon.ico',
+  },
 ];
 
 export default function FriendLinks() {

@@ -687,6 +687,21 @@ export const NewsService = {
   },
 };
 
+// ─── AniBTService ───
+// AniBT 番剧数据代理，走 Worker /api/anibt/*
+export const AniBTService = {
+  async getSeasonAnime(season = '') {
+    const params = new URLSearchParams();
+    if (season) params.set('season', season);
+    return await apiRequest(`/api/anibt/api/seasons/anime${params.toString() ? '?' + params.toString() : ''}`);
+  },
+
+  async getAnimeGroups(bgmId) {
+    if (!bgmId) return { ok: false, data: { groups: [] } };
+    return await apiRequest(`/api/anibt/api/anime/groups?bgmId=${bgmId}`);
+  },
+};
+
 // ─── UserGuestbookService ───
 // 用户留言板，走后端 API
 export const UserGuestbookService = {

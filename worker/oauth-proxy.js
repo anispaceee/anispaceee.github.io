@@ -186,6 +186,7 @@ async function getAuthUser(request, env) {
 
 const BANGUMI_TOKEN_URL = 'https://bgm.tv/oauth/access_token';
 const BANGUMI_API_URL = 'https://api.bgm.tv';
+const ANIBT_API_URL = 'https://anibt.net';
 
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_API_URL = 'https://api.github.com';
@@ -339,6 +340,59 @@ async function handleBangumiProxy(pathname, searchParams, request, env, origin) 
     status: res.status,
     headers: resHeaders,
   });
+}
+
+// ─── AniBT API 代理 ────────────────────────────────────────
+
+async function handleAnibtProxy(pathname, searchParams, request, env, origin) {
+  const targetUrl = `${ANIBT_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+
+  // 检查缓存
+  const cache = caches.default;
+  const cacheKey = new Request(targetUrl, { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const headers = new Headers(cached.headers);
+    headers.set('X-Cache', 'HIT');
+    Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+    return new Response(cached.body, { status: cached.status, headers });
+  }
+
+  // 转发请求
+  try {
+    const res = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'ANISpace/1.0',
+        'Accept': 'application/json',
+      },
+    });
+
+    const responseBody = await res.text();
+    const resHeaders = new Headers();
+    resHeaders.set('Content-Type', 'application/json');
+    resHeaders.set('X-Cache', 'MISS');
+    Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+    // 缓存响应（seasons: 10分钟, groups: 5分钟）
+    if (res.ok) {
+      const ttl = pathname.includes('/seasons/') ? 600 : 300;
+      const cacheResponse = new Response(responseBody, {
+        status: res.status,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': `public, max-age=${ttl}`,
+        },
+      });
+      try { await cache.put(cacheKey, cacheResponse); } catch {}
+    }
+
+    return new Response(responseBody, {
+      status: res.status,
+      headers: resHeaders,
+    });
+  } catch (err) {
+    return jsonResponse({ error: 'AniBT 代理失败: ' + err.message }, 502, origin);
+  }
 }
 
 // ─── Bangumi OAuth token 交换 ────────────────────────────────
@@ -3405,6 +3459,12 @@ export default {
     if (url.pathname.startsWith('/api/bangumi/')) {
       const bangumiPath = url.pathname.replace('/api/bangumi', '');
       return handleBangumiProxy(bangumiPath, url.searchParams, request, env, origin);
+    }
+
+    // AniBT API 代理：/api/anibt/*
+    if (url.pathname.startsWith('/api/anibt/')) {
+      const anibtPath = url.pathname.replace('/api/anibt', '');
+      return handleAnibtProxy(anibtPath, url.searchParams, request, env, origin);
     }
 
     // DanDanPlay 弹幕代理：/api/danmaku/comment/:episodeId
