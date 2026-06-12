@@ -753,7 +753,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
       images: safeJsonParse(p.images, []),
     }));
 
-    const countSql = category ? 'SELECT COUNT(*) AS total FROM posts WHERE category = ?' : 'SELECT COUNT(*) AS total FROM posts';
+    const countSql = whereClause
+      ? `SELECT COUNT(*) AS total FROM posts p ${whereClause}`
+      : 'SELECT COUNT(*) AS total FROM posts';
     const countResult = await env.DB.prepare(countSql).bind(...bindParams).first();
     return jsonResponse({
       posts: parsedPosts,
