@@ -12,6 +12,9 @@ import {
   SourceConfig,
   SourceParameter,
   MatchKind,
+  MediaSourceLocation,
+  SubtitleKind,
+  FileSize,
 } from '../types';
 import { MatchEngine } from '../MatchEngine';
 import oauthConfig from '../../../../oauth.config.js';
@@ -98,15 +101,29 @@ class MikanSource implements MediaSource {
         mediaId: `mikan_${magnetHash}`,
         sourceId: 'mikan',
         title: item.title,
+        originalTitle: item.title,
+        publishedTime: 0,
+        location: MediaSourceLocation.ONLINE,
+        kind: MediaSourceKind.BITTORRENT,
         episodeRange: { sort: request.episodeSort },
         download: {
           kind: 'magnet',
           url: item.magnet,
         },
         properties: {
+          subjectName: '',
+          episodeName: '',
+          subtitleLanguageIds: subtitleGroup ? ['CHS'] : [],
+          resolution: '',
+          alliance: subtitleGroup || '',
+          size: fileSize
+            ? FileSize.of(parseFloat(fileSize) || 0, fileSize.replace(/[0-9.]/g, '').toUpperCase())
+            : FileSize.Unspecified,
+          subtitleKind: SubtitleKind.CLOSED_OR_EXTERNAL_DISCOVER,
+          tier: this.info.tier,
+          // 旧兼容字段
           fileSize,
           subtitleGroup,
-          tier: this.info.tier,
         },
       };
 

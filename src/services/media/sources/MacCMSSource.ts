@@ -12,6 +12,9 @@ import {
   SourceConfig,
   SourceParameter,
   MatchKind,
+  MediaSourceLocation,
+  SubtitleKind,
+  FileSize,
 } from '../types';
 import { MatchEngine } from '../MatchEngine';
 import oauthConfig from '../../../../oauth.config.js';
@@ -203,12 +206,25 @@ class MacCMSSource implements MediaSource {
           mediaId: `${this.sourceId}_${item.vod_id}_${ep.name}`,
           sourceId: this.sourceId,
           title: `${item.vod_name} - ${ep.name}`,
+          originalTitle: item.vod_name || '',
+          publishedTime: 0,
+          location: MediaSourceLocation.ONLINE,
+          kind: MediaSourceKind.WEB,
           episodeRange: { sort: ep.name.replace(/[^0-9]/g, '') || ep.name, name: ep.name },
           download: {
             kind: 'http',
             url: this.buildStreamUrl(ep.url),
           },
           properties: {
+            subjectName: item.vod_name || '',
+            episodeName: ep.name || '',
+            subtitleLanguageIds: ['CHS'],
+            resolution: '',
+            alliance: group.source || '',
+            size: FileSize.Unspecified,
+            subtitleKind: SubtitleKind.EMBEDDED,
+            tier: this.info.tier,
+            // 旧兼容字段
             vodId: item.vod_id,
             cover: item.vod_pic,
             category: item.vod_class,
@@ -217,7 +233,6 @@ class MacCMSSource implements MediaSource {
             remarks: item.vod_remarks,
             description: item.vod_content?.replace(/<[^>]+>/g, '') || '',
             playSource: group.source,
-            tier: this.info.tier,
           },
         };
 

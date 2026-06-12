@@ -12,6 +12,9 @@ import {
   SourceConfig,
   SourceParameter,
   MatchKind,
+  MediaSourceLocation,
+  SubtitleKind,
+  FileSize,
 } from '../types';
 import { MatchEngine } from '../MatchEngine';
 import oauthConfig from '../../../../oauth.config.js';
@@ -94,15 +97,29 @@ class DmhySource implements MediaSource {
         mediaId: `dmhy_${infoHash}`,
         sourceId: this.sourceId,
         title: result.title,
+        originalTitle: result.title,
+        publishedTime: 0,
+        location: MediaSourceLocation.ONLINE,
+        kind: MediaSourceKind.BITTORRENT,
         episodeRange: { sort: request.episodeSort },
         download: {
           kind: 'magnet',
           url: result.magnetLink,
         },
         properties: {
+          subjectName: '',
+          episodeName: '',
+          subtitleLanguageIds: result.subtitleGroup ? ['CHS'] : [],
+          resolution: '',
+          alliance: result.subtitleGroup || '',
+          size: result.size
+            ? FileSize.of(parseFloat(result.size) || 0, result.size.replace(/[0-9.]/g, '').toUpperCase())
+            : FileSize.Unspecified,
+          subtitleKind: SubtitleKind.CLOSED_OR_EXTERNAL_DISCOVER,
+          tier: this.info.tier,
+          // 旧兼容字段
           fileSize: result.size,
           subtitleGroup: result.subtitleGroup,
-          tier: this.info.tier,
         },
       };
 

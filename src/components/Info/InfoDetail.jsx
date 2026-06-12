@@ -5,7 +5,7 @@ import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, Arrow
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
-import { MatchKind } from '../../services/media/types';
+import { MatchKind, MediaSourceKind } from '../../services/media/types';
 import './InfoDetail.css';
 
 const TYPE_ICONS = { 1: BookOpen, 2: Tv, 4: Gamepad2 };
@@ -497,7 +497,7 @@ export default function InfoDetail() {
     }
   }, [id]);
 
-  // 站内观看：搜索某集的资源
+  // 站内观看：搜索某集的资源（使用 MediaFetcher + MediaSelector）
   const searchMediaForEpisode = useCallback(async (ep) => {
     if (!subject || !ep) return;
     setSelectedEp(ep);
@@ -514,14 +514,27 @@ export default function InfoDetail() {
         subjectId: String(subject.id),
         subjectNames,
         episodeSort: String(ep.sort || ep.ep),
+        episodeEp: ep.ep ? String(ep.ep) : undefined,
         episodeName: ep.name || '',
-        type: subject.type || 2,
       };
 
-      const result = await mediaSourceManager.fetchAll(request);
-      setMediaMatches(result.results || []);
-      if (result.errors?.length > 0) {
-        console.warn('[InfoDetail] media search errors:', result.errors);
+      // 使用新的 MediaFetcher API（并发查询 + 增量合并 + 过滤排序）
+      const fetcher = mediaSourceManager.createFetcher(request, {
+        preference: { allowUnsubtitled: true, hideSingleEpisodeBT: false },
+      });
+
+      // 订阅增量结果
+      const unsub = fetcher.getSelector().onChange((state) => {
+        setMediaMatches(state.included);
+      });
+
+      fetcher.start();
+      await fetcher.waitForAll();
+      unsub();
+
+      const errors = fetcher.getErrors();
+      if (errors.length > 0) {
+        console.warn('[InfoDetail] media search errors:', errors);
       }
     } catch (err) {
       console.error('[InfoDetail] media search failed:', err);
@@ -1126,11 +1139,11 @@ export default function InfoDetail() {
                                   <span className="source-item-title">{m.media.title}</span>
                                   <div className="source-item-props">
                                     {m.media.download?.kind === 'http' && <span className="prop-tag">在线</span>}
-                                    {m.media.download?.kind === 'torrent' && <span className="prop-tag">BT</span>}
+                                    {(m.media.download?.kind === 'torrent' || m.media.download?.kind === 'magnet' || m.media.kind === MediaSourceKind.BITTORRENT) && <span className="prop-tag">BT</span>}
                                     {m.media.properties?.tier && <span className="prop-tag">{m.media.properties.tier}</span>}
                                   </div>
-                                  <button className={`play-btn ${m.media.download?.kind === 'torrent' ? 'buffer' : ''}`}>
-                                    {m.media.download?.kind === 'torrent' ? '⏳ 缓冲' : '▶ 播放'}
+                                  <button className={`play-btn ${(m.media.download?.kind === 'torrent' || m.media.download?.kind === 'magnet' || m.media.kind === MediaSourceKind.BITTORRENT) ? 'buffer' : ''}`}>
+                                    {(m.media.download?.kind === 'torrent' || m.media.download?.kind === 'magnet' || m.media.kind === MediaSourceKind.BITTORRENT) ? '⏳ 缓冲' : '▶ 播放'}
                                   </button>
                                 </div>
                               ))}

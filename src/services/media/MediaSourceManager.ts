@@ -5,7 +5,10 @@ import {
   MediaFetchRequest,
   MediaMatch,
   SourceConfig,
+  MediaSelectorSettings,
 } from './types';
+import { MediaFetcher } from './MediaFetcher';
+import { MediaSelector } from './MediaSelector';
 
 const SOURCES_STORAGE_KEY = 'acg_v2_sources';
 const DISABLED_KEY = 'acg_v2_sources_disabled';
@@ -18,7 +21,7 @@ interface SourceRegistration {
   order: number;
 }
 
-class MediaSourceManager {
+export class MediaSourceManager {
   private factories = new Map<string, MediaSourceFactory>();
   private instances = new Map<string, MediaSource>();
 
@@ -55,6 +58,18 @@ class MediaSourceManager {
       .sort((a, b) => a.order - b.order)
       .map(r => this.getSource(r.sourceId))
       .filter((s): s is MediaSource => s !== undefined);
+  }
+
+  /**
+   * 创建 MediaFetcher + MediaSelector 组合。
+   * 推荐的新 API，支持增量结果和完整过滤流水线。
+   */
+  createFetcher(
+    request: MediaFetchRequest,
+    settings?: Partial<MediaSelectorSettings>,
+  ): MediaFetcher {
+    const selector = new MediaSelector(request, settings);
+    return new MediaFetcher(this, request, selector);
   }
 
   async fetchAll(request: MediaFetchRequest): Promise<{

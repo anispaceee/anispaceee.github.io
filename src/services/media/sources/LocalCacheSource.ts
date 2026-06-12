@@ -12,6 +12,8 @@ import {
   SourceConfig,
   SourceParameter,
   MatchKind,
+  MediaSourceLocation,
+  FileSize,
 } from '../types';
 import { openDB } from 'idb';
 
@@ -92,16 +94,28 @@ class LocalCacheSource implements MediaSource {
           mediaId: `local_${cached.id}`,
           sourceId: 'local_cache',
           title: cached.title,
+          originalTitle: cached.title,
+          publishedTime: cached.savedAt,
+          location: MediaSourceLocation.LOCAL,
+          kind: MediaSourceKind.LOCAL_CACHE,
           episodeRange: { sort: cached.episodeSort },
           download: {
             kind: 'local',
             url: blobUrl,
           },
           properties: {
+            subjectName: '',
+            episodeName: '',
+            subtitleLanguageIds: [],
+            resolution: '',
+            alliance: '本地缓存',
+            size: FileSize.of(cached.size / 1024 / 1024, 'MB'),
+            subtitleKind: undefined,
+            tier: this.info.tier,
+            // 旧兼容字段
             fileSize: `${(cached.size / 1024 / 1024).toFixed(1)} MB`,
             contentType: cached.contentType,
             savedAt: new Date(cached.savedAt).toLocaleString(),
-            tier: this.info.tier,
           },
         };
         return { media, matchKind: MatchKind.EXACT };
