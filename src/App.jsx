@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { lazy, Suspense, Component } from 'react'
 import Layout from './components/Layout/Layout'
 import HomePage from './pages/HomePage'
@@ -8,10 +8,7 @@ import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
 import InfoDetail from './components/Info/InfoDetail'
 import UserProfilePage from './components/Profile/UserProfilePage'
-import VideoHome from './components/Video/VideoHome'
-import SubjectDetail from './components/Video/SubjectDetail'
 import VideoPlayer from './components/Video/VideoPlayer'
-import SourceManager from './components/Video/SourceManager'
 import Mailbox from './components/Mailbox/Mailbox'
 import Guestbook from './components/Guestbook/Guestbook'
 import MusicPlayer from './components/Music/MusicPlayer'
@@ -82,6 +79,11 @@ try {
 
 const Live2DPage = lazy(() => import('./components/Common/Live2DViewer'))
 
+function NavigateToInfoDetail() {
+  const { subjectId } = useParams();
+  return <Navigate to={`/info/2/${subjectId}`} replace />;
+}
+
 const savedTheme = StorageService.get('acg_theme', '');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
@@ -124,10 +126,8 @@ function AppInner() {
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<UserProfilePage />} />
           <Route path="/user/:userId" element={<UserProfilePage />} />
-          <Route path="/video" element={<VideoHome />} />
-          <Route path="/video/subject/:subjectId" element={<SubjectDetail />} />
           <Route path="/video/play/:subjectId/:episodeId" element={<VideoPlayerErrorBoundary><VideoPlayer /></VideoPlayerErrorBoundary>} />
-          <Route path="/video/sources" element={<SourceManager />} />
+          <Route path="/video/subject/:subjectId" element={<NavigateToInfoDetail />} />
           <Route path="/mailbox" element={<Mailbox />} />
           <Route path="/guestbook" element={<Guestbook />} />
           <Route path="/music" element={<MusicPlayer />} />

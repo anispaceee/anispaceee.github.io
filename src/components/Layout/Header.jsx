@@ -9,7 +9,6 @@ const navItems = [
   { path: '/', label: '首页' },
   { path: '/forum', label: '放課後' },
   { path: '/club', label: 'Tea Time！' },
-  { path: '/video', label: '视频' },
   { path: '/wiki', label: '禁書目錄' },
   { path: '/links', label: '友情链接' },
 ];

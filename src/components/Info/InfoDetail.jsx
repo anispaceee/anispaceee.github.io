@@ -1,9 +1,11 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService } from '../../services/api';
-import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff } from 'lucide-react';
+import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { mediaSourceManager } from '../../services/media/MediaSourceManager';
+import { MatchKind } from '../../services/media/types';
 import './InfoDetail.css';
 
 const TYPE_ICONS = { 1: BookOpen, 2: Tv, 4: Gamepad2 };
@@ -166,6 +168,14 @@ export default function InfoDetail() {
   const [activeTab, setActiveTab] = useState('detail');
   // 标签折叠状态
   const [tagsExpanded, setTagsExpanded] = useState(false);
+
+  // 站内观看 Tab 状态
+  const [watchEpisodes, setWatchEpisodes] = useState([]);
+  const [watchEpisodesLoading, setWatchEpisodesLoading] = useState(false);
+  const [selectedEp, setSelectedEp] = useState(null);
+  const [mediaMatches, setMediaMatches] = useState([]);
+  const [mediaSearching, setMediaSearching] = useState(false);
+  const [mediaSearchError, setMediaSearchError] = useState(null);
 
   // 是否为 NSFW 条目（详情 API 返回 404 但有 preview 数据）
   const [isNsfw, setIsNsfw] = useState(false);
@@ -426,6 +436,11 @@ export default function InfoDetail() {
   ];
 
   const handleWatchNow = async () => {
+    // 动画/三次元：切换到站内观看标签
+    if (subject?.type === 2 || subject?.type === 6) {
+      setActiveTab('watch');
+      return;
+    }
     if (watchLoading) return;
     setWatchLoading(true);
     const typeCode = subject?.type || 2;
@@ -466,6 +481,62 @@ export default function InfoDetail() {
     }
     setShowSourcePicker(false);
   };
+
+  // 站内观看：获取剧集列表
+  const fetchWatchEpisodes = useCallback(async () => {
+    if (!id) return;
+    setWatchEpisodesLoading(true);
+    try {
+      const eps = await BangumiService.getSubjectEpisodes(id);
+      setWatchEpisodes(eps || []);
+    } catch (err) {
+      console.warn('[InfoDetail] fetch episodes failed:', err);
+      setWatchEpisodes([]);
+    } finally {
+      setWatchEpisodesLoading(false);
+    }
+  }, [id]);
+
+  // 站内观看：搜索某集的资源
+  const searchMediaForEpisode = useCallback(async (ep) => {
+    if (!subject || !ep) return;
+    setSelectedEp(ep);
+    setMediaSearching(true);
+    setMediaSearchError(null);
+    setMediaMatches([]);
+
+    try {
+      const subjectNames = [];
+      if (subject.name_cn) subjectNames.push(subject.name_cn);
+      if (subject.name) subjectNames.push(subject.name);
+
+      const request = {
+        subjectId: String(subject.id),
+        subjectNames,
+        episodeSort: String(ep.sort || ep.ep),
+        episodeName: ep.name || '',
+        type: subject.type || 2,
+      };
+
+      const result = await mediaSourceManager.fetchAll(request);
+      setMediaMatches(result.results || []);
+      if (result.errors?.length > 0) {
+        console.warn('[InfoDetail] media search errors:', result.errors);
+      }
+    } catch (err) {
+      console.error('[InfoDetail] media search failed:', err);
+      setMediaSearchError(err.message || '资源搜索失败');
+    } finally {
+      setMediaSearching(false);
+    }
+  }, [subject]);
+
+  // 切换到站内观看标签时自动获取剧集
+  useEffect(() => {
+    if (activeTab === 'watch' && watchEpisodes.length === 0 && !watchEpisodesLoading) {
+      fetchWatchEpisodes();
+    }
+  }, [activeTab, watchEpisodes.length, watchEpisodesLoading, fetchWatchEpisodes]);
 
   const loadMoreComments = () => {
     const nextPage = bgmCommentsPage + 1;
@@ -713,6 +784,10 @@ export default function InfoDetail() {
                 <button className={`detail-tab ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>条目介绍</button>
                 <button className={`detail-tab ${activeTab === 'characters' ? 'active' : ''}`} onClick={() => setActiveTab('characters')}>出场角色</button>
                 <button className={`detail-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>评论区</button>
+                {/* 站内观看标签：仅对动画/三次元类型显示 */}
+                {(subject?.type === 2 || subject?.type === 6) && (
+                  <button className={`detail-tab ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => setActiveTab('watch')}>站内观看</button>
+                )}
               </div>
 
               <div className="detail-tab-content">
@@ -961,6 +1036,146 @@ export default function InfoDetail() {
                             </div>
                           )}
                         </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 站内观看 Tab */}
+                {activeTab === 'watch' && (
+                  <div className="watch-tab-layout">
+                    {/* 左侧：资源搜索结果 */}
+                    <div className="watch-resources">
+                      <div className="resources-header">
+                        <div className="resources-title">
+                          <Search size={16} /> 资源搜索
+                          {selectedEp && <span className="resources-ep-badge">第{selectedEp.sort || selectedEp.ep}话</span>}
+                        </div>
+                      </div>
+
+                      {/* 未选择剧集 */}
+                      {!selectedEp && !mediaSearching && (
+                        <div className="resources-empty">
+                          <div className="resources-empty-icon">📺</div>
+                          <div className="resources-empty-text">选择剧集开始搜索</div>
+                          <div className="resources-empty-hint">从右侧剧集列表中选择一集</div>
+                        </div>
+                      )}
+
+                      {/* 搜索中 */}
+                      {mediaSearching && (
+                        <div className="resources-loading">
+                          <div className="loading-spinner"></div>
+                          正在搜索资源...
+                        </div>
+                      )}
+
+                      {/* 搜索错误 */}
+                      {mediaSearchError && (
+                        <div className="resources-empty">
+                          <AlertCircle size={32} style={{color: 'var(--error)', marginBottom: 8}} />
+                          <div className="resources-empty-text">{mediaSearchError}</div>
+                        </div>
+                      )}
+
+                      {/* 搜索结果 */}
+                      {!mediaSearching && mediaMatches.length > 0 && (() => {
+                        // 按源分组
+                        const groups = {};
+                        mediaMatches.forEach(m => {
+                          const sid = m.media.sourceId;
+                          if (!groups[sid]) groups[sid] = { sourceId: sid, name: sid, items: [] };
+                          groups[sid].items.push(m);
+                        });
+                        const sourceColors = {
+                          lizi: 'linear-gradient(135deg,#e886a2,#a855f7)',
+                          feisu: 'linear-gradient(135deg,#667eea,#764ba2)',
+                          bfzy: 'linear-gradient(135deg,#4ecdc4,#44b09e)',
+                          kuaikan: 'linear-gradient(135deg,#f093fb,#f5576c)',
+                          ffzy: 'linear-gradient(135deg,#4facfe,#00f2fe)',
+                          dmhy: 'linear-gradient(135deg,#ffe66d,#f9a825)',
+                          mikan: 'linear-gradient(135deg,#ff9a9e,#fecfef)',
+                          local_cache: 'linear-gradient(135deg,#a8edea,#fed6e3)',
+                        };
+                        const sourceNames = {
+                          lizi: '量子资源', feisu: '飞速资源', bfzy: '暴风资源',
+                          kuaikan: '快看资源', ffzy: '非凡资源', dmhy: '动漫花园',
+                          mikan: '蜜柑计划', local_cache: '本地缓存',
+                        };
+                        return Object.values(groups).map(g => (
+                          <div key={g.sourceId} className="source-group">
+                            <div className="source-group-header">
+                              <div className="source-group-icon" style={{background: sourceColors[g.sourceId] || 'var(--primary)'}}>
+                                {(sourceNames[g.sourceId] || g.sourceId)[0]}
+                              </div>
+                              <span className="source-group-name">{sourceNames[g.sourceId] || g.sourceId}</span>
+                              <span className="source-group-count">{g.items.length}条</span>
+                            </div>
+                            <div className="source-group-items">
+                              {g.items.map((m, i) => (
+                                <div key={i} className="source-item" onClick={() => {
+                                  if (m.media.download?.url) {
+                                    navigate(`/video/play/${subject.id}/${selectedEp?.sort || selectedEp?.ep || 1}`, {
+                                      state: { media: m.media, episode: selectedEp, subject }
+                                    });
+                                  }
+                                }}>
+                                  <span className={`match-badge ${m.matchKind === MatchKind.EXACT ? 'exact' : 'fuzzy'}`}>
+                                    {m.matchKind === MatchKind.EXACT ? '精确' : '模糊'}
+                                  </span>
+                                  <span className="source-item-title">{m.media.title}</span>
+                                  <div className="source-item-props">
+                                    {m.media.download?.kind === 'http' && <span className="prop-tag">在线</span>}
+                                    {m.media.download?.kind === 'torrent' && <span className="prop-tag">BT</span>}
+                                    {m.media.properties?.tier && <span className="prop-tag">{m.media.properties.tier}</span>}
+                                  </div>
+                                  <button className={`play-btn ${m.media.download?.kind === 'torrent' ? 'buffer' : ''}`}>
+                                    {m.media.download?.kind === 'torrent' ? '⏳ 缓冲' : '▶ 播放'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+
+                      {/* 无结果 */}
+                      {!mediaSearching && selectedEp && mediaMatches.length === 0 && !mediaSearchError && (
+                        <div className="resources-empty">
+                          <div className="resources-empty-icon">🔍</div>
+                          <div className="resources-empty-text">未找到可用资源</div>
+                          <div className="resources-empty-hint">尝试选择其他剧集</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 右侧：剧集列表 */}
+                    <div className="watch-episodes">
+                      <div className="ep-sidebar-header">
+                        剧集 <span className="ep-count">{watchEpisodes.length}话</span>
+                      </div>
+                      {watchEpisodesLoading ? (
+                        <div className="resources-loading" style={{padding: '24px 12px'}}>
+                          <div className="loading-spinner"></div>
+                        </div>
+                      ) : (
+                        <div className="ep-list">
+                          {watchEpisodes.map((ep, i) => (
+                            <div
+                              key={ep.id || i}
+                              className={`ep-item ${selectedEp?.id === ep.id ? 'active' : ''}`}
+                              onClick={() => searchMediaForEpisode(ep)}
+                            >
+                              <span className="ep-num">{ep.sort || ep.ep || i + 1}</span>
+                              <span className="ep-title">{ep.name || `第${ep.sort || ep.ep || i + 1}话`}</span>
+                            </div>
+                          ))}
+                          {watchEpisodes.length === 0 && (
+                            <div style={{padding: '20px 12px', textAlign: 'center', color: 'var(--text-quaternary)', fontSize: 13}}>
+                              暂无剧集信息
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
