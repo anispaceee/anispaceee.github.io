@@ -641,16 +641,14 @@ export default function InfoDetail() {
       {subject?.images?.large && !bgFailed ? (
         <div 
           className="detail-page-background"
-          style={{ backgroundImage: `url(${subject.images.large})` }}
+          style={{ backgroundImage: `url(${subject.images.large})`, filter: `blur(${Math.min(30, scrollY * 0.06)}px)`, transform: `scale(${1.02 + Math.min(0.05, scrollY * 0.0001)})` }}
         >
           <img src={subject.images.large} alt="" style={{ display: 'none' }} onError={() => setBgFailed(true)} />
           <div className="detail-bg-overlay" />
-          <div className="detail-bg-blur" style={{ backdropFilter: `blur(${Math.min(40, scrollY * 0.08)}px)`, WebkitBackdropFilter: `blur(${Math.min(40, scrollY * 0.08)}px)` }} />
         </div>
       ) : (
         <div className="detail-page-background detail-page-bg-fallback">
           <div className="detail-bg-overlay" />
-          <div className="detail-bg-blur" />
         </div>
       )}
       <div className="detail-hero">
