@@ -501,3 +501,69 @@
 .novel-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
 .novel-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .novel-nav-info { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+/* ── 播放平台 ── */
+
+.detail-platform-links {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+}
+
+.detail-platform-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+
+.detail-platform-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detail-platform-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.detail-platform-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+  color: white;
+}
+
+.detail-platform-region {
+  font-size: 9px;
+  opacity: 0.8;
+}
+
+/* 平台品牌色 */
+.platform-bilibili { background: #00a1d6; }
+.platform-bilibili_hk_mo_tw { background: #00a1d6; }
+.platform-bilibili_hk_mo { background: #00a1d6; }
+.platform-bilibili_tw { background: #00a1d6; }
+.platform-acfun { background: #e53935; }
+.platform-netflix { background: #e50914; }
+.platform-gamer { background: #ff6b00; }
+.platform-youku { background: #1a9cff; }
+.platform-qq { background: #ff6600; }
+.platform-iqiyi { background: #00c800; }
+.platform-nicovideo { background: #231815; }
+.platform-mgtv { background: #ff8601; }
+.platform-letv { background: #e5171d; }
+.platform-disneyplus { background: #113ccf; }
+.platform-amazon { background: #ff9900; }
+.platform-hulu { background: #1ce783; color: #000; }
+.platform-crunchyroll { background: #f47521; }
+.platform-bahamut { background: #0a7cba; }

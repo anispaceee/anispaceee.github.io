@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService, Wenku8Service } from '../../services/api';
+import { BangumiDataService } from '../../services/BangumiDataService';
 import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -203,6 +204,35 @@ export default function InfoDetail() {
 
   // 是否为 NSFW 条目（详情 API 返回 404 但有 preview 数据）
   const [isNsfw, setIsNsfw] = useState(false);
+
+  // 播放平台链接
+  const [platformLinks, setPlatformLinks] = useState(null);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    BangumiDataService.getSitesByBgmId(id).then(item => {
+      if (cancelled || !item?.sites) return;
+      const links = [];
+      const siteMeta = BangumiDataService.getSiteMeta();
+      item.sites.forEach(site => {
+        if (site.site === 'bangumi') return; // 跳过 Bangumi 自身
+        const meta = siteMeta[site.site];
+        if (!meta || meta.type !== 'onair') return; // 仅展示播放平台
+        const url = BangumiDataService.generatePlatformUrl(site.site, site.id);
+        if (url) {
+          links.push({
+            key: site.site,
+            title: meta.title,
+            url,
+            regions: meta.regions || [],
+          });
+        }
+      });
+      if (!cancelled) setPlatformLinks(links);
+    });
+    return () => { cancelled = true; };
+  }, [id]);
 
   // wenku8 轻小说相关状态
   const [wenku8Results, setWenku8Results] = useState([]);
@@ -476,8 +506,9 @@ export default function InfoDetail() {
   }, []);
 
   const ANIME_SOURCES = [
+    { id: 'internal', name: '站内观看', icon: '🎬', isInternal: true },
     { id: 'bilibili', name: 'Bilibili', icon: '📺', searchUrl: (name) => `https://search.bilibili.com/all?keyword=${encodeURIComponent(name)}` },
-    { id: 'acfun', name: 'AcFun', icon: '🎬', searchUrl: (name) => `https://www.acfun.cn/search?keyword=${encodeURIComponent(name)}` },
+    { id: 'acfun', name: 'AcFun', icon: '🎥', searchUrl: (name) => `https://www.acfun.cn/search?keyword=${encodeURIComponent(name)}` },
     { id: 'dmhy', name: '动漫花园', icon: '🌸', searchUrl: (name) => `https://share.dmhy.org/topics/list?keyword=${encodeURIComponent(name)}` },
     { id: 'nyaa', name: 'Nyaa', icon: '🐱', searchUrl: (name) => `https://nyaa.si/?f=0&c=0_0&q=${encodeURIComponent(name)}` },
     { id: 'mikan', name: '蜜柑计划', icon: '🍊', searchUrl: (name) => `https://mikanani.me/Home/Search?searchstr=${encodeURIComponent(name)}` },
@@ -501,11 +532,6 @@ export default function InfoDetail() {
   ];
 
   const handleWatchNow = async () => {
-    // 动画/三次元：切换到站内观看标签
-    if (subject?.type === 2 || subject?.type === 6) {
-      setActiveTab('watch');
-      return;
-    }
     if (watchLoading) return;
     setWatchLoading(true);
     const typeCode = subject?.type || 2;
@@ -513,7 +539,7 @@ export default function InfoDetail() {
     const nameJp = subject?.name || '';
 
     let sources = [];
-    if (typeCode === 2) {
+    if (typeCode === 2 || typeCode === 6) {
       sources = ANIME_SOURCES.map(s => ({
         ...s,
         url: s.searchUrl ? s.searchUrl(name || nameJp) : null,
@@ -541,7 +567,9 @@ export default function InfoDetail() {
   };
 
   const handleSourceSelect = (source) => {
-    if (source.url) {
+    if (source.isInternal) {
+      setActiveTab('watch');
+    } else if (source.url) {
       window.open(source.url, '_blank', 'noopener,noreferrer');
     }
     setShowSourcePicker(false);
@@ -823,7 +851,7 @@ export default function InfoDetail() {
               {showSourcePicker && (
                 <div className="detail-source-picker">
                   <h4>{subject?.type === 4 ? '查找游戏' : subject?.type === 1 ? '查找小说' : '选择播放源'}</h4>
-                  <p className="detail-source-hint">点击将在新标签页打开搜索结果</p>
+                  <p className="detail-source-hint">{subject?.type === 2 || subject?.type === 6 ? '选择站内观看或外部搜索' : '点击将在新标签页打开搜索结果'}</p>
                   <div className="detail-source-list">
                     {watchSources.map(s => (
                       <button key={s.id} className="detail-source-item" onClick={() => handleSourceSelect(s)}>
@@ -869,6 +897,29 @@ export default function InfoDetail() {
                 <ExternalLink size={15} /> 在Bangumi查看
               </a>
             </div>
+
+            {/* 播放平台 */}
+            {platformLinks && platformLinks.length > 0 && (
+              <div className="detail-platform-links">
+                <h4 className="detail-platform-title">播放平台</h4>
+                <div className="detail-platform-list">
+                  {platformLinks.map(link => (
+                    <a
+                      key={link.key}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`detail-platform-btn platform-${link.key}`}
+                    >
+                      {link.title}
+                      {link.regions.length > 0 && (
+                        <span className="detail-platform-region">{link.regions.join('/')}</span>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* 收藏统计 */}
             {collectionTotal > 0 && (
