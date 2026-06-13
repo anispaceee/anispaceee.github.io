@@ -3,7 +3,7 @@
 .friend-space-title { display: flex; align-items: center; gap: 10px; }
 .friend-space-title h1 { font-size: 20px; font-weight: 800; }
 .friend-space-subtitle { font-size: 12px; color: var(--text-quaternary); background: var(--bg-input); padding: 2px 8px; border-radius: var(--radius-full); }
-.friend-space-compose-btn { display: flex; align-items: center; gap: 6px; padding: 8px 18px; background: var(--primary); color: #fff; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; box-shadow: var(--shadow-primary); }
+.friend-space-compose-btn { display: flex; align-items: center; gap: 6px; padding: 8px 18px; background: var(--primary); color: var(--text-on-primary); border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; box-shadow: var(--shadow-primary); }
 
 .friend-space-composer { background: var(--bg-card); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; border: 1px solid var(--border-secondary); box-shadow: var(--shadow-xs); }
 .composer-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -24,7 +24,7 @@
 .composer-image-remove { position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--error); color: #fff; font-size: 8px; }
 .composer-tool { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--text-tertiary); transition: all var(--transition-fast); }
 .composer-tool:hover { background: var(--bg-input); color: var(--primary); }
-.composer-submit { padding: 6px 20px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 13px; font-weight: 600; }
+.composer-submit { padding: 6px 20px; background: var(--primary); color: var(--text-on-primary); border-radius: 20px; font-size: 13px; font-weight: 600; }
 .composer-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .friend-space-filters { display: flex; gap: 6px; margin-bottom: 16px; }
@@ -61,7 +61,7 @@
 .space-comment-input { display: flex; gap: 6px; margin-top: 8px; }
 .space-comment-input input { flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-secondary); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-primary); }
 .space-comment-input input:focus { border-color: var(--primary); outline: none; }
-.space-comment-input button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 20px; background: var(--primary); color: #fff; }
+.space-comment-input button { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 20px; background: var(--primary); color: var(--text-on-primary); }
 
 /* ─── 头部按钮组 ─── */
 .friend-space-header-actions {
