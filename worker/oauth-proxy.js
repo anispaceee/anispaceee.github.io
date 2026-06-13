@@ -688,7 +688,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       }
     }
     const comments = await env.DB.prepare(
-      'SELECT r.id, r.subject_id, r.score, r.content, r.created_at, c.subject_name, c.subject_image FROM ratings r LEFT JOIN collections c ON r.subject_id = c.subject_id AND r.user_id = c.user_id WHERE r.user_id = ? AND r.content IS NOT NULL AND r.content != \'\' ORDER BY r.created_at DESC LIMIT 10'
+      'SELECT r.id, r.subject_id, r.subject_type, r.score, r.content, r.created_at, c.subject_name, c.subject_image FROM ratings r LEFT JOIN collections c ON r.subject_id = c.subject_id AND r.user_id = c.user_id WHERE r.user_id = ? ORDER BY r.created_at DESC LIMIT 20'
     ).bind(userId).all();
     return jsonResponse(comments.results || [], 200, origin);
   }
