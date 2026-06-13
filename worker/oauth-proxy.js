@@ -699,8 +699,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
   const subjectCommentsMatch = pathname.match(/^\/api\/subjects\/(\d+)\/comments$/);
   if (subjectCommentsMatch && method === 'GET') {
     const subjectId = Number(subjectCommentsMatch[1]);
-    const sort = url.searchParams.get('sort') || 'latest';
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
+    const reqUrl = new URL(request.url);
+    const sort = reqUrl.searchParams.get('sort') || 'latest';
+    const limit = Math.min(parseInt(reqUrl.searchParams.get('limit') || '50'), 100);
     const orderClause = sort === 'hottest' ? 'ORDER BY sc.likes DESC, sc.created_at DESC' : 'ORDER BY sc.created_at DESC';
     const comments = await env.DB.prepare(
       `SELECT sc.id, sc.subject_id, sc.user_id, sc.content, sc.likes, sc.created_at, u.name AS username, u.avatar FROM subject_comments sc JOIN users u ON sc.user_id = u.id WHERE sc.subject_id = ? ${orderClause} LIMIT ?`

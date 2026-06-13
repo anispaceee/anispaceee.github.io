@@ -22,6 +22,11 @@
 .detail-delete-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-sm); color: var(--text-quaternary); background: none; border: 1px solid transparent; cursor: pointer; transition: all var(--transition-fast); margin-left: auto; }
 .detail-delete-btn:hover { color: var(--error); border-color: var(--error); background: #fff5f5; }
 .detail-content { font-size: 15px; line-height: 1.8; color: var(--text-primary); margin-bottom: 16px; }
+.detail-content p, .detail-content strong, .detail-content em, .detail-content li, .detail-content blockquote, .detail-content span { color: inherit; }
+.detail-content a { color: var(--primary); text-decoration: underline; }
+.detail-content blockquote { padding: 8px 14px; border-left: 3px solid var(--primary); background: var(--primary-bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 8px 0; color: var(--text-secondary); }
+.detail-content ul { padding-left: 20px; margin: 8px 0; }
+.detail-content li { list-style: disc; margin: 4px 0; }
 .detail-images { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .detail-img { max-width: 400px; max-height: 300px; border-radius: var(--radius-md); object-fit: cover; }
 .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -45,6 +50,11 @@
 .reply-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .reply-time { font-size: 11px; color: var(--text-quaternary); margin-left: auto; }
 .reply-content { font-size: 14px; line-height: 1.6; color: var(--text-primary); }
+.reply-content p, .reply-content strong, .reply-content em, .reply-content li, .reply-content blockquote, .reply-content span { color: inherit; }
+.reply-content a { color: var(--primary); text-decoration: underline; }
+.reply-content blockquote { padding: 6px 12px; border-left: 3px solid var(--primary); background: var(--primary-bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 6px 0; color: var(--text-secondary); }
+.reply-content ul { padding-left: 18px; margin: 6px 0; }
+.reply-content li { list-style: disc; margin: 3px 0; }
 
 /* 回复操作按钮 */
 .reply-actions { display: flex; gap: 12px; margin-top: 6px; }

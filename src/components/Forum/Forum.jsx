@@ -477,8 +477,8 @@ export default function Forum() {
           </div>
         )}
 
-        {/* 帖子列表 */}
-        <div className="forum-posts">
+        {/* 帖子列表 - 小红书瀑布流 */}
+        <div className="forum-posts-waterfall">
           {loadingPosts ? (
             <div className="forum-loading"><Loader2 size={24} className="spin" /> 雨何时停？</div>
           ) : filteredPosts.length === 0 ? (
@@ -490,37 +490,31 @@ export default function Forum() {
               const postTags = Array.isArray(post.tags) ? post.tags : [];
               const hasImage = postImages.length > 0;
               return (
-                <Link to={`/forum/post/${post.id}`} key={post.id} className={`forum-post-card ${hasImage ? 'has-image' : ''}`}>
-                  {hasImage && (
-                    <div className="post-card-cover">
-                      <img src={typeof postImages[0] === 'string' ? postImages[0] : postImages[0]?.preview} alt="" className="post-cover-img" loading="lazy" />
-                      {postImages.length > 1 && <span className="post-cover-count">+{postImages.length - 1}</span>}
+                <Link to={`/forum/post/${post.id}`} key={post.id} className="waterfall-card">
+                  {hasImage ? (
+                    <div className="waterfall-card-cover">
+                      <img src={typeof postImages[0] === 'string' ? postImages[0] : postImages[0]?.preview} alt="" loading="lazy" />
+                      {postImages.length > 1 && <span className="waterfall-img-count">+{postImages.length - 1}</span>}
+                    </div>
+                  ) : (
+                    <div className="waterfall-card-text-preview">
+                      <p>{post.content}</p>
                     </div>
                   )}
-                  <div className="post-card-body">
-                    <div className="post-card-top">
-                      <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={28} className="post-user-avatar" />
-                      <span className="post-author">{author?.name}</span>
-                      <span className="post-time-sep">·</span>
-                      <span className="post-time">{timeAgo(post.created_at)}</span>
-                      <div className="post-card-stats">
-                        <span className="post-stat"><Heart size={12} /> {post.likes || 0}</span>
-                        <span className="post-stat"><MessageCircle size={12} /> {post.replies_count || 0}</span>
-                        <span className="post-stat"><Eye size={12} /> {post.views || 0}</span>
+                  <div className="waterfall-card-body">
+                    <h3 className="waterfall-card-title">{post.title}</h3>
+                    <div className="waterfall-card-bottom">
+                      <div className="waterfall-card-author">
+                        <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={20} />
+                        <span className="waterfall-author-name">{author?.name}</span>
                       </div>
+                      <span className="waterfall-card-likes"><Heart size={12} /> {post.likes || 0}</span>
                     </div>
-                    <h3 className="post-card-title">{post.title}</h3>
-                    <p className="post-card-content">{post.content}</p>
-                    <div className="post-card-bottom">
+                    <div className="waterfall-card-tags">
                       <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
-                      {postTags.length > 0 && (
-                        <div className="post-card-tags">
-                          {postTags.slice(0, 4).map(tag => (
-                            <span key={tag} className="post-tag-pill">{tag}</span>
-                          ))}
-                          {postTags.length > 4 && <span className="post-tag-pill more">+{postTags.length - 4}</span>}
-                        </div>
-                      )}
+                      {postTags.slice(0, 2).map(tag => (
+                        <span key={tag} className="post-tag-pill">{tag}</span>
+                      ))}
                     </div>
                   </div>
                 </Link>
