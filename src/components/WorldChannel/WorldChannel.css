@@ -2,7 +2,7 @@
 .wc-mac-window {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: calc(100vh - var(--header-height));
   background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
   border-radius: 12px;
   overflow: hidden;
