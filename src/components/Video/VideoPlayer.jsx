@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 import { BangumiService } from '../../services/api';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
 import { danmakuService } from '../../services/media/DanmakuService';
+import { isTauri, addTorrent, getStreamUrl } from '../../services/media/TorrentAdapter';
 import { ArrowLeft, Play, Server, ChevronLeft, ChevronRight, Loader2, List, Layers } from 'lucide-react';
 import './VideoPlayer.css';
 
@@ -240,52 +241,44 @@ export default function VideoPlayer() {
     }
 
     if (downloadKind === 'magnet') {
-      // WebTorrent BT playback (dynamic import to avoid Node.js stream crash at startup)
-      const initWebTorrent = async () => {
-        try {
-          const { default: WebTorrent } = await import('webtorrent');
-          // 使用 animeko 的 tracker 列表提高连接率
-          const trackerList = [
-            'udp://tracker1.itzmx.com:8080/announce',
-            'udp://moonburrow.club:6969/announce',
-            'udp://new-line.net:6969/announce',
-            'udp://opentracker.io:6969/announce',
-            'udp://tamas3.ynh.fr:6969/announce',
-            'udp://tracker.bittor.pw:1337/announce',
-            'udp://tracker.dump.cl:6969/announce',
-            'udp://tracker2.dler.org:80/announce',
-            'https://tracker.tamersunion.org:443/announce',
-            'udp://open.demonii.com:1337/announce',
-            'udp://open.stealth.si:80/announce',
-            'udp://tracker.torrent.eu.org:451/announce',
-            'udp://exodus.desync.com:6969/announce',
-            'udp://tracker.moeking.me:6969/announce',
-            'udp://explodie.org:6969/announce',
-            'udp://tracker.tiny-vps.com:6969/announce',
-            'udp://retracker01-msk-virt.corbina.net:80/announce',
-            'udp://tracker.opentrackr.org:1337/announce',
-            'http://tracker.opentrackr.org:1337/announce',
-            'http://nyaa.tracker.wf:7777/announce',
-            'wss://tracker.openwebtorrent.com',
-            'wss://tracker.btorrent.xyz',
-          ];
-          const client = new WebTorrent({
-            maxConns: 100,
-            tracker: { announce: trackerList },
-          });
-          torrentRef.current = client;
+      // BT 播放：Tauri 端使用 fx-torrent，Web 端使用 WebTorrent
+      const trackerList = [
+        'udp://tracker1.itzmx.com:8080/announce',
+        'udp://moonburrow.club:6969/announce',
+        'udp://new-line.net:6969/announce',
+        'udp://opentracker.io:6969/announce',
+        'udp://tamas3.ynh.fr:6969/announce',
+        'udp://tracker.bittor.pw:1337/announce',
+        'udp://tracker.dump.cl:6969/announce',
+        'udp://tracker2.dler.org:80/announce',
+        'https://tracker.tamersunion.org:443/announce',
+        'udp://open.demonii.com:1337/announce',
+        'udp://open.stealth.si:80/announce',
+        'udp://tracker.torrent.eu.org:451/announce',
+        'udp://exodus.desync.com:6969/announce',
+        'udp://tracker.moeking.me:6969/announce',
+        'udp://explodie.org:6969/announce',
+        'udp://tracker.tiny-vps.com:6969/announce',
+        'udp://retracker01-msk-virt.corbina.net:80/announce',
+        'udp://tracker.opentrackr.org:1337/announce',
+        'http://tracker.opentrackr.org:1337/announce',
+        'http://nyaa.tracker.wf:7777/announce',
+        'wss://tracker.openwebtorrent.com',
+        'wss://tracker.btorrent.xyz',
+      ];
 
-          client.add(url, {
-            announce: trackerList,
-          }, (torrent) => {
-            // Find the largest video file
-            const file = torrent.files.sort((a, b) => b.length - a.length)[0];
-            if (!file) {
-              setPlayError('种子中未找到视频文件');
+      if (isTauri) {
+        // Tauri: 调用 Rust 命令，使用 fx-torrent
+        const initTauriTorrent = async () => {
+          try {
+            const streamUrl = await addTorrent(url, trackerList);
+            if (!streamUrl) {
+              setPlayError('Tauri BT 引擎返回空流地址');
               return;
             }
+            console.log('[VideoPlayer] Tauri BT stream URL:', streamUrl);
 
-            // Create a video element for WebTorrent to render into
+            // 使用 hls.js 或 <video> 播放本地流
             const container = playerContainerRef.current;
             const videoEl = document.createElement('video');
             videoEl.style.width = '100%';
@@ -294,34 +287,69 @@ export default function VideoPlayer() {
             videoEl.autoplay = true;
             container.appendChild(videoEl);
 
-            file.renderTo(videoEl, (err) => {
-              if (err) {
-                setPlayError('视频渲染失败: ' + err.message);
-              }
-            });
+            videoEl.src = streamUrl;
+            videoEl.play().catch(e => console.warn('[VideoPlayer] autoplay blocked:', e));
 
-            // Track progress
-            torrent.on('download', () => {
-              setTorrentProgress({
-                progress: Math.round(torrent.progress * 100),
-                downloadSpeed: Math.round(torrent.downloadSpeed / 1024),
-                numPeers: torrent.numPeers,
+            // TODO: 轮询进度
+          } catch (err) {
+            setPlayError('Tauri BT 引擎错误: ' + (err.message || err));
+          }
+        };
+        initTauriTorrent();
+      } else {
+        // Web: 使用 WebTorrent（WebRTC）
+        const initWebTorrent = async () => {
+          try {
+            const { default: WebTorrent } = await import('webtorrent');
+            const client = new WebTorrent({
+              maxConns: 100,
+              tracker: { announce: trackerList },
+            });
+            torrentRef.current = client;
+
+            client.add(url, { announce: trackerList }, (torrent) => {
+              const file = torrent.files.sort((a, b) => b.length - a.length)[0];
+              if (!file) {
+                setPlayError('种子中未找到视频文件');
+                return;
+              }
+
+              const container = playerContainerRef.current;
+              const videoEl = document.createElement('video');
+              videoEl.style.width = '100%';
+              videoEl.style.height = '100%';
+              videoEl.controls = true;
+              videoEl.autoplay = true;
+              container.appendChild(videoEl);
+
+              file.renderTo(videoEl, (err) => {
+                if (err) {
+                  setPlayError('视频渲染失败: ' + err.message);
+                }
+              });
+
+              torrent.on('download', () => {
+                setTorrentProgress({
+                  progress: Math.round(torrent.progress * 100),
+                  downloadSpeed: Math.round(torrent.downloadSpeed / 1024),
+                  numPeers: torrent.numPeers,
+                });
+              });
+
+              torrent.on('error', (err) => {
+                setPlayError('种子下载失败: ' + err.message);
               });
             });
 
-            torrent.on('error', (err) => {
-              setPlayError('种子下载失败: ' + err.message);
+            client.on('error', (err) => {
+              setPlayError('WebTorrent 错误: ' + err.message);
             });
-          });
-
-          client.on('error', (err) => {
-            setPlayError('WebTorrent 错误: ' + err.message);
-          });
-        } catch (err) {
-          setPlayError('WebTorrent 加载失败，浏览器可能不支持 BT 播放');
-        }
-      };
-      initWebTorrent();
+          } catch (err) {
+            setPlayError('WebTorrent 加载失败，浏览器可能不支持 BT 播放');
+          }
+        };
+        initWebTorrent();
+      }
 
       return () => {
         if (torrentRef.current) {
@@ -336,7 +364,7 @@ export default function VideoPlayer() {
         }
       };
     } else {
-      // HTTP/HLS playback — 直连 + Worker 代理回退
+      // HTTP/HLS playback — Tauri 端通过 Rust 代理，Web 端直连 + Worker 代理回退
       const initPlayer = async () => {
         try {
           await loadPlayerLibs;
@@ -344,13 +372,26 @@ export default function VideoPlayer() {
           console.error('[VideoPlayer] Failed to load player libs:', e);
         }
 
-        // Detect HLS: check both original URL and the proxied URL path
         const isM3U8 = /\.m3u8(\?|$)/i.test(url) || /\.m3u8/i.test(decodeURIComponent(url));
         const proxyUrl = currentMedia?.download?.proxyUrl || '';
-        console.log('[VideoPlayer] 初始化播放器, url:', url.substring(0, 120), 'isM3U8:', isM3U8, 'Hls available:', !!Hls, 'DPlayer available:', !!DPlayer, 'proxyUrl:', proxyUrl ? 'available' : 'none');
+        const referer = currentMedia?.properties?.playSource
+          ? new URL(currentMedia.download.url).origin + '/'
+          : '';
+
+        // Tauri 端：通过 Rust 代理获取流 URL
+        let playUrl = url;
+        if (isTauri && referer) {
+          try {
+            playUrl = await getStreamUrl(url, proxyUrl, referer);
+            console.log('[VideoPlayer] Tauri proxy stream URL:', playUrl.substring(0, 120));
+          } catch (err) {
+            console.warn('[VideoPlayer] Tauri proxy failed, using original URL:', err);
+          }
+        }
+
+        console.log('[VideoPlayer] 初始化播放器, url:', playUrl.substring(0, 120), 'isM3U8:', isM3U8, 'Hls available:', !!Hls, 'DPlayer available:', !!DPlayer, 'isTauri:', isTauri);
 
         try {
-          // For m3u8 streams: use hls.js directly with a plain <video> element
           if (isM3U8 && Hls && Hls.isSupported()) {
             const container = playerContainerRef.current;
             const videoEl = document.createElement('video');
@@ -368,7 +409,7 @@ export default function VideoPlayer() {
               enableWorker: true,
               lowLatencyMode: false,
             });
-            hls.loadSource(url);
+            hls.loadSource(playUrl);
             hls.attachMedia(videoEl);
             hlsRef.current = hls;
 
@@ -382,8 +423,8 @@ export default function VideoPlayer() {
             hls.on(Hls.Events.ERROR, (_event, data) => {
               if (data.fatal) {
                 console.error('[VideoPlayer] HLS fatal error:', data.type, data.details, data);
-                // 如果直连失败（CORS 或网络错误），尝试 Worker 代理回退
-                if (!switchedToProxy && proxyUrl && (data.type === Hls.ErrorTypes.NETWORK_ERROR || data.details === 'manifestLoadError' || data.details === 'manifestLoadTimeOut')) {
+                // Web 端：直连失败时尝试 Worker 代理回退
+                if (!isTauri && !switchedToProxy && proxyUrl && (data.type === Hls.ErrorTypes.NETWORK_ERROR || data.details === 'manifestLoadError' || data.details === 'manifestLoadTimeOut')) {
                   console.log('[VideoPlayer] 直连失败，切换到 Worker 代理:', proxyUrl.substring(0, 80));
                   switchedToProxy = true;
                   hls.loadSource(proxyUrl);
