@@ -381,6 +381,7 @@ export default function InfoDetail() {
       }
     } catch (err) {
       console.warn('[InfoDetail] load comments failed:', err);
+      setLocalComments([]);
     } finally {
       setCommentsLoading(false);
     }
@@ -400,6 +401,7 @@ export default function InfoDetail() {
       });
       if (res.ok) {
         setNewComment('');
+        setActiveTab('comments');
         loadSubjectComments();
       } else {
         const err = await res.json();
@@ -639,7 +641,7 @@ export default function InfoDetail() {
           <div className="detail-error-actions">
             <button className="detail-error-retry" onClick={fetchDetail}><RefreshCw size={16} /> 重试</button>
             {!isNotFound && <a href={BangumiService.buildBangumiUrl(id)} target="_blank" rel="noopener noreferrer" className="detail-error-bangumi"><ExternalLink size={16} /> 在Bangumi查看</a>}
-            <Link to="/info" className="detail-error-back"><ArrowLeft size={16} /> 返回资讯区</Link>
+            <Link to="/wiki" className="detail-error-back"><ArrowLeft size={16} /> 返回禁書目錄</Link>
           </div>
         </div>
       </div>
@@ -697,7 +699,7 @@ export default function InfoDetail() {
         }}
       >
         <div className="detail-breadcrumb">
-          <Link to="/info" className="breadcrumb-link">资讯区</Link>
+          <Link to="/wiki" className="breadcrumb-link">禁書目錄</Link>
           <ChevronRight size={14} />
           <span className={`breadcrumb-type type-${typeKey}`}>{typeLabel}</span>
           <ChevronRight size={14} />
