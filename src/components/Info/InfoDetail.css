@@ -297,17 +297,17 @@
 .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .comment-name { font-size: 13px; font-weight: 600; }
 .comment-time { font-size: 11px; color: rgba(255,255,255,0.3); margin-left: auto; }
-.comment-content { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.75); word-break: break-word; }
-.comment-actions { display: flex; gap: 8px; margin-top: 8px; }
-.comment-action-btn { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.4); transition: all var(--transition-fast); }
-.comment-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--primary); }
-.comment-action-btn.report:hover { color: var(--error); }
-.comment-replies { margin-top: 8px; padding-left: 12px; border-left: 2px solid rgba(255,255,255,0.1); }
-.comment-reply { display: flex; gap: 8px; padding: 6px 0; }
-.reply-body { flex: 1; }
-.reply-name { font-size: 12px; font-weight: 600; }
-.reply-content { font-size: 13px; color: rgba(255,255,255,0.6); margin-left: 6px; }
-.reply-time { font-size: 10px; color: rgba(255,255,255,0.25); margin-left: 8px; }
+.detail-container .comment-content { font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.75); word-break: break-word; }
+.detail-container .comment-actions { display: flex; gap: 8px; margin-top: 8px; }
+.detail-container .comment-action-btn { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.4); transition: all var(--transition-fast); }
+.detail-container .comment-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--primary); }
+.detail-container .comment-action-btn.report:hover { color: var(--error); }
+.detail-container .comment-replies { margin-top: 8px; padding-left: 12px; border-left: 2px solid rgba(255,255,255,0.1); }
+.detail-container .comment-reply { display: flex; gap: 8px; padding: 6px 0; }
+.detail-container .reply-body { flex: 1; }
+.detail-container .reply-name { font-size: 12px; font-weight: 600; }
+.detail-container .reply-content { font-size: 13px; color: rgba(255,255,255,0.6); margin-left: 6px; }
+.detail-container .reply-time { font-size: 10px; color: rgba(255,255,255,0.25); margin-left: 8px; }
 
 /* Bangumi 社区评论 */
 .bgm-comments-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
