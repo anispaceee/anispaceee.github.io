@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StorageService, BangumiService } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
-import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, Sparkles, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
+import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
 import EmojiPicker from '../Common/EmojiPicker';
 import { PRESET_PERSONAS, emptyOC, buildSystemPrompt } from './personas';
 import { parseDirectives, resolveGoto, runSearchAction } from './naviActions';
@@ -452,49 +452,43 @@ export default function Amadeus() {
   return (
     <div className="amadeus-page">
       <div className="amadeus-container">
-        <div className="amadeus-character-area" style={{ background: `linear-gradient(135deg, ${expr.color}22, ${expr.color}08)` }}>
-          <div className="amadeus-character-portrait">
-            <div className={`amadeus-character-silhouette ${expressionTransition ? 'transitioning' : ''}`} style={{ borderColor: expr.color }}>
+        {/* 顶部角色条 */}
+        <div className="amadeus-top-bar" style={{ background: `linear-gradient(135deg, ${expr.color}15, ${expr.color}08)` }}>
+          <div className="amadeus-top-portrait">
+            <div className={`amadeus-top-silhouette ${expressionTransition ? 'transitioning' : ''}`} style={{ borderColor: expr.color }}>
               {activePersona.image
-                ? <img src={activePersona.image} alt={activePersona.name} className="amadeus-character-img" loading="lazy" />
-                : <span className="amadeus-character-avatar-emoji">{activePersona.avatar}</span>}
-              <span className="amadeus-character-expr">{expr.emoji}</span>
-            </div>
-            <div className="amadeus-character-label">
-              <span className="amadeus-character-name">{activePersona.name}</span>
-              <span className="amadeus-character-sub">{activePersona.tagline}</span>
-            </div>
-            <div className="amadeus-expression-indicator" style={{ background: expr.color }}>
-              {expr.label}
+                ? <img src={activePersona.image} alt={activePersona.name} className="amadeus-top-img" loading="lazy" />
+                : <span className="amadeus-top-avatar-emoji">{activePersona.avatar}</span>}
+              <span className="amadeus-top-expr">{expr.emoji}</span>
             </div>
           </div>
-          <div className="amadeus-expression-bar">
-            {Object.entries(EXPRESSIONS).map(([key, e]) => (
-              <button key={key} className={`amadeus-expr-switch ${currentExpression === key ? 'active' : ''}`} onClick={() => switchExpression(key)} style={currentExpression === key ? { background: e.color, color: '#fff' } : {}}>
-                {e.emoji}
-              </button>
-            ))}
+          <div className="amadeus-top-info">
+            <span className="amadeus-top-name">{activePersona.name}</span>
+            <span className="amadeus-top-sub">{activePersona.tagline}</span>
+          </div>
+          <div className="amadeus-expression-indicator" style={{ background: expr.color }}>
+            {expr.label}
+          </div>
+          <div className="amadeus-top-actions">
+            <button className="amadeus-action-btn" onClick={() => setVoiceEnabled(!voiceEnabled)} title="语音">{voiceEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}</button>
+            <button className="amadeus-action-btn" onClick={() => setShowSettings(!showSettings)} title="设置"><Settings size={14} /></button>
+            <button className="amadeus-action-btn" onClick={clearChat} title="重置"><RotateCw size={14} /></button>
           </div>
         </div>
 
         <div className="amadeus-chat-area">
-          <div className="amadeus-chat-header">
-            <div className="amadeus-chat-title">
-              <Sparkles size={16} />
-              <span>Navi</span>
-              <span className={`amadeus-provider-tag ${llmConfig.provider === 'local' ? 'local' : 'cloud'}`}>
-                {llmConfig.provider === 'local' ? '本地' : llmConfig.provider === 'openai' ? 'OpenAI' : '自定义'}
-              </span>
-            </div>
-            <div className="amadeus-chat-actions">
-              <button className="amadeus-action-btn" onClick={() => setVoiceEnabled(!voiceEnabled)} title="语音">{voiceEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}</button>
-              <button className="amadeus-action-btn" onClick={() => setShowSettings(!showSettings)} title="设置"><Settings size={14} /></button>
-              <button className="amadeus-action-btn" onClick={clearChat} title="重置"><RotateCw size={14} /></button>
-            </div>
-          </div>
-
           {showSettings && (
             <div className="amadeus-settings">
+              <div className="amadeus-settings-group">
+                <label>表情</label>
+                <div className="amadeus-expression-bar">
+                  {Object.entries(EXPRESSIONS).map(([key, e]) => (
+                    <button key={key} className={`amadeus-expr-switch ${currentExpression === key ? 'active' : ''}`} onClick={() => switchExpression(key)} style={currentExpression === key ? { background: e.color, color: '#fff' } : {}}>
+                      {e.emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="amadeus-settings-group">
                 <label>人格</label>
                 <div className="amadeus-persona-list">
