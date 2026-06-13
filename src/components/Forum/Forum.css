@@ -107,7 +107,7 @@
   padding: 8px 24px;
   border-radius: 20px;
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-primary);
   font-size: 13px;
   font-weight: 600;
   transition: all var(--transition-fast);
@@ -302,7 +302,7 @@
 .sidebar-modal-submit {
   padding: 5px 14px;
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-primary);
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 600;
@@ -337,7 +337,7 @@
   padding: 9px 22px;
   border-radius: 20px;
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-primary);
   font-size: 14px;
   font-weight: 600;
   box-shadow: var(--shadow-primary);
@@ -406,7 +406,7 @@
 }
 .sort-pill.active {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-primary);
 }
 .sort-pill:hover:not(.active) {
   background: var(--primary-bg);
@@ -436,7 +436,7 @@
 }
 .forum-board-chip.active {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-primary);
 }
 .forum-board-chip:hover:not(.active) {
   background: var(--primary-bg);
@@ -483,7 +483,7 @@
 }
 .form-mode-tab.active {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-primary);
 }
 .form-char-count {
   font-size: 11px;
@@ -687,11 +687,23 @@
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-/* ─── 帖子列表 ─── */
-.forum-posts {
+/* ─── 帖子列表 - 右滑瀑布流 ─── */
+.forum-posts-scroll {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.forum-posts-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.forum-posts-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 2px;
 }
 .forum-loading, .forum-empty {
   display: flex;
@@ -700,14 +712,15 @@
   padding: 48px;
   color: var(--text-quaternary);
   gap: 8px;
+  width: 100%;
 }
 
-/* ─── 帖子卡片 - hikarinagi 风格 左图右文 ─── */
+/* ─── 帖子卡片 - 瀑布流风格 上图下文 ─── */
 .forum-post-card {
   display: flex;
-  flex-direction: row;
-  gap: 14px;
-  padding: 14px 16px;
+  flex-direction: column;
+  width: 220px;
+  min-width: 220px;
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
@@ -715,21 +728,20 @@
   border: 1px solid transparent;
   text-decoration: none;
   color: inherit;
-  min-height: 110px;
+  overflow: hidden;
+  scroll-snap-align: start;
 }
 .forum-post-card:hover {
   box-shadow: var(--shadow-sm);
   border-color: var(--primary-bg);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
-/* 左侧封面图 */
+/* 封面图 - 自适应高度 */
 .post-card-cover {
   position: relative;
-  width: 160px;
-  min-width: 160px;
-  height: 110px;
-  border-radius: var(--radius-md);
+  width: 100%;
+  aspect-ratio: 4/3;
   overflow: hidden;
   flex-shrink: 0;
   background: var(--bg-input);
@@ -756,75 +768,31 @@
   backdrop-filter: blur(4px);
 }
 
-/* 右侧内容区 */
+/* 内容区 */
 .post-card-body {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+  padding: 10px 12px 12px;
   flex: 1;
   min-width: 0;
-  justify-content: center;
-}
-
-/* 顶部行：头像 + 作者 + 时间 + 统计 */
-.post-card-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.post-user-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  object-fit: cover;
-}
-.post-author {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-.post-time-sep {
-  color: var(--text-quaternary);
-  font-size: 10px;
-}
-.post-time {
-  font-size: 10px;
-  color: var(--text-quaternary);
-  white-space: nowrap;
-}
-.post-card-stats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.post-stat {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 11px;
-  color: var(--text-quaternary);
-  white-space: nowrap;
 }
 
 /* 标题 */
 .post-card-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.4;
   color: var(--text-primary);
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 /* 内容预览 */
 .post-card-content {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.5;
   display: -webkit-box;
@@ -837,9 +805,9 @@
 .post-card-bottom {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-top: auto;
+  margin-top: 4px;
 }
 .post-cat-tag {
   font-size: 10px;
@@ -878,6 +846,50 @@
 .post-tag-pill.more {
   background: var(--primary-bg);
   color: var(--primary);
+}
+
+/* 底部作者+统计 */
+.post-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 6px;
+}
+.post-card-author {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.post-user-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+.post-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.post-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.post-stat {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-quaternary);
+  white-space: nowrap;
 }
 
 /* ─── 右侧栏 ─── */
