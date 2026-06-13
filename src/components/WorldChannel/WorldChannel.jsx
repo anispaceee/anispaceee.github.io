@@ -6,7 +6,7 @@ import UserAvatar from '../Common/UserAvatar';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './WorldChannel.css';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
 export default function WorldChannel() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
