@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { BangumiAuthService, GitHubAuthService } from '../services/api';
@@ -11,8 +11,14 @@ export default function OAuthCallback() {
   const { oauthLogin } = useApp();
   const [status, setStatus] = useState('loading'); // loading | success | error
   const [errorMsg, setErrorMsg] = useState('');
+  const executedRef = useRef(false);
 
   useEffect(() => {
+    // 防止 StrictMode 双渲染或依赖变化导致重复执行
+    // OAuth code 只能用一次，重复发送必然失败
+    if (executedRef.current) return;
+    executedRef.current = true;
+
     // 从 React Router location 或 sessionStorage（SPA redirect fallback）获取参数
     let params = new URLSearchParams(location.search);
     let pathname = location.pathname;
@@ -47,8 +53,6 @@ export default function OAuthCallback() {
         return;
       }
     }
-    // 兼容旧流程：没有 state 也允许通过（向后兼容无 state 的旧请求）
-    // 生产环境上线一段时日后可移除兼容逻辑，改为强制校验
 
     if (error) {
       setStatus('error');
@@ -61,9 +65,6 @@ export default function OAuthCallback() {
       setErrorMsg('未收到授权码');
       return;
     }
-
-    // Determine provider from path (moved up for state check)
-    // const provider already defined above
 
     const handleOAuth = async () => {
       try {
@@ -89,7 +90,8 @@ export default function OAuthCallback() {
     };
 
     handleOAuth();
-  }, [location, oauthLogin, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="oauth-callback-page">
