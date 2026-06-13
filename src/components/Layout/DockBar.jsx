@@ -172,7 +172,7 @@ export default function DockBar() {
     { key: 'amadeus', icon: <Brain size={16} />, label: 'Navi', active: windows.amadeus?.open && !windows.amadeus.minimized, onClick: () => handleAppClick('amadeus') },
     { key: 'music', icon: <Music size={16} />, label: '音乐', active: windows.music?.open && !windows.music.minimized || activePanel === 'music', onClick: () => handleAppClick('music') },
     { key: 'friends', icon: <Users size={16} />, label: 'LeMU', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },
-    { key: 'links', icon: <Link2 size={16} />, label: '友情链接', href: '/links' },
+    { key: 'links', icon: <Link2 size={16} />, label: '友情链接', active: windows.links?.open && !windows.links.minimized, onClick: () => handleAppClick('links') },
     { key: 'settings', icon: <Settings size={16} />, label: '设置', active: activePanel === 'settings' },
     { key: 'notifications', icon: <Bell size={16} />, label: '通知', active: windows.notifications?.open && !windows.notifications.minimized, onClick: () => handleAppClick('notifications'), badge: unreadCount },
   ];

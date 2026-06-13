@@ -15,7 +15,7 @@ import MusicPlayer from './components/Music/MusicPlayer'
 import MinimizedBar from './components/Layout/MinimizedBar'
 import LoginNotificationBar from './components/Layout/LoginNotificationBar'
 import { useMusic, FALLBACK_COVER } from './context/MusicContext'
-import { Play, Pause, SkipBack, SkipForward, Music, Brain, Coffee, Globe, Users, Bell, Gamepad2, Send } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Music, Brain, Coffee, Globe, Users, Bell, Gamepad2, Send, Link2 } from 'lucide-react'
 import Amadeus from './components/Amadeus/Amadeus'
 import FriendSpace from './components/FriendSpace/FriendSpace'
 import Notifications from './components/Notification/Notifications'
@@ -115,6 +115,7 @@ function WindowLayer() {
             {win.id === 'notifications' && <Notifications />}
             {win.id === 'touchgal' && <TouchGalApp />}
             {win.id === 'club' && <Club />}
+            {win.id === 'links' && <FriendLinks />}
           </AppWindow>
         );
       })}
@@ -131,6 +132,7 @@ const APP_ICONS = {
   notifications: Bell,
   touchgal: Gamepad2,
   club: Coffee,
+  links: Link2,
 };
 
 // 音乐未播放时的歌单选择小组件
@@ -381,7 +383,7 @@ function AppInner() {
           <Route path="/forum/post/:id" element={<PostDetail />} />
           <Route path="/info/:type/:id" element={<InfoDetail />} />
           <Route path="/wiki" element={<Wiki />} />
-          <Route path="/links" element={<FriendLinks />} />
+          <Route path="/links" element={<Navigate to="/" replace />} />
           <Route path="/musashi/new" element={<WorkCreate />} />
           <Route path="/musashi/:workId/edit" element={<WorkEdit />} />
           <Route path="/musashi/:workId/read" element={<NovelReader />} />
