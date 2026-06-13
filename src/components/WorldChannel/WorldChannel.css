@@ -1,8 +1,11 @@
 /* ─── 世界线 APP - 聊天气泡风格 ─── */
+/* 与 Amadeus 一致的两层布局：外层撑满 AppWindow，内层承载内容 */
+.wc-page { height: 100%; min-height: 0; }
 .wc-mac-window {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - var(--header-height));
+  height: 100%;
+  min-height: 0;
   background: linear-gradient(135deg, #fff5f7 0%, #ffeef2 40%, #fff0f3 100%);
   border-radius: 12px;
   overflow: hidden;

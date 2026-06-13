@@ -632,7 +632,7 @@ export const WorldChannelService = {
     return await apiRequest(`/api/world-messages?page=${page}&limit=${limit}`);
   },
 
-  async sendMessage(userId, content) {
+  async sendMessage(content) {
     return await apiRequest('/api/world-messages', {
       method: 'POST',
       body: JSON.stringify({ content }),

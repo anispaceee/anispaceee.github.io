@@ -184,6 +184,7 @@ export default function WorldChannel() {
   };
 
   return (
+    <div className="wc-page">
     <div className="wc-mac-window">
       {/* 消息区域 */}
       <div className="wc-mac-messages">
@@ -364,6 +365,7 @@ export default function WorldChannel() {
           <button className="wc-mac-fullscreen-close" onClick={() => setFullscreenImg(null)}><X size={24} /></button>
         </div>
       )}
+    </div>
     </div>
   );
 }
