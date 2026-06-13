@@ -573,31 +573,36 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 放課後热议 */}
+            {/* 放課後热议 - 右滑瀑布流 */}
             <div className="home-hot-section">
               <div className="home-hot-header">
                 <h2 className="home-section-title"><Flame size={18} /> 放課後热议</h2>
                 <Link to="/forum" className="home-more-link">更多 <ArrowRight size={12} /></Link>
               </div>
-              <div className="home-hot-posts">
+              <div className="home-hot-scroll">
                 {hotPosts.map((post) => {
                   const authorName = post.author_name || getUserById(post.author_id)?.name || '未知';
                   const authorAvatar = post.author_avatar || getUserById(post.author_id)?.avatar || '';
+                  const postImages = Array.isArray(post.images) ? post.images : [];
+                  const hasImage = postImages.length > 0;
                   return (
-                    <Link to={`/forum/post/${post.id}`} key={post.id} className="home-hot-post">
-                      <div className="home-hot-post-top">
-                        <div className="home-hot-avatar-wrap">
-                          <UserAvatar userId={post.author_id} src={authorAvatar} alt={authorName} size={28} />
+                    <Link to={`/forum/post/${post.id}`} key={post.id} className="home-hot-card">
+                      {hasImage && (
+                        <div className="home-hot-card-cover">
+                          <img src={typeof postImages[0] === 'string' ? postImages[0] : postImages[0]?.preview} alt="" loading="lazy" />
+                          {postImages.length > 1 && <span className="home-hot-card-img-count">+{postImages.length - 1}</span>}
                         </div>
-                        <div>
-                          <div className="home-hot-post-user">{authorName}</div>
-                          <div className="home-hot-post-time">{post.created_at ? new Date(post.created_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit' }) : ''}</div>
+                      )}
+                      <div className="home-hot-card-body">
+                        <h3 className="home-hot-card-title">{post.title}</h3>
+                        <div className="home-hot-card-meta">
+                          <UserAvatar userId={post.author_id} src={authorAvatar} alt={authorName} size={18} />
+                          <span className="home-hot-card-author">{authorName}</span>
+                          <span className="home-hot-card-stats">
+                            <Heart size={10} /> {post.likes || 0}
+                            <MessageSquare size={10} /> {post.replies_count || 0}
+                          </span>
                         </div>
-                      </div>
-                      <div className="home-hot-title">{post.title}</div>
-                      <div className="home-hot-post-stats">
-                        <span><Heart size={10} /> {post.likes || 0}</span>
-                        <span><MessageSquare size={10} /> {post.replies_count || 0}</span>
                       </div>
                     </Link>
                   );

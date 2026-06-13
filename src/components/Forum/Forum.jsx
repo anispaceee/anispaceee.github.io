@@ -477,8 +477,8 @@ export default function Forum() {
           </div>
         )}
 
-        {/* 帖子列表 - 右滑瀑布流 */}
-        <div className="forum-posts-scroll">
+        {/* 帖子列表 */}
+        <div className="forum-posts">
           {loadingPosts ? (
             <div className="forum-loading"><Loader2 size={24} className="spin" /> 雨何时停？</div>
           ) : filteredPosts.length === 0 ? (
@@ -490,7 +490,7 @@ export default function Forum() {
               const postTags = Array.isArray(post.tags) ? post.tags : [];
               const hasImage = postImages.length > 0;
               return (
-                <Link to={`/forum/post/${post.id}`} key={post.id} className="forum-post-card">
+                <Link to={`/forum/post/${post.id}`} key={post.id} className={`forum-post-card ${hasImage ? 'has-image' : ''}`}>
                   {hasImage && (
                     <div className="post-card-cover">
                       <img src={typeof postImages[0] === 'string' ? postImages[0] : postImages[0]?.preview} alt="" className="post-cover-img" loading="lazy" />
@@ -498,27 +498,29 @@ export default function Forum() {
                     </div>
                   )}
                   <div className="post-card-body">
+                    <div className="post-card-top">
+                      <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={28} className="post-user-avatar" />
+                      <span className="post-author">{author?.name}</span>
+                      <span className="post-time-sep">·</span>
+                      <span className="post-time">{timeAgo(post.created_at)}</span>
+                      <div className="post-card-stats">
+                        <span className="post-stat"><Heart size={12} /> {post.likes || 0}</span>
+                        <span className="post-stat"><MessageCircle size={12} /> {post.replies_count || 0}</span>
+                        <span className="post-stat"><Eye size={12} /> {post.views || 0}</span>
+                      </div>
+                    </div>
                     <h3 className="post-card-title">{post.title}</h3>
                     <p className="post-card-content">{post.content}</p>
                     <div className="post-card-bottom">
                       <span className={`post-cat-tag ${post.category}`}>{getCategoryLabel(post.category)}</span>
                       {postTags.length > 0 && (
                         <div className="post-card-tags">
-                          {postTags.slice(0, 3).map(tag => (
+                          {postTags.slice(0, 4).map(tag => (
                             <span key={tag} className="post-tag-pill">{tag}</span>
                           ))}
+                          {postTags.length > 4 && <span className="post-tag-pill more">+{postTags.length - 4}</span>}
                         </div>
                       )}
-                    </div>
-                    <div className="post-card-footer">
-                      <div className="post-card-author">
-                        <UserAvatar userId={post.author_id} src={author?.avatar} alt={author?.name} size={20} className="post-user-avatar" />
-                        <span className="post-author">{author?.name}</span>
-                      </div>
-                      <div className="post-card-stats">
-                        <span className="post-stat"><Heart size={11} /> {post.likes || 0}</span>
-                        <span className="post-stat"><MessageCircle size={11} /> {post.replies_count || 0}</span>
-                      </div>
                     </div>
                   </div>
                 </Link>
