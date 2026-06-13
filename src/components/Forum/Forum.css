@@ -546,7 +546,7 @@
   padding: 8px 20px;
   border-radius: var(--radius-sm);
   background: var(--primary);
-  color: #fff;
+  color: var(--text-on-primary);
   font-size: 13px;
   font-weight: 600;
   transition: all var(--transition-fast);
@@ -621,7 +621,7 @@
   cursor: pointer;
   transition: all var(--transition-fast);
 }
-.image-mode-tab.active { background: var(--primary); color: #fff; }
+.image-mode-tab.active { background: var(--primary); color: var(--text-on-primary); }
 .image-mode-tab:not(.active):hover { background: var(--primary-bg); color: var(--primary); }
 .image-url-input-row { display: flex; gap: 8px; align-items: center; }
 .image-url-input { flex: 1; min-width: 0; }
@@ -814,7 +814,7 @@
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 20px;
-  color: #fff;
+  color: var(--text-on-primary);
   white-space: nowrap;
 }
 .post-cat-tag.game { background: #6366f1; }

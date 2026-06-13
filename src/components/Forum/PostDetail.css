@@ -7,7 +7,7 @@
 .post-detail-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-xs); }
 .detail-header { margin-bottom: 16px; }
 .detail-title { font-size: 24px; font-weight: 800; margin-top: 8px; line-height: 1.4; }
-.post-cat-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-xs); color: #fff; }
+.post-cat-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-xs); color: var(--text-on-primary); }
 .post-cat-tag.game { background: var(--tag-game); }
 .post-cat-tag.anime { background: var(--tag-anime); }
 .post-cat-tag.novel { background: var(--tag-novel); }
@@ -63,12 +63,12 @@
 
 /* 展开更多回复 */
 .reply-expand-btn { display: flex; align-items: center; gap: 4px; padding: 6px 10px; font-size: 12px; color: var(--primary); background: var(--primary-bg); border-radius: var(--radius-sm); transition: all var(--transition-fast); }
-.reply-expand-btn:hover { background: var(--primary); color: #fff; }
+.reply-expand-btn:hover { background: var(--primary); color: var(--text-on-primary); }
 
 /* 回复排序 */
 .reply-sort-pills { display: flex; gap: 4px; }
 .reply-sort-pill { padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; background: var(--bg-input); color: var(--text-secondary); transition: all var(--transition-fast); }
-.reply-sort-pill.active { background: var(--primary); color: #fff; }
+.reply-sort-pill.active { background: var(--primary); color: var(--text-on-primary); }
 .reply-sort-pill:hover:not(.active) { background: var(--primary-bg); color: var(--primary); }
 
 /* 回复指示器 */
@@ -80,7 +80,7 @@
 .reply-form { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid var(--border-secondary); }
 .reply-form-footer { display: flex; justify-content: flex-end; margin-top: 8px; }
 .reply-error { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff5f5; border-radius: var(--radius-sm); border: 1px solid #fecaca; font-size: 13px; color: var(--error); }
-.reply-btn { align-self: flex-end; padding: 8px 24px; border-radius: var(--radius-sm); background: var(--primary); color: #fff; font-size: 14px; font-weight: 600; transition: background var(--transition-fast); }
+.reply-btn { align-self: flex-end; padding: 8px 24px; border-radius: var(--radius-sm); background: var(--primary); color: var(--text-on-primary); font-size: 14px; font-weight: 600; transition: background var(--transition-fast); }
 .reply-btn:hover:not(:disabled) { background: var(--primary-active); }
 .reply-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
