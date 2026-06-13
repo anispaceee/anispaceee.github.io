@@ -59,18 +59,25 @@ export default function MangaReader() {
           // Try to restore progress
           try {
             const progress = await MusashiService.getProgress(workId);
-            if (!cancelled && progress && progress.chapter_number) {
-              const found = list.find((c) => String(c.chapter_number || c.id || c._id) === String(progress.chapter_number));
-              if (found) {
-                setCurrentChapter(found);
-                if (progress.scroll_position) {
-                  setTimeout(() => {
-                    if (scrollRef.current) {
-                      scrollRef.current.scrollTop = progress.scroll_position;
-                    }
-                  }, 200);
+            if (!cancelled && progress) {
+              // 优先用 chapter_id，其次用 chapter_number
+              const progressKey = progress.chapter_id || progress.chapter_number;
+              if (progressKey) {
+                const found = list.find((c) =>
+                  String(c.id || c._id) === String(progressKey) ||
+                  String(c.chapter_number) === String(progressKey)
+                );
+                if (found) {
+                  setCurrentChapter(found);
+                  if (progress.scroll_position) {
+                    setTimeout(() => {
+                      if (scrollRef.current) {
+                        scrollRef.current.scrollTop = progress.scroll_position;
+                      }
+                    }, 200);
+                  }
+                  return;
                 }
-                return;
               }
             }
           } catch { /* no progress, fall through */ }
@@ -120,12 +127,13 @@ export default function MangaReader() {
       if (!currentChapter) return;
       try {
         await MusashiService.updateProgress(workId, {
-          chapter_number: currentChapter.chapter_number || currentChapter.id || currentChapter._id,
+          chapter_id: currentChapter.id || currentChapter._id,
+          chapter_number: currentChapter.chapter_number || currentIndex + 1,
           scroll_position: scrollPos,
         });
       } catch { /* silently fail */ }
     }, 500);
-  }, [workId, currentChapter]);
+  }, [workId, currentChapter, currentIndex]);
 
   // ─── Scroll handler ───
   useEffect(() => {

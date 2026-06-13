@@ -395,6 +395,298 @@ async function handleAnibtProxy(pathname, searchParams, request, env, origin) {
   }
 }
 
+// ─── wenku8 轻小说代理 ──────────────────────────────────────
+
+const WENKU8_CSV_URL = 'https://raw.githubusercontent.com/mojimoon/wenku8/main/out/merged.csv';
+
+/**
+ * 从 GBK 编码的 Response 中解码文本
+ */
+async function decodeGbk(response) {
+  const buffer = await response.arrayBuffer();
+  return new TextDecoder('gbk').decode(buffer);
+}
+
+/**
+ * 解析 CSV 行（处理引号内的逗号）
+ */
+function parseCsvLine(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      fields.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+/**
+ * 缓存辅助：检查并返回缓存响应，或执行 fetchFn 并缓存结果
+ */
+async function cachedFetch(cacheKey, ttl, fetchFn, origin) {
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const headers = new Headers(cached.headers);
+    headers.set('X-Cache', 'HIT');
+    Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+    return new Response(cached.body, { status: cached.status, headers });
+  }
+
+  const result = await fetchFn();
+
+  if (result.status >= 200 && result.status < 300) {
+    const body = await result.text();
+    const cacheResponse = new Response(body, {
+      status: result.status,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': `public, max-age=${ttl}`,
+      },
+    });
+    try { await cache.put(cacheKey, cacheResponse); } catch {}
+
+    const resHeaders = new Headers();
+    resHeaders.set('Content-Type', 'application/json; charset=utf-8');
+    resHeaders.set('X-Cache', 'MISS');
+    resHeaders.set('Cache-Control', `public, max-age=${ttl}`);
+    Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+    return new Response(body, { status: result.status, headers: resHeaders });
+  }
+
+  return result;
+}
+
+async function handleWenku8Proxy(pathname, searchParams, request, env, origin) {
+  try {
+    // Route 1: /search?q=xxx — 搜索轻小说
+    if (pathname === '/search') {
+      const q = searchParams.get('q');
+      if (!q) return jsonResponse({ error: '缺少 q 参数' }, 400, origin);
+
+      const cacheKey = new Request(`wenku8:search:${q.toLowerCase()}`, { method: 'GET' });
+
+      return cachedFetch(cacheKey, 600, async () => {
+        // 获取 CSV（缓存 1 小时）
+        const csvCacheKey = new Request(WENKU8_CSV_URL, { method: 'GET' });
+        const cache = caches.default;
+        let csvText;
+        const csvCached = await cache.match(csvCacheKey);
+        if (csvCached) {
+          csvText = await csvCached.text();
+        } else {
+          const csvRes = await fetch(WENKU8_CSV_URL, {
+            headers: { 'User-Agent': 'ANISpace/1.0' },
+          });
+          if (!csvRes.ok) {
+            return jsonResponse({ error: '获取 wenku8 CSV 失败' }, 502, origin);
+          }
+          csvText = await csvRes.text();
+          const csvCacheResponse = new Response(csvText, {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/csv; charset=utf-8',
+              'Cache-Control': 'public, max-age=3600',
+            },
+          });
+          try { await cache.put(csvCacheKey, csvCacheResponse); } catch {}
+        }
+
+        // 解析 CSV
+        const lines = csvText.split('\n').filter(l => l.trim());
+        const header = parseCsvLine(lines[0]);
+        const qLower = q.toLowerCase();
+        const results = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const fields = parseCsvLine(lines[i]);
+          if (fields.length < 10) continue;
+
+          const main = fields[8] || '';
+          const alt = fields[9] || '';
+
+          if (main.toLowerCase().includes(qLower) || alt.toLowerCase().includes(qLower)) {
+            results.push({
+              author: fields[0] || '',
+              downloadUrl: fields[1] || '',
+              volume: fields[2] || '',
+              dlLabel: fields[3] || '',
+              dlPwd: fields[4] || '',
+              dlRemark: fields[6] || '',
+              novelLink: fields[7] || '',
+              main,
+              alt,
+            });
+          }
+        }
+
+        return jsonResponse(results, 200, origin);
+      }, origin);
+    }
+
+    // Route 2: /chapters?bookId=xxx — 获取章节列表
+    if (pathname === '/chapters') {
+      const bookId = searchParams.get('bookId');
+      if (!bookId) return jsonResponse({ error: '缺少 bookId 参数' }, 400, origin);
+
+      const cacheKey = new Request(`wenku8:chapters:${bookId}`, { method: 'GET' });
+
+      return cachedFetch(cacheKey, 1800, async () => {
+        // 获取书籍页面以找到章节索引 URL
+        const bookPageUrl = `https://www.wenku8.net/book/${bookId}.htm`;
+        const bookPageRes = await fetch(bookPageUrl, {
+          headers: { 'User-Agent': 'ANISpace/1.0' },
+        });
+        if (!bookPageRes.ok) {
+          return jsonResponse({ error: '获取书籍页面失败' }, 502, origin);
+        }
+        const bookPageHtml = await decodeGbk(bookPageRes);
+
+        // 提取标题和作者
+        const titleMatch = bookPageHtml.match(/<title>([^<]+)<\/title>/);
+        const title = titleMatch ? titleMatch[1].replace(/ - 文库轻小说$/, '').trim() : '';
+        const authorMatch = bookPageHtml.match(/作者[：:]\s*<a[^>]*>([^<]+)<\/a>/);
+        const author = authorMatch ? authorMatch[1].trim() : '';
+
+        // 从书籍页面中提取章节索引 URL
+        const indexUrlMatch = bookPageHtml.match(/href="(\/novel\/\d+\/\d+\/index\.htm)"/);
+        if (!indexUrlMatch) {
+          return jsonResponse({ error: '无法找到章节索引页面' }, 404, origin);
+        }
+        const indexUrl = `https://www.wenku8.net${indexUrlMatch[1]}`;
+
+        // 获取章节索引页面
+        const indexRes = await fetch(indexUrl, {
+          headers: { 'User-Agent': 'ANISpace/1.0' },
+        });
+        if (!indexRes.ok) {
+          return jsonResponse({ error: '获取章节索引页面失败' }, 502, origin);
+        }
+        const indexHtml = await decodeGbk(indexRes);
+
+        // 解析章节表格
+        const volumes = [];
+        let currentVolume = null;
+        // 匹配所有 <tr> 行
+        const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
+        let trMatch;
+
+        while ((trMatch = trRegex.exec(indexHtml)) !== null) {
+          const rowContent = trMatch[1];
+          // 提取所有 <td> 中的内容
+          const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
+          let tdMatch;
+          let hasChapterLinks = false;
+
+          while ((tdMatch = tdRegex.exec(rowContent)) !== null) {
+            const cellContent = tdMatch[1].trim();
+            const linkMatch = cellContent.match(/<a\s+href="([^"]*)"[^>]*>([^<]+)<\/a>/);
+
+            if (linkMatch) {
+              // 章节链接
+              hasChapterLinks = true;
+              const chapterUrl = linkMatch[1].startsWith('http')
+                ? linkMatch[1]
+                : `${indexUrl.replace(/index\.htm$/, '')}${linkMatch[1]}`;
+              const chapterIdMatch = chapterUrl.match(/(\d+)\.htm$/);
+              const chapterId = chapterIdMatch ? chapterIdMatch[1] : '';
+
+              if (currentVolume) {
+                currentVolume.chapters.push({
+                  id: chapterId,
+                  title: linkMatch[2].trim(),
+                  url: chapterUrl,
+                });
+              }
+            } else {
+              // 可能是卷标题（没有链接的 td）
+              const volName = cellContent.replace(/<[^>]+>/g, '').trim();
+              if (volName && !hasChapterLinks) {
+                currentVolume = { name: volName, chapters: [] };
+                volumes.push(currentVolume);
+              }
+            }
+          }
+        }
+
+        return jsonResponse({ bookId, title, author, volumes }, 200, origin);
+      }, origin);
+    }
+
+    // Route 3: /content?chapterUrl=xxx — 获取章节内容
+    if (pathname === '/content') {
+      const chapterUrl = searchParams.get('chapterUrl');
+      if (!chapterUrl) return jsonResponse({ error: '缺少 chapterUrl 参数' }, 400, origin);
+
+      // 安全检查：只允许 wenku8.net 域名
+      try {
+        const parsed = new URL(chapterUrl);
+        if (!parsed.hostname.endsWith('wenku8.net')) {
+          return jsonResponse({ error: '不允许的域名' }, 403, origin);
+        }
+      } catch {
+        return jsonResponse({ error: '无效的 chapterUrl' }, 400, origin);
+      }
+
+      const cacheKey = new Request(`wenku8:content:${chapterUrl}`, { method: 'GET' });
+
+      return cachedFetch(cacheKey, 3600, async () => {
+        const res = await fetch(chapterUrl, {
+          headers: { 'User-Agent': 'ANISpace/1.0' },
+        });
+        if (!res.ok) {
+          return jsonResponse({ error: '获取章节内容失败' }, 502, origin);
+        }
+        const html = await decodeGbk(res);
+
+        // 提取标题
+        const titleMatch = html.match(/<div\s+id="title"[^>]*>([^<]+)<\/div>/);
+        const title = titleMatch ? titleMatch[1].trim() : '';
+
+        // 提取内容：从 <div id="content"> 中获取
+        const contentMatch = html.match(/<div\s+id="content"[^>]*>([\s\S]*?)<\/div>/);
+        let content = '';
+        if (contentMatch) {
+          content = contentMatch[1]
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<img\s+[^>]*src="([^"]*)"[^>]*\/?>/gi, '<img src="$1" alt="" style="max-width:100%;border-radius:6px;margin:8px auto;display:block" />')
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<a\s+[^>]*>([\s\S]*?)<\/a>/gi, '$1')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .trim();
+          // 将换行分隔的文本转为段落
+          const paragraphs = content.split(/\n+/).filter(p => p.trim());
+          content = paragraphs.map(p => {
+            const trimmed = p.trim();
+            if (trimmed.startsWith('<img')) return trimmed;
+            return `<p>${trimmed}</p>`;
+          }).join('');
+        }
+
+        return jsonResponse({ title, content }, 200, origin);
+      }, origin);
+    }
+
+    return jsonResponse({ error: '未知的 wenku8 路由' }, 404, origin);
+  } catch (err) {
+    return jsonResponse({ error: 'wenku8 代理失败: ' + err.message }, 502, origin);
+  }
+}
+
 // ─── Bangumi OAuth token 交换 ────────────────────────────────
 
 async function handleBangumiToken(code, redirectUri, env) {
@@ -2605,6 +2897,8 @@ async function handleApiRoutes(pathname, request, env, origin) {
       orderClause = 'ORDER BY views_count DESC, created_at DESC';
     } else if (sort === 'likes') {
       orderClause = 'ORDER BY likes_count DESC, created_at DESC';
+    } else if (sort === 'rating') {
+      orderClause = 'ORDER BY CASE WHEN rating_count > 0 THEN rating_sum * 1.0 / rating_count ELSE 0 END DESC, created_at DESC';
     }
 
     const works = await env.DB.prepare(
@@ -3352,14 +3646,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     try {
       const body = await request.json();
-      const { chapter_id, page_number, percentage } = body;
+      const { chapter_id, chapter_number, scroll_position, page_number, percentage } = body;
 
       const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
       if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
 
       await env.DB.prepare(
-        "INSERT INTO reading_progress (user_id, work_id, chapter_id, page_number, percentage, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now')) ON CONFLICT(user_id, work_id) DO UPDATE SET chapter_id = COALESCE(excluded.chapter_id, reading_progress.chapter_id), page_number = COALESCE(excluded.page_number, reading_progress.page_number), percentage = COALESCE(excluded.percentage, reading_progress.percentage), updated_at = datetime('now')"
-      ).bind(authUser.userId, workId, chapter_id || null, page_number || null, percentage || null).run();
+        "INSERT INTO reading_progress (user_id, work_id, chapter_id, chapter_number, scroll_position, page_number, percentage, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now')) ON CONFLICT(user_id, work_id) DO UPDATE SET chapter_id = COALESCE(excluded.chapter_id, reading_progress.chapter_id), chapter_number = COALESCE(excluded.chapter_number, reading_progress.chapter_number), scroll_position = COALESCE(excluded.scroll_position, reading_progress.scroll_position), page_number = COALESCE(excluded.page_number, reading_progress.page_number), percentage = COALESCE(excluded.percentage, reading_progress.percentage), updated_at = datetime('now')"
+      ).bind(authUser.userId, workId, chapter_id || null, chapter_number || null, scroll_position ?? null, page_number || null, percentage || null).run();
 
       const progress = await env.DB.prepare(
         'SELECT * FROM reading_progress WHERE user_id = ? AND work_id = ?'
@@ -3369,6 +3663,102 @@ async function handleApiRoutes(pathname, request, env, origin) {
     } catch (err) {
       return jsonResponse({ error: '更新进度失败: ' + err.message }, 500, origin);
     }
+  }
+
+  // ── 评分 API ──
+
+  // GET /api/works/:id/rating — 获取作品评分（含当前用户评分）
+  const ratingMatch = pathname.match(/^\/api\/works\/(\d+)\/rating$/);
+  if (ratingMatch && method === 'GET') {
+    const workId = Number(ratingMatch[1]);
+    const work = await env.DB.prepare('SELECT rating_sum, rating_count FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+    const avgRating = work.rating_count > 0 ? (work.rating_sum / work.rating_count) : 0;
+
+    // 查询当前用户评分
+    const authUser = await getAuthUser(request, env);
+    let userRating = null;
+    if (authUser) {
+      const row = await env.DB.prepare('SELECT rating FROM work_ratings WHERE user_id = ? AND work_id = ?').bind(authUser.userId, workId).first();
+      if (row) userRating = row.rating;
+    }
+
+    return jsonResponse({
+      average: Math.round(avgRating * 10) / 10,
+      count: work.rating_count,
+      userRating,
+    }, 200, origin);
+  }
+
+  // POST /api/works/:id/rating — 提交/更新评分（1-5 星）
+  if (ratingMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(ratingMatch[1]);
+
+    try {
+      const body = await request.json();
+      const rating = Number(body.rating);
+      if (!rating || rating < 1 || rating > 5 || !Number.isInteger(rating)) {
+        return jsonResponse({ error: '评分必须为 1-5 的整数' }, 400, origin);
+      }
+
+      // 检查作品是否存在
+      const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
+      if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+
+      // 获取旧评分（如果有）
+      const existing = await env.DB.prepare('SELECT rating FROM work_ratings WHERE user_id = ? AND work_id = ?').bind(authUser.userId, workId).first();
+      const oldRating = existing ? existing.rating : 0;
+
+      // 插入或更新评分
+      await env.DB.prepare(
+        "INSERT INTO work_ratings (user_id, work_id, rating, created_at, updated_at) VALUES (?, ?, ?, datetime('now'), datetime('now')) ON CONFLICT(user_id, work_id) DO UPDATE SET rating = excluded.rating, updated_at = datetime('now')"
+      ).bind(authUser.userId, workId, rating).run();
+
+      // 更新 works 表的去规范化评分统计
+      if (oldRating > 0) {
+        // 更新评分：差值更新
+        await env.DB.prepare(
+          'UPDATE works SET rating_sum = rating_sum + ?, rating_count = rating_count WHERE id = ?'
+        ).bind(rating - oldRating, workId).run();
+      } else {
+        // 新评分
+        await env.DB.prepare(
+          'UPDATE works SET rating_sum = rating_sum + ?, rating_count = rating_count + 1 WHERE id = ?'
+        ).bind(rating, workId).run();
+      }
+
+      // 返回最新统计
+      const updated = await env.DB.prepare('SELECT rating_sum, rating_count FROM works WHERE id = ?').bind(workId).first();
+      const avgRating = updated.rating_count > 0 ? (updated.rating_sum / updated.rating_count) : 0;
+
+      return jsonResponse({
+        average: Math.round(avgRating * 10) / 10,
+        count: updated.rating_count,
+        userRating: rating,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '评分失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id/rating — 删除评分
+  if (ratingMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(ratingMatch[1]);
+
+    const existing = await env.DB.prepare('SELECT rating FROM work_ratings WHERE user_id = ? AND work_id = ?').bind(authUser.userId, workId).first();
+    if (!existing) return jsonResponse({ error: '未评分' }, 404, origin);
+
+    await env.DB.prepare('DELETE FROM work_ratings WHERE user_id = ? AND work_id = ?').bind(authUser.userId, workId).run();
+    await env.DB.prepare(
+      'UPDATE works SET rating_sum = rating_sum - ?, rating_count = rating_count - 1 WHERE id = ?'
+    ).bind(existing.rating, workId).run();
+
+    return jsonResponse({ success: true }, 200, origin);
   }
 
   // 未匹配的 API 路由
@@ -3530,6 +3920,11 @@ export default {
     if (url.pathname.startsWith('/api/anibt/')) {
       const anibtPath = url.pathname.replace('/api/anibt', '');
       return handleAnibtProxy(anibtPath, url.searchParams, request, env, origin);
+    }
+
+    // wenku8 轻小说代理：/api/wenku8/*
+    if (url.pathname.startsWith('/api/wenku8/')) {
+      return handleWenku8Proxy(url.pathname.replace('/api/wenku8', ''), url.searchParams, request, env, origin);
     }
 
     // DanDanPlay 弹幕代理：/api/danmaku/comment/:episodeId

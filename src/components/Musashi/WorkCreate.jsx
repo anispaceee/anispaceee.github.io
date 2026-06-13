@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import MusashiService from '../../services/musashiApi';
 import { Gamepad2, BookOpen, Palette, ArrowLeft, Loader2 } from 'lucide-react';
+import ImageUploader from './ImageUploader';
 import './WorkCreate.css';
 
 const WORK_TYPES = [
@@ -157,16 +158,13 @@ export default function WorkCreate() {
               />
             </label>
 
-            <label className="work-form-label">
-              封面图 URL
-              <input
-                className="work-form-input"
-                type="text"
-                placeholder="https://example.com/cover.jpg"
-                value={form.coverUrl}
-                onChange={(e) => handleFormChange('coverUrl', e.target.value)}
-              />
-            </label>
+            <ImageUploader
+              value={form.coverUrl}
+              onChange={(url) => handleFormChange('coverUrl', url)}
+              label="封面图"
+              placeholder="https://example.com/cover.jpg"
+              variant="cover"
+            />
 
             <label className="work-form-label">
               标签

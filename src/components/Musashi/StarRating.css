@@ -1,0 +1,60 @@
+/* StarRating — 星级评分组件 */
+
+.sr-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sr-stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sr-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-quaternary);
+  transition: all var(--transition-fast);
+  padding: 0;
+  line-height: 1;
+}
+
+.sr-star.interactive {
+  cursor: pointer;
+}
+
+.sr-star.interactive:hover {
+  transform: scale(1.2);
+}
+
+.sr-star.filled {
+  color: #f59e0b;
+}
+
+.sr-star.avg {
+  color: #fbbf24;
+}
+
+.sr-star:disabled {
+  cursor: default;
+}
+
+.sr-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sr-average {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.sr-count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}

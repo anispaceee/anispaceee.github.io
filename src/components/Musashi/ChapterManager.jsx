@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MusashiService } from '../../services/musashiApi';
 import { Plus, Edit3, Trash2, ChevronUp, ChevronDown, X, Loader2 } from 'lucide-react';
+import MarkdownEditor from './MarkdownEditor';
 
 export default function ChapterManager({ workId, chapters, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
@@ -173,11 +174,10 @@ export default function ChapterManager({ workId, chapters, onRefresh }) {
               </label>
               <label className="work-form-label">
                 正文
-                <textarea
-                  className="work-form-textarea cm-content-textarea"
-                  placeholder="输入章节正文内容"
+                <MarkdownEditor
                   value={form.content}
-                  onChange={e => setForm(prev => ({ ...prev, content: e.target.value }))}
+                  onChange={(val) => setForm(prev => ({ ...prev, content: val }))}
+                  placeholder="输入章节正文内容（支持 Markdown 语法）"
                   rows={10}
                 />
               </label>

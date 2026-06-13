@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MusashiService } from '../../services/musashiApi';
 import { Plus, Edit3, Trash2, X, Loader2, ImagePlus } from 'lucide-react';
+import ImageUploader from './ImageUploader';
 
 const PLATFORM_OPTIONS = [
   { key: 'windows', label: 'Windows' },
@@ -310,16 +311,14 @@ export default function GalgameDownloadManager({ workId, downloads, previews, on
               </button>
             </div>
             <div className="cm-dialog-body">
-              <label className="work-form-label">
-                图片 URL <span className="work-required">*</span>
-                <input
-                  className="work-form-input"
-                  type="text"
-                  placeholder="https://example.com/preview.jpg"
-                  value={previewForm.image_url}
-                  onChange={e => setPreviewForm(prev => ({ ...prev, image_url: e.target.value }))}
-                />
-              </label>
+              <ImageUploader
+                value={previewForm.image_url}
+                onChange={(url) => setPreviewForm(prev => ({ ...prev, image_url: url }))}
+                label="预览图"
+                placeholder="https://example.com/preview.jpg"
+                variant="preview"
+                required
+              />
               <label className="work-form-label">
                 说明
                 <input

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye } from 'lucide-react';
+import { Eye, Star } from 'lucide-react';
 import './WorkCard.css';
 
 const TYPE_CONFIG = {
@@ -53,6 +53,12 @@ export default function WorkCard({ work }) {
             <Eye size={12} />
             {work.view_count ?? 0}
           </span>
+          {work.rating_count > 0 && (
+            <span className="wc-rating">
+              <Star size={12} fill="#f59e0b" color="#f59e0b" />
+              {work.rating_count > 0 ? (work.rating_sum / work.rating_count).toFixed(1) : ''}
+            </span>
+          )}
         </div>
 
         {work.tags && work.tags.length > 0 && (

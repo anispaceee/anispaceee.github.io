@@ -217,6 +217,25 @@ export const MusashiService = {
       body: JSON.stringify(data),
     });
   },
+
+  // ── 评分 ──
+
+  async getRating(workId) {
+    return apiFetch(`/works/${workId}/rating`);
+  },
+
+  async submitRating(workId, rating) {
+    return apiFetch(`/works/${workId}/rating`, {
+      method: 'POST',
+      body: JSON.stringify({ rating }),
+    });
+  },
+
+  async deleteRating(workId) {
+    return apiFetch(`/works/${workId}/rating`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 export default MusashiService;

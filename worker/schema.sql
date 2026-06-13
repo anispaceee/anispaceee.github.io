@@ -292,6 +292,9 @@ CREATE TABLE works (
   likes_count INTEGER DEFAULT 0,
   views_count INTEGER DEFAULT 0,
   comments_count INTEGER DEFAULT 0,
+  favorites_count INTEGER DEFAULT 0,
+  rating_sum INTEGER DEFAULT 0,
+  rating_count INTEGER DEFAULT 0,
   is_flagged INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
@@ -386,7 +389,20 @@ CREATE TABLE reading_progress (
   user_id INTEGER NOT NULL REFERENCES users(id),
   work_id INTEGER NOT NULL REFERENCES works(id),
   chapter_number INTEGER DEFAULT 0,
+  chapter_id INTEGER,
   scroll_position REAL DEFAULT 0,
+  percentage REAL DEFAULT 0,
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(user_id, work_id)
+);
+
+-- 作品评分表
+CREATE TABLE work_ratings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  work_id INTEGER NOT NULL REFERENCES works(id),
+  rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+  created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   UNIQUE(user_id, work_id)
 );
@@ -420,6 +436,8 @@ CREATE INDEX idx_work_favorites_work ON work_favorites(work_id);
 CREATE INDEX idx_work_likes_user ON work_likes(user_id);
 CREATE INDEX idx_work_likes_work ON work_likes(work_id);
 CREATE INDEX idx_reading_progress_user ON reading_progress(user_id);
+CREATE INDEX idx_work_ratings_user ON work_ratings(user_id);
+CREATE INDEX idx_work_ratings_work ON work_ratings(work_id);
 CREATE INDEX idx_work_reports_status ON work_reports(status, created_at DESC);
 
 -- 用户留言板表

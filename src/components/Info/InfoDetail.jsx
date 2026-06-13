@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService } from '../../services/api';
-import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search } from 'lucide-react';
+import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService, Wenku8Service } from '../../services/api';
+import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
@@ -203,6 +203,18 @@ export default function InfoDetail() {
 
   // 是否为 NSFW 条目（详情 API 返回 404 但有 preview 数据）
   const [isNsfw, setIsNsfw] = useState(false);
+
+  // wenku8 轻小说相关状态
+  const [wenku8Results, setWenku8Results] = useState([]);
+  const [wenku8Loading, setWenku8Loading] = useState(false);
+  const [wenku8Searched, setWenku8Searched] = useState(false);
+  const [wenku8Chapters, setWenku8Chapters] = useState(null);
+  const [wenku8ChaptersLoading, setWenku8ChaptersLoading] = useState(false);
+  const [wenku8ActiveVolume, setWenku8ActiveVolume] = useState(0);
+  const [novelReading, setNovelReading] = useState(false);
+  const [novelChapterContent, setNovelChapterContent] = useState(null);
+  const [novelChapterLoading, setNovelChapterLoading] = useState(false);
+  const [novelCurrentChapter, setNovelCurrentChapter] = useState(null);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true); setError(null); setProgress(10); setIsNsfw(false);
@@ -604,6 +616,64 @@ export default function InfoDetail() {
     }
   }, [activeTab, watchEpisodes.length, watchEpisodesLoading, fetchWatchEpisodes]);
 
+  // wenku8 搜索轻小说
+  const searchWenku8 = useCallback(async () => {
+    if (!subject) return;
+    const name = subject.name_cn || subject.name || '';
+    if (!name) return;
+    setWenku8Loading(true);
+    setWenku8Searched(true);
+    try {
+      const results = await Wenku8Service.searchNovel(name);
+      setWenku8Results(Array.isArray(results) ? results : []);
+    } catch (err) {
+      console.warn('[InfoDetail] wenku8 search failed:', err);
+      setWenku8Results([]);
+    } finally {
+      setWenku8Loading(false);
+    }
+  }, [subject]);
+
+  // wenku8 获取章节列表
+  const fetchWenku8Chapters = useCallback(async (bookId) => {
+    if (!bookId) return;
+    setWenku8ChaptersLoading(true);
+    try {
+      const data = await Wenku8Service.getChapters(bookId);
+      setWenku8Chapters(data);
+      setWenku8ActiveVolume(0);
+    } catch (err) {
+      console.warn('[InfoDetail] wenku8 chapters failed:', err);
+      setWenku8Chapters(null);
+    } finally {
+      setWenku8ChaptersLoading(false);
+    }
+  }, []);
+
+  // wenku8 获取章节正文
+  const fetchNovelContent = useCallback(async (chapter) => {
+    if (!chapter?.url) return;
+    setNovelChapterLoading(true);
+    setNovelCurrentChapter(chapter);
+    try {
+      const data = await Wenku8Service.getChapterContent(chapter.url);
+      setNovelChapterContent(data);
+      setNovelReading(true);
+    } catch (err) {
+      console.warn('[InfoDetail] wenku8 content failed:', err);
+      setNovelChapterContent({ title: chapter.title, content: '加载失败，请稍后重试' });
+    } finally {
+      setNovelChapterLoading(false);
+    }
+  }, []);
+
+  // 切换到轻小说标签时自动搜索
+  useEffect(() => {
+    if (activeTab === 'novel' && !wenku8Searched && subject?.type === 1) {
+      searchWenku8();
+    }
+  }, [activeTab, wenku8Searched, subject?.type, searchWenku8]);
+
   const loadMoreComments = () => {
     const nextPage = bgmCommentsPage + 1;
     setBgmCommentsPage(nextPage);
@@ -857,6 +927,10 @@ export default function InfoDetail() {
                 {/* 站内观看标签：仅对动画/三次元类型显示 */}
                 {(subject?.type === 2 || subject?.type === 6) && (
                   <button className={`detail-tab ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => setActiveTab('watch')}>站内观看</button>
+                )}
+                {/* 轻小说标签：仅对小说类型显示 */}
+                {subject?.type === 1 && (
+                  <button className={`detail-tab ${activeTab === 'novel' ? 'active' : ''}`} onClick={() => setActiveTab('novel')}>轻小说</button>
                 )}
               </div>
 
@@ -1196,6 +1270,129 @@ export default function InfoDetail() {
                 {/* 字幕组资源 Tab */}
                 {activeTab === 'fansubs' && (
                   <FansubGroupsPanel bgmId={id} />
+                )}
+
+                {/* 轻小说 Tab：EPUB下载 + 在线阅读 */}
+                {activeTab === 'novel' && (
+                  <div className="novel-tab-layout">
+                    {/* 在线阅读模式 */}
+                    {novelReading ? (
+                      <div className="novel-reader-embedded">
+                        <div className="novel-reader-header">
+                          <button className="novel-reader-back" onClick={() => setNovelReading(false)}>
+                            <ArrowLeft size={16} /> 返回目录
+                          </button>
+                          <span className="novel-reader-title">{novelCurrentChapter?.title || ''}</span>
+                        </div>
+                        <div className="novel-reader-content">
+                          {novelChapterLoading ? (
+                            <div className="novel-reader-loading"><Loader2 size={24} className="vp-spin" /> 加载中...</div>
+                          ) : (
+                            <div className="novel-reader-text" dangerouslySetInnerHTML={{ __html: novelChapterContent?.content || '' }} />
+                          )}
+                        </div>
+                        {wenku8Chapters && novelCurrentChapter && (() => {
+                          const allChapters = wenku8Chapters.volumes.flatMap(v => v.chapters);
+                          const curIdx = allChapters.findIndex(c => c.id === novelCurrentChapter.id);
+                          return (
+                            <div className="novel-reader-nav">
+                              <button className="novel-nav-btn" disabled={curIdx <= 0} onClick={() => fetchNovelContent(allChapters[curIdx - 1])}>
+                                <ChevronRight size={14} style={{transform:'rotate(180deg)'}} /> 上一章
+                              </button>
+                              <span className="novel-nav-info">{curIdx >= 0 ? `${curIdx + 1} / ${allChapters.length}` : ''}</span>
+                              <button className="novel-nav-btn" disabled={curIdx < 0 || curIdx >= allChapters.length - 1} onClick={() => fetchNovelContent(allChapters[curIdx + 1])}>
+                                下一章 <ChevronRight size={14} />
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <>
+                        {/* EPUB 下载区 */}
+                        <div className="novel-section">
+                          <h3 className="novel-section-title"><Download size={16} /> EPUB 下载</h3>
+                          {wenku8Loading ? (
+                            <div className="novel-loading"><Loader2 size={18} className="vp-spin" /> 搜索轻小说资源中...</div>
+                          ) : wenku8Results.length === 0 ? (
+                            <div className="novel-empty">
+                              {wenku8Searched ? '未在轻小说文库找到匹配资源' : '点击搜索轻小说文库资源'}
+                              {!wenku8Searched && <button className="novel-search-btn" onClick={searchWenku8}>搜索</button>}
+                            </div>
+                          ) : (
+                            <div className="novel-download-list">
+                              {wenku8Results.map((item, i) => (
+                                <div key={i} className="novel-download-item">
+                                  <div className="novel-download-info">
+                                    <span className="novel-download-name">{item.main}{item.alt ? ` (${item.alt})` : ''}</span>
+                                    <span className="novel-download-meta">
+                                      {item.author && <span className="novel-meta-tag">{item.author}</span>}
+                                      {item.volume && <span className="novel-meta-tag">第{item.volume}卷</span>}
+                                      {item.dlRemark && <span className="novel-meta-tag">{item.dlRemark}</span>}
+                                    </span>
+                                  </div>
+                                  <div className="novel-download-actions">
+                                    {item.downloadUrl && (
+                                      <a href={item.downloadUrl} target="_blank" rel="noopener noreferrer" className="novel-dl-btn epub">
+                                        <Download size={13} /> EPUB
+                                      </a>
+                                    )}
+                                    {item.dlLabel && item.dlPwd && (
+                                      <a href={`https://wwa.lanzoui.com/${item.dlLabel}`} target="_blank" rel="noopener noreferrer" className="novel-dl-btn lanzou">
+                                        <Download size={13} /> 蓝奏云
+                                        <span className="novel-dl-pwd">密码: {item.dlPwd}</span>
+                                      </a>
+                                    )}
+                                    {item.novelLink && (
+                                      <button className="novel-dl-btn read" onClick={() => {
+                                        const bookId = Wenku8Service.extractBookId(item.novelLink);
+                                        if (bookId) fetchWenku8Chapters(bookId);
+                                      }}>
+                                        <BookText size={13} /> 在线阅读
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 章节目录区 */}
+                        {wenku8Chapters && (
+                          <div className="novel-section">
+                            <h3 className="novel-section-title"><BookText size={16} /> {wenku8Chapters.title || '章节目录'}</h3>
+                            {wenku8ChaptersLoading ? (
+                              <div className="novel-loading"><Loader2 size={18} className="vp-spin" /> 加载章节目录...</div>
+                            ) : (
+                              <div className="novel-chapters">
+                                {/* 卷选择器 */}
+                                {wenku8Chapters.volumes?.length > 1 && (
+                                  <div className="novel-volume-tabs">
+                                    {wenku8Chapters.volumes.map((vol, vi) => (
+                                      <button key={vi} className={`novel-volume-tab ${wenku8ActiveVolume === vi ? 'active' : ''}`}
+                                        onClick={() => setWenku8ActiveVolume(vi)}>
+                                        {vol.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* 章节列表 */}
+                                <div className="novel-chapter-list">
+                                  {wenku8Chapters.volumes?.[wenku8ActiveVolume]?.chapters?.map((ch, ci) => (
+                                    <button key={ch.id || ci} className="novel-chapter-item"
+                                      onClick={() => fetchNovelContent(ch)}>
+                                      {ch.title || `第${ci + 1}章`}
+                                    </button>
+                                  )) || <div className="novel-empty">该卷暂无章节</div>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MusashiService } from '../../services/musashiApi';
 import { useApp } from '../../context/AppContext';
 import UserAvatar from '../Common/UserAvatar';
+import StarRating from './StarRating';
 import {
   Eye, Heart, Bookmark, Flag, Edit3,
   ChevronLeft, ChevronRight, Download,
@@ -68,6 +69,9 @@ export default function WorkDetail() {
   const [reportReason, setReportReason] = useState('');
   const [reporting, setReporting] = useState(false);
 
+  // 评分
+  const [ratingData, setRatingData] = useState({ average: 0, count: 0, userRating: 0 });
+
   // ─── 加载作品详情 ───
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +134,20 @@ export default function WorkDetail() {
       .catch(() => { setComments([]); });
   }, [workId]);
 
+  // ─── 加载评分 ───
+  useEffect(() => {
+    if (!workId) return;
+    MusashiService.getRating(workId)
+      .then(data => {
+        setRatingData({
+          average: data.average || 0,
+          count: data.count || 0,
+          userRating: data.userRating || 0,
+        });
+      })
+      .catch(() => {});
+  }, [workId]);
+
   // ─── 互动 ───
   const handleToggleLike = useCallback(async () => {
     if (!isAuthenticated) { openAuth(); return; }
@@ -177,6 +195,25 @@ export default function WorkDetail() {
       setSubmittingComment(false);
     }
   }, [workId, newComment]);
+
+  // ─── 评分 ───
+  const handleRate = useCallback(async (rating) => {
+    if (!isAuthenticated) { openAuth(); return; }
+    try {
+      if (rating === 0) {
+        await MusashiService.deleteRating(workId);
+      } else {
+        await MusashiService.submitRating(workId, rating);
+      }
+      // 重新加载评分
+      const data = await MusashiService.getRating(workId);
+      setRatingData({
+        average: data.average || 0,
+        count: data.count || 0,
+        userRating: data.userRating || 0,
+      });
+    } catch {}
+  }, [workId, isAuthenticated, openAuth]);
 
   // ─── 轮播 ───
   const previews = Array.isArray(work?.preview_images) ? work.preview_images.slice(0, 20) : [];
@@ -293,6 +330,15 @@ export default function WorkDetail() {
             <span className="wd-stat"><Bookmark size={14} /> {favoriteCount}</span>
           </div>
 
+          <StarRating
+            value={ratingData.userRating}
+            average={ratingData.average}
+            count={ratingData.count}
+            interactive={isAuthenticated}
+            onRate={handleRate}
+            size="medium"
+          />
+
           <div className="wd-actions">
             <button
               className={`wd-action-btn wd-like-btn${liked ? ' active' : ''}`}
@@ -404,12 +450,12 @@ export default function WorkDetail() {
           </div>
 
           <div className="wd-read-actions">
-            {progress && progress.chapter ? (
+            {progress && (progress.chapter_id || progress.chapter_number) ? (
               <button
                 className="wd-read-btn"
-                onClick={() => navigate(`/musashi/${workId}/read/${progress.chapter}`)}
+                onClick={() => navigate(`/musashi/${workId}/read/${progress.chapter_id || progress.chapter_number}`)}
               >
-                <BookOpen size={16} /> 继续阅读 第{progress.chapter}章
+                <BookOpen size={16} /> 继续阅读 第{progress.chapter_number || progress.chapter_id}章
               </button>
             ) : (
               <button
@@ -452,12 +498,12 @@ export default function WorkDetail() {
           </div>
 
           <div className="wd-read-actions">
-            {progress && progress.chapter ? (
+            {progress && (progress.chapter_id || progress.chapter_number) ? (
               <button
                 className="wd-read-btn"
-                onClick={() => navigate(`/musashi/${workId}/comic/${progress.chapter}`)}
+                onClick={() => navigate(`/musashi/${workId}/comic/${progress.chapter_id || progress.chapter_number}`)}
               >
-                <BookImage size={16} /> 继续阅读 第{progress.chapter}话
+                <BookImage size={16} /> 继续阅读 第{progress.chapter_number || progress.chapter_id}话
               </button>
             ) : (
               <button

@@ -1,0 +1,196 @@
+/* MarkdownEditor — 分屏预览式 Markdown 编辑器 */
+
+.mde-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-input);
+}
+
+/* 工具栏 */
+.mde-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-card);
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mde-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mde-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.mde-toolbar-btn:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.mde-mode-btn {
+  width: auto;
+  padding: 0 10px;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mde-mode-btn.active {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+/* 编辑 + 预览区域 */
+.mde-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.mde-body.with-preview {
+  border-top: none;
+}
+
+/* 源码编辑区 */
+.mde-source {
+  padding: 14px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: none;
+  outline: none;
+  resize: vertical;
+  width: 100%;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  flex: 1;
+  min-width: 0;
+}
+
+.mde-body.with-preview .mde-source {
+  border-right: 1px solid var(--border-primary);
+  resize: none;
+  width: 50%;
+}
+
+.mde-source:focus {
+  outline: none;
+}
+
+.mde-source::placeholder {
+  color: var(--text-quaternary);
+}
+
+/* 预览区 */
+.mde-preview {
+  padding: 14px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  overflow-y: auto;
+  flex: 1;
+  min-width: 0;
+  width: 50%;
+}
+
+.mde-preview strong {
+  font-weight: 700;
+}
+
+.mde-preview em {
+  font-style: italic;
+}
+
+.mde-preview blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
+.mde-preview img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.mde-preview code {
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+.mde-preview ul, .mde-preview ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+.mde-preview a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* 图片上传弹窗 */
+.mde-image-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.mde-image-dialog {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 90%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-lg);
+}
+
+.mde-image-dialog h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .mde-body.with-preview {
+    flex-direction: column;
+  }
+
+  .mde-body.with-preview .mde-source {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-primary);
+  }
+
+  .mde-preview {
+    width: 100%;
+  }
+}

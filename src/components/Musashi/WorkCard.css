@@ -125,6 +125,15 @@
   flex-shrink: 0;
 }
 
+.wc-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #f59e0b;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
 /* ─── Tags ─── */
 
 .wc-tags {

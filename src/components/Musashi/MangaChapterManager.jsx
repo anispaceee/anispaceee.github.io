@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MusashiService } from '../../services/musashiApi';
 import { Plus, Trash2, ChevronDown, ChevronRight, X, Loader2, ImagePlus } from 'lucide-react';
+import ImageUploader from './ImageUploader';
 
 export default function MangaChapterManager({ workId, chapters, onRefresh }) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -164,21 +165,24 @@ export default function MangaChapterManager({ workId, chapters, onRefresh }) {
                   {/* 上传页面按钮/表单 */}
                   {showPageForm === ch.id ? (
                     <div className="mcm-page-form">
-                      <input
-                        className="work-form-input"
-                        type="text"
-                        placeholder="图片 URL"
+                      <ImageUploader
                         value={pageForm.image_url}
-                        onChange={e => setPageForm(prev => ({ ...prev, image_url: e.target.value }))}
+                        onChange={(url) => setPageForm(prev => ({ ...prev, image_url: url }))}
+                        label="页面图片"
+                        placeholder="https://example.com/page.jpg"
+                        variant="page"
                       />
-                      <input
-                        className="work-form-input mcm-page-num-input"
-                        type="number"
-                        min={1}
-                        placeholder="页码"
-                        value={pageForm.page_number}
-                        onChange={e => setPageForm(prev => ({ ...prev, page_number: e.target.value }))}
-                      />
+                      <label className="work-form-label">
+                        页码
+                        <input
+                          className="work-form-input mcm-page-num-input"
+                          type="number"
+                          min={1}
+                          placeholder="页码"
+                          value={pageForm.page_number}
+                          onChange={e => setPageForm(prev => ({ ...prev, page_number: e.target.value }))}
+                        />
+                      </label>
                       {pageError && <div className="work-form-error">{pageError}</div>}
                       <div className="mcm-page-form-actions">
                         <button

@@ -702,6 +702,36 @@ export const AniBTService = {
   },
 };
 
+// ─── Wenku8Service ───
+// 轻小说文库代理，走 Worker /api/wenku8/*
+export const Wenku8Service = {
+  // 搜索轻小说（按书名搜索 merged.csv）
+  async searchNovel(keyword) {
+    if (!keyword) return [];
+    return await apiRequest(`/api/wenku8/search?q=${encodeURIComponent(keyword)}`);
+  },
+
+  // 获取小说章节列表
+  async getChapters(bookId) {
+    if (!bookId) return { volumes: [] };
+    return await apiRequest(`/api/wenku8/chapters?bookId=${encodeURIComponent(bookId)}`);
+  },
+
+  // 获取章节正文内容
+  async getChapterContent(chapterUrl) {
+    if (!chapterUrl) return { title: '', content: '' };
+    return await apiRequest(`/api/wenku8/content?chapterUrl=${encodeURIComponent(chapterUrl)}`);
+  },
+
+  // 从 novel_link 提取 bookId
+  // e.g. "https://www.wenku8.net/book/3020.htm" → "3020"
+  extractBookId(novelLink) {
+    if (!novelLink) return null;
+    const match = novelLink.match(/\/book\/(\d+)\.htm/);
+    return match ? match[1] : null;
+  },
+};
+
 // ─── UserGuestbookService ───
 // 用户留言板，走后端 API
 export const UserGuestbookService = {
