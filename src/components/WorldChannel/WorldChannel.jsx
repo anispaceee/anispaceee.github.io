@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { WorldChannelService, UserService } from '../../services/api';
-import { Image, X, Send, Loader2, Heart, MessageCircle } from 'lucide-react';
+import { Image, X, Send, Loader2, Heart, MessageCircle, Globe } from 'lucide-react';
 import UserAvatar from '../Common/UserAvatar';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import './WorldChannel.css';
