@@ -162,12 +162,152 @@
   color: var(--primary);
   font-weight: 700;
 }
+.sidebar-board-item.sub {
+  padding-left: 20px;
+  font-size: 12px;
+}
 .sidebar-board-count {
   margin-left: auto;
   font-size: 11px;
   color: var(--text-quaternary);
   font-weight: 400;
 }
+.sidebar-board-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 分类组 */
+.sidebar-cat-group {
+  margin-bottom: 2px;
+}
+.sidebar-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: background 0.15s ease;
+}
+.sidebar-cat-header:hover {
+  background: var(--primary-bg);
+}
+.sidebar-cat-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.sidebar-cat-label {
+  flex: 1;
+}
+.sidebar-cat-header svg:last-child {
+  color: var(--text-quaternary);
+}
+
+/* 创建版区按钮 */
+.sidebar-board-create {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 20px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+.sidebar-board-create:hover {
+  background: var(--primary-bg);
+}
+
+/* 创建版区弹窗 */
+.sidebar-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+}
+.sidebar-modal {
+  width: 320px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.sidebar-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-secondary);
+}
+.sidebar-modal-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+}
+.sidebar-modal-header button {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+}
+.sidebar-modal-header button:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+.sidebar-modal-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sidebar-modal-body input {
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+}
+.sidebar-modal-body input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-bg);
+}
+.sidebar-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-secondary);
+}
+.sidebar-modal-cancel {
+  padding: 5px 14px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.sidebar-modal-submit {
+  padding: 5px 14px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sidebar-modal-submit:disabled { opacity: 0.5; }
 
 /* ─── 中间栏 ─── */
 .forum-main {
@@ -709,10 +849,16 @@
   color: #fff;
   white-space: nowrap;
 }
-.post-cat-tag.game { background: var(--tag-game); }
-.post-cat-tag.anime { background: var(--tag-anime); }
-.post-cat-tag.novel { background: var(--tag-novel); }
-.post-cat-tag.chat { background: var(--tag-chat); }
+.post-cat-tag.game { background: #6366f1; }
+.post-cat-tag.anime { background: #f43f5e; }
+.post-cat-tag.novel { background: #10b981; }
+.post-cat-tag.chat { background: #06b6d4; }
+.post-cat-tag.newanime { background: #f43f5e; }
+.post-cat-tag.oldanime { background: #fb7185; }
+.post-cat-tag.galgame { background: #ec4899; }
+.post-cat-tag.announce { background: #8b5cf6; }
+.post-cat-tag.intro { background: #a78bfa; }
+.post-cat-tag.original { background: #f59e0b; }
 
 .post-card-tags {
   display: flex;

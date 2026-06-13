@@ -13,12 +13,56 @@ const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-const BOARDS = [
-  { key: 'anime', label: '动画', icon: Tv, color: 'var(--tag-anime)', description: '新番讨论 · 旧番回顾 · MAD·AMV' },
-  { key: 'game', label: '游戏', icon: Gamepad2, color: 'var(--tag-game)', description: '单机·主机 · 手游 · 网游' },
-  { key: 'novel', label: '小说', icon: BookOpen, color: 'var(--tag-novel)', description: '轻小说 · 网文 · 同人' },
-  { key: 'chat', label: '吹水', icon: Coffee, color: 'var(--tag-chat)', description: '日常闲聊 · 活动公告' },
+const BOARD_CATEGORIES = [
+  {
+    key: 'admin',
+    label: '校务室',
+    boards: [
+      { key: 'announce', label: '站务公告', color: '#8b5cf6', description: '官方公告、规则、活动' },
+      { key: 'intro', label: '新生报到', color: '#a78bfa', description: '新人自我介绍、入门指南' },
+    ],
+  },
+  {
+    key: 'anime',
+    label: '动画部',
+    boards: [
+      { key: 'newanime', label: '新番讨论', color: '#f43f5e', description: '当季新番追番讨论' },
+      { key: 'oldanime', label: '旧番/剧场', color: '#fb7185', description: '经典番、剧场版、OVA' },
+    ],
+  },
+  {
+    key: 'library',
+    label: '图书室',
+    boards: [
+      { key: 'novel', label: '轻小说/漫画', color: '#10b981', description: '轻小说、漫画、同人志' },
+    ],
+  },
+  {
+    key: 'game',
+    label: '游戏部',
+    boards: [
+      { key: 'galgame', label: 'Galgame', color: '#ec4899', description: 'Gal/视觉小说' },
+      { key: 'game', label: '综合游戏', color: '#6366f1', description: '主机/PC/手游' },
+    ],
+  },
+  {
+    key: 'creation',
+    label: '创作社',
+    boards: [
+      { key: 'original', label: '原创作品', color: '#f59e0b', description: '绘画、文学、音乐、视频' },
+    ],
+  },
+  {
+    key: 'rooftop',
+    label: '屋顶',
+    boards: [
+      { key: 'chat', label: '杂谈/资讯', color: '#06b6d4', description: '日常闲聊、ACG资讯' },
+    ],
+  },
 ];
+
+// 扁平化版区列表（兼容旧逻辑）
+const BOARDS = BOARD_CATEGORIES.flatMap(cat => cat.boards);
 
 const sortOptions = [
   { key: 'latest', label: '最新', icon: Clock },
@@ -26,11 +70,16 @@ const sortOptions = [
   { key: 'replies', label: '回复', icon: MessageCircle },
 ];
 
+function getCatLabel(cat) {
+  const board = BOARDS.find(b => b.key === cat);
+  return board ? board.label : cat;
+}
+
 function PostPreview({ title, content, images, category }) {
   return (
     <div className="post-preview">
       <div className="preview-header">
-        <span className={`post-cat-tag ${category}`}>{({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' })[category]}</span>
+        <span className={`post-cat-tag ${category}`}>{getCatLabel(category)}</span>
         <h3 className="preview-title">{title || '帖子标题预览'}</h3>
       </div>
       <div className="preview-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
@@ -112,7 +161,7 @@ export default function Forum() {
     if (post.author_name) return { name: post.author_name, avatar: post.author_avatar };
     return { name: '未知用户', avatar: '' };
   };
-  const getCategoryLabel = (cat) => ({ game: '游戏', anime: '动画', novel: '小说', chat: '吹水' }[cat] || cat);
+  const getCategoryLabel = getCatLabel;
 
   const validatePost = useCallback(() => {
     const errors = [];
