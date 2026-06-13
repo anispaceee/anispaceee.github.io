@@ -156,7 +156,16 @@ export default function InfoDetail() {
   const [newComment, setNewComment] = useState('');
   const [commentsPerPage, setCommentsPerPage] = useState(20);
   const [sortBy, setSortBy] = useState('latest');
-  const [localComments, setLocalComments] = useState([]);
+  const [localComments, setLocalComments] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`anispace_comments_${id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(`anispace_comments_${id}`, JSON.stringify(localComments)); } catch {}
+  }, [localComments, id]);
 
   const [bgmComments, setBgmComments] = useState([]);
   const [bgmCommentsLoading, setBgmCommentsLoading] = useState(false);
