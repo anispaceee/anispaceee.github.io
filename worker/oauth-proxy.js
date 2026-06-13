@@ -693,6 +693,62 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(comments.results || [], 200, origin);
   }
 
+  // ── 条目评论 API ──
+
+  // GET /api/subjects/:id/comments — 获取条目评论列表
+  const subjectCommentsMatch = pathname.match(/^\/api\/subjects\/(\d+)\/comments$/);
+  if (subjectCommentsMatch && method === 'GET') {
+    const subjectId = Number(subjectCommentsMatch[1]);
+    const sort = url.searchParams.get('sort') || 'latest';
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
+    const orderClause = sort === 'hottest' ? 'ORDER BY sc.likes DESC, sc.created_at DESC' : 'ORDER BY sc.created_at DESC';
+    const comments = await env.DB.prepare(
+      `SELECT sc.id, sc.subject_id, sc.user_id, sc.content, sc.likes, sc.created_at, u.name AS username, u.avatar FROM subject_comments sc JOIN users u ON sc.user_id = u.id WHERE sc.subject_id = ? ${orderClause} LIMIT ?`
+    ).bind(subjectId, limit).all();
+    return jsonResponse(comments.results || [], 200, origin);
+  }
+
+  // POST /api/subjects/:id/comments — 发表条目评论（需认证）
+  if (subjectCommentsMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未登录' }, 401, origin);
+    const subjectId = Number(subjectCommentsMatch[1]);
+    const body = await request.json();
+    const content = (body.content || '').trim();
+    if (!content) return jsonResponse({ error: '评论内容不能为空' }, 400, origin);
+    if (content.length > 2000) return jsonResponse({ error: '评论内容过长' }, 400, origin);
+    await env.DB.prepare(
+      'INSERT INTO subject_comments (subject_id, user_id, content, created_at) VALUES (?, ?, ?, datetime(\'now\'))'
+    ).bind(subjectId, authUser.userId, content).run();
+    const comment = await env.DB.prepare(
+      'SELECT sc.id, sc.subject_id, sc.user_id, sc.content, sc.likes, sc.created_at, u.name AS username, u.avatar FROM subject_comments sc JOIN users u ON sc.user_id = u.id WHERE sc.subject_id = ? ORDER BY sc.created_at DESC LIMIT 1'
+    ).bind(subjectId).first();
+    return jsonResponse(comment, 201, origin);
+  }
+
+  // DELETE /api/subjects/:subjectId/comments/:commentId — 删除条目评论（需认证，仅本人）
+  const subjectCommentDeleteMatch = pathname.match(/^\/api\/subjects\/(\d+)\/comments\/(\d+)$/);
+  if (subjectCommentDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未登录' }, 401, origin);
+    const commentId = Number(subjectCommentDeleteMatch[2]);
+    const existing = await env.DB.prepare('SELECT user_id FROM subject_comments WHERE id = ?').bind(commentId).first();
+    if (!existing) return jsonResponse({ error: '评论不存在' }, 404, origin);
+    if (existing.user_id !== authUser.userId) return jsonResponse({ error: '无权删除' }, 403, origin);
+    await env.DB.prepare('DELETE FROM subject_comments WHERE id = ?').bind(commentId).run();
+    return jsonResponse({ success: true }, 200, origin);
+  }
+
+  // POST /api/subjects/:subjectId/comments/:commentId/like — 点赞条目评论
+  const subjectCommentLikeMatch = pathname.match(/^\/api\/subjects\/(\d+)\/comments\/(\d+)\/like$/);
+  if (subjectCommentLikeMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未登录' }, 401, origin);
+    const commentId = Number(subjectCommentLikeMatch[2]);
+    await env.DB.prepare('UPDATE subject_comments SET likes = likes + 1 WHERE id = ?').bind(commentId).run();
+    return jsonResponse({ success: true }, 200, origin);
+  }
+
   // GET /api/users/:id/activity — 获取用户活跃度数据（用于热力图）
   const userActivityMatch = pathname.match(/^\/api\/users\/(\d+)\/activity$/);
   if (userActivityMatch && method === 'GET') {
@@ -1624,6 +1680,14 @@ async function handleApiRoutes(pathname, request, env, origin) {
       const result = await env.DB.prepare(
         'INSERT INTO world_messages (author_id, content, created_at) VALUES (?, ?, datetime(\'now\'))'
       ).bind(authUser.userId, content).run();
+
+      // 保留最近100条，删除更早的消息
+      const countResult = await env.DB.prepare('SELECT COUNT(*) AS total FROM world_messages').first();
+      if (countResult.total > 100) {
+        await env.DB.prepare(
+          'DELETE FROM world_messages WHERE id IN (SELECT id FROM world_messages ORDER BY created_at DESC LIMIT -1 OFFSET 100)'
+        ).run();
+      }
 
       const message = await env.DB.prepare(
         'SELECT wm.*, u.name AS author_name, u.avatar AS author_avatar FROM world_messages wm JOIN users u ON wm.author_id = u.id WHERE wm.id = ?'

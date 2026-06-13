@@ -9,6 +9,8 @@ import { MatchKind, MediaSourceKind } from '../../services/media/types';
 import FansubGroupsPanel from './FansubGroups';
 import './InfoDetail.css';
 
+const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+
 const TYPE_ICONS = { 1: BookOpen, 2: Tv, 4: Gamepad2 };
 const TYPE_LABELS = { 1: '小说', 2: '动画', 3: '音乐', 4: '游戏', 6: '三次元' };
 const WEEKDAYS = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -156,16 +158,8 @@ export default function InfoDetail() {
   const [newComment, setNewComment] = useState('');
   const [commentsPerPage, setCommentsPerPage] = useState(20);
   const [sortBy, setSortBy] = useState('latest');
-  const [localComments, setLocalComments] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`anispace_comments_${id}`);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-
-  useEffect(() => {
-    try { localStorage.setItem(`anispace_comments_${id}`, JSON.stringify(localComments)); } catch {}
-  }, [localComments, id]);
+  const [localComments, setLocalComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const [bgmComments, setBgmComments] = useState([]);
   const [bgmCommentsLoading, setBgmCommentsLoading] = useState(false);
@@ -365,57 +359,84 @@ export default function InfoDetail() {
     } catch {}
   };
 
-  const handleComment = () => {
+  const loadSubjectComments = useCallback(async () => {
+    try {
+      setCommentsLoading(true);
+      const token = sessionStorage.getItem('acg_jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/api/subjects/${id}/comments?sort=${sortBy}&limit=100`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setLocalComments(data.map(c => ({
+          id: c.id,
+          userId: c.user_id,
+          username: c.username,
+          avatar: c.avatar,
+          content: c.content,
+          likes: c.likes || 0,
+          createdAt: new Date(c.created_at).getTime(),
+          timestamp: new Date(c.created_at).toLocaleString('zh-CN'),
+        })));
+      }
+    } catch (err) {
+      console.warn('[InfoDetail] load comments failed:', err);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [id, sortBy]);
+
+  useEffect(() => { loadSubjectComments(); }, [loadSubjectComments]);
+
+  const handleComment = async () => {
     if (!isAuthenticated) { openAuth(); return; }
     if (!newComment.trim()) return;
-    const comment = {
-      id: Date.now(),
-      userId: currentUser.id,
-      username: currentUser.name,
-      avatar: currentUser.avatar,
-      content: newComment,
-      timestamp: new Date().toLocaleString('zh-CN'),
-      likes: 0,
-      score: userScore || null,
-      replies: [],
-      createdAt: Date.now(),
-    };
-    const updated = [...localComments, comment];
-    setLocalComments(updated);
-    setNewComment('');
-  };
-
-  const handleCommentLike = (commentId) => {
-    setLocalComments(prev => prev.map(c => 
-      c.id === commentId ? { ...c, likes: c.likes + 1 } : c
-    ));
-  };
-
-  const handleCommentReply = (commentId, replyContent) => {
-    if (!isAuthenticated) { openAuth(); return; }
-    if (!replyContent.trim()) return;
-    setLocalComments(prev => prev.map(c => 
-      c.id === commentId 
-        ? { ...c, replies: [...c.replies, {
-            id: Date.now(),
-            userId: currentUser.id,
-            username: currentUser.name,
-            avatar: currentUser.avatar,
-            content: replyContent,
-            timestamp: new Date().toLocaleString('zh-CN'),
-            likes: 0,
-          }]
-        } 
-        : c
-    ));
-  };
-
-  const handleCommentReport = (commentId) => {
-    if (!isAuthenticated) { openAuth(); return; }
-    if (confirm('确定要举报这条评论吗？')) {
-      setLocalComments(prev => prev.filter(c => c.id !== commentId));
-      alert('举报已提交，感谢您的反馈');
+    try {
+      const token = sessionStorage.getItem('acg_jwt_token');
+      const res = await fetch(`${API_BASE}/api/subjects/${id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ content: newComment.trim() }),
+      });
+      if (res.ok) {
+        setNewComment('');
+        loadSubjectComments();
+      } else {
+        const err = await res.json();
+        alert(err.error || '发表失败');
+      }
+    } catch {
+      alert('网络错误，请稍后重试');
     }
+  };
+
+  const handleCommentLike = async (commentId) => {
+    if (!isAuthenticated) { openAuth(); return; }
+    try {
+      const token = sessionStorage.getItem('acg_jwt_token');
+      await fetch(`${API_BASE}/api/subjects/${id}/comments/${commentId}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      });
+      setLocalComments(prev => prev.map(c => 
+        c.id === commentId ? { ...c, likes: c.likes + 1 } : c
+      ));
+    } catch {}
+  };
+
+  const handleCommentDelete = async (commentId) => {
+    if (!isAuthenticated) return;
+    if (!confirm('确定要删除这条评论吗？')) return;
+    try {
+      const token = sessionStorage.getItem('acg_jwt_token');
+      const res = await fetch(`${API_BASE}/api/subjects/${id}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setLocalComments(prev => prev.filter(c => c.id !== commentId));
+      }
+    } catch {}
   };
 
   const [watchLoading, setWatchLoading] = useState(false);
@@ -969,69 +990,40 @@ export default function InfoDetail() {
                           <option value="hottest">最热</option>
                         </select>
                       </div>
-                      <div className="detail-comments-perpage">
-                        <span className="perpage-label">每页:</span>
-                        <select value={commentsPerPage} onChange={e => setCommentsPerPage(parseInt(e.target.value))} className="perpage-select">
-                          <option value="10">10条</option>
-                          <option value="20">20条</option>
-                          <option value="50">50条</option>
-                        </select>
-                      </div>
                     </div>
 
-                    <div className="detail-comments-list">
-                      {(() => {
-                        const sortedComments = [...localComments].sort((a, b) => {
-                          if (sortBy === 'hottest') return b.likes - a.likes;
-                          return b.createdAt - a.createdAt;
-                        });
-                        const paginatedComments = sortedComments.slice(0, commentsPerPage);
-                        if (paginatedComments.length === 0) {
-                          return <div className="detail-no-comments">暂无评论，快来发表第一条评论吧！</div>;
-                        }
-                        return paginatedComments.map(c => (
-                          <div key={c.id} className="detail-comment-item">
-                            <AvatarImg src={c.avatar} alt={c.username} size={36} />
-                            <div className="comment-body">
-                              <div className="comment-header">
-                                <span className="comment-name">{c.username}</span>
-                                {c.score && <span className="comment-score-badge">⭐ {c.score}</span>}
-                                <span className="comment-time">{c.timestamp}</span>
-                              </div>
-                              <p className="comment-content">{c.content}</p>
-                              <div className="comment-actions">
-                                <button className="comment-action-btn like" onClick={() => handleCommentLike(c.id)}>
-                                  <Heart size={14} /> {c.likes}
-                                </button>
-                                <button className="comment-action-btn reply" onClick={() => {
-                                  const replyContent = prompt('输入回复内容：');
-                                  if (replyContent) handleCommentReply(c.id, replyContent);
-                                }}>
-                                  <MessageCircle size={14} /> 回复
-                                </button>
-                                <button className="comment-action-btn report" onClick={() => handleCommentReport(c.id)}>
-                                  <AlertCircle size={14} /> 举报
-                                </button>
-                              </div>
-                              {c.replies && c.replies.length > 0 && (
-                                <div className="comment-replies">
-                                  {c.replies.map(reply => (
-                                    <div key={reply.id} className="comment-reply">
-                                      <AvatarImg src={reply.avatar} alt={reply.username} size={24} />
-                                      <div className="reply-body">
-                                        <span className="reply-name">{reply.username}</span>
-                                        <span className="reply-content">{reply.content}</span>
-                                        <span className="reply-time">{reply.timestamp}</span>
-                                      </div>
-                                    </div>
-                                  ))}
+                    {commentsLoading ? (
+                      <div className="detail-no-comments"><Loader2 size={18} className="vp-spin" /> 加载评论中...</div>
+                    ) : (
+                      <div className="detail-comments-list">
+                        {localComments.length === 0 ? (
+                          <div className="detail-no-comments">暂无评论，快来发表第一条评论吧！</div>
+                        ) : (
+                          localComments.map(c => (
+                            <div key={c.id} className="detail-comment-item">
+                              <AvatarImg src={c.avatar} alt={c.username} size={36} />
+                              <div className="comment-body">
+                                <div className="comment-header">
+                                  <span className="comment-name">{c.username}</span>
+                                  <span className="comment-time">{c.timestamp}</span>
                                 </div>
-                              )}
+                                <p className="comment-content">{c.content}</p>
+                                <div className="comment-actions">
+                                  <button className="comment-action-btn like" onClick={() => handleCommentLike(c.id)}>
+                                    <Heart size={14} /> {c.likes}
+                                  </button>
+                                  {currentUser && c.userId === currentUser.id && (
+                                    <button className="comment-action-btn report" onClick={() => handleCommentDelete(c.id)}>
+                                      <AlertCircle size={14} /> 删除
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
+                          ))
+                        )}
+                      </div>
+                    )}
 
                   </div>
                 )}

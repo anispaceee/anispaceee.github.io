@@ -435,3 +435,16 @@ CREATE TABLE IF NOT EXISTS user_guestbook (
 CREATE INDEX IF NOT EXISTS idx_guestbook_user ON user_guestbook(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_guestbook_author ON user_guestbook(author_id);
 CREATE INDEX IF NOT EXISTS idx_guestbook_reply ON user_guestbook(reply_to_id);
+
+-- 条目评论表
+CREATE TABLE IF NOT EXISTS subject_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subject_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  likes INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_subject_comments_subject ON subject_comments(subject_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_subject_comments_user ON subject_comments(user_id);
