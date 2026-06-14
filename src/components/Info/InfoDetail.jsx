@@ -2,6 +2,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService, Wenku8Service } from '../../services/api';
 import { BangumiDataService } from '../../services/BangumiDataService';
+import { SourceMerger } from '../../services/SourceMerger';
 import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -207,6 +208,25 @@ export default function InfoDetail() {
 
   // 播放平台链接
   const [platformLinks, setPlatformLinks] = useState(null);
+
+  // 海外数据
+  const [overseasData, setOverseasData] = useState(null);
+  const [overseasLoading, setOverseasLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setOverseasLoading(true);
+    SourceMerger.mergeAnimeData({ id, name: subject?.name, name_cn: subject?.name_cn }).then(result => {
+      if (!cancelled) {
+        setOverseasData(result);
+        setOverseasLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setOverseasLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [id, subject?.name, subject?.name_cn]);
 
   useEffect(() => {
     if (!id) return;
@@ -920,6 +940,74 @@ export default function InfoDetail() {
                 </div>
               </div>
             )}
+
+            {/* 海外数据 */}
+            <div className="detail-overseas-data">
+              <h4 className="detail-overseas-title">海外数据</h4>
+              {overseasLoading ? (
+                <div className="detail-overseas-loading">加载中...</div>
+              ) : (
+                <>
+                  {overseasData?.anilist && (
+                    <div className="detail-overseas-source">
+                      <span className="detail-overseas-source-name">AniList</span>
+                      <div className="detail-overseas-info">
+                        {overseasData.anilist.averageScore && (
+                          <span className="detail-overseas-score">
+                            评分: {(overseasData.anilist.averageScore / 10).toFixed(1)}
+                          </span>
+                        )}
+                        {overseasData.anilist.title?.english && (
+                          <span className="detail-overseas-alt-title">
+                            EN: {overseasData.anilist.title.english}
+                          </span>
+                        )}
+                        {overseasData.anilist.title?.romaji && (
+                          <span className="detail-overseas-alt-title">
+                            Roman: {overseasData.anilist.title.romaji}
+                          </span>
+                        )}
+                        {overseasData.anilist.popularity && (
+                          <span className="detail-overseas-popularity">
+                            人气: #{overseasData.anilist.popularity}
+                          </span>
+                        )}
+                        {overseasData.anilist.siteUrl && (
+                          <a href={overseasData.anilist.siteUrl} target="_blank" rel="noopener noreferrer" className="detail-overseas-link">
+                            在AniList查看 ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {overseasData?.kitsu && (
+                    <div className="detail-overseas-source">
+                      <span className="detail-overseas-source-name">Kitsu</span>
+                      <div className="detail-overseas-info">
+                        {overseasData.kitsu.averageRating && (
+                          <span className="detail-overseas-score">
+                            评分: {(overseasData.kitsu.averageRating / 10).toFixed(1)}
+                          </span>
+                        )}
+                        {overseasData.kitsu.ratingRank && (
+                          <span className="detail-overseas-popularity">
+                            排名: #{overseasData.kitsu.ratingRank}
+                          </span>
+                        )}
+                        {overseasData.kitsu.siteUrl && (
+                          <a href={overseasData.kitsu.siteUrl} target="_blank" rel="noopener noreferrer" className="detail-overseas-link">
+                            在Kitsu查看 ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {!overseasData?.anilist && !overseasData?.kitsu && !overseasLoading && (
+                    <div className="detail-overseas-unavailable">海外数据源暂时不可用</div>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* 收藏统计 */}
             {collectionTotal > 0 && (

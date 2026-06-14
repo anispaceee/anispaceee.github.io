@@ -1,0 +1,38 @@
+.hitokoto-decoration {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hitokoto-item {
+  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  text-shadow: 0 0 20px currentColor;
+  opacity: 0;
+  animation: hitokoto-fade-in 1s ease forwards;
+}
+
+.hitokoto-item:nth-child(2) { animation-delay: 0.2s; }
+.hitokoto-item:nth-child(3) { animation-delay: 0.4s; }
+.hitokoto-item:nth-child(4) { animation-delay: 0.6s; }
+.hitokoto-item:nth-child(5) { animation-delay: 0.8s; }
+
+.hitokoto-from {
+  display: block;
+  font-size: 0.6em;
+  margin-top: 4px;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+@keyframes hitokoto-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .hitokoto-item {
+    max-width: 200px !important;
+  }
+}
