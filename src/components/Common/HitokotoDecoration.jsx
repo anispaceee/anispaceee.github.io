@@ -22,7 +22,10 @@ function generatePosition(index, total) {
   const row = Math.floor(index / cols);
 
   const cellWidth = 100 / cols;
-  const cellHeight = 100 / rows;
+  // 从30%开始（跳过顶部横幅），到底部100%
+  const topStart = 30;
+  const topRange = 100 - topStart;
+  const cellHeight = topRange / rows;
 
   // 在单元格内随机偏移
   const offsetX = (Math.random() * 0.6 + 0.2) * cellWidth;
@@ -30,7 +33,7 @@ function generatePosition(index, total) {
 
   return {
     left: `${col * cellWidth + offsetX}%`,
-    top: `${row * cellHeight + offsetY}%`,
+    top: `${topStart + row * cellHeight + offsetY}%`,
   };
 }
 

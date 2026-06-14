@@ -1,9 +1,35 @@
 .hitokoto-decoration {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  /* 中间区域渐变遮罩：左右透明，中间半透明白色遮盖台词 */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0,0,0,1) 0%,
+    rgba(0,0,0,1) 15%,
+    rgba(0,0,0,0.3) 25%,
+    rgba(0,0,0,0) 35%,
+    rgba(0,0,0,0) 65%,
+    rgba(0,0,0,0.3) 75%,
+    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,1) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0,0,0,1) 0%,
+    rgba(0,0,0,1) 15%,
+    rgba(0,0,0,0.3) 25%,
+    rgba(0,0,0,0) 35%,
+    rgba(0,0,0,0) 65%,
+    rgba(0,0,0,0.3) 75%,
+    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,1) 100%
+  );
 }
 
 .hitokoto-item {
