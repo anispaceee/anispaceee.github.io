@@ -14,48 +14,42 @@ const COLORS = [
 
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
-function generatePosition(index, total) {
-  // 均匀网格分布，小范围随机偏移
-  const cols = Math.ceil(Math.sqrt(total * 1.6));
-  const rows = Math.ceil(total / cols);
-  const col = index % cols;
-  const row = Math.floor(index / cols);
-
+function generateLayout(count) {
+  // 计算网格：宽屏偏向更多列
+  const cols = Math.ceil(Math.sqrt(count * 1.8));
+  const rows = Math.ceil(count / cols);
   const cellWidth = 100 / cols;
   const cellHeight = 100 / rows;
 
-  // 小范围随机偏移（单元格中心附近）
-  const offsetX = (Math.random() * 0.3 + 0.35) * cellWidth;
-  const offsetY = (Math.random() * 0.3 + 0.35) * cellHeight;
+  const positions = [];
+  for (let i = 0; i < count; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
 
-  return {
-    left: `${col * cellWidth + offsetX}%`,
-    top: `${row * cellHeight + offsetY}%`,
-  };
-}
+    // 单元格中心 + 微小随机偏移（避免完全对齐但不会超出单元格）
+    const jitterX = (Math.random() - 0.5) * cellWidth * 0.3;
+    const jitterY = (Math.random() - 0.5) * cellHeight * 0.3;
 
-function generateStyle(index, total) {
-  const pos = generatePosition(index, total);
-  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-  const fontSize = FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)];
-  const rotation = (Math.random() - 0.5) * 12; // -6° to +6°
-  const delay = index * 0.08; // 逐条延迟
+    const centerX = (col + 0.5) * cellWidth + jitterX;
+    const centerY = (row + 0.5) * cellHeight + jitterY;
 
-  return {
-    position: 'absolute',
-    left: pos.left,
-    top: pos.top,
-    color,
-    fontSize: `${fontSize}px`,
-    fontWeight: fontSize > 30 ? 700 : fontSize > 20 ? 600 : 400,
-    transform: `rotate(${rotation}deg)`,
-    maxWidth: fontSize > 30 ? '400px' : '280px',
-    lineHeight: 1.4,
-    whiteSpace: 'pre-wrap',
-    userSelect: 'none',
-    pointerEvents: 'none',
-    animationDelay: `${delay}s`,
-  };
+    // 随机字号和颜色
+    const fontSize = FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)];
+    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    const rotation = (Math.random() - 0.5) * 8; // -4° to +4°
+    const delay = i * 0.06;
+
+    positions.push({
+      left: `${centerX}%`,
+      top: `${centerY}%`,
+      color,
+      fontSize,
+      rotation,
+      delay,
+      maxWidth: fontSize > 30 ? '400px' : '280px',
+    });
+  }
+  return positions;
 }
 
 export default function HitokotoDecoration({ count = 4 }) {
@@ -68,12 +62,15 @@ export default function HitokotoDecoration({ count = 4 }) {
       const h = HitokotoService.getRandomHitokoto();
       if (h) hitokotos.push(h);
     }
+    if (hitokotos.length === 0) return;
+
+    const layout = generateLayout(hitokotos.length);
     setItems(hitokotos.map((h, i) => ({
       key: `${h.id}-${Date.now()}-${i}`,
       text: h.text,
       from: h.from,
       fromWho: h.fromWho,
-      style: generateStyle(i, hitokotos.length),
+      layout: layout[i],
     })));
   }, [count]);
 
@@ -86,7 +83,20 @@ export default function HitokotoDecoration({ count = 4 }) {
   return (
     <div className="hitokoto-decoration">
       {items.map(item => (
-        <div key={item.key} style={item.style} className="hitokoto-item">
+        <div
+          key={item.key}
+          className="hitokoto-item"
+          style={{
+            left: item.layout.left,
+            top: item.layout.top,
+            color: item.layout.color,
+            fontSize: `${item.layout.fontSize}px`,
+            fontWeight: item.layout.fontSize > 30 ? 700 : item.layout.fontSize > 20 ? 600 : 400,
+            transform: `translate(-50%, -50%) rotate(${item.layout.rotation}deg)`,
+            maxWidth: item.layout.maxWidth,
+            animationDelay: `${item.layout.delay}s`,
+          }}
+        >
           {item.text}
           <span className="hitokoto-from">
             {item.fromWho && `${item.fromWho} · `}{item.from}
