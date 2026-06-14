@@ -15,22 +15,32 @@ const COLORS = [
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
 function generateLayout(count) {
-  // 计算网格：宽屏偏向更多列
-  const cols = Math.ceil(Math.sqrt(count * 1.8));
+  // 计算网格：6列5行=30格，刚好填满
+  const cols = 6;
   const rows = Math.ceil(count / cols);
   const cellWidth = 100 / cols;
   const cellHeight = 100 / rows;
 
   const positions = [];
+  const lastRowCount = count - (rows - 1) * cols; // 最后一行的数量
+
   for (let i = 0; i < count; i++) {
-    const col = i % cols;
     const row = Math.floor(i / cols);
+    const col = i % cols;
 
-    // 单元格中心 + 微小随机偏移（避免完全对齐但不会超出单元格）
-    const jitterX = (Math.random() - 0.5) * cellWidth * 0.3;
-    const jitterY = (Math.random() - 0.5) * cellHeight * 0.3;
+    // 最后一行居中：计算偏移使最后一行居中分布
+    let actualCol = col;
+    const currentRowCount = (row === rows - 1) ? lastRowCount : cols;
+    if (row === rows - 1 && lastRowCount < cols) {
+      const offset = (cols - lastRowCount) / 2;
+      actualCol = col + offset;
+    }
 
-    const centerX = (col + 0.5) * cellWidth + jitterX;
+    // 单元格中心 + 微小随机偏移
+    const jitterX = (Math.random() - 0.5) * cellWidth * 0.2;
+    const jitterY = (Math.random() - 0.5) * cellHeight * 0.2;
+
+    const centerX = (actualCol + 0.5) * cellWidth + jitterX;
     const centerY = (row + 0.5) * cellHeight + jitterY;
 
     // 随机字号和颜色
