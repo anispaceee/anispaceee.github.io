@@ -37,10 +37,6 @@ export default function NewsZone() {
   const [applyForm, setApplyForm] = useState({ title: '', source: '', link: '', category: '', cover: '' });
   const [coverPreview, setCoverPreview] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const sentinelRef = useRef(null);
   const carouselTimerRef = useRef(null);
   const coverInputRef = useRef(null);
 
@@ -55,63 +51,31 @@ export default function NewsZone() {
     return true;
   });
 
-  // 加载数据
-  const loadData = useCallback(async (pageNum = 1, append = false) => {
-    if (pageNum === 1) setLoading(true);
-    else setLoadingMore(true);
+  // 加载数据（全量一次性加载）
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      const limit = 30;
       const [feedData, customData] = await Promise.allSettled([
-        NewsService.getNewsFeed({ page: pageNum, limit }),
-        NewsService.getCustomNews(pageNum, limit),
+        NewsService.getNewsFeed({ page: 1, limit: 9999 }),
+        NewsService.getCustomNews(1, 9999),
       ]);
       const newFeed = feedData.status === 'fulfilled' ? (feedData.value?.news || []) : [];
       const newCustom = customData.status === 'fulfilled' ? (customData.value?.news || []) : [];
-      const newItems = [...newFeed, ...newCustom.map(n => ({ ...n, source: 'custom' }))];
-
-      if (append) {
-        setFeedNews(prev => {
-          const existingIds = new Set(prev.map(n => `${n.source}-${n.source_id || n.id}`));
-          const unique = newItems.filter(n => !existingIds.has(`${n.source}-${n.source_id || n.id}`));
-          return [...prev, ...unique];
-        });
-      } else {
-        setFeedNews(newFeed);
-        setCustomNews(newCustom);
-      }
-      // 任一数据源仍返回满页才认为还有更多，避免合并后长度恒 >= limit 导致永不结束
-      setHasMore(newFeed.length >= limit || newCustom.length >= limit);
+      setFeedNews(newFeed);
+      setCustomNews(newCustom);
     } catch {
       // 静默失败
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData(1);
+    loadData();
     // 每5分钟自动刷新数据
-    const timer = setInterval(() => loadData(1), 5 * 60 * 1000);
+    const timer = setInterval(() => loadData(), 5 * 60 * 1000);
     return () => clearInterval(timer);
   }, [loadData]);
-
-  // 无限滚动
-  useEffect(() => {
-    if (!sentinelRef.current || !hasMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          const nextPage = page + 1;
-          setPage(nextPage);
-          loadData(nextPage, true);
-        }
-      },
-      { rootMargin: '200px' }
-    );
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, page, loadData]);
 
   // 轮播自动播放
   useEffect(() => {
@@ -385,11 +349,6 @@ export default function NewsZone() {
               );
             })
           )}
-          {/* 无限滚动哨兵 */}
-          <div ref={sentinelRef} className="news-scroll-sentinel">
-            {loadingMore && <div className="news-loading-more"><Loader2 size={14} className="spinning" /> 加载更多...</div>}
-            {!hasMore && filteredNews.length > 0 && <div className="news-no-more">— 已加载全部 —</div>}
-          </div>
         </div>
       )}
       </> )}
