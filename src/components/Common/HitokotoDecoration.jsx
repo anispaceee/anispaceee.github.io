@@ -12,63 +12,58 @@ const COLORS = [
   'rgba(184, 154, 212, 0.20)',
 ];
 
-// 适配窄列的字号范围，去掉过大字号减少堆叠
-const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20];
+// 适配窄列的字号范围，加入一些大字号制造层次感
+const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20, 24, 28];
 
 /**
- * 改进的布局算法：
- * - 每侧3列（原来2列），大幅减少垂直堆叠
- * - 侧边区域 0-30% / 70-100%（原来 0-25% / 75-100%）
+ * 自由散布布局：
+ * - 不用严格网格，在侧边区域内随机散布
+ * - 允许部分堆叠，营造自然凌乱感
  * - 跳过顶部12%避免和横幅重叠
- * - 小随机偏移保持自然感
+ * - 大字号元素更少，小字号更多
  */
 function generateLayout(count) {
-  const TOP_START = 12; // 跳过顶部12%（banner区域）
+  const TOP_START = 12;
   const HEIGHT_RANGE = 100 - TOP_START;
-  const LEFT_ZONE_WIDTH = 30; // 左侧区域宽度 0-30%
-  const RIGHT_ZONE_START = 70; // 右侧区域起始 70%
-  const RIGHT_ZONE_WIDTH = 30; // 右侧区域宽度 70-100%
-  const COLS_PER_SIDE = 3; // 每侧3列
 
   const leftCount = Math.ceil(count / 2);
   const rightCount = count - leftCount;
   const positions = [];
 
-  // 左侧区域
-  const leftRows = Math.ceil(leftCount / COLS_PER_SIDE);
+  // 左侧区域：0-32% 宽度，随机散布
   for (let i = 0; i < leftCount; i++) {
-    const col = i % COLS_PER_SIDE;
-    const row = Math.floor(i / COLS_PER_SIDE);
-    const cellWidth = LEFT_ZONE_WIDTH / COLS_PER_SIDE;
-    const cellHeight = HEIGHT_RANGE / leftRows;
+    const x = Math.random() * 28 + 2; // 2%-30%
+    const y = TOP_START + Math.random() * HEIGHT_RANGE; // 12%-100%
 
-    const x = (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.6;
-    const y = TOP_START + (row + 0.5) * cellHeight + (Math.random() - 0.5) * cellHeight * 0.45;
+    // 大字号概率低（只有20%几率选到20+），小字号概率高
+    const fontSizePool = Math.random() < 0.2
+      ? FONT_SIZES.filter(s => s >= 20)  // 20% 大字号
+      : FONT_SIZES.filter(s => s < 20);  // 80% 小字号
+    const fontSize = fontSizePool[Math.floor(Math.random() * fontSizePool.length)];
 
     positions.push({
       left: `${x}%`,
       top: `${y}%`,
-      fontSize: FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)],
+      fontSize,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       delay: i * 0.04,
     });
   }
 
-  // 右侧区域
-  const rightRows = Math.ceil(rightCount / COLS_PER_SIDE);
+  // 右侧区域：68-100% 宽度，随机散布
   for (let i = 0; i < rightCount; i++) {
-    const col = i % COLS_PER_SIDE;
-    const row = Math.floor(i / COLS_PER_SIDE);
-    const cellWidth = RIGHT_ZONE_WIDTH / COLS_PER_SIDE;
-    const cellHeight = HEIGHT_RANGE / rightRows;
+    const x = 68 + Math.random() * 30; // 68%-98%
+    const y = TOP_START + Math.random() * HEIGHT_RANGE; // 12%-100%
 
-    const x = RIGHT_ZONE_START + (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.6;
-    const y = TOP_START + (row + 0.5) * cellHeight + (Math.random() - 0.5) * cellHeight * 0.45;
+    const fontSizePool = Math.random() < 0.2
+      ? FONT_SIZES.filter(s => s >= 20)
+      : FONT_SIZES.filter(s => s < 20);
+    const fontSize = fontSizePool[Math.floor(Math.random() * fontSizePool.length)];
 
     positions.push({
       left: `${x}%`,
       top: `${y}%`,
-      fontSize: FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)],
+      fontSize,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       delay: (leftCount + i) * 0.04,
     });
@@ -116,7 +111,7 @@ export default function HitokotoDecoration({ count = 4 }) {
             fontSize: `${item.layout.fontSize}px`,
             fontWeight: item.layout.fontSize >= 18 ? 600 : 400,
             transform: 'translate(-50%, -50%)',
-            maxWidth: item.layout.fontSize >= 18 ? '180px' : '150px',
+            maxWidth: item.layout.fontSize >= 24 ? '220px' : item.layout.fontSize >= 18 ? '180px' : '150px',
             animationDelay: `${item.layout.delay}s`,
           }}
         >
