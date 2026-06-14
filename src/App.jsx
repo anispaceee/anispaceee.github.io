@@ -15,7 +15,7 @@ import MusicPlayer from './components/Music/MusicPlayer'
 import MinimizedBar from './components/Layout/MinimizedBar'
 import LoginNotificationBar from './components/Layout/LoginNotificationBar'
 import { useMusic, FALLBACK_COVER } from './context/MusicContext'
-import { Play, Pause, SkipBack, SkipForward, Music, Brain, Coffee, Globe, Users, Bell, Gamepad2, Send, Link2 } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Music, Brain, Coffee, Globe, Users, Bell, Gamepad2, Send, Link2, Mail } from 'lucide-react'
 import Amadeus from './components/Amadeus/Amadeus'
 import FriendSpace from './components/FriendSpace/FriendSpace'
 import Notifications from './components/Notification/Notifications'
@@ -72,7 +72,7 @@ class VideoPlayerErrorBoundary extends Component {
           </button>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            style={{ padding: '8px 20px', borderRadius: 20, border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-primary)', marginLeft: 8 }}
+            style={{ padding: '8px 20px', borderRadius: 20, border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text-primary)', marginLeft: 12 }}
           >
             重试
           </button>
