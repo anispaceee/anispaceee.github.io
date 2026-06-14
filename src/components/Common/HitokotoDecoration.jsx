@@ -15,7 +15,7 @@ const COLORS = [
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
 function generatePosition(index, total) {
-  // 网格分布 + 单元格内随机偏移，覆盖整个页面
+  // 网格分布 + 单元格内随机偏移，覆盖整个视口
   const cols = Math.ceil(Math.sqrt(total * 1.6)); // 宽屏偏向更多列
   const rows = Math.ceil(total / cols);
   const col = index % cols;

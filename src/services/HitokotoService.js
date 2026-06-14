@@ -13,35 +13,45 @@ export const HitokotoService = {
   _cacheIndex: 0,
 
   async fetchQuotes() {
-    // 优先尝试 Animechan
-    try {
-      const quotes = await this._fetchAnimechan();
-      if (quotes.length > 0) {
-        this._cache = quotes;
-        this._cacheIndex = 0;
-        this._saveCache(quotes);
-        return quotes;
-      }
-    } catch { /* Animechan 失败，降级 */ }
+    let quotes = [];
 
-    // 降级到一言
+    // 优先尝试 Animechan（高质量，约10条）
     try {
-      const quotes = await this._fetchHitokoto();
-      if (quotes.length > 0) {
-        this._cache = quotes;
-        this._cacheIndex = 0;
-        this._saveCache(quotes);
-        return quotes;
+      const animechanQuotes = await this._fetchAnimechan();
+      if (animechanQuotes.length > 0) {
+        quotes.push(...animechanQuotes);
       }
-    } catch { /* 一言也失败 */ }
+    } catch { /* Animechan 失败 */ }
+
+    // 用一言补充到30条
+    if (quotes.length < CACHE_SIZE) {
+      try {
+        const hitokotoQuotes = await this._fetchHitokoto();
+        if (hitokotoQuotes.length > 0) {
+          // 去重
+          const existingTexts = new Set(quotes.map(q => q.text));
+          const newQuotes = hitokotoQuotes.filter(q => !existingTexts.has(q.text));
+          quotes.push(...newQuotes);
+        }
+      } catch { /* 一言也失败 */ }
+    }
+
+    // 截取到目标数量
+    quotes = quotes.slice(0, CACHE_SIZE);
+
+    if (quotes.length > 0) {
+      this._cache = quotes;
+      this._cacheIndex = 0;
+      this._saveCache(quotes);
+      return quotes;
+    }
 
     // 最后尝试 localStorage 缓存
     return this._loadCache();
   },
 
   async _fetchAnimechan() {
-    // Animechan 免费版 5次/小时，但可一次请求多条
-    // 使用 anime 参数获取特定动漫的多条台词
+    // Animechan 免费版 5次/小时，只请求2个动漫避免超限
     const popularAnime = [
       'Naruto', 'One Piece', 'Attack on Titan', 'Death Note',
       'Fullmetal Alchemist', 'Steins;Gate', 'Cowboy Bebop',
@@ -52,39 +62,30 @@ export const HitokotoService = {
       'Chainsaw Man', 'Bleach', 'Dragon Ball',
     ];
 
-    const promises = [];
-    // 随机选6个动漫，每个获取5条 = 最多30条
-    const shuffled = popularAnime.sort(() => Math.random() - 0.5).slice(0, 6);
+    // 随机选2个动漫，每个获取5条 = 最多10条
+    const shuffled = popularAnime.sort(() => Math.random() - 0.5).slice(0, 2);
 
+    const allQuotes = [];
     for (const anime of shuffled) {
-      promises.push(
-        fetch(`https://api.animechan.io/v1/quotes?anime=${encodeURIComponent(anime)}`)
-          .then(res => {
-            if (!res.ok) throw new Error('Animechan fetch failed');
-            return res.json();
-          })
-          .then(data => {
-            // data.data 是数组
-            const items = data?.data || data || [];
-            return Array.isArray(items) ? items : [];
-          })
-          .catch(() => [])
-      );
+      try {
+        const res = await fetch(`https://api.animechan.io/v1/quotes?anime=${encodeURIComponent(anime)}`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const items = data?.data || data || [];
+        if (Array.isArray(items)) allQuotes.push(...items);
+      } catch { /* skip */ }
     }
 
-    const results = await Promise.allSettled(promises);
-    const allQuotes = results
-      .filter(r => r.status === 'fulfilled' && Array.isArray(r.value))
-      .flatMap(r => r.value);
+    if (allQuotes.length === 0) return [];
 
-    // 去重并截取
+    // 去重
     const seen = new Set();
     const unique = allQuotes.filter(q => {
       const key = q.content || q.quote || '';
       if (seen.has(key) || !key) return false;
       seen.add(key);
       return true;
-    }).slice(0, CACHE_SIZE);
+    });
 
     return unique.map(q => ({
       id: q.id || Math.random().toString(36).slice(2),
