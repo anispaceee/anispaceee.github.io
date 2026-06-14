@@ -1,5 +1,5 @@
 .hitokoto-decoration {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -7,27 +7,27 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  /* 中间区域渐变遮罩：左右透明，中间半透明白色遮盖台词 */
+  /* 中间区域渐变遮罩：两侧显示，中间渐变消失防止遮盖文字 */
   -webkit-mask-image: linear-gradient(
     to right,
     rgba(0,0,0,1) 0%,
-    rgba(0,0,0,1) 15%,
-    rgba(0,0,0,0.3) 25%,
-    rgba(0,0,0,0) 35%,
-    rgba(0,0,0,0) 65%,
-    rgba(0,0,0,0.3) 75%,
-    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,1) 12%,
+    rgba(0,0,0,0.4) 20%,
+    rgba(0,0,0,0) 30%,
+    rgba(0,0,0,0) 70%,
+    rgba(0,0,0,0.4) 80%,
+    rgba(0,0,0,1) 88%,
     rgba(0,0,0,1) 100%
   );
   mask-image: linear-gradient(
     to right,
     rgba(0,0,0,1) 0%,
-    rgba(0,0,0,1) 15%,
-    rgba(0,0,0,0.3) 25%,
-    rgba(0,0,0,0) 35%,
-    rgba(0,0,0,0) 65%,
-    rgba(0,0,0,0.3) 75%,
-    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,1) 12%,
+    rgba(0,0,0,0.4) 20%,
+    rgba(0,0,0,0) 30%,
+    rgba(0,0,0,0) 70%,
+    rgba(0,0,0,0.4) 80%,
+    rgba(0,0,0,1) 88%,
     rgba(0,0,0,1) 100%
   );
 }

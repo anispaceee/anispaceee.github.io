@@ -15,17 +15,14 @@ const COLORS = [
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
 function generatePosition(index, total) {
-  // 网格分布 + 单元格内随机偏移
+  // 网格分布 + 单元格内随机偏移，覆盖整个页面
   const cols = Math.ceil(Math.sqrt(total * 1.6)); // 宽屏偏向更多列
   const rows = Math.ceil(total / cols);
   const col = index % cols;
   const row = Math.floor(index / cols);
 
   const cellWidth = 100 / cols;
-  // 从30%开始（跳过顶部横幅），到底部100%
-  const topStart = 30;
-  const topRange = 100 - topStart;
-  const cellHeight = topRange / rows;
+  const cellHeight = 100 / rows;
 
   // 在单元格内随机偏移
   const offsetX = (Math.random() * 0.6 + 0.2) * cellWidth;
@@ -33,7 +30,7 @@ function generatePosition(index, total) {
 
   return {
     left: `${col * cellWidth + offsetX}%`,
-    top: `${topStart + row * cellHeight + offsetY}%`,
+    top: `${row * cellHeight + offsetY}%`,
   };
 }
 
@@ -75,6 +72,7 @@ export default function HitokotoDecoration({ count = 4 }) {
       key: `${h.id}-${Date.now()}-${i}`,
       text: h.text,
       from: h.from,
+      fromWho: h.fromWho,
       style: generateStyle(i, hitokotos.length),
     })));
   }, [count]);
@@ -90,9 +88,9 @@ export default function HitokotoDecoration({ count = 4 }) {
       {items.map(item => (
         <div key={item.key} style={item.style} className="hitokoto-item">
           {item.text}
-          {item.from && (
-            <span className="hitokoto-from">—— {item.from}</span>
-          )}
+          <span className="hitokoto-from">
+            {item.fromWho && `${item.fromWho} · `}{item.from}
+          </span>
         </div>
       ))}
     </div>
