@@ -451,6 +451,24 @@
 }
 
 /* ─── 轻小说 Tab 样式 ─── */
+/* ─── Hikarinagi Tab ─── */
+.hikarinagi-tab { display: flex; flex-direction: column; gap: 16px; }
+.hikarinagi-tab-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hikarinagi-tab-source { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-tertiary); font-weight: 600; }
+.hikarinagi-tab-link { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--primary); font-weight: 600; text-decoration: none; padding: 4px 10px; border-radius: 12px; background: var(--primary-bg); transition: all var(--transition-fast); }
+.hikarinagi-tab-link:hover { background: var(--primary); color: #fff; }
+.hikarinagi-tab-score { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #ffc107; font-weight: 600; padding: 8px 14px; background: rgba(255,193,7,0.08); border-radius: var(--radius-sm); }
+.hikarinagi-tab-download { background: rgba(255,255,255,0.06); border-radius: var(--radius-lg); padding: 20px; }
+.hikarinagi-tab-download h4 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+.hikarinagi-download-content { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.hikarinagi-download-list { display: flex; flex-direction: column; gap: 8px; }
+.hikarinagi-download-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); }
+.hikarinagi-download-item a { color: var(--primary); transition: opacity var(--transition-fast); }
+.hikarinagi-download-item a:hover { opacity: 0.8; }
+.hikarinagi-download-raw { font-size: 11px; color: var(--text-tertiary); background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm); overflow-x: auto; white-space: pre-wrap; }
+.hikarinagi-tab-empty { padding: 20px; text-align: center; color: var(--text-quaternary); font-size: 13px; }
+.detail-tab-loading { display: inline-flex; align-items: center; color: var(--primary); }
+
 .novel-tab-layout { display: flex; flex-direction: column; gap: 20px; }
 
 .novel-section { background: rgba(255,255,255,0.06); border-radius: var(--radius-lg); padding: 20px; }

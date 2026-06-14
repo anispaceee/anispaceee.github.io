@@ -344,6 +344,70 @@ async function handleBangumiProxy(pathname, searchParams, request, env, origin) 
 
 // ─── AniBT API 代理 ────────────────────────────────────────
 
+// ─── Hikarinagi API 代理 ────────────────────────────────────────
+
+const HIKARINAGI_API_URL = 'https://www.hikarinagi.org/api/v2';
+
+async function handleHikarinagiProxy(pathname, searchParams, request, env, origin) {
+  const targetUrl = `${HIKARINAGI_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+
+  // 检查缓存
+  const cache = caches.default;
+  const cacheKey = new Request(targetUrl, { method: 'GET' });
+  if (request.method === 'GET') {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      const headers = new Headers(cached.headers);
+      headers.set('X-Cache', 'HIT');
+      Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+      return new Response(cached.body, { status: cached.status, headers });
+    }
+  }
+
+  const headers = {
+    'User-Agent': 'ANISpace/1.0',
+    'Accept': 'application/json',
+  };
+
+  // 透传 Authorization 头（如有 hikari_access_token）
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader) headers['Authorization'] = authHeader;
+
+  const fetchOptions = { method: request.method, headers };
+
+  if (request.method === 'POST') {
+    const contentType = request.headers.get('Content-Type') || 'application/json';
+    headers['Content-Type'] = contentType;
+    fetchOptions.body = await request.text();
+  }
+
+  const res = await fetch(targetUrl, fetchOptions);
+
+  const resHeaders = new Headers();
+  resHeaders.set('Content-Type', 'application/json');
+  resHeaders.set('X-Cache', 'MISS');
+  Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+  const responseBody = await res.text();
+
+  // 缓存 GET 请求（5分钟）
+  if (request.method === 'GET' && res.ok) {
+    const cacheResponse = new Response(responseBody, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=300',
+      },
+    });
+    try { await cache.put(cacheKey, cacheResponse); } catch {}
+  }
+
+  return new Response(responseBody, {
+    status: res.status,
+    headers: resHeaders,
+  });
+}
+
 async function handleAnibtProxy(pathname, searchParams, request, env, origin) {
   const targetUrl = `${ANIBT_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
 
@@ -3920,6 +3984,12 @@ export default {
     if (url.pathname.startsWith('/api/anibt/')) {
       const anibtPath = url.pathname.replace('/api/anibt', '');
       return handleAnibtProxy(anibtPath, url.searchParams, request, env, origin);
+    }
+
+    // Hikarinagi API 代理：/api/hikarinagi/*
+    if (url.pathname.startsWith('/api/hikarinagi/')) {
+      const hikariPath = url.pathname.replace('/api/hikarinagi', '');
+      return handleHikarinagiProxy(hikariPath, url.searchParams, request, env, origin);
     }
 
     // wenku8 轻小说代理：/api/wenku8/*

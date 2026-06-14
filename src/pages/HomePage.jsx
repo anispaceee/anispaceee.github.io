@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService } from '../services/api';
+import HikarinagiService from '../services/HikarinagiService';
 import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper, Send, Image, X, Users as UsersIcon } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import UserAvatar from '../components/Common/UserAvatar';
@@ -162,6 +163,8 @@ export default function HomePage() {
   const [newsItems, setNewsItems] = useState([]);
   const [homeWorldInput, setHomeWorldInput] = useState('');
   const [homeWorldSending, setHomeWorldSending] = useState(false);
+  const [recommendGals, setRecommendGals] = useState([]);
+  const [hotComments, setHotComments] = useState([]);
 
   useEffect(() => {
     const loadHomeData = async () => {
@@ -182,12 +185,27 @@ export default function HomePage() {
         const feedData = await NewsService.getNewsFeed({ limit: 5 });
         const feedItems = (feedData.news || []).map(n => ({
           ...n,
-          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'ymgal' ? '月幕' : n.source === 'hikarinagi' ? '光凪' : n.source === 'cngal' ? 'CnGal' : n.source,
+          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'bangumi_game' ? 'Bangumi游戏' : n.source === 'bangumi_book' ? 'Bangumi书籍' : n.source === 'ymgal' ? '月幕' : n.source === 'hikarinagi' ? '光凪' : n.source === 'cngal' ? 'CnGal' : n.source === 'vndb' ? 'VNDB' : n.source === 'steam' ? 'Steam' : n.source,
         }));
         setNewsItems(prev => {
           const existing = prev.filter(p => !feedItems.find(f => f.title === p.title));
           return [...feedItems, ...existing].slice(0, 5);
         });
+      } catch {}
+      // Hikarinagi 推荐 Galgame + 热门评论
+      try {
+        const [galData, commentData] = await Promise.allSettled([
+          HikarinagiService.page.getRecommendGalgames(),
+          HikarinagiService.page.getHotComments(),
+        ]);
+        if (galData.status === 'fulfilled' && galData.value) {
+          const gals = galData.value.data || galData.value || [];
+          setRecommendGals(Array.isArray(gals) ? gals.slice(0, 5) : []);
+        }
+        if (commentData.status === 'fulfilled' && commentData.value) {
+          const comments = commentData.value.data || commentData.value || [];
+          setHotComments(Array.isArray(comments) ? comments.slice(0, 5) : []);
+        }
       } catch {}
     };
     loadHomeData();
@@ -653,6 +671,40 @@ export default function HomePage() {
 
             {/* Terminal - Mac终端风格 */}
             <HomeTerminal />
+
+            {/* 推荐 Galgame - Hikarinagi */}
+            {recommendGals.length > 0 && (
+            <div className="home-news-mac-window">
+              <div className="home-news-titlebar">
+                <div className="home-news-controls">
+                  <span className="home-news-ctrl close" />
+                  <span className="home-news-ctrl minimize" />
+                  <span className="home-news-ctrl maximize" />
+                </div>
+                <span className="home-news-title"><Sparkles size={13} /> 推荐 Galgame</span>
+                <Link to="/wiki?type=galgame" className="home-news-more"><ArrowRight size={12} /></Link>
+              </div>
+              <div className="home-news-list">
+                {recommendGals.map(gal => {
+                  const galName = gal.nameCn || gal.name || '';
+                  const galCover = gal.cover || '';
+                  const galScore = gal.rate || 0;
+                  return (
+                    <Link key={gal.id} to={`/info/hikarinagi/galgame/${gal.id}`} className="home-news-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {galCover && <img src={galCover} alt="" style={{ width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="home-news-item-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{galName}</div>
+                        <div className="home-news-item-meta">
+                          <span className="home-news-item-source"><Sparkles size={9} /> Hikarinagi</span>
+                          {galScore > 0 && <span style={{ color: '#ffc107', fontSize: 11 }}><Star size={9} fill="#ffc107" /> {Number(galScore).toFixed(1)}</span>}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+            )}
 
             {/* 世界线 - Mac窗口样式 */}
             {socialMode && (

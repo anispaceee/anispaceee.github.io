@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Tv, Loader2, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Tv, Loader2, ChevronDown, Sparkles, Gamepad2 } from 'lucide-react';
 import { AniBTService } from '../../services/api';
+import HikarinagiService from '../../services/HikarinagiService';
 import { SubjectCard, SkeletonCard } from '../Common/CommonComponents';
 import './AnimeSchedule.css';
 
@@ -29,6 +31,8 @@ export default function AnimeSchedule() {
   const [availableSeasons, setAvailableSeasons] = useState([]);
   const [showSeasonDropdown, setShowSeasonDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const [monthlyGals, setMonthlyGals] = useState([]);
+  const [monthlyGalsLoading, setMonthlyGalsLoading] = useState(false);
 
   const loadData = useCallback(async (season = '') => {
     setLoading(true);
@@ -55,6 +59,18 @@ export default function AnimeSchedule() {
   }, [activeDay]);
 
   useEffect(() => { loadData(); }, []);
+
+  // 加载 Galgame 月度发售
+  useEffect(() => {
+    setMonthlyGalsLoading(true);
+    HikarinagiService.galgame.getMonthlyReleases()
+      .then(res => {
+        const items = res?.data || res || [];
+        setMonthlyGals(Array.isArray(items) ? items.slice(0, 20) : []);
+      })
+      .catch(() => setMonthlyGals([]))
+      .finally(() => setMonthlyGalsLoading(false));
+  }, []);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -188,6 +204,52 @@ export default function AnimeSchedule() {
           );
         })}
       </div>
+
+      {/* Galgame 月度发售 */}
+      {monthlyGals.length > 0 && (
+        <div className="schedule-day-section">
+          <div className="schedule-day-header">
+            <h3 className="schedule-day-title">
+              <Sparkles size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Galgame 月度发售
+            </h3>
+            <span className="schedule-day-count">{monthlyGals.length} 部</span>
+          </div>
+          <div className="schedule-card-grid">
+            {monthlyGals.map(gal => {
+              const galName = gal.nameCn || gal.name || '';
+              const galCover = gal.cover || '';
+              return (
+                <Link key={gal.id} to={`/info/hikarinagi/galgame/${gal.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div className="subject-card">
+                    <div className="subject-card-cover">
+                      {galCover ? (
+                        <img src={galCover} alt={galName} className="subject-card-img" loading="lazy" onError={e => { e.target.style.display = 'none'; }} />
+                      ) : (
+                        <div style={{ width: '100%', aspectRatio: '3/4', background: 'var(--border-secondary)', borderRadius: 'var(--radius-sm)' }} />
+                      )}
+                      {gal.rate > 0 && <div className="subject-card-score">⭐ {Number(gal.rate).toFixed(1)}</div>}
+                      <span className="subject-card-type type-game"><Gamepad2 size={10} /> Gal</span>
+                    </div>
+                    <div className="subject-card-info">
+                      <div className="subject-card-name">{galName}</div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {monthlyGalsLoading && (
+        <div className="schedule-day-section">
+          <div className="schedule-day-header">
+            <h3 className="schedule-day-title"><Sparkles size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Galgame 月度发售</h3>
+          </div>
+          <div className="schedule-card-grid">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

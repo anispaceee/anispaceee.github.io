@@ -2,8 +2,9 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService, Wenku8Service } from '../../services/api';
 import { BangumiDataService } from '../../services/BangumiDataService';
+import HikarinagiService from '../../services/HikarinagiService';
 import { SourceMerger } from '../../services/SourceMerger';
-import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText } from 'lucide-react';
+import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText, Sparkles } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
@@ -213,6 +214,10 @@ export default function InfoDetail() {
   const [overseasData, setOverseasData] = useState(null);
   const [overseasLoading, setOverseasLoading] = useState(true);
 
+  // Hikarinagi 关联数据（Bangumi ID 匹配）
+  const [hikarinagiLinked, setHikarinagiLinked] = useState(null); // { type: 'galgame'|'lightnovel', data: {...}, downloadInfo: ... }
+  const [hikarinagiLoading, setHikarinagiLoading] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -274,6 +279,32 @@ export default function InfoDetail() {
       setProgress(70);
       if (!data || !data.id) throw new ApiError('请求的内容不存在', 404, 'NOT_FOUND');
       setSubject(data); setProgress(90);
+
+      // 异步查询 Hikarinagi 关联数据（仅游戏/小说类型）
+      if (data.type === 4 || data.type === 1) {
+        setHikarinagiLoading(true);
+        const hkType = data.type === 4 ? 'galgame' : 'lightnovel';
+        const hkService = data.type === 4 ? HikarinagiService.galgame : HikarinagiService.lightnovel;
+        hkService.getByBangumiId(id)
+          .then(async (hkData) => {
+            if (!hkData || (!hkData.id && !hkData.data?.id)) {
+              setHikarinagiLinked(null);
+              return;
+            }
+            const hkItem = hkData.data || hkData;
+            let downloadInfo = null;
+            if (hkType === 'galgame' && hkItem.id) {
+              try { downloadInfo = await HikarinagiService.galgame.getDownloadInfo(hkItem.id); } catch {}
+            }
+            setHikarinagiLinked({ type: hkType, data: hkItem, downloadInfo });
+          })
+          .catch(() => setHikarinagiLinked(null))
+          .finally(() => setHikarinagiLoading(false));
+      } else {
+        setHikarinagiLinked(null);
+        setHikarinagiLoading(false);
+      }
+
       if (currentUser) {
         try {
           const ratingData = await RatingService.fetchUserRating(currentUser.id, parseInt(id));
@@ -1071,6 +1102,15 @@ export default function InfoDetail() {
                 {subject?.type === 1 && (
                   <button className={`detail-tab ${activeTab === 'novel' ? 'active' : ''}`} onClick={() => setActiveTab('novel')}>轻小说</button>
                 )}
+                {/* Hikarinagi 下载信息：有关联数据时显示 */}
+                {hikarinagiLinked && (
+                  <button className={`detail-tab ${activeTab === 'hikarinagi' ? 'active' : ''}`} onClick={() => setActiveTab('hikarinagi')}>
+                    <Download size={12} /> {hikarinagiLinked.type === 'galgame' ? 'Galgame' : '轻小说'}资源
+                  </button>
+                )}
+                {hikarinagiLoading && (
+                  <span className="detail-tab-loading"><Loader2 size={12} className="spinning" /></span>
+                )}
               </div>
 
               <div className="detail-tab-content">
@@ -1530,6 +1570,56 @@ export default function InfoDetail() {
                           </div>
                         )}
                       </>
+                    )}
+                  </div>
+                )}
+
+                {/* Hikarinagi 下载信息 Tab */}
+                {activeTab === 'hikarinagi' && hikarinagiLinked && (
+                  <div className="hikarinagi-tab">
+                    <div className="hikarinagi-tab-header">
+                      <span className="hikarinagi-tab-source">
+                        <Sparkles size={14} /> 数据来源：Hikarinagi（光凪）
+                      </span>
+                      {hikarinagiLinked.data && (
+                        <Link
+                          to={`/info/hikarinagi/${hikarinagiLinked.type}/${hikarinagiLinked.data.id}`}
+                          className="hikarinagi-tab-link"
+                        >
+                          查看完整详情 <ChevronRight size={12} />
+                        </Link>
+                      )}
+                    </div>
+
+                    {/* Hikarinagi 评分 */}
+                    {hikarinagiLinked.data?.rate > 0 && (
+                      <div className="hikarinagi-tab-score">
+                        <Star size={16} fill="#ffc107" />
+                        <span>Hikarinagi 评分：{Number(hikarinagiLinked.data.rate).toFixed(1)}</span>
+                      </div>
+                    )}
+
+                    {/* 下载信息 */}
+                    {hikarinagiLinked.downloadInfo ? (
+                      <div className="hikarinagi-tab-download">
+                        <h4><Download size={14} /> 下载信息</h4>
+                        {typeof hikarinagiLinked.downloadInfo === 'string' ? (
+                          <div className="hikarinagi-download-content" dangerouslySetInnerHTML={{ __html: hikarinagiLinked.downloadInfo.replace(/\n/g, '<br/>') }} />
+                        ) : Array.isArray(hikarinagiLinked.downloadInfo) ? (
+                          <div className="hikarinagi-download-list">
+                            {hikarinagiLinked.downloadInfo.map((item, i) => (
+                              <div key={i} className="hikarinagi-download-item">
+                                <span>{item.name || item.title || `资源 ${i + 1}`}</span>
+                                {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={12} /></a>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <pre className="hikarinagi-download-raw">{JSON.stringify(hikarinagiLinked.downloadInfo, null, 2)}</pre>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="hikarinagi-tab-empty">暂无下载信息</div>
                     )}
                   </div>
                 )}

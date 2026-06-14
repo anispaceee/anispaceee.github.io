@@ -7,6 +7,7 @@ import WorldChannel from './components/WorldChannel/WorldChannel'
 import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
 import InfoDetail from './components/Info/InfoDetail'
+import HikarinagiDetail from './components/Info/HikarinagiDetail'
 import UserProfilePage from './components/Profile/UserProfilePage'
 import VideoPlayer from './components/Video/VideoPlayer'
 import Mailbox from './components/Mailbox/Mailbox'
@@ -443,6 +444,7 @@ function AppInner() {
           <Route path="/world" element={<SocialGuard><WorldChannel /></SocialGuard>} />
           <Route path="/forum" element={<SocialGuard><Forum /></SocialGuard>} />
           <Route path="/forum/post/:id" element={<SocialGuard><PostDetail /></SocialGuard>} />
+          <Route path="/info/hikarinagi/:type/:id" element={<HikarinagiDetail />} />
           <Route path="/info/:type/:id" element={<InfoDetail />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<Navigate to="/" replace />} />
