@@ -28,39 +28,48 @@ const MAX_HISTORY = 12;
 
 // ─── Hikarinagi 数据映射 ───
 // 将 Hikarinagi 返回的数据映射为与 Bangumi 兼容的格式，复用 SubjectCard
+// Galgame 格式: { galId, transTitle, originTitle[], cover, producers[], nsfw }
+// LightNovel 格式: { novelId, name, name_cn, cover, author{}, bunko{} }
+// Search 结果: { galId/novelId, transTitle/name, originTitle[], cover, producers[] }
+
 function mapHikarinagiGalgame(item) {
+  const id = item.galId || item.id || item._id;
+  const nameCn = item.transTitle || '';
+  const originNames = Array.isArray(item.originTitle) ? item.originTitle : [item.originTitle || ''].filter(Boolean);
+  const name = nameCn || originNames[0] || '';
+  const cover = item.cover || '';
+  const tags = (item.tags || []).map(t => t.tag?.name || (typeof t === 'string' ? t : '')).filter(Boolean);
+  const rate = item.rate || item.score || 0;
   return {
-    id: item.id,
-    name: item.name || item.nameCn || '',
-    name_cn: item.nameCn || item.name || '',
+    id,
+    name,
+    name_cn: nameCn || name,
     type: 4, // Bangumi 游戏类型
-    images: {
-      large: item.cover || '',
-      common: item.cover || '',
-      medium: item.cover || '',
-    },
-    rating: { score: item.rate || 0, total: 0 },
+    images: { large: cover, common: cover, medium: cover },
+    rating: { score: rate, total: 0 },
     summary: item.introduction || item.summary || '',
-    tags: (item.tags || []).map(t => typeof t === 'string' ? t : t.name || t.tag?.name || '').filter(Boolean),
+    tags,
     _source: 'hikarinagi',
     _sourceType: 'galgame',
   };
 }
 
 function mapHikarinagiLightNovel(item) {
+  const id = item.novelId || item.id || item._id;
+  const name = item.name || '';
+  const nameCn = item.name_cn || '';
+  const cover = item.cover || '';
+  const tags = (item.tags || []).map(t => t.tag?.name || (typeof t === 'string' ? t : '')).filter(Boolean);
+  const rate = item.rate || item.score || 0;
   return {
-    id: item.id,
-    name: item.name || item.nameCn || '',
-    name_cn: item.nameCn || item.name || '',
+    id,
+    name,
+    name_cn: nameCn || name,
     type: 1, // Bangumi 小说类型
-    images: {
-      large: item.cover || '',
-      common: item.cover || '',
-      medium: item.cover || '',
-    },
-    rating: { score: item.rate || 0, total: 0 },
+    images: { large: cover, common: cover, medium: cover },
+    rating: { score: rate, total: 0 },
     summary: item.introduction || item.summary || '',
-    tags: (item.tags || []).map(t => typeof t === 'string' ? t : t.name || t.tag?.name || '').filter(Boolean),
+    tags,
     _source: 'hikarinagi',
     _sourceType: 'lightnovel',
   };
@@ -203,8 +212,8 @@ export default function Wiki() {
         // Hikarinagi 搜索
         if (typeOption?.source === 'hikarinagi') {
           const isGal = typeOption.key === 'galgame';
-          const data = await HikarinagiService.search.search({ keyword: value, type: isGal ? 'galgame' : 'lightnovel', page: 1, limit: 8 });
-          const items = (data?.data || data?.list || []).slice(0, 8);
+          const data = await HikarinagiService.search.search({ keyword: value, type: isGal ? 'galgame' : 'novel', page: 1, limit: 8 });
+          const items = (data?.data?.items || data?.data || data?.list || []).slice(0, 8);
           setLiveResults(items.map(isGal ? mapHikarinagiGalgame : mapHikarinagiLightNovel));
         } else if (typeOption?.typeCode === 'person') {
           const data = await BangumiService.searchPersons(value, 8, 0);
@@ -253,14 +262,14 @@ export default function Wiki() {
         const isGal = typeOption.key === 'galgame';
         const data = await HikarinagiService.search.search({
           keyword: q,
-          type: isGal ? 'galgame' : 'lightnovel',
+          type: isGal ? 'galgame' : 'novel',
           page: p,
           limit: PAGE_SIZE,
         });
-        const items = data?.data || data?.list || [];
+        const items = data?.data?.items || data?.data || data?.list || [];
         const mapper = isGal ? mapHikarinagiGalgame : mapHikarinagiLightNovel;
         setResults(items.map(mapper));
-        setTotal(data?.total || data?.count || items.length);
+        setTotal(data?.data?.meta?.totalItems || data?.total || data?.count || items.length);
       } else if (typeOption?.typeCode === 'person') {
         const data = await BangumiService.searchPersons(q, PAGE_SIZE, offset);
         const personResults = data.data || [];

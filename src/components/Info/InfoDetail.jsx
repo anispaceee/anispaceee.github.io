@@ -281,20 +281,24 @@ export default function InfoDetail() {
       setSubject(data); setProgress(90);
 
       // 异步查询 Hikarinagi 关联数据（仅游戏/小说类型）
+      // 注意：Bangumi ID 关联查询需要认证，未登录时静默跳过
       if (data.type === 4 || data.type === 1) {
         setHikarinagiLoading(true);
         const hkType = data.type === 4 ? 'galgame' : 'lightnovel';
         const hkService = data.type === 4 ? HikarinagiService.galgame : HikarinagiService.lightnovel;
         hkService.getByBangumiId(id)
           .then(async (hkData) => {
-            if (!hkData || (!hkData.id && !hkData.data?.id)) {
+            // 检查返回是否成功（可能返回 401 错误对象）
+            if (!hkData || !hkData.success || (!hkData.data?.galId && !hkData.data?.novelId && !hkData.data?.id)) {
               setHikarinagiLinked(null);
               return;
             }
             const hkItem = hkData.data || hkData;
+            const hkId = hkItem.galId || hkItem.novelId || hkItem.id;
+            if (!hkId) { setHikarinagiLinked(null); return; }
             let downloadInfo = null;
-            if (hkType === 'galgame' && hkItem.id) {
-              try { downloadInfo = await HikarinagiService.galgame.getDownloadInfo(hkItem.id); } catch {}
+            if (hkType === 'galgame' && hkId) {
+              try { downloadInfo = await HikarinagiService.galgame.getDownloadInfo(hkId); } catch {}
             }
             setHikarinagiLinked({ type: hkType, data: hkItem, downloadInfo });
           })

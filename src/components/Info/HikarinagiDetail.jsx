@@ -68,14 +68,22 @@ export default function HikarinagiDetail() {
 
   if (!data) return null;
 
-  const name = data.nameCn || data.name || '';
-  const originalName = data.name || '';
-  const cover = data.cover || preview?.image || '';
-  const score = data.rate || 0;
+  // Galgame 格式: galId, transTitle, originTitle[], cover, producers[], tags[], rate, introduction, releaseDate, bangumiGameId
+  // LightNovel 格式: novelId, name, name_cn, cover, author{}, bunko{}, tags[], rate, introduction
+  const hkId = isGal ? (data.galId || data.id) : (data.novelId || data.id);
+  const name = isGal
+    ? (data.transTitle || (Array.isArray(data.originTitle) ? data.originTitle[0] : data.originTitle) || '')
+    : (data.name_cn || data.name || '');
+  const originalName = isGal
+    ? (Array.isArray(data.originTitle) ? data.originTitle.filter(t => t !== name).join(' / ') : (data.originTitle || ''))
+    : (data.name || '');
+  const cover = data.cover || data.headCover || preview?.image || '';
+  const score = data.rate || data.score || 0;
   const summary = data.introduction || data.summary || '';
-  const tags = data.tags || [];
+  const tags = (data.tags || []).map(t => t.tag?.name || (typeof t === 'string' ? t : '')).filter(Boolean);
   const officialUrl = data.officialUrl || '';
   const releaseDate = data.releaseDate || data.date || '';
+  const bangumiId = data.bangumiGameId || data.bangumiNovelId || null;
 
   return (
     <div className="detail-page">
@@ -129,12 +137,9 @@ export default function HikarinagiDetail() {
 
             {tags.length > 0 && (
               <div className="detail-tags">
-                {tags.slice(0, 12).map((t, i) => {
-                  const tagName = typeof t === 'string' ? t : t.name || t.tag?.name || '';
-                  return tagName ? (
-                    <span key={i} className="detail-tag"><Tag size={9} /> {tagName}</span>
-                  ) : null;
-                })}
+                {tags.slice(0, 12).map((tagName, i) => (
+                  tagName ? <span key={i} className="detail-tag"><Tag size={9} /> {tagName}</span> : null
+                ))}
               </div>
             )}
 
@@ -197,9 +202,9 @@ export default function HikarinagiDetail() {
           {activeTab === 'related' && related.length > 0 && (
             <div className="detail-related-grid">
               {related.map(item => {
-                const rName = item.nameCn || item.name || '';
+                const rId = item.galId || item.novelId || item.id || item._id;
+                const rName = item.transTitle || item.name_cn || item.name || (Array.isArray(item.originTitle) ? item.originTitle[0] : '') || '';
                 const rCover = item.cover || '';
-                const rId = item.id;
                 return (
                   <Link
                     key={rId}

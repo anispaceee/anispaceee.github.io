@@ -329,7 +329,15 @@ export const HikarinagiPageService = {
 export const HikarinagiSearchService = {
   /** 搜索 */
   async search(params = {}) {
-    return request('/search', params, { useCache: false });
+    // Hikarinagi 搜索 API 要求 type 和 relative_match 参数
+    const searchParams = {
+      keyword: params.keyword || '',
+      type: params.type || 'galgame', // galgame | novel | character | person | producer | topic | tag
+      page: params.page || 1,
+      limit: params.limit || 20,
+      relative_match: false, // 必须显式传 false，否则报 400
+    };
+    return request('/search', searchParams, { useCache: false });
   },
 
   /** 热搜 */

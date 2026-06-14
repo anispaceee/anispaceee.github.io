@@ -198,13 +198,13 @@ export default function HomePage() {
           HikarinagiService.page.getRecommendGalgames(),
           HikarinagiService.page.getHotComments(),
         ]);
-        if (galData.status === 'fulfilled' && galData.value) {
-          const gals = galData.value.data || galData.value || [];
-          setRecommendGals(Array.isArray(gals) ? gals.slice(0, 5) : []);
+        if (galData.status === 'fulfilled' && galData.value?.data) {
+          const gals = Array.isArray(galData.value.data) ? galData.value.data : [];
+          setRecommendGals(gals.slice(0, 5));
         }
-        if (commentData.status === 'fulfilled' && commentData.value) {
-          const comments = commentData.value.data || commentData.value || [];
-          setHotComments(Array.isArray(comments) ? comments.slice(0, 5) : []);
+        if (commentData.status === 'fulfilled' && commentData.value?.data) {
+          const comments = Array.isArray(commentData.value.data) ? commentData.value.data : [];
+          setHotComments(comments.slice(0, 5));
         }
       } catch {}
     };
@@ -686,11 +686,12 @@ export default function HomePage() {
               </div>
               <div className="home-news-list">
                 {recommendGals.map(gal => {
-                  const galName = gal.nameCn || gal.name || '';
+                  const galId = gal.galId || gal.id || gal._id;
+                  const galName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
                   const galCover = gal.cover || '';
-                  const galScore = gal.rate || 0;
+                  const galScore = gal.rate || gal.score || 0;
                   return (
-                    <Link key={gal.id} to={`/info/hikarinagi/galgame/${gal.id}`} className="home-news-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Link key={galId} to={`/info/hikarinagi/galgame/${galId}`} className="home-news-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {galCover && <img src={galCover} alt="" style={{ width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="home-news-item-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{galName}</div>

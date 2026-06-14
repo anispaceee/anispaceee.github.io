@@ -65,7 +65,7 @@ export default function AnimeSchedule() {
     setMonthlyGalsLoading(true);
     HikarinagiService.galgame.getMonthlyReleases()
       .then(res => {
-        const items = res?.data || res || [];
+        const items = res?.data?.items || res?.data || res || [];
         setMonthlyGals(Array.isArray(items) ? items.slice(0, 20) : []);
       })
       .catch(() => setMonthlyGals([]))
@@ -216,10 +216,12 @@ export default function AnimeSchedule() {
           </div>
           <div className="schedule-card-grid">
             {monthlyGals.map(gal => {
-              const galName = gal.nameCn || gal.name || '';
+              const galId = gal.galId || gal.id || gal._id;
+              const galName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
               const galCover = gal.cover || '';
+              const galScore = gal.rate || gal.score || 0;
               return (
-                <Link key={gal.id} to={`/info/hikarinagi/galgame/${gal.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link key={galId} to={`/info/hikarinagi/galgame/${galId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div className="subject-card">
                     <div className="subject-card-cover">
                       {galCover ? (
@@ -227,7 +229,7 @@ export default function AnimeSchedule() {
                       ) : (
                         <div style={{ width: '100%', aspectRatio: '3/4', background: 'var(--border-secondary)', borderRadius: 'var(--radius-sm)' }} />
                       )}
-                      {gal.rate > 0 && <div className="subject-card-score">⭐ {Number(gal.rate).toFixed(1)}</div>}
+                      {galScore > 0 && <div className="subject-card-score">⭐ {Number(galScore).toFixed(1)}</div>}
                       <span className="subject-card-type type-game"><Gamepad2 size={10} /> Gal</span>
                     </div>
                     <div className="subject-card-info">

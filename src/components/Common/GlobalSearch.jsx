@@ -161,15 +161,15 @@ export default function GlobalSearch({ onClose }) {
       try {
         const [galRes, lnRes] = await Promise.allSettled([
           HikarinagiService.search.search({ keyword: q, type: 'galgame', limit: 5 }),
-          HikarinagiService.search.search({ keyword: q, type: 'lightnovel', limit: 5 }),
+          HikarinagiService.search.search({ keyword: q, type: 'novel', limit: 5 }),
         ]);
-        if (galRes.status === 'fulfilled' && galRes.value) {
-          const galItems = (galRes.value.data || galRes.value.list || []).slice(0, 5);
+        if (galRes.status === 'fulfilled' && galRes.value?.data) {
+          const galItems = (galRes.value.data.items || galRes.value.data || []).slice(0, 5);
           if (galItems.length > 0) {
             grouped.galgame = galItems.map(item => ({
-              id: item.id,
-              name: item.name || '',
-              name_cn: item.nameCn || item.name || '',
+              id: item.galId || item.id || item._id,
+              name: item.transTitle || (Array.isArray(item.originTitle) ? item.originTitle[0] : item.originTitle) || '',
+              name_cn: item.transTitle || '',
               type: 4,
               images: { common: item.cover || '', medium: item.cover || '' },
               rating: { score: item.rate || 0 },
@@ -178,13 +178,13 @@ export default function GlobalSearch({ onClose }) {
             }));
           }
         }
-        if (lnRes.status === 'fulfilled' && lnRes.value) {
-          const lnItems = (lnRes.value.data || lnRes.value.list || []).slice(0, 5);
+        if (lnRes.status === 'fulfilled' && lnRes.value?.data) {
+          const lnItems = (lnRes.value.data.items || lnRes.value.data || []).slice(0, 5);
           if (lnItems.length > 0) {
             grouped.lightnovel = lnItems.map(item => ({
-              id: item.id,
+              id: item.novelId || item.id || item._id,
               name: item.name || '',
-              name_cn: item.nameCn || item.name || '',
+              name_cn: item.name_cn || item.name || '',
               type: 1,
               images: { common: item.cover || '', medium: item.cover || '' },
               rating: { score: item.rate || 0 },
