@@ -154,7 +154,7 @@ function RandomRecommendCard({ subject, loading, onRefresh, activeType, onTypeCh
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { currentUser, isAuthenticated, openAuth } = useApp();
+  const { currentUser, isAuthenticated, openAuth, socialMode } = useApp();
 
   const [hotPosts, setHotPosts] = useState([]);
   const [recentMessages, setRecentMessages] = useState([]);
@@ -428,7 +428,7 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      <HitokotoDecoration count={30} />
+      <HitokotoDecoration count={15} />
       {/* 全宽大图 Banner 轮播 */}
       <div className="home-banner-section">
         {carouselLoading ? (
@@ -576,6 +576,7 @@ export default function HomePage() {
             </div>
 
             {/* 放課後热议 - 右滑瀑布流 */}
+            {socialMode && (
             <div className="home-hot-section">
               <div className="home-hot-header">
                 <h2 className="home-section-title"><Flame size={18} /> 放課後热议</h2>
@@ -611,6 +612,7 @@ export default function HomePage() {
                 })}
               </div>
             </div>
+            )}
           </div>
 
           <div className="home-side-col">
@@ -655,6 +657,7 @@ export default function HomePage() {
             <HomeTerminal />
 
             {/* 世界线 - Mac窗口样式 */}
+            {socialMode && (
             <div className="home-world-mac-window">
               <div className="home-world-titlebar">
                 <div className="home-world-controls">
@@ -708,6 +711,7 @@ export default function HomePage() {
                 </button>
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
