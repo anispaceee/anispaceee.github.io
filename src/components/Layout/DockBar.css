@@ -300,6 +300,9 @@ a.dock-btn { text-decoration: none; }
 .dock-login-btn { padding: 6px 16px; border-radius: 8px; background: var(--primary); color: #fff; font-size: 12px; font-weight: 600; transition: all var(--transition-fast); }
 .dock-login-btn:hover { background: var(--primary-hover); }
 
+/* 设置项提示文字 */
+.dock-setting-hint { font-size: 11px; color: var(--text-quaternary); margin-top: 4px; display: block; line-height: 1.4; }
+
 /* Dock 自动隐藏设置 */
 .dock-autohide-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .dock-autohide-delay { display: flex; align-items: center; gap: 6px; margin-top: 4px; width: 100%; }

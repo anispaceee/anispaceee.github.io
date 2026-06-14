@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { AuthService, NotificationService, MailService } from '../services/api';
+import { AuthService, NotificationService, MailService, StorageService } from '../services/api';
 
 const AppContext = createContext();
 
@@ -9,6 +9,10 @@ export function AppProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [mailUnreadCount, setMailUnreadCount] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [socialMode, setSocialMode] = useState(() => {
+    const saved = StorageService.get('anispace_social_mode');
+    return saved !== null ? saved : true; // 默认开启社交
+  });
 
   useEffect(() => {
     if (currentUser) {
@@ -53,6 +57,12 @@ export function AppProvider({ children }) {
     if (user) setCurrentUser(user);
   }, []);
 
+  const toggleSocialMode = useCallback((val) => {
+    const newVal = val !== undefined ? val : !socialMode;
+    setSocialMode(newVal);
+    StorageService.set('anispace_social_mode', newVal);
+  }, [socialMode]);
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -60,6 +70,7 @@ export function AppProvider({ children }) {
       notifications,
       mailUnreadCount,
       showAuthModal,
+      socialMode,
       oauthLogin,
       logout,
       updateProfile,
@@ -68,6 +79,7 @@ export function AppProvider({ children }) {
       refreshUser,
       setNotifications,
       setMailUnreadCount,
+      toggleSocialMode,
     }}>
       {children}
     </AppContext.Provider>

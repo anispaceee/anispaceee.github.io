@@ -167,8 +167,8 @@ export default function HomePage() {
   useEffect(() => {
     const loadHomeData = async () => {
       try {
-        const data = await ForumService.getPosts(1, 100);
-        const posts = (data.posts || []).sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 6);
+        const data = await ForumService.getPosts(1, 20);
+        const posts = (data.posts || []).sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 15);
         setHotPosts(posts);
       } catch {}
       try {

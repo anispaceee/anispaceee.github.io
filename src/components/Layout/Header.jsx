@@ -5,16 +5,17 @@ import { useState, useRef, useEffect } from 'react';
 import GlobalSearch from '../Common/GlobalSearch';
 import './Header.css';
 
-const navItems = [
+const allNavItems = [
   { path: '/', label: '首页' },
-  { path: '/forum', label: '放課後' },
+  { path: '/forum', label: '放課後', social: true },
   { path: '/news', label: '毒电波！！' },
   { path: '/wiki', label: '禁書目錄' },
   { path: '/musashi', label: '武藏也' },
 ];
 
 export default function Header() {
-  const { currentUser, isAuthenticated, logout, openAuth, notifications } = useApp();
+  const { currentUser, isAuthenticated, logout, openAuth, notifications, socialMode } = useApp();
+  const navItems = allNavItems.filter(item => !item.social || socialMode);
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

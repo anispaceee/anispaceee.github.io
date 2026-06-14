@@ -9,7 +9,7 @@ import { setFireworkOn } from '../Common/FireworkEffect';
 import './DockBar.css';
 
 export default function DockBar() {
-  const { currentUser, isAuthenticated, openAuth, mailUnreadCount } = useApp();
+  const { currentUser, isAuthenticated, openAuth, mailUnreadCount, socialMode, toggleSocialMode } = useApp();
   const { windows, openWindow, focusWindow } = useWindowManager();
   const { currentSong, playing, volume, muted, togglePlay, playNext, playPrev, setVolume } = useMusic();
   const [activePanel, setActivePanel] = useState(null);
@@ -135,13 +135,17 @@ export default function DockBar() {
   };
 
   const launcherApps = [
-    { id: 'club', icon: <Coffee size={18} />, label: 'Tea Time！' },
-    { id: 'friends', icon: <Users size={18} />, label: '好友空间' },
+    ...(socialMode ? [
+      { id: 'club', icon: <Coffee size={18} />, label: 'Tea Time！' },
+      { id: 'friends', icon: <Users size={18} />, label: '好友空间' },
+    ] : []),
     { id: 'music', icon: <Music size={18} />, label: '音乐' },
     { id: 'amadeus', icon: <Brain size={18} />, label: 'Navi' },
-    { id: 'world', icon: <Globe size={18} />, label: '世界频道' },
+    ...(socialMode ? [
+      { id: 'world', icon: <Globe size={18} />, label: '世界频道' },
+      { id: 'mailbox', icon: <Mail size={18} />, label: 'D-Mail' },
+    ] : []),
     { id: 'notifications', icon: <Bell size={18} />, label: '通知' },
-    { id: 'mailbox', icon: <Mail size={18} />, label: 'D-Mail' },
     ...(isAuthenticated ? [{ id: 'musashi-new', icon: <PenSquare size={18} />, label: '发布作品', href: '/musashi/new' }] : []),
   ];
 
@@ -168,13 +172,19 @@ export default function DockBar() {
 
   const dockItems = [
     { key: 'launcher', icon: <ChevronUp size={16} />, label: '应用', active: showLauncher, onClick: () => { setShowLauncher(prev => !prev); setActivePanel(null); } },
-    { key: 'club', icon: <Coffee size={16} />, label: 'Tea Time！', active: windows.club?.open && !windows.club.minimized, onClick: () => handleAppClick('club') },
-    { key: 'world', icon: <Globe size={16} />, label: '世界线', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
+    ...(socialMode ? [
+      { key: 'club', icon: <Coffee size={16} />, label: 'Tea Time！', active: windows.club?.open && !windows.club.minimized, onClick: () => handleAppClick('club') },
+      { key: 'world', icon: <Globe size={16} />, label: '世界线', active: windows.world?.open && !windows.world.minimized, onClick: () => handleAppClick('world') },
+    ] : []),
     { key: 'amadeus', icon: <Brain size={16} />, label: 'Navi', active: windows.amadeus?.open && !windows.amadeus.minimized, onClick: () => handleAppClick('amadeus') },
     { key: 'music', icon: <Music size={16} />, label: '音乐', active: windows.music?.open && !windows.music.minimized || activePanel === 'music', onClick: () => handleAppClick('music') },
-    { key: 'friends', icon: <Users size={16} />, label: 'LeMU', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },
+    ...(socialMode ? [
+      { key: 'friends', icon: <Users size={16} />, label: 'LeMU', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },
+    ] : []),
     { key: 'links', icon: <Link2 size={16} />, label: '友情链接', active: windows.links?.open && !windows.links.minimized, onClick: () => handleAppClick('links') },
-    { key: 'mailbox', icon: <Mail size={16} />, label: 'D-Mail', active: windows.mailbox?.open && !windows.mailbox.minimized, onClick: () => handleAppClick('mailbox'), badge: mailUnreadCount },
+    ...(socialMode ? [
+      { key: 'mailbox', icon: <Mail size={16} />, label: 'D-Mail', active: windows.mailbox?.open && !windows.mailbox.minimized, onClick: () => handleAppClick('mailbox'), badge: mailUnreadCount },
+    ] : []),
     { key: 'settings', icon: <Settings size={16} />, label: '设置', active: activePanel === 'settings' },
     { key: 'notifications', icon: <Bell size={16} />, label: '通知', active: windows.notifications?.open && !windows.notifications.minimized, onClick: () => handleAppClick('notifications'), badge: unreadCount },
   ];
@@ -223,6 +233,14 @@ export default function DockBar() {
                     <button className={`dock-theme-btn ${firework ? 'active' : ''}`} onClick={() => setFireworkAndSave(true)}>开启</button>
                     <button className={`dock-theme-btn ${!firework ? 'active' : ''}`} onClick={() => setFireworkAndSave(false)}>关闭</button>
                   </div>
+                </div>
+                <div className="dock-setting-group">
+                  <label>社交功能</label>
+                  <div className="dock-autohide-row">
+                    <button className={`dock-theme-btn ${socialMode ? 'active' : ''}`} onClick={() => toggleSocialMode(true)}>开启</button>
+                    <button className={`dock-theme-btn ${!socialMode ? 'active' : ''}`} onClick={() => toggleSocialMode(false)}>关闭</button>
+                  </div>
+                  <span className="dock-setting-hint">关闭后隐藏世界线、放課後、D-Mail等社交功能</span>
                 </div>
                 <div className="dock-setting-group">
                   <label>账户</label>

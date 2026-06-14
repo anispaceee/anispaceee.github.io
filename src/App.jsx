@@ -44,6 +44,27 @@ import { StorageService, WorldChannelService, FriendPostService } from './servic
 import { useApp } from './context/AppContext'
 import { initMediaSources } from './services/media/initSources'
 
+// 社交模式守卫：社交功能关闭时显示提示
+function SocialGuard({ children }) {
+  const { socialMode, toggleSocialMode } = useApp();
+  if (socialMode) return children;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16, color: 'var(--text-secondary)' }}>
+      <MessageCircle size={48} style={{ color: 'var(--text-quaternary)' }} />
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>社交功能已关闭</h2>
+      <p style={{ fontSize: 13, color: 'var(--text-tertiary)', maxWidth: 320, textAlign: 'center' }}>
+        当前处于安静模式，社交功能已隐藏。你可以在 Dock 设置中重新开启。
+      </p>
+      <button
+        onClick={() => toggleSocialMode(true)}
+        style={{ padding: '8px 24px', borderRadius: 20, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+      >
+        开启社交功能
+      </button>
+    </div>
+  );
+}
+
 // Error Boundary to prevent white screen when a component crashes
 class VideoPlayerErrorBoundary extends Component {
   constructor(props) {
@@ -102,10 +123,14 @@ if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
 function WindowLayer() {
   const { windows } = useWindowManager();
+  const { socialMode } = useApp();
+  // 社交功能关闭时，这些窗口不渲染
+  const socialWindowIds = ['world', 'club', 'friends', 'mailbox'];
   return (
     <>
       {Object.values(windows).map(win => {
         if (!win.open) return null;
+        if (!socialMode && socialWindowIds.includes(win.id)) return null;
         return (
           <AppWindow key={win.id} id={win.id}>
             {win.id === 'music' && <MusicPlayer />}
@@ -290,11 +315,15 @@ function LeMUMinimizedWidget() {
 function MinimizedBars() {
   const { windows, openWindow } = useWindowManager();
   const { currentSong, playing, togglePlay, playNext, playPrev, savedPlaylists, loadSavedPlaylist, playSong } = useMusic();
+  const { socialMode } = useApp();
+
+  // 社交功能关闭时，过滤社交窗口
+  const socialWindowIds = ['world', 'club', 'friends', 'mailbox'];
 
   // 音乐横条：窗口最小化时显示（无论是否播放）
   const musicVisible = windows.music?.open && windows.music?.minimized;
-  // 其他APP：仅最小化时显示
-  const otherMinimized = Object.values(windows).filter(w => w.open && w.minimized && w.id !== 'music');
+  // 其他APP：仅最小化时显示（社交模式关闭时过滤社交窗口）
+  const otherMinimized = Object.values(windows).filter(w => w.open && w.minimized && w.id !== 'music' && (socialMode || !socialWindowIds.includes(w.id)));
   // 音乐窗口未打开但有歌曲在播放时也显示
   const musicPlayingNoWindow = currentSong && !windows.music?.open;
 
@@ -411,9 +440,9 @@ function AppInner() {
           <Route path="/" element={<HomePage />} />
           <Route path="/auth/bangumi" element={<OAuthCallback />} />
           <Route path="/auth/github" element={<OAuthCallback />} />
-          <Route path="/world" element={<WorldChannel />} />
-          <Route path="/forum" element={<Forum />} />
-          <Route path="/forum/post/:id" element={<PostDetail />} />
+          <Route path="/world" element={<SocialGuard><WorldChannel /></SocialGuard>} />
+          <Route path="/forum" element={<SocialGuard><Forum /></SocialGuard>} />
+          <Route path="/forum/post/:id" element={<SocialGuard><PostDetail /></SocialGuard>} />
           <Route path="/info/:type/:id" element={<InfoDetail />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<Navigate to="/" replace />} />
@@ -433,9 +462,9 @@ function AppInner() {
           <Route path="/user/:userId" element={<UserProfilePage />} />
           <Route path="/video/play/:subjectId/:episodeId" element={<VideoPlayerErrorBoundary><VideoPlayer /></VideoPlayerErrorBoundary>} />
           <Route path="/video/subject/:subjectId" element={<NavigateToInfoDetail />} />
-          <Route path="/guestbook" element={<Guestbook />} />
+          <Route path="/guestbook" element={<SocialGuard><Guestbook /></SocialGuard>} />
           <Route path="/music" element={<MusicPlayer />} />
-          <Route path="/friends" element={<FriendSpace />} />
+          <Route path="/friends" element={<SocialGuard><FriendSpace /></SocialGuard>} />
           <Route path="/navi" element={<Amadeus />} />
           <Route path="/live2d" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'var(--text-quaternary)'}}>雨何时停？</div>}><Live2DPage /></Suspense>} />
         </Route>
