@@ -428,7 +428,7 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      <HitokotoDecoration count={15} />
+      <HitokotoDecoration count={20} />
       {/* 全宽大图 Banner 轮播 */}
       <div className="home-banner-section">
         {carouselLoading ? (
