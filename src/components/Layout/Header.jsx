@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Search, LogOut, Menu, X, Mail } from 'lucide-react';
+import { Search, LogOut, Menu, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import GlobalSearch from '../Common/GlobalSearch';
 import './Header.css';
@@ -14,7 +14,7 @@ const navItems = [
 ];
 
 export default function Header() {
-  const { currentUser, isAuthenticated, logout, openAuth, notifications, mailUnreadCount } = useApp();
+  const { currentUser, isAuthenticated, logout, openAuth, notifications } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -62,10 +62,6 @@ export default function Header() {
 
             {isAuthenticated ? (
               <div className="header-user-section">
-                <Link to="/mailbox" className="header-icon-btn" title="D-Mail">
-                  <Mail size={18} />
-                  {mailUnreadCount > 0 && <span className="notification-dot">{mailUnreadCount}</span>}
-                </Link>
                 <Link to="/profile" className="header-user">
                   <img src={currentUser?.avatar} alt="" className="user-avatar" />
                   <span className="user-name">{currentUser?.name}</span>

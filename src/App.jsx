@@ -116,6 +116,7 @@ function WindowLayer() {
             {win.id === 'touchgal' && <TouchGalApp />}
             {win.id === 'club' && <Club />}
             {win.id === 'links' && <FriendLinks />}
+            {win.id === 'mailbox' && <Mailbox />}
           </AppWindow>
         );
       })}
@@ -133,6 +134,7 @@ const APP_ICONS = {
   touchgal: Gamepad2,
   club: Coffee,
   links: Link2,
+  mailbox: Mail,
 };
 
 // 音乐未播放时的歌单选择小组件
@@ -237,6 +239,30 @@ function WorldMinimizedWidget() {
     <div className="minimized-bar-info">
       <span className="minimized-bar-name">{latestPost.author_name || '匿名'}</span>
       <span className="minimized-bar-artist">{latestPost.content?.slice(0, 30) || ''}</span>
+    </div>
+  );
+}
+
+// D-Mail 最小化小组件：显示未读数和最新邮件
+function MailboxMinimizedWidget() {
+  const { mailUnreadCount } = useApp();
+  const [latestMail, setLatestMail] = useState(null);
+  useEffect(() => {
+    const mails = StorageService.get('acg_mails', []);
+    const inbox = mails.filter(m => m.folder === 'inbox' || !m.folder);
+    if (inbox.length > 0) {
+      inbox.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setLatestMail(inbox[0]);
+    }
+  }, []);
+  return (
+    <div className="minimized-bar-info">
+      <span className="minimized-bar-name">
+        {mailUnreadCount > 0 ? `${mailUnreadCount} 封未读` : 'D-Mail'}
+      </span>
+      <span className="minimized-bar-artist">
+        {latestMail ? (latestMail.subject || latestMail.from?.name || '').slice(0, 25) : '暂无新邮件'}
+      </span>
     </div>
   );
 }
@@ -351,6 +377,13 @@ function MinimizedBars() {
           </MinimizedBar>
         );
 
+      case 'mailbox':
+        return (
+          <MinimizedBar key="mailbox" id="mailbox" icon={<Mail size={18} />} title="D-Mail" bottom={bottom}>
+            <MailboxMinimizedWidget />
+          </MinimizedBar>
+        );
+
       default: {
         const DefaultIcon = IconComp || Bell;
         return (
@@ -400,7 +433,6 @@ function AppInner() {
           <Route path="/user/:userId" element={<UserProfilePage />} />
           <Route path="/video/play/:subjectId/:episodeId" element={<VideoPlayerErrorBoundary><VideoPlayer /></VideoPlayerErrorBoundary>} />
           <Route path="/video/subject/:subjectId" element={<NavigateToInfoDetail />} />
-          <Route path="/mailbox" element={<Mailbox />} />
           <Route path="/guestbook" element={<Guestbook />} />
           <Route path="/music" element={<MusicPlayer />} />
           <Route path="/friends" element={<FriendSpace />} />

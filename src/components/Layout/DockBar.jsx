@@ -3,13 +3,13 @@ import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
-import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2, Globe } from 'lucide-react';
+import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2, Globe, Mail } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import { setFireworkOn } from '../Common/FireworkEffect';
 import './DockBar.css';
 
 export default function DockBar() {
-  const { currentUser, isAuthenticated, openAuth } = useApp();
+  const { currentUser, isAuthenticated, openAuth, mailUnreadCount } = useApp();
   const { windows, openWindow, focusWindow } = useWindowManager();
   const { currentSong, playing, volume, muted, togglePlay, playNext, playPrev, setVolume } = useMusic();
   const [activePanel, setActivePanel] = useState(null);
@@ -141,6 +141,7 @@ export default function DockBar() {
     { id: 'amadeus', icon: <Brain size={18} />, label: 'Navi' },
     { id: 'world', icon: <Globe size={18} />, label: '世界频道' },
     { id: 'notifications', icon: <Bell size={18} />, label: '通知' },
+    { id: 'mailbox', icon: <Mail size={18} />, label: 'D-Mail' },
     ...(isAuthenticated ? [{ id: 'musashi-new', icon: <PenSquare size={18} />, label: '发布作品', href: '/musashi/new' }] : []),
   ];
 
@@ -173,6 +174,7 @@ export default function DockBar() {
     { key: 'music', icon: <Music size={16} />, label: '音乐', active: windows.music?.open && !windows.music.minimized || activePanel === 'music', onClick: () => handleAppClick('music') },
     { key: 'friends', icon: <Users size={16} />, label: 'LeMU', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },
     { key: 'links', icon: <Link2 size={16} />, label: '友情链接', active: windows.links?.open && !windows.links.minimized, onClick: () => handleAppClick('links') },
+    { key: 'mailbox', icon: <Mail size={16} />, label: 'D-Mail', active: windows.mailbox?.open && !windows.mailbox.minimized, onClick: () => handleAppClick('mailbox'), badge: mailUnreadCount },
     { key: 'settings', icon: <Settings size={16} />, label: '设置', active: activePanel === 'settings' },
     { key: 'notifications', icon: <Bell size={16} />, label: '通知', active: windows.notifications?.open && !windows.notifications.minimized, onClick: () => handleAppClick('notifications'), badge: unreadCount },
   ];

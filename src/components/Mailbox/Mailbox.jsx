@@ -1,5 +1,4 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { MailService, PrivateMessageService, UserService } from '../../services/api';
 import { safeUrl, sanitizeHtml } from '../../utils/sanitize.js';
@@ -26,14 +25,10 @@ function formatFullTime(isoStr) {
 
 export default function Mailbox() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
-  const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState(() => searchParams.get('chat') ? 'chat' : 'mail');
+  const [mode, setMode] = useState('mail');
   const [folder, setFolder] = useState('inbox');
   const [selectedMail, setSelectedMail] = useState(null);
-  const [selectedChat, setSelectedChat] = useState(() => {
-    const chatId = searchParams.get('chat');
-    return chatId ? parseInt(chatId) : null;
-  });
+  const [selectedChat, setSelectedChat] = useState(null);
   const [composing, setComposing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [composeForm, setComposeForm] = useState({ to: '', subject: '', content: '' });
