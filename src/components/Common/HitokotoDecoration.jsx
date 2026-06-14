@@ -13,7 +13,7 @@ const COLORS = [
 ];
 
 // 适配窄列的字号范围，加入一些大字号制造层次感
-const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20, 24, 28];
+const FONT_SIZES = [13, 14, 15, 16, 18, 20, 22, 24, 28, 32];
 
 /**
  * 自由散布布局：
@@ -35,10 +35,10 @@ function generateLayout(count) {
     const x = Math.random() * 28 + 2; // 2%-30%
     const y = TOP_START + Math.random() * HEIGHT_RANGE; // 12%-100%
 
-    // 大字号概率低（只有20%几率选到20+），小字号概率高
-    const fontSizePool = Math.random() < 0.2
-      ? FONT_SIZES.filter(s => s >= 20)  // 20% 大字号
-      : FONT_SIZES.filter(s => s < 20);  // 80% 小字号
+    // 大字号概率30%，小字号70%
+    const fontSizePool = Math.random() < 0.3
+      ? FONT_SIZES.filter(s => s >= 22)  // 30% 大字号
+      : FONT_SIZES.filter(s => s < 22);  // 70% 小字号
     const fontSize = fontSizePool[Math.floor(Math.random() * fontSizePool.length)];
 
     positions.push({
@@ -111,7 +111,7 @@ export default function HitokotoDecoration({ count = 4 }) {
             fontSize: `${item.layout.fontSize}px`,
             fontWeight: item.layout.fontSize >= 18 ? 600 : 400,
             transform: 'translate(-50%, -50%)',
-            maxWidth: item.layout.fontSize >= 24 ? '220px' : item.layout.fontSize >= 18 ? '180px' : '150px',
+            maxWidth: item.layout.fontSize >= 28 ? '260px' : item.layout.fontSize >= 22 ? '220px' : '180px',
             animationDelay: `${item.layout.delay}s`,
           }}
         >
