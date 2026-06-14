@@ -36,7 +36,7 @@ function generateLayout(count) {
     // 随机字号和颜色
     const fontSize = FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)];
     const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-    const rotation = (Math.random() - 0.5) * 8; // -4° to +4°
+    const rotation = 0;
     const delay = i * 0.06;
 
     positions.push({
