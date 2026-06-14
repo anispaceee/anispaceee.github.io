@@ -138,12 +138,16 @@ async function _doRequest(fullPath, cacheKey, useCache, method, body, retryCount
 
     const data = await res.json();
 
+    // Hikarinagi API 统一返回 { success, code, data, message }
+    // 提取内层 data 字段，简化调用方使用
+    const result = data?.success && 'data' in data ? data.data : data;
+
     // 缓存 GET 响应
     if (method === 'GET') {
-      cacheSet(cacheKey, data).catch(() => {});
+      cacheSet(cacheKey, result).catch(() => {});
     }
 
-    return data;
+    return result;
   } catch (err) {
     if (err.name === 'AbortError') {
       throw new Error('Hikarinagi API 请求超时');

@@ -198,12 +198,12 @@ export default function HomePage() {
           HikarinagiService.page.getRecommendGalgames(),
           HikarinagiService.page.getHotComments(),
         ]);
-        if (galData.status === 'fulfilled' && galData.value?.data) {
-          const gals = Array.isArray(galData.value.data) ? galData.value.data : [];
+        if (galData.status === 'fulfilled' && galData.value) {
+          const gals = Array.isArray(galData.value) ? galData.value : (Array.isArray(galData.value?.data) ? galData.value.data : []);
           setRecommendGals(gals.slice(0, 5));
         }
-        if (commentData.status === 'fulfilled' && commentData.value?.data) {
-          const comments = Array.isArray(commentData.value.data) ? commentData.value.data : [];
+        if (commentData.status === 'fulfilled' && commentData.value) {
+          const comments = Array.isArray(commentData.value) ? commentData.value : (Array.isArray(commentData.value?.data) ? commentData.value.data : []);
           setHotComments(comments.slice(0, 5));
         }
       } catch {}

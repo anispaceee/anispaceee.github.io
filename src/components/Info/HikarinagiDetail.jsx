@@ -39,7 +39,7 @@ export default function HikarinagiDetail() {
       .then(([detail, dlInfo, relItems]) => {
         setData(detail);
         setDownloadInfo(dlInfo);
-        setRelated(relItems?.data || relItems || []);
+        setRelated(Array.isArray(relItems) ? relItems : (relItems?.items || relItems?.data || []));
       })
       .catch(err => {
         setError(err.message || '加载失败');

@@ -163,8 +163,8 @@ export default function GlobalSearch({ onClose }) {
           HikarinagiService.search.search({ keyword: q, type: 'galgame', limit: 5 }),
           HikarinagiService.search.search({ keyword: q, type: 'novel', limit: 5 }),
         ]);
-        if (galRes.status === 'fulfilled' && galRes.value?.data) {
-          const galItems = (galRes.value.data.items || galRes.value.data || []).slice(0, 5);
+        if (galRes.status === 'fulfilled' && galRes.value) {
+          const galItems = (galRes.value.items || galRes.value?.data || []).slice(0, 5);
           if (galItems.length > 0) {
             grouped.galgame = galItems.map(item => ({
               id: item.galId || item.id || item._id,
@@ -178,8 +178,8 @@ export default function GlobalSearch({ onClose }) {
             }));
           }
         }
-        if (lnRes.status === 'fulfilled' && lnRes.value?.data) {
-          const lnItems = (lnRes.value.data.items || lnRes.value.data || []).slice(0, 5);
+        if (lnRes.status === 'fulfilled' && lnRes.value) {
+          const lnItems = (lnRes.value.items || lnRes.value?.data || []).slice(0, 5);
           if (lnItems.length > 0) {
             grouped.lightnovel = lnItems.map(item => ({
               id: item.novelId || item.id || item._id,

@@ -65,7 +65,7 @@ export default function AnimeSchedule() {
     setMonthlyGalsLoading(true);
     HikarinagiService.galgame.getMonthlyReleases()
       .then(res => {
-        const items = res?.data?.items || res?.data || res || [];
+        const items = res?.items || res?.data || (Array.isArray(res) ? res : []);
         setMonthlyGals(Array.isArray(items) ? items.slice(0, 20) : []);
       })
       .catch(() => setMonthlyGals([]))

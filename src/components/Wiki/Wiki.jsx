@@ -213,7 +213,7 @@ export default function Wiki() {
         if (typeOption?.source === 'hikarinagi') {
           const isGal = typeOption.key === 'galgame';
           const data = await HikarinagiService.search.search({ keyword: value, type: isGal ? 'galgame' : 'novel', page: 1, limit: 8 });
-          const items = (data?.data?.items || data?.data || data?.list || []).slice(0, 8);
+          const items = (data?.items || data?.data || []).slice(0, 8);
           setLiveResults(items.map(isGal ? mapHikarinagiGalgame : mapHikarinagiLightNovel));
         } else if (typeOption?.typeCode === 'person') {
           const data = await BangumiService.searchPersons(value, 8, 0);
@@ -266,10 +266,10 @@ export default function Wiki() {
           page: p,
           limit: PAGE_SIZE,
         });
-        const items = data?.data?.items || data?.data || data?.list || [];
+        const items = data?.items || data?.data || [];
         const mapper = isGal ? mapHikarinagiGalgame : mapHikarinagiLightNovel;
         setResults(items.map(mapper));
-        setTotal(data?.data?.meta?.totalItems || data?.total || data?.count || items.length);
+        setTotal(data?.meta?.totalItems || data?.total || items.length);
       } else if (typeOption?.typeCode === 'person') {
         const data = await BangumiService.searchPersons(q, PAGE_SIZE, offset);
         const personResults = data.data || [];

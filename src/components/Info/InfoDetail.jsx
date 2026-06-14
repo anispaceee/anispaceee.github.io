@@ -288,19 +288,18 @@ export default function InfoDetail() {
         const hkService = data.type === 4 ? HikarinagiService.galgame : HikarinagiService.lightnovel;
         hkService.getByBangumiId(id)
           .then(async (hkData) => {
-            // 检查返回是否成功（可能返回 401 错误对象）
-            if (!hkData || !hkData.success || (!hkData.data?.galId && !hkData.data?.novelId && !hkData.data?.id)) {
+            // request 已自动提取内层 data，hkData 直接就是条目数据
+            if (!hkData || (!hkData.galId && !hkData.novelId && !hkData.id)) {
               setHikarinagiLinked(null);
               return;
             }
-            const hkItem = hkData.data || hkData;
-            const hkId = hkItem.galId || hkItem.novelId || hkItem.id;
+            const hkId = hkData.galId || hkData.novelId || hkData.id;
             if (!hkId) { setHikarinagiLinked(null); return; }
             let downloadInfo = null;
             if (hkType === 'galgame' && hkId) {
               try { downloadInfo = await HikarinagiService.galgame.getDownloadInfo(hkId); } catch {}
             }
-            setHikarinagiLinked({ type: hkType, data: hkItem, downloadInfo });
+            setHikarinagiLinked({ type: hkType, data: hkData, downloadInfo });
           })
           .catch(() => setHikarinagiLinked(null))
           .finally(() => setHikarinagiLoading(false));
