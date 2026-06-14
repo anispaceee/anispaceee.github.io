@@ -1,7 +1,7 @@
 .live2d-widget {
   position: fixed;
   bottom: 0;
-  right: 20px;
+  right: 0;
   z-index: 200;
   pointer-events: auto;
   display: flex;
@@ -195,7 +195,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.85);
+  background: transparent;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
@@ -223,10 +223,10 @@
 .live2d-toggle {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  right: 0;
   z-index: 200;
   padding: 8px 16px;
-  border-radius: 20px;
+  border-radius: 20px 0 0 20px;
   background: var(--primary);
   color: #fff;
   font-size: 13px;
@@ -260,11 +260,11 @@
 
 @media (max-width: 768px) {
   .live2d-widget {
-    right: 10px;
+    right: 0;
   }
 
   .live2d-canvas {
-    width: 180px;
-    height: 225px;
+    width: 160px;
+    height: 200px;
   }
 }

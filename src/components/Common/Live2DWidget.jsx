@@ -240,12 +240,12 @@ export default function Live2DWidget() {
         <canvas
           id="live2d-canvas"
           className="live2d-canvas"
-          width="280"
-          height="350"
+          width="240"
+          height="300"
         />
         {!loaded && !error && (
           <div className="live2d-loading">
-            <span className="live2d-loading-text">看板娘加载中…</span>
+            <span className="live2d-loading-text">少女祈祷中...</span>
           </div>
         )}
         {error && (
