@@ -6,7 +6,6 @@ import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shu
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import UserAvatar from '../components/Common/UserAvatar';
 import HomeTerminal from '../components/Home/HomeTerminal';
-import HitokotoDecoration from '../components/Common/HitokotoDecoration';
 import './HomePage.css';
 
 const TYPE_OPTIONS = [
@@ -428,7 +427,6 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      <HitokotoDecoration count={20} />
       {/* 全宽大图 Banner 轮播 */}
       <div className="home-banner-section">
         {carouselLoading ? (
