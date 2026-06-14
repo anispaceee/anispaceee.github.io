@@ -42,8 +42,8 @@ function generateLayout(count) {
     const cellWidth = LEFT_ZONE_WIDTH / COLS_PER_SIDE;
     const cellHeight = HEIGHT_RANGE / leftRows;
 
-    const x = (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.2;
-    const y = TOP_START + (row + 0.5) * cellHeight + (Math.random() - 0.5) * cellHeight * 0.15;
+    const x = (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.6;
+    const y = TOP_START + (row + 0.5) * cellHeight + (Math.random() - 0.5) * cellHeight * 0.45;
 
     positions.push({
       left: `${x}%`,
@@ -62,8 +62,8 @@ function generateLayout(count) {
     const cellWidth = RIGHT_ZONE_WIDTH / COLS_PER_SIDE;
     const cellHeight = HEIGHT_RANGE / rightRows;
 
-    const x = RIGHT_ZONE_START + (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.2;
-    const y = TOP_START + (row + 0.5) * cellHeight + (Math.random() - 0.5) * cellHeight * 0.15;
+    const x = RIGHT_ZONE_START + (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.6;
+    const y = TOP_START + (row + 0.5) * cellHeight + (Math.random() - 0.5) * cellHeight * 0.45;
 
     positions.push({
       left: `${x}%`,
