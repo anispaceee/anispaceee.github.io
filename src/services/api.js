@@ -780,7 +780,10 @@ export const BangumiService = {
   },
 
   _headers() {
-    return { 'User-Agent': this.USER_AGENT, 'Accept': 'application/json' };
+    const headers = { 'User-Agent': this.USER_AGENT, 'Accept': 'application/json' };
+    const token = StorageService.get('acg_bangumi_token');
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
   },
 
   _cacheKey(endpoint, params = '') {
