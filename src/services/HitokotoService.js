@@ -155,6 +155,13 @@ export const HitokotoService = {
     return this._cache[idx];
   },
 
+  getUniqueHitokotos(count) {
+    if (this._cache.length === 0) return [];
+    // 随机打乱缓存，取前count条（不重复）
+    const shuffled = [...this._cache].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(count, shuffled.length));
+  },
+
   getNextHitokoto() {
     if (this._cache.length === 0) return null;
     if (this._cacheIndex >= this._cache.length) {
