@@ -5,7 +5,7 @@ account_id = "4f0560fe4eba4e3180a15e8f43ce6d92"
 workers_dev = true
 
 [vars]
-ALLOWED_ORIGIN = "https://afterrain-2005.github.io"
+ALLOWED_ORIGIN = "https://anispaceee.github.io"
 # 敏感信息（CLIENT_SECRET）请在 Cloudflare Dashboard 中配置为 Secrets
 
 [[d1_databases]]
