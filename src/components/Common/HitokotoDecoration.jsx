@@ -12,11 +12,11 @@ const COLORS = [
   'rgba(184, 154, 212, 0.22)',  // 浅紫
 ];
 
-const FONT_SIZES = [14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
+const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
 function generatePosition(index, total) {
-  // 生成随机但分散的位置，避免重叠
-  const cols = Math.ceil(Math.sqrt(total));
+  // 网格分布 + 单元格内随机偏移
+  const cols = Math.ceil(Math.sqrt(total * 1.6)); // 宽屏偏向更多列
   const rows = Math.ceil(total / cols);
   const col = index % cols;
   const row = Math.floor(index / cols);
@@ -38,7 +38,8 @@ function generateStyle(index, total) {
   const pos = generatePosition(index, total);
   const color = COLORS[Math.floor(Math.random() * COLORS.length)];
   const fontSize = FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)];
-  const rotation = (Math.random() - 0.5) * 10; // -5° to +5°
+  const rotation = (Math.random() - 0.5) * 12; // -6° to +6°
+  const delay = index * 0.08; // 逐条延迟
 
   return {
     position: 'absolute',
@@ -48,12 +49,12 @@ function generateStyle(index, total) {
     fontSize: `${fontSize}px`,
     fontWeight: fontSize > 30 ? 700 : fontSize > 20 ? 600 : 400,
     transform: `rotate(${rotation}deg)`,
-    maxWidth: '300px',
+    maxWidth: fontSize > 30 ? '400px' : '280px',
     lineHeight: 1.4,
     whiteSpace: 'pre-wrap',
     userSelect: 'none',
     pointerEvents: 'none',
-    transition: 'opacity 0.5s ease',
+    animationDelay: `${delay}s`,
   };
 }
 

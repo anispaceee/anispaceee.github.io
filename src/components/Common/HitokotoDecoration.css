@@ -10,17 +10,8 @@
   font-family: var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   text-shadow: 0 0 20px currentColor;
   opacity: 0;
-  animation: hitokoto-fade-in 1.2s ease forwards;
+  animation: hitokoto-fade-in 1s ease forwards;
 }
-
-.hitokoto-item:nth-child(1) { animation-delay: 0.1s; }
-.hitokoto-item:nth-child(2) { animation-delay: 0.3s; }
-.hitokoto-item:nth-child(3) { animation-delay: 0.5s; }
-.hitokoto-item:nth-child(4) { animation-delay: 0.7s; }
-.hitokoto-item:nth-child(5) { animation-delay: 0.9s; }
-.hitokoto-item:nth-child(6) { animation-delay: 1.1s; }
-.hitokoto-item:nth-child(7) { animation-delay: 1.3s; }
-.hitokoto-item:nth-child(8) { animation-delay: 1.5s; }
 
 .hitokoto-from {
   display: block;
@@ -37,6 +28,6 @@
 
 @media (max-width: 640px) {
   .hitokoto-item {
-    max-width: 200px !important;
+    max-width: 180px !important;
   }
 }
