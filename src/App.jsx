@@ -126,7 +126,7 @@ function WindowLayer() {
   const { windows } = useWindowManager();
   const { socialMode } = useApp();
   // 社交功能关闭时，这些窗口不渲染
-  const socialWindowIds = ['world', 'club', 'friends', 'mailbox'];
+  const socialWindowIds = ['world', 'club', 'friends', 'mailbox', 'musashi'];
   return (
     <>
       {Object.values(windows).map(win => {
@@ -319,7 +319,7 @@ function MinimizedBars() {
   const { socialMode } = useApp();
 
   // 社交功能关闭时，过滤社交窗口
-  const socialWindowIds = ['world', 'club', 'friends', 'mailbox'];
+  const socialWindowIds = ['world', 'club', 'friends', 'mailbox', 'musashi'];
 
   // 音乐横条：窗口最小化时显示（无论是否播放）
   const musicVisible = windows.music?.open && windows.music?.minimized;
@@ -448,15 +448,15 @@ function AppInner() {
           <Route path="/info/:type/:id" element={<InfoDetail />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<Navigate to="/" replace />} />
-          <Route path="/musashi/new" element={<WorkCreate />} />
-          <Route path="/musashi/:workId/edit" element={<WorkEdit />} />
-          <Route path="/musashi/:workId/read" element={<NovelReader />} />
-          <Route path="/musashi/:workId/read/:chapter" element={<NovelReader />} />
-          <Route path="/musashi/:workId/comic" element={<MangaReader />} />
-          <Route path="/musashi/:workId/comic/:chapter" element={<MangaReader />} />
-          <Route path="/musashi/my-works" element={<MyWorks />} />
-          <Route path="/musashi/:workId" element={<WorkDetail />} />
-          <Route path="/musashi" element={<MusashiHome />} />
+          <Route path="/musashi/new" element={<SocialGuard><WorkCreate /></SocialGuard>} />
+          <Route path="/musashi/:workId/edit" element={<SocialGuard><WorkEdit /></SocialGuard>} />
+          <Route path="/musashi/:workId/read" element={<SocialGuard><NovelReader /></SocialGuard>} />
+          <Route path="/musashi/:workId/read/:chapter" element={<SocialGuard><NovelReader /></SocialGuard>} />
+          <Route path="/musashi/:workId/comic" element={<SocialGuard><MangaReader /></SocialGuard>} />
+          <Route path="/musashi/:workId/comic/:chapter" element={<SocialGuard><MangaReader /></SocialGuard>} />
+          <Route path="/musashi/my-works" element={<SocialGuard><MyWorks /></SocialGuard>} />
+          <Route path="/musashi/:workId" element={<SocialGuard><WorkDetail /></SocialGuard>} />
+          <Route path="/musashi" element={<SocialGuard><MusashiHome /></SocialGuard>} />
           <Route path="/news" element={<NewsZone />} />
           <Route path="/news/editor" element={<NewsEditor />} />
           <Route path="/news/:id" element={<NewsDetail />} />

@@ -146,7 +146,7 @@ export default function DockBar() {
       { id: 'mailbox', icon: <Mail size={18} />, label: 'D-Mail' },
     ] : []),
     { id: 'notifications', icon: <Bell size={18} />, label: '通知' },
-    ...(isAuthenticated ? [{ id: 'musashi-new', icon: <PenSquare size={18} />, label: '发布作品', href: '/musashi/new' }] : []),
+    ...(socialMode && isAuthenticated ? [{ id: 'musashi-new', icon: <PenSquare size={18} />, label: '发布作品', href: '/musashi/new' }] : []),
   ];
 
   const handleLauncherKeyDown = (e) => {

@@ -10,7 +10,7 @@ const allNavItems = [
   { path: '/forum', label: '放課後', social: true },
   { path: '/news', label: '毒电波！！' },
   { path: '/wiki', label: '禁書目錄' },
-  { path: '/musashi', label: '武藏也' },
+  { path: '/musashi', label: '武藏也', social: true },
 ];
 
 export default function Header() {
