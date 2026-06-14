@@ -7,29 +7,6 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  /* 中间区域渐变遮罩：两侧显示，中间渐变消失防止遮盖文字 */
-  -webkit-mask-image: linear-gradient(
-    to right,
-    rgba(0,0,0,1) 0%,
-    rgba(0,0,0,1) 12%,
-    rgba(0,0,0,0.4) 20%,
-    rgba(0,0,0,0) 30%,
-    rgba(0,0,0,0) 70%,
-    rgba(0,0,0,0.4) 80%,
-    rgba(0,0,0,1) 88%,
-    rgba(0,0,0,1) 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    rgba(0,0,0,1) 0%,
-    rgba(0,0,0,1) 12%,
-    rgba(0,0,0,0.4) 20%,
-    rgba(0,0,0,0) 30%,
-    rgba(0,0,0,0) 70%,
-    rgba(0,0,0,0.4) 80%,
-    rgba(0,0,0,1) 88%,
-    rgba(0,0,0,1) 100%
-  );
 }
 
 .hitokoto-item {
@@ -48,12 +25,12 @@
 }
 
 @keyframes hitokoto-fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translate(-50%, -50%) translateY(10px); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 @media (max-width: 640px) {
   .hitokoto-item {
-    max-width: 180px !important;
+    max-width: 160px !important;
   }
 }

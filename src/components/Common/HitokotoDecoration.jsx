@@ -15,50 +15,71 @@ const COLORS = [
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
 function generateLayout(count) {
-  // 计算网格：6列5行=30格，刚好填满
-  const cols = 6;
-  const rows = Math.ceil(count / cols);
-  const cellWidth = 100 / cols;
-  const cellHeight = 100 / rows;
+  // 左右两侧各放一半台词，中间留空
+  const halfCount = Math.ceil(count / 2);
+  const leftCount = halfCount;
+  const rightCount = count - halfCount;
 
+  // 左侧区域：0%-22% 宽度，0%-100% 高度
+  // 右侧区域：78%-100% 宽度，0%-100% 高度
   const positions = [];
-  const lastRowCount = count - (rows - 1) * cols; // 最后一行的数量
 
-  for (let i = 0; i < count; i++) {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
+  // 左侧
+  const leftCols = 2;
+  const leftRows = Math.ceil(leftCount / leftCols);
+  for (let i = 0; i < leftCount; i++) {
+    const col = i % leftCols;
+    const row = Math.floor(i / leftCols);
+    const cellWidth = 22 / leftCols;
+    const cellHeight = 100 / leftRows;
 
-    // 最后一行居中：计算偏移使最后一行居中分布
-    let actualCol = col;
-    const currentRowCount = (row === rows - 1) ? lastRowCount : cols;
-    if (row === rows - 1 && lastRowCount < cols) {
-      const offset = (cols - lastRowCount) / 2;
-      actualCol = col + offset;
-    }
-
-    // 单元格中心 + 微小随机偏移
     const jitterX = (Math.random() - 0.5) * cellWidth * 0.2;
     const jitterY = (Math.random() - 0.5) * cellHeight * 0.2;
 
-    const centerX = (actualCol + 0.5) * cellWidth + jitterX;
+    const centerX = (col + 0.5) * cellWidth + jitterX;
     const centerY = (row + 0.5) * cellHeight + jitterY;
 
-    // 随机字号和颜色
     const fontSize = FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)];
     const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-    const rotation = 0;
-    const delay = i * 0.06;
 
     positions.push({
       left: `${centerX}%`,
       top: `${centerY}%`,
       color,
       fontSize,
-      rotation,
-      delay,
-      maxWidth: fontSize > 30 ? '400px' : '280px',
+      maxWidth: fontSize > 30 ? '280px' : '200px',
+      delay: i * 0.06,
     });
   }
+
+  // 右侧
+  const rightCols = 2;
+  const rightRows = Math.ceil(rightCount / rightCols);
+  for (let i = 0; i < rightCount; i++) {
+    const col = i % rightCols;
+    const row = Math.floor(i / rightCols);
+    const cellWidth = 22 / rightCols;
+    const cellHeight = 100 / rightRows;
+
+    const jitterX = (Math.random() - 0.5) * cellWidth * 0.2;
+    const jitterY = (Math.random() - 0.5) * cellHeight * 0.2;
+
+    const centerX = 78 + (col + 0.5) * cellWidth + jitterX;
+    const centerY = (row + 0.5) * cellHeight + jitterY;
+
+    const fontSize = FONT_SIZES[Math.floor(Math.random() * FONT_SIZES.length)];
+    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+
+    positions.push({
+      left: `${centerX}%`,
+      top: `${centerY}%`,
+      color,
+      fontSize,
+      maxWidth: fontSize > 30 ? '280px' : '200px',
+      delay: (leftCount + i) * 0.06,
+    });
+  }
+
   return positions;
 }
 
@@ -102,7 +123,7 @@ export default function HitokotoDecoration({ count = 4 }) {
             color: item.layout.color,
             fontSize: `${item.layout.fontSize}px`,
             fontWeight: item.layout.fontSize > 30 ? 700 : item.layout.fontSize > 20 ? 600 : 400,
-            transform: `translate(-50%, -50%) rotate(${item.layout.rotation}deg)`,
+            transform: 'translate(-50%, -50%)',
             maxWidth: item.layout.maxWidth,
             animationDelay: `${item.layout.delay}s`,
           }}
