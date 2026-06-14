@@ -7,7 +7,7 @@
 
 /* 两栏布局 */
 .home-columns { display: flex; gap: 24px; align-items: flex-start; }
-.home-main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.home-main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px; position: sticky; top: 80px; }
 .home-side-col { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
 
 /* 全宽大图 Banner 轮播 */
