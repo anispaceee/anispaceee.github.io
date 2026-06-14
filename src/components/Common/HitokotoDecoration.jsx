@@ -15,8 +15,8 @@ const COLORS = [
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
 function generatePosition(index, total) {
-  // 网格分布 + 单元格内随机偏移，覆盖整个视口
-  const cols = Math.ceil(Math.sqrt(total * 1.6)); // 宽屏偏向更多列
+  // 均匀网格分布，小范围随机偏移
+  const cols = Math.ceil(Math.sqrt(total * 1.6));
   const rows = Math.ceil(total / cols);
   const col = index % cols;
   const row = Math.floor(index / cols);
@@ -24,9 +24,9 @@ function generatePosition(index, total) {
   const cellWidth = 100 / cols;
   const cellHeight = 100 / rows;
 
-  // 在单元格内随机偏移
-  const offsetX = (Math.random() * 0.6 + 0.2) * cellWidth;
-  const offsetY = (Math.random() * 0.6 + 0.2) * cellHeight;
+  // 小范围随机偏移（单元格中心附近）
+  const offsetX = (Math.random() * 0.3 + 0.35) * cellWidth;
+  const offsetY = (Math.random() * 0.3 + 0.35) * cellHeight;
 
   return {
     left: `${col * cellWidth + offsetX}%`,
