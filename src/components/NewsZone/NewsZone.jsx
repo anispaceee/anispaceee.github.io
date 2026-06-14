@@ -60,7 +60,7 @@ export default function NewsZone() {
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
     try {
-      const limit = 20;
+      const limit = 30;
       const [feedData, customData] = await Promise.allSettled([
         NewsService.getNewsFeed({ page: pageNum, limit }),
         NewsService.getCustomNews(pageNum, limit),
