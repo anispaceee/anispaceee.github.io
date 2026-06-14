@@ -2,7 +2,7 @@
 
 const ENDPOINT = 'https://v1.hitokoto.cn/';
 const CACHE_KEY = 'anispace_hitokoto_cache';
-const CACHE_SIZE = 5;
+const CACHE_SIZE = 10;
 
 export const HitokotoService = {
   _cache: [],

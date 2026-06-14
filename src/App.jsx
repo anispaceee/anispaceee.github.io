@@ -36,7 +36,6 @@ import NewsEditor from './components/NewsZone/NewsEditor'
 import AuthModal from './components/Common/AuthModal'
 import Live2DWidget from './components/Common/Live2DWidget'
 import FireworkEffect from './components/Common/FireworkEffect'
-import HitokotoDecoration from './components/Common/HitokotoDecoration'
 import DockBar from './components/Layout/DockBar'
 import AppWindow from './components/Layout/AppWindow'
 import { WindowManagerProvider, useWindowManager } from './context/WindowManager'
@@ -442,7 +441,6 @@ function AppInner() {
         </Route>
       </Routes>
       <AuthModal />
-      <HitokotoDecoration count={4} />
       <FireworkEffect />
       <Live2DWidget />
       <WindowLayer />
