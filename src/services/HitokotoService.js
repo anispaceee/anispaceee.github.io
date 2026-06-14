@@ -10,20 +10,25 @@ export const HitokotoService = {
 
   async fetchHitokotos() {
     try {
-      // 获取5条动画类台词
-      const res = await fetch(`${ENDPOINT}?c=a&num=${CACHE_SIZE}&encode=json`);
-      if (!res.ok) throw new Error('Hitokoto fetch failed');
-
-      let data;
-      const text = await res.text();
-      try {
-        data = JSON.parse(text);
-      } catch {
-        // API 可能返回单条而非数组
-        data = [JSON.parse(text)];
+      // 一言API不支持num参数，需逐条获取
+      const promises = [];
+      for (let i = 0; i < CACHE_SIZE; i++) {
+        promises.push(
+          fetch(`${ENDPOINT}?c=a&encode=json`)
+            .then(res => {
+              if (!res.ok) throw new Error('Hitokoto fetch failed');
+              return res.json();
+            })
+            .catch(() => null)
+        );
       }
+      const results = await Promise.allSettled(promises);
+      const items = results
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value);
 
-      const items = Array.isArray(data) ? data : [data];
+      if (items.length === 0) throw new Error('All requests failed');
+
       this._cache = items.map(item => ({
         id: item.id,
         text: item.hitokoto,
