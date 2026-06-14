@@ -50,15 +50,10 @@ export const HitokotoService = {
   async fetchQuotes() {
     let quotes = [];
 
-    // 优先尝试 Animechan（高质量，约10条）
-    try {
-      const animechanQuotes = await this._fetchAnimechan();
-      if (animechanQuotes.length > 0) {
-        quotes.push(...animechanQuotes);
-      }
-    } catch { /* Animechan 失败 */ }
+    // 优先使用硬编码中文经典台词（保证质量和中文）
+    quotes.push(...FALLBACK_QUOTES);
 
-    // 用一言补充到30条（限速请求）
+    // 用一言补充中文台词
     if (quotes.length < CACHE_SIZE) {
       try {
         const hitokotoQuotes = await this._fetchHitokoto(CACHE_SIZE - quotes.length);
@@ -67,14 +62,19 @@ export const HitokotoService = {
           const newQuotes = hitokotoQuotes.filter(q => !existingTexts.has(q.text));
           quotes.push(...newQuotes);
         }
-      } catch { /* 一言也失败 */ }
+      } catch { /* 一言失败 */ }
     }
 
-    // 用硬编码台词补充
+    // 最后用 Animechan 英文台词补充
     if (quotes.length < CACHE_SIZE) {
-      const existingTexts = new Set(quotes.map(q => q.text));
-      const fallback = FALLBACK_QUOTES.filter(q => !existingTexts.has(q.text));
-      quotes.push(...fallback);
+      try {
+        const animechanQuotes = await this._fetchAnimechan();
+        if (animechanQuotes.length > 0) {
+          const existingTexts = new Set(quotes.map(q => q.text));
+          const newQuotes = animechanQuotes.filter(q => !existingTexts.has(q.text));
+          quotes.push(...newQuotes);
+        }
+      } catch { /* Animechan 失败 */ }
     }
 
     // 截取到目标数量

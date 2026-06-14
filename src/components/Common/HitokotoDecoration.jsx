@@ -15,19 +15,19 @@ const COLORS = [
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
 
 function generateLayout(count) {
-  // 左右严格对称：偶数各一半，奇数左侧多1条
+  // 左右严格对称
   const leftCount = Math.ceil(count / 2);
   const rightCount = count - leftCount;
 
   const positions = [];
 
-  // 左侧区域：0%-20% 宽度
+  // 左侧区域：0%-25% 宽度
   const leftCols = 2;
   const leftRows = Math.ceil(leftCount / leftCols);
   for (let i = 0; i < leftCount; i++) {
     const col = i % leftCols;
     const row = Math.floor(i / leftCols);
-    const cellWidth = 20 / leftCols; // 0-20%
+    const cellWidth = 25 / leftCols;
     const cellHeight = 100 / leftRows;
 
     const x = (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.15;
@@ -42,16 +42,16 @@ function generateLayout(count) {
     });
   }
 
-  // 右侧区域：80%-100% 宽度
+  // 右侧区域：75%-100% 宽度
   const rightCols = 2;
   const rightRows = Math.ceil(rightCount / rightCols);
   for (let i = 0; i < rightCount; i++) {
     const col = i % rightCols;
     const row = Math.floor(i / rightCols);
-    const cellWidth = 20 / rightCols; // 80-100%
+    const cellWidth = 25 / rightCols;
     const cellHeight = 100 / rightRows;
 
-    const x = 80 + (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.15;
+    const x = 75 + (col + 0.5) * cellWidth + (Math.random() - 0.5) * cellWidth * 0.15;
     const y = (row + 0.5) * cellHeight + (Math.random() - 0.5) * cellHeight * 0.15;
 
     positions.push({
