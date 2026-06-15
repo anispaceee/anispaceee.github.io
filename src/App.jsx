@@ -36,6 +36,7 @@ import CommissionPage from './components/Musashi/CommissionPage';
 import CommissionDetail from './components/Musashi/CommissionDetail';
 import NewsDetail from './components/NewsZone/NewsDetail'
 import { AdminPanel } from './components/InviteSystem/AdminPanel';
+import { InviteCodeForm } from './components/InviteSystem/InviteCodeForm';
 import NewsZone from './components/NewsZone/NewsZone'
 import NewsEditor from './components/NewsZone/NewsEditor'
 import AuthModal from './components/Common/AuthModal'
@@ -121,8 +122,8 @@ const savedTheme = StorageService.get('acg_theme', '');
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
 function WindowLayer() {
-  const { windows } = useWindowManager();
-  const { socialMode } = useApp();
+  const { windows, closeWindow } = useWindowManager();
+  const { socialMode, toggleSocialMode } = useApp();
   // 社交功能关闭时，这些窗口不渲染
   const socialWindowIds = ['world', 'club', 'friends', 'mailbox', 'musashi'];
   return (
@@ -142,6 +143,7 @@ function WindowLayer() {
             {win.id === 'links' && <FriendLinks />}
             {win.id === 'mailbox' && <Mailbox />}
             {win.id === 'invite' && <AdminPanel />}
+            {win.id === 'invite-input' && <InviteCodeForm onSuccess={() => { toggleSocialMode(true); closeWindow('invite-input'); }} onClose={() => closeWindow('invite-input')} />}
           </AppWindow>
         );
       })}

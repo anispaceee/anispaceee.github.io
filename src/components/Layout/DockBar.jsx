@@ -6,7 +6,6 @@ import { StorageService } from '../../services/api';
 import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2, Globe, Mail, KeyRound } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import { setFireworkOn } from '../Common/FireworkEffect';
-import { InviteCodeForm } from '../InviteSystem/InviteCodeForm';
 import './DockBar.css';
 
 export default function DockBar() {
@@ -19,7 +18,6 @@ export default function DockBar() {
   const [launcherIndex, setLauncherIndex] = useState(-1);
   const [unreadCount, setUnreadCount] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
   // 检查当前用户是否为管理员
   const isAdmin = isAuthenticated && currentUser?.is_admin;
   const [hoveringTrigger, setHoveringTrigger] = useState(false);
@@ -263,7 +261,7 @@ export default function DockBar() {
                       <span className="dock-setting-hint">社交功能需要邀请码才能解锁</span>
                       <button
                         className="dock-invite-btn"
-                        onClick={() => setShowInviteModal(true)}
+                        onClick={() => openWindow('invite-input')}
                         style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}
                       >
                         <KeyRound size={14} />
@@ -397,21 +395,6 @@ export default function DockBar() {
           );
         })}
       </div>
-
-      {/* 邀请码输入弹窗 */}
-      {showInviteModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={() => setShowInviteModal(false)}>
-          <div style={{ background: 'var(--bg-primary)', borderRadius: 12, width: 360, maxWidth: '90%', border: '1px solid var(--border-primary)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} onClick={e => e.stopPropagation()}>
-            <InviteCodeForm
-              onSuccess={(result) => {
-                toggleSocialMode(true);
-                setShowInviteModal(false);
-              }}
-              onClose={() => setShowInviteModal(false)}
-            />
-          </div>
-        </div>
-      )}
 
     </div>
   );
