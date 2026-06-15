@@ -680,3 +680,487 @@
 .detail-overseas-link:hover {
   text-decoration: underline;
 }
+
+/* ─── 集数进度 Tab ─── */
+
+.episode-progress-tab {
+  padding: 16px 0;
+}
+
+.ep-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.ep-progress-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.ep-progress-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ep-progress-bar {
+  flex: 1;
+  max-width: 200px;
+  height: 4px;
+  background: var(--border-primary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ep-progress-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.ep-progress-batch {
+  position: relative;
+}
+
+.ep-batch-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ep-batch-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.ep-batch-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 10;
+  min-width: 140px;
+  overflow: hidden;
+}
+
+.ep-batch-menu button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ep-batch-menu button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* 格子区域 */
+.ep-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ep-cell {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  user-select: none;
+}
+
+.ep-cell:hover {
+  border-color: var(--primary);
+  transform: scale(1.08);
+}
+
+.ep-cell.watched {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.ep-cell.watched:hover {
+  background: var(--primary);
+  filter: brightness(1.1);
+}
+
+.ep-cell.dropped {
+  background: var(--text-quaternary);
+  border-color: var(--text-quaternary);
+  color: #fff;
+}
+
+.ep-cell-num {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ep-cell.watched .ep-cell-num,
+.ep-cell.dropped .ep-cell-num {
+  color: #fff;
+}
+
+.ep-cell-check,
+.ep-cell-x {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+}
+
+.ep-cell-comment-icon {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  opacity: 0.7;
+}
+
+.ep-cell.watched .ep-cell-comment-icon,
+.ep-cell.dropped .ep-cell-comment-icon {
+  color: rgba(255,255,255,0.7);
+}
+
+.ep-cell-comment-btn {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 50%;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+  transition: all 0.15s;
+}
+
+.ep-cell:hover .ep-cell-comment-btn {
+  display: flex;
+}
+
+.ep-cell-comment-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.ep-progress-loading,
+.ep-progress-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-quaternary);
+  font-size: 13px;
+}
+
+.ep-progress-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 公开集评列表 */
+.ep-public-comments {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-primary);
+}
+
+.ep-public-comments-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+
+.ep-public-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ep-public-comment-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+}
+
+.ep-comment-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.ep-comment-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ep-comment-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.ep-comment-meta strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.ep-comment-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 评论弹窗 */
+.ep-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+.ep-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  animation: slideUp 0.2s ease;
+}
+
+.ep-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.ep-modal-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ep-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+}
+
+.ep-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ep-modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ep-modal-status {
+  display: flex;
+  gap: 8px;
+}
+
+.ep-status-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ep-status-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.ep-status-btn:hover:not(.active) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.ep-modal-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.ep-modal-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.ep-modal-textarea::placeholder {
+  color: var(--text-quaternary);
+}
+
+.ep-modal-private {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ep-modal-private input[type="checkbox"] {
+  display: none;
+}
+
+.ep-toggle-track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  background: var(--border-primary);
+  border-radius: 9px;
+  transition: background 0.2s;
+}
+
+.ep-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.ep-toggle-thumb.active {
+  transform: translateX(14px);
+}
+
+.ep-modal-private input:checked + .ep-toggle-track {
+  background: var(--primary);
+}
+
+.ep-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-primary);
+}
+
+.ep-modal-cancel,
+.ep-modal-save {
+  padding: 7px 16px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+
+.ep-modal-cancel {
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-primary);
+}
+
+.ep-modal-cancel:hover {
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+.ep-modal-save {
+  background: var(--primary);
+  color: #fff;
+}
+
+.ep-modal-save:hover {
+  filter: brightness(1.1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -1553,6 +1553,155 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     return jsonResponse({ success: true }, 200, origin);
   }
 
+  // ─── 集数进度 API ───
+
+  // GET /api/subjects/:id/progress — 获取当前用户在某条目的所有集数进度
+  const subjectProgressMatch = pathname.match(/^\/api\/subjects\/(\d+)\/progress$/);
+  if (subjectProgressMatch && method === 'GET') {
+    const subjectId = Number(subjectProgressMatch[1]);
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ progress: [] }, 200, origin);
+    try {
+      const rows = await env.DB.prepare(
+        'SELECT episode_id, episode_sort, status, is_private, comment, created_at, updated_at FROM episode_progress WHERE user_id = ? AND subject_id = ? ORDER BY episode_sort'
+      ).bind(authUser.userId, subjectId).all();
+      return jsonResponse({ progress: rows.results || [] }, 200, origin);
+    } catch (err) {
+      // 表可能尚未创建（migration 未执行）
+      return jsonResponse({ progress: [] }, 200, origin);
+    }
+  }
+
+  // POST /api/subjects/:id/progress — 标记/更新单集进度（upsert）
+  if (subjectProgressMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未登录' }, 401, origin);
+    const subjectId = Number(subjectProgressMatch[1]);
+    try {
+      const body = await request.json();
+      const { episode_id, episode_sort, status, comment, is_private } = body;
+      if (!episode_id) return jsonResponse({ error: '缺少 episode_id' }, 400, origin);
+
+      // status 为空/null → 取消标记（删除）
+      if (!status) {
+        await env.DB.prepare(
+          'DELETE FROM episode_progress WHERE user_id = ? AND episode_id = ?'
+        ).bind(authUser.userId, episode_id).run();
+        return jsonResponse({ ok: true, deleted: true }, 200, origin);
+      }
+
+      // upsert：INSERT OR REPLACE
+      await env.DB.prepare(
+        `INSERT INTO episode_progress (user_id, subject_id, episode_id, episode_sort, status, is_private, comment, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+         ON CONFLICT(user_id, episode_id) DO UPDATE SET
+           status = excluded.status,
+           episode_sort = excluded.episode_sort,
+           is_private = excluded.is_private,
+           comment = excluded.comment,
+           updated_at = datetime('now')`
+      ).bind(
+        authUser.userId, subjectId, episode_id,
+        episode_sort || 0, status || 'watched',
+        is_private ? 1 : 0, comment || ''
+      ).run();
+
+      const row = await env.DB.prepare(
+        'SELECT episode_id, episode_sort, status, is_private, comment, updated_at FROM episode_progress WHERE user_id = ? AND episode_id = ?'
+      ).bind(authUser.userId, episode_id).first();
+
+      return jsonResponse({ ok: true, progress: row }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '操作失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/subjects/:id/progress/:episodeId — 取消单集标记
+  const subjectProgressDeleteMatch = pathname.match(/^\/api\/subjects\/(\d+)\/progress\/(\d+)$/);
+  if (subjectProgressDeleteMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未登录' }, 401, origin);
+    const episodeId = Number(subjectProgressDeleteMatch[2]);
+    try {
+      await env.DB.prepare(
+        'DELETE FROM episode_progress WHERE user_id = ? AND episode_id = ?'
+      ).bind(authUser.userId, episodeId).run();
+      return jsonResponse({ ok: true }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '操作失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/subjects/:id/progress/batch — 批量操作
+  const subjectProgressBatchMatch = pathname.match(/^\/api\/subjects\/(\d+)\/progress\/batch$/);
+  if (subjectProgressBatchMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未登录' }, 401, origin);
+    const subjectId = Number(subjectProgressBatchMatch[1]);
+    try {
+      const body = await request.json();
+      const { action, episodes } = body;
+
+      if (action === 'clear_all') {
+        const result = await env.DB.prepare(
+          'DELETE FROM episode_progress WHERE user_id = ? AND subject_id = ?'
+        ).bind(authUser.userId, subjectId).run();
+        return jsonResponse({ ok: true, affected: result.meta?.changes || 0 }, 200, origin);
+      }
+
+      if (action === 'mark_all_watched' && Array.isArray(episodes)) {
+        let affected = 0;
+        for (const ep of episodes) {
+          if (!ep.episode_id) continue;
+          await env.DB.prepare(
+            `INSERT INTO episode_progress (user_id, subject_id, episode_id, episode_sort, status, is_private, comment, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 'watched', 0, '', datetime('now'), datetime('now'))
+             ON CONFLICT(user_id, episode_id) DO UPDATE SET
+               status = 'watched',
+               episode_sort = excluded.episode_sort,
+               updated_at = datetime('now')`
+          ).bind(authUser.userId, subjectId, ep.episode_id, ep.episode_sort || 0).run();
+          affected++;
+        }
+        return jsonResponse({ ok: true, affected }, 200, origin);
+      }
+
+      return jsonResponse({ error: '无效的批量操作' }, 400, origin);
+    } catch (err) {
+      return jsonResponse({ error: '批量操作失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/subjects/:id/ep-comments — 获取某条目的公开集评
+  const subjectEpCommentsMatch = pathname.match(/^\/api\/subjects\/(\d+)\/ep-comments$/);
+  if (subjectEpCommentsMatch && method === 'GET') {
+    const subjectId = Number(subjectEpCommentsMatch[1]);
+    const reqUrl = new URL(request.url);
+    const episodeIdFilter = reqUrl.searchParams.get('episode_id');
+    const limit = Math.min(parseInt(reqUrl.searchParams.get('limit') || '50'), 100);
+    const offset = parseInt(reqUrl.searchParams.get('offset') || '0');
+    try {
+      let query, params;
+      if (episodeIdFilter) {
+        query = `SELECT ep.id, ep.episode_id, ep.episode_sort, ep.comment, ep.is_private, ep.created_at, ep.user_id, u.name AS username, u.avatar
+                 FROM episode_progress ep JOIN users u ON ep.user_id = u.id
+                 WHERE ep.subject_id = ? AND ep.episode_id = ? AND ep.is_private = 0 AND ep.comment != ''
+                 ORDER BY ep.episode_sort ASC, ep.created_at DESC LIMIT ? OFFSET ?`;
+        params = [subjectId, Number(episodeIdFilter), limit, offset];
+      } else {
+        query = `SELECT ep.id, ep.episode_id, ep.episode_sort, ep.comment, ep.is_private, ep.created_at, ep.user_id, u.name AS username, u.avatar
+                 FROM episode_progress ep JOIN users u ON ep.user_id = u.id
+                 WHERE ep.subject_id = ? AND ep.is_private = 0 AND ep.comment != ''
+                 ORDER BY ep.episode_sort ASC, ep.created_at DESC LIMIT ? OFFSET ?`;
+        params = [subjectId, limit, offset];
+      }
+      const rows = await env.DB.prepare(query).bind(...params).all();
+      return jsonResponse({ comments: rows.results || [], has_more: (rows.results || []).length >= limit }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ comments: [], has_more: false }, 200, origin);
+    }
+  }
+
   // GET /api/users/:id/activity — 获取用户活跃度数据（用于热力图）
   const userActivityMatch = pathname.match(/^\/api\/users\/(\d+)\/activity$/);
   if (userActivityMatch && method === 'GET') {

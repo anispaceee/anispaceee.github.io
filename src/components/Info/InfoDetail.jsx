@@ -4,7 +4,7 @@ import { BangumiService, RatingService, FavoriteService, CollectionMarkService, 
 import { BangumiDataService } from '../../services/BangumiDataService';
 import HikarinagiService from '../../services/HikarinagiService';
 import { SourceMerger } from '../../services/SourceMerger';
-import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText, Sparkles } from 'lucide-react';
+import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText, Sparkles, Check, X, MessageSquare, Lock, Eye, MoreVertical } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
@@ -128,6 +128,330 @@ function StaffGroup({ role, members, defaultCollapsed = false }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 集数进度 Tab 组件 ───
+function EpisodeProgressTab({ subjectId, subjectType, episodes, episodesLoading, fetchEpisodes, user, API_BASE }) {
+  const [progressMap, setProgressMap] = useState({}); // { episodeId: { status, comment, is_private, ... } }
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [commentModal, setCommentModal] = useState(null); // { episode, ...currentProgress }
+  const [commentText, setCommentText] = useState('');
+  const [commentPrivate, setCommentPrivate] = useState(false);
+  const [commentStatus, setCommentStatus] = useState('watched');
+  const [epComments, setEpComments] = useState([]);
+  const [epCommentsLoading, setEpCommentsLoading] = useState(false);
+  const [batchMenuOpen, setBatchMenuOpen] = useState(false);
+  const batchMenuRef = useRef(null);
+
+  // 加载用户进度
+  const loadProgress = useCallback(async () => {
+    if (!user || !subjectId) return;
+    setProgressLoading(true);
+    try {
+      const token = localStorage.getItem('acg_token');
+      const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/progress`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      const map = {};
+      (data.progress || []).forEach(p => { map[p.episode_id] = p; });
+      setProgressMap(map);
+    } catch (err) {
+      console.warn('[EpisodeProgress] load progress failed:', err);
+    } finally {
+      setProgressLoading(false);
+    }
+  }, [user, subjectId, API_BASE]);
+
+  // 加载公开集评
+  const loadEpComments = useCallback(async () => {
+    if (!subjectId) return;
+    setEpCommentsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/ep-comments?limit=50`);
+      const data = await res.json();
+      setEpComments(data.comments || []);
+    } catch (err) {
+      console.warn('[EpisodeProgress] load ep-comments failed:', err);
+    } finally {
+      setEpCommentsLoading(false);
+    }
+  }, [subjectId, API_BASE]);
+
+  useEffect(() => { loadProgress(); }, [loadProgress]);
+  useEffect(() => { loadEpComments(); }, [loadEpComments]);
+
+  // 加载集数列表（如果还没有）
+  useEffect(() => {
+    if (episodes.length === 0 && !episodesLoading && fetchEpisodes) {
+      fetchEpisodes();
+    }
+  }, [episodes.length, episodesLoading, fetchEpisodes]);
+
+  // 点击格子切换已看/未看
+  const toggleEpisode = async (ep) => {
+    if (!user) return;
+    const current = progressMap[ep.id];
+    const token = localStorage.getItem('acg_token');
+
+    if (current) {
+      // 取消标记
+      try {
+        await fetch(`${API_BASE}/api/subjects/${subjectId}/progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ episode_id: ep.id, episode_sort: ep.sort || ep.ep, status: null }),
+        });
+        setProgressMap(prev => {
+          const next = { ...prev };
+          delete next[ep.id];
+          return next;
+        });
+      } catch (err) {
+        console.warn('[EpisodeProgress] toggle failed:', err);
+      }
+    } else {
+      // 标记已看
+      try {
+        await fetch(`${API_BASE}/api/subjects/${subjectId}/progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ episode_id: ep.id, episode_sort: ep.sort || ep.ep, status: 'watched' }),
+        });
+        setProgressMap(prev => ({
+          ...prev,
+          [ep.id]: { episode_id: ep.id, episode_sort: ep.sort || ep.ep, status: 'watched', is_private: 0, comment: '' },
+        }));
+      } catch (err) {
+        console.warn('[EpisodeProgress] toggle failed:', err);
+      }
+    }
+  };
+
+  // 打开评论弹窗
+  const openCommentModal = (ep) => {
+    const current = progressMap[ep.id];
+    setCommentModal(ep);
+    setCommentText(current?.comment || '');
+    setCommentPrivate(current?.is_private === 1);
+    setCommentStatus(current?.status || 'watched');
+  };
+
+  // 保存评论
+  const saveComment = async () => {
+    if (!user || !commentModal) return;
+    const token = localStorage.getItem('acg_token');
+    try {
+      await fetch(`${API_BASE}/api/subjects/${subjectId}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          episode_id: commentModal.id,
+          episode_sort: commentModal.sort || commentModal.ep,
+          status: commentStatus,
+          comment: commentText,
+          is_private: commentPrivate,
+        }),
+      });
+      setProgressMap(prev => ({
+        ...prev,
+        [commentModal.id]: {
+          episode_id: commentModal.id,
+          episode_sort: commentModal.sort || commentModal.ep,
+          status: commentStatus,
+          is_private: commentPrivate ? 1 : 0,
+          comment: commentText,
+        },
+      }));
+      setCommentModal(null);
+      // 刷新公开集评
+      loadEpComments();
+    } catch (err) {
+      console.warn('[EpisodeProgress] save comment failed:', err);
+    }
+  };
+
+  // 批量操作
+  const handleBatch = async (action) => {
+    if (!user) return;
+    const token = localStorage.getItem('acg_token');
+    setBatchMenuOpen(false);
+    try {
+      if (action === 'mark_all_watched') {
+        const unwatchedEps = episodes.filter(ep => !progressMap[ep.id]);
+        if (unwatchedEps.length === 0) return;
+        await fetch(`${API_BASE}/api/subjects/${subjectId}/progress/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            action: 'mark_all_watched',
+            episodes: unwatchedEps.map(ep => ({ episode_id: ep.id, episode_sort: ep.sort || ep.ep })),
+          }),
+        });
+        loadProgress();
+      } else if (action === 'clear_all') {
+        await fetch(`${API_BASE}/api/subjects/${subjectId}/progress/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action: 'clear_all' }),
+        });
+        setProgressMap({});
+      }
+    } catch (err) {
+      console.warn('[EpisodeProgress] batch failed:', err);
+    }
+  };
+
+  // 点击外部关闭批量菜单
+  useEffect(() => {
+    if (!batchMenuOpen) return;
+    const handler = (e) => {
+      if (batchMenuRef.current && !batchMenuRef.current.contains(e.target)) setBatchMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [batchMenuOpen]);
+
+  const watchedCount = Object.values(progressMap).filter(p => p.status === 'watched').length;
+  const totalCount = episodes.length;
+
+  return (
+    <div className="episode-progress-tab">
+      {/* 头部：标题 + 批量操作 */}
+      <div className="ep-progress-header">
+        <div className="ep-progress-stats">
+          <span className="ep-progress-count">已看 {watchedCount}/{totalCount} 话</span>
+          {totalCount > 0 && (
+            <div className="ep-progress-bar">
+              <div className="ep-progress-bar-fill" style={{ width: `${(watchedCount / totalCount) * 100}%` }} />
+            </div>
+          )}
+        </div>
+        {user && (
+          <div className="ep-progress-batch" ref={batchMenuRef}>
+            <button className="ep-batch-btn" onClick={() => setBatchMenuOpen(!batchMenuOpen)}>
+              <MoreVertical size={14} /> 批量操作
+            </button>
+            {batchMenuOpen && (
+              <div className="ep-batch-menu">
+                <button onClick={() => handleBatch('mark_all_watched')}>
+                  <Check size={14} /> 标记全部已看
+                </button>
+                <button onClick={() => handleBatch('clear_all')}>
+                  <X size={14} /> 清除全部进度
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 格子区域 */}
+      {episodesLoading || progressLoading ? (
+        <div className="ep-progress-loading"><Loader2 size={20} className="spinning" /> 加载中...</div>
+      ) : totalCount === 0 ? (
+        <div className="ep-progress-empty">暂无剧集信息</div>
+      ) : (
+        <div className="ep-grid">
+          {episodes.map((ep, i) => {
+            const p = progressMap[ep.id];
+            const isWatched = p?.status === 'watched';
+            const isDropped = p?.status === 'dropped';
+            const hasComment = p?.comment && p.comment.trim();
+            return (
+              <div
+                key={ep.id || i}
+                className={`ep-cell ${isWatched ? 'watched' : ''} ${isDropped ? 'dropped' : ''} ${hasComment ? 'has-comment' : ''}`}
+                onClick={() => user && toggleEpisode(ep)}
+                title={`${ep.name || `第${ep.sort || ep.ep || i + 1}话`}${hasComment ? ' (有评论)' : ''}`}
+              >
+                <span className="ep-cell-num">{ep.sort || ep.ep || i + 1}</span>
+                {isWatched && <Check size={10} className="ep-cell-check" />}
+                {isDropped && <X size={10} className="ep-cell-x" />}
+                {hasComment && <MessageSquare size={8} className="ep-cell-comment-icon" />}
+                <button
+                  className="ep-cell-comment-btn"
+                  onClick={(e) => { e.stopPropagation(); user && openCommentModal(ep); }}
+                  title="评论"
+                >
+                  <MessageSquare size={12} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 公开集评列表 */}
+      {epComments.length > 0 && (
+        <div className="ep-public-comments">
+          <h4 className="ep-public-comments-title">集评</h4>
+          {epCommentsLoading ? (
+            <div className="ep-progress-loading"><Loader2 size={16} className="spinning" /></div>
+          ) : (
+            <div className="ep-public-comments-list">
+              {epComments.map(c => (
+                <div key={c.id} className="ep-public-comment-item">
+                  <img src={c.avatar || FALLBACK_AVATAR} alt="" className="ep-comment-avatar" />
+                  <div className="ep-comment-body">
+                    <span className="ep-comment-meta">
+                      <strong>{c.username}</strong> · 第{c.episode_sort}话
+                    </span>
+                    <p className="ep-comment-text">{c.comment}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 评论弹窗 */}
+      {commentModal && (
+        <div className="ep-modal-overlay" onClick={() => setCommentModal(null)}>
+          <div className="ep-modal" onClick={e => e.stopPropagation()}>
+            <div className="ep-modal-header">
+              <h3>第{commentModal.sort || commentModal.ep}话 {commentModal.name || ''}</h3>
+              <button className="ep-modal-close" onClick={() => setCommentModal(null)}><X size={16} /></button>
+            </div>
+            <div className="ep-modal-body">
+              {/* 状态切换 */}
+              <div className="ep-modal-status">
+                <button className={`ep-status-btn ${commentStatus === 'watched' ? 'active' : ''}`} onClick={() => setCommentStatus('watched')}>
+                  <Eye size={14} /> 已看
+                </button>
+                <button className={`ep-status-btn ${commentStatus === 'dropped' ? 'active' : ''}`} onClick={() => setCommentStatus('dropped')}>
+                  <X size={14} /> 弃看
+                </button>
+              </div>
+              {/* 评论输入 */}
+              <textarea
+                className="ep-modal-textarea"
+                placeholder="写点感想..."
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                maxLength={500}
+                rows={3}
+              />
+              {/* 私密开关 */}
+              <label className="ep-modal-private">
+                <Lock size={12} />
+                <span>仅自己可见</span>
+                <input type="checkbox" checked={commentPrivate} onChange={e => setCommentPrivate(e.target.checked)} />
+                <span className="ep-toggle-track">
+                  <span className={`ep-toggle-thumb ${commentPrivate ? 'active' : ''}`} />
+                </span>
+              </label>
+            </div>
+            <div className="ep-modal-footer">
+              <button className="ep-modal-cancel" onClick={() => setCommentModal(null)}>取消</button>
+              <button className="ep-modal-save" onClick={saveComment}>保存</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -936,7 +1260,7 @@ export default function InfoDetail() {
             <div className="detail-sidebar-actions">
               <button className="detail-watch-btn" onClick={handleWatchNow} disabled={watchLoading}>
                 {watchLoading ? <Loader2 size={16} className="vp-spin" /> : <Play size={16} fill="#fff" />}
-                {watchLoading ? '正在跳转...' : '立即观看'}
+                {watchLoading ? '正在跳转...' : subject?.type === 4 ? '立即游玩' : '立即观看'}
               </button>
               {showSourcePicker && (
                 <div className="detail-source-picker">
@@ -955,7 +1279,7 @@ export default function InfoDetail() {
                 </div>
               )}
               <div className="detail-mark-group">
-                {Object.entries(CollectionMarkService.MARK_LABELS).map(([key, label]) => (
+                {Object.entries(CollectionMarkService.getMarkLabels(subject?.type || 2)).map(([key, label]) => (
                   <button key={key} className={`detail-mark-btn ${collectionMark === key ? `active mark-${key}` : ''}`}
                     onClick={async () => {
                       if (!isAuthenticated) { openAuth(); return; }
@@ -1129,6 +1453,10 @@ export default function InfoDetail() {
                 <button className={`detail-tab ${activeTab === 'detail' ? 'active' : ''}`} onClick={() => setActiveTab('detail')}>详情</button>
                 <button className={`detail-tab ${activeTab === 'characters' ? 'active' : ''}`} onClick={() => setActiveTab('characters')}>出场角色</button>
                 <button className={`detail-tab ${activeTab === 'comments' ? 'active' : ''}`} onClick={() => setActiveTab('comments')}>评论区</button>
+                {/* 进度标签：仅对动画/三次元类型显示 */}
+                {(subject?.type === 2 || subject?.type === 6) && (
+                  <button className={`detail-tab ${activeTab === 'progress' ? 'active' : ''}`} onClick={() => setActiveTab('progress')}>进度</button>
+                )}
                 {/* 字幕组资源标签：仅对动画类型显示 */}
                 {subject?.type === 2 && (
                   <button className={`detail-tab ${activeTab === 'fansubs' ? 'active' : ''}`} onClick={() => setActiveTab('fansubs')}>字幕组资源</button>
@@ -1320,6 +1648,19 @@ export default function InfoDetail() {
                     )}
 
                   </div>
+                )}
+
+                {/* 进度 Tab */}
+                {activeTab === 'progress' && (
+                  <EpisodeProgressTab
+                    subjectId={id}
+                    subjectType={subject?.type}
+                    episodes={watchEpisodes}
+                    episodesLoading={watchEpisodesLoading}
+                    fetchEpisodes={fetchWatchEpisodes}
+                    user={user}
+                    API_BASE={API_BASE}
+                  />
                 )}
 
                 {/* 站内观看 Tab */}
