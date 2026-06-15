@@ -78,7 +78,11 @@ export const SourceMerger = {
     const hkId = hkMatch.galId || hkMatch.novelId || hkMatch.id;
     const isGalgame = bgmSubject.type === 4;
 
-    const [downloadInfo, links, related] = await Promise.allSettled([
+    // 获取详情（含评分等完整数据）
+    const [detail, downloadInfo, links, related] = await Promise.allSettled([
+      isGalgame
+        ? HikarinagiService.galgame.getById(hkId)
+        : HikarinagiService.lightnovel.getById(hkId),
       isGalgame
         ? HikarinagiService.galgame.getDownloadInfo(hkId)
         : HikarinagiService.lightnovel.getSeriesDownloadUrls(hkId),
@@ -88,6 +92,7 @@ export const SourceMerger = {
 
     const result = {
       match: hkMatch,
+      detail: detail.status === 'fulfilled' ? detail.value : null,
       downloadInfo: downloadInfo.status === 'fulfilled' ? downloadInfo.value : null,
       links: links.status === 'fulfilled' ? links.value : null,
       related: related.status === 'fulfilled' ? related.value : null,
@@ -105,9 +110,16 @@ export const SourceMerger = {
     for (const title of titles) {
       try {
         const results = await HikarinagiService.search.search({ keyword: title, type, limit: 3 });
-        const items = Array.isArray(results) ? results : results?.list || [];
+        // Hikarinagi 搜索返回 { items: [...], meta: {...} }
+        const items = Array.isArray(results) ? results : results?.items || results?.list || [];
         for (const item of items) {
-          const hkTitles = [item.name, item.nameCn].filter(Boolean);
+          // Hikarinagi 字段：originTitle（数组，含日文名和英文名）、transTitle（中文名）
+          const hkTitles = [
+            ...(Array.isArray(item.originTitle) ? item.originTitle : []),
+            item.transTitle,
+            item.name,
+            item.nameCn,
+          ].filter(Boolean);
           for (const ht of hkTitles) {
             for (const bt of titles) {
               if (calculateSimilarity(ht, bt) > 0.85) {

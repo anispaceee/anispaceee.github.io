@@ -17,19 +17,11 @@ const TYPE_CONFIG = {
   friend_request: { icon: UserPlus, color: '#e886a2', label: '好友请求' },
 };
 
-const DEFAULT_NOTIFICATIONS = [
-  { id: 1, type: 'system', title: '欢迎来到 ANISpace', content: '探索动画、游戏、小说的ACG社区世界', read: false, createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
-  { id: 2, type: 'like', title: '追番达人 赞了你的帖子', content: '"2026年4月新番追番指南"获得了新的点赞', read: false, createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
-  { id: 3, type: 'comment', title: '宅宅酱 评论了你的帖子', content: '确实！海岛地图太美了，我截图了好多', read: false, createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString() },
-  { id: 4, type: 'follow', title: '魔法少女 关注了你', content: '你们有3个共同好友', read: true, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString() },
-  { id: 5, type: 'system', title: '社区公告', content: 'ANISpace v2.0 已更新，新增Bilibili嵌入模式和音乐空间功能', read: true, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-];
-
 function getLocalNotifications() {
   const stored = StorageService.get(NOTIFICATIONS_KEY);
   if (!stored) {
-    StorageService.set(NOTIFICATIONS_KEY, DEFAULT_NOTIFICATIONS);
-    return DEFAULT_NOTIFICATIONS;
+    StorageService.set(NOTIFICATIONS_KEY, []);
+    return [];
   }
   return stored;
 }

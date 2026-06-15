@@ -34,7 +34,7 @@ export default function NewsZone() {
   const { isAuthenticated, openAuth } = useApp();
   const [feedNews, setFeedNews] = useState([]);
   const [customNews, setCustomNews] = useState([]);
-  const [bangumiMatchMap, setBangumiMatchMap] = useState({}); // { "source-source_id": { id, type, name } }
+  const [bangumiMatchMap, setBangumiMatchMap] = useState({}); // { title: { id, type, name } }
   const [loading, setLoading] = useState(true);
   const [activeSource, setActiveSource] = useState('');
   const [activeCategory, setActiveCategory] = useState('全部');
@@ -47,7 +47,7 @@ export default function NewsZone() {
   const [submitting, setSubmitting] = useState(false);
   const carouselTimerRef = useRef(null);
   const coverInputRef = useRef(null);
-  const initialLoadDone = useRef(false);
+  const matchCache = useRef({}); // 懒匹配缓存：{ title: match|null }
 
   // 合并所有推荐
   const allNews = [...feedNews, ...customNews.map(n => ({ ...n, source: 'custom' }))];
@@ -60,48 +60,56 @@ export default function NewsZone() {
     return true;
   });
 
-  // 匹配Bangumi条目：批量搜索标题，缓存匹配结果
-  const matchBangumiSubjects = useCallback(async (newsItems) => {
-    const matchMap = {};
-    // 去重标题
-    const uniqueTitles = [...new Set(newsItems.map(n => n.title).filter(Boolean))];
-    // 限制并发，每批5个
-    const batchSize = 5;
-    for (let i = 0; i < uniqueTitles.length; i += batchSize) {
-      const batch = uniqueTitles.slice(i, i + batchSize);
-      const results = await Promise.allSettled(
-        batch.map(async (title) => {
-          try {
-            const data = await BangumiService.searchSubjects(title, 0, 3, 0);
-            if (data?.list?.length > 0) {
-              // 取第一个结果，要求标题相似度较高
-              const first = data.list[0];
-              const matchTitle = first.name || first.title_cn || '';
-              const matchTitleJP = first.name_cn || '';
-              // 简单匹配：标题包含关系或完全一致
-              const isMatch = title === matchTitle || title === matchTitleJP ||
-                matchTitle.includes(title) || title.includes(matchTitle) ||
-                matchTitleJP.includes(title) || title.includes(matchTitleJP);
-              if (isMatch) {
-                return { title, match: { id: first.id, type: first.type, name: matchTitle || matchTitleJP } };
-              }
-            }
-            return { title, match: null };
-          } catch {
-            return { title, match: null };
-          }
-        })
-      );
-      results.forEach(r => {
-        if (r.status === 'fulfilled' && r.value?.match) {
-          matchMap[r.value.title] = r.value.match;
-        }
-      });
+  // 懒匹配：点击时搜索Bangumi并缓存结果
+  const matchAndNavigate = useCallback(async (news) => {
+    const isArticle = news.type === 'article';
+    if (isArticle) {
+      navigate(`/news/${news.id}`);
+      return;
     }
-    return matchMap;
-  }, []);
 
-  // 加载数据（全量一次性加载，追加到底部）
+    // 检查缓存
+    const cached = matchCache.current[news.title];
+    if (cached !== undefined) {
+      if (cached) {
+        const typeKey = BANGUMI_TYPE_MAP[cached.type] || 'anime';
+        navigate(`/info/${typeKey}/${cached.id}`);
+      } else {
+        // 已确认无匹配，打开外链
+        if (news.link) window.open(news.link, '_blank');
+      }
+      return;
+    }
+
+    // 首次点击：搜索Bangumi
+    try {
+      const data = await BangumiService.searchSubjects(news.title, 0, 3, 0);
+      if (data?.list?.length > 0) {
+        const first = data.list[0];
+        const matchTitle = first.name || first.title_cn || '';
+        const matchTitleJP = first.name_cn || '';
+        const isMatch = news.title === matchTitle || news.title === matchTitleJP ||
+          matchTitle.includes(news.title) || news.title.includes(matchTitle) ||
+          matchTitleJP.includes(news.title) || news.title.includes(matchTitleJP);
+
+        if (isMatch) {
+          const match = { id: first.id, type: first.type, name: matchTitle || matchTitleJP };
+          matchCache.current[news.title] = match;
+          setBangumiMatchMap(prev => ({ ...prev, [news.title]: match }));
+          const typeKey = BANGUMI_TYPE_MAP[match.type] || 'anime';
+          navigate(`/info/${typeKey}/${match.id}`);
+          return;
+        }
+      }
+      // 无匹配
+      matchCache.current[news.title] = null;
+    } catch {}
+
+    // 兜底：打开外链
+    if (news.link) window.open(news.link, '_blank');
+  }, [navigate]);
+
+  // 加载数据（全量一次性加载，静默刷新不跳动）
   const loadData = useCallback(async (isAutoRefresh = false) => {
     if (!isAutoRefresh) setLoading(true);
     try {
@@ -114,20 +122,12 @@ export default function NewsZone() {
 
       setFeedNews(newFeed);
       setCustomNews(newCustom);
-
-      // 首次加载时匹配Bangumi条目
-      if (!initialLoadDone.current) {
-        const allItems = [...newFeed, ...newCustom.map(n => ({ ...n, source: 'custom' }))];
-        const matchMap = await matchBangumiSubjects(allItems);
-        setBangumiMatchMap(matchMap);
-        initialLoadDone.current = true;
-      }
     } catch {
       // 静默失败
     } finally {
       setLoading(false);
     }
-  }, [matchBangumiSubjects]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -214,26 +214,8 @@ export default function NewsZone() {
   const getSourceLabel = (source) => SOURCE_CONFIG[source]?.label || source;
   const getSourceColor = (source) => SOURCE_CONFIG[source]?.color || '#6b7280';
 
-  // 点击处理：优先站内跳转，其次外部链接
-  const handleNewsClick = (news) => {
-    const isArticle = news.type === 'article';
-    if (isArticle) {
-      navigate(`/news/${news.id}`);
-      return;
-    }
-    // 检查Bangumi匹配
-    const match = bangumiMatchMap[news.title];
-    if (match) {
-      const typeKey = BANGUMI_TYPE_MAP[match.type] || 'anime';
-      navigate(`/info/${typeKey}/${match.id}`);
-      return;
-    }
-    // 兜底：打开外部链接
-    if (news.link) window.open(news.link, '_blank');
-  };
-
-  // 判断是否有站内匹配
-  const hasBangumiMatch = (title) => !!bangumiMatchMap[title];
+  // 判断是否有站内匹配（已缓存的）
+  const isInternalMatch = (title) => !!bangumiMatchMap[title];
 
   return (
     <div className="news-zone">
@@ -289,7 +271,7 @@ export default function NewsZone() {
                 <div
                   key={news.id || idx}
                   className="news-carousel-slide"
-                  onClick={() => handleNewsClick(news)}
+                  onClick={() => matchAndNavigate(news)}
                 >
                   <div className="news-carousel-bg" style={{ backgroundImage: `url(${news.cover})` }} />
                   <div className="news-carousel-gradient" />
@@ -389,7 +371,7 @@ export default function NewsZone() {
                 <div
                   key={`${news.source}-${news.id || news.source_id}`}
                   className="news-masonry-item"
-                  onClick={() => handleNewsClick(news)}
+                  onClick={() => matchAndNavigate(news)}
                   style={{ cursor: 'pointer' }}
                 >
                   {news.cover && (

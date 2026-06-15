@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BangumiService, StorageService } from '../../services/api';
-import HikarinagiService from '../../services/HikarinagiService';
-import { Search, Loader2, X, Clock, Tv, BookOpen, Gamepad2, Music, Users, MessageCircle, Film, Newspaper, ChevronRight, Trash2, Sparkles, BookText } from 'lucide-react';
+import { Search, Loader2, X, Clock, Tv, BookOpen, Gamepad2, Music, Users, MessageCircle, Film, Newspaper, ChevronRight, Trash2 } from 'lucide-react';
 import './GlobalSearch.css';
 
 const SEARCH_HISTORY_KEY = 'acg_search_history';
@@ -18,8 +17,6 @@ const TYPE_ICONS = {
   video: Film,
   club: Users,
   news: Newspaper,
-  galgame: Sparkles,
-  lightnovel: BookText,
 };
 
 const TYPE_LABELS = {
@@ -32,8 +29,6 @@ const TYPE_LABELS = {
   video: '视频',
   club: 'Tea Time！',
   news: '资讯',
-  galgame: 'Galgame',
-  lightnovel: '轻小说',
 };
 
 function highlightText(text, query) {
@@ -157,44 +152,6 @@ export default function GlobalSearch({ onClose }) {
       ).slice(0, 5);
       if (matchedPosts.length > 0) grouped.post = matchedPosts;
 
-      // Hikarinagi Galgame/LN 搜索
-      try {
-        const [galRes, lnRes] = await Promise.allSettled([
-          HikarinagiService.search.search({ keyword: q, type: 'galgame', limit: 5 }),
-          HikarinagiService.search.search({ keyword: q, type: 'novel', limit: 5 }),
-        ]);
-        if (galRes.status === 'fulfilled' && galRes.value) {
-          const galItems = (galRes.value.items || galRes.value?.data || []).slice(0, 5);
-          if (galItems.length > 0) {
-            grouped.galgame = galItems.map(item => ({
-              id: item.galId || item.id || item._id,
-              name: item.transTitle || (Array.isArray(item.originTitle) ? item.originTitle[0] : item.originTitle) || '',
-              name_cn: item.transTitle || '',
-              type: 4,
-              images: { common: item.cover || '', medium: item.cover || '' },
-              rating: { score: item.rate || 0 },
-              _source: 'hikarinagi',
-              _sourceType: 'galgame',
-            }));
-          }
-        }
-        if (lnRes.status === 'fulfilled' && lnRes.value) {
-          const lnItems = (lnRes.value.items || lnRes.value?.data || []).slice(0, 5);
-          if (lnItems.length > 0) {
-            grouped.lightnovel = lnItems.map(item => ({
-              id: item.novelId || item.id || item._id,
-              name: item.name || '',
-              name_cn: item.name_cn || item.name || '',
-              type: 1,
-              images: { common: item.cover || '', medium: item.cover || '' },
-              rating: { score: item.rate || 0 },
-              _source: 'hikarinagi',
-              _sourceType: 'lightnovel',
-            }));
-          }
-        }
-      } catch {}
-
       const suggestionSet = new Set();
       [...(grouped.anime || []), ...(grouped.novel || []), ...(grouped.game || []), ...(grouped.music || [])].forEach(item => {
         const name = item.name_cn || item.name;
@@ -236,9 +193,6 @@ export default function GlobalSearch({ onClose }) {
       window.open(`https://mzh.moegirl.org.cn/index.php?search=${encodeURIComponent(item.name || item.name_cn)}`, '_blank');
     } else if (flatItem.type === 'post') {
       navigate(`/forum/post/${item.id}`);
-    } else if (flatItem.type === 'galgame' || flatItem.type === 'lightnovel' || item._source === 'hikarinagi') {
-      const hkType = item._sourceType || flatItem.type;
-      navigate(`/info/hikarinagi/${hkType}/${item.id}`);
     } else {
       const typeKey = typeCode === 1 ? 'novel' : typeCode === 4 ? 'game' : typeCode === 3 ? 'music' : 'anime';
       navigate(`/info/${typeKey}/${item.id}`);

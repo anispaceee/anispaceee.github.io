@@ -625,10 +625,17 @@ async function scrapeJikanSeason() {
   const items = [];
 
   try {
-    // 获取当季新番
+    // 获取当季新番（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${JIKAN_API}/seasons/now?limit=25`, {
-      headers: { 'Accept': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (!res.ok) return items;
 
     const data = await res.json();
@@ -674,10 +681,17 @@ async function scrapeJikanTop() {
   const items = [];
 
   try {
-    // 获取评分排行
+    // 获取评分排行（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${JIKAN_API}/top/anime?filter=bypopularity&limit=25`, {
-      headers: { 'Accept': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (!res.ok) return items;
 
     const data = await res.json();
@@ -724,10 +738,17 @@ async function scrapeKitsuTrending() {
   const items = [];
 
   try {
-    // 获取热门动漫
+    // 获取热门动漫（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${KITSU_API}/anime?page[limit]=20&sort=popularityRank`, {
-      headers: { 'Accept': 'application/vnd.api+json' },
+      headers: {
+        'Accept': 'application/vnd.api+json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (!res.ok) return items;
 
     const data = await res.json();
@@ -774,10 +795,17 @@ async function scrapeKitsuCurrent() {
   const items = [];
 
   try {
-    // 获取当前播出动漫
+    // 获取当前播出动漫（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(`${KITSU_API}/anime?page[limit]=20&filter[status]=current&sort=startDate`, {
-      headers: { 'Accept': 'application/vnd.api+json' },
+      headers: {
+        'Accept': 'application/vnd.api+json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (!res.ok) return items;
 
     const data = await res.json();

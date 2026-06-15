@@ -297,7 +297,7 @@ export default function InfoDetail() {
             }
             setHikarinagiLinked({
               type: hkType,
-              data: result.match,
+              data: result.detail || result.match,
               downloadInfo: result.downloadInfo,
               links: result.links,
               related: verifiedRelated,
@@ -1586,14 +1586,6 @@ export default function InfoDetail() {
                       <span className="hikarinagi-tab-source">
                         <Sparkles size={14} /> 数据来源：Hikarinagi（光凪）
                       </span>
-                      {hikarinagiLinked.data && (
-                        <Link
-                          to={`/info/hikarinagi/${hikarinagiLinked.type}/${hikarinagiLinked.data.id}`}
-                          className="hikarinagi-tab-link"
-                        >
-                          查看完整详情 <ChevronRight size={12} />
-                        </Link>
-                      )}
                     </div>
 
                     {/* Hikarinagi 评分 */}

@@ -1210,17 +1210,25 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     const permission = new URL(request.url).searchParams.get('permission');
     if (!permission) return jsonResponse({ error: '缺少 permission 参数' }, 400, origin);
 
-    const userPermission = await env.DB.prepare(
-      'SELECT * FROM user_permissions WHERE user_id = ? AND permission = ?'
-    ).bind(authUser.userId, permission).first();
+    const hasPermission = await hasSocialPermission(env, authUser.userId, permission);
 
-    const hasPermission = userPermission && (!userPermission.expires_at || new Date(userPermission.expires_at) > new Date());
+    // 获取过期时间（管理员无过期时间，普通用户从权限表查）
+    let expiresAt = null;
+    let grantedBy = null;
+    if (hasPermission) {
+      const user = await env.DB.prepare('SELECT is_admin FROM users WHERE id = ?').bind(authUser.userId).first();
+      if (!user?.is_admin) {
+        const perm = await env.DB.prepare('SELECT expires_at, granted_by FROM user_permissions WHERE user_id = ? AND permission = ?').bind(authUser.userId, permission).first();
+        expiresAt = perm?.expires_at || null;
+        grantedBy = perm?.granted_by || null;
+      }
+    }
 
     return jsonResponse({
       has_permission: hasPermission,
       permission,
-      expires_at: userPermission?.expires_at || null,
-      granted_by: userPermission?.granted_by || null,
+      expires_at: expiresAt,
+      granted_by: grantedBy,
     }, 200, origin);
   }
 
