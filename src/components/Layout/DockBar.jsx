@@ -400,14 +400,8 @@ export default function DockBar() {
 
       {/* 邀请码输入弹窗 */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowInviteModal(false)}>
-          <div className="bg-gray-900 rounded-xl w-full max-w-sm mx-4 border border-gray-700" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
-              <h3 className="text-lg font-bold text-white">邀请码</h3>
-              <button onClick={() => setShowInviteModal(false)} className="p-1 hover:bg-gray-700 rounded">
-                <X size={18} className="text-gray-400" />
-              </button>
-            </div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={() => setShowInviteModal(false)}>
+          <div style={{ background: 'var(--bg-primary)', borderRadius: 12, width: 360, maxWidth: '90%', border: '1px solid var(--border-primary)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }} onClick={e => e.stopPropagation()}>
             <InviteCodeForm
               onSuccess={(result) => {
                 toggleSocialMode(true);

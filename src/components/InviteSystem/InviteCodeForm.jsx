@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { apiRequest } from '../../services/api';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, KeyRound } from 'lucide-react';
 
 export function InviteCodeForm({ onSuccess, onClose }) {
   const [code, setCode] = useState('');
@@ -15,19 +15,19 @@ export function InviteCodeForm({ onSuccess, onClose }) {
       setError('请输入邀请码');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await apiRequest('/api/invites/claim', {
         method: 'POST',
         body: JSON.stringify({ code: code.toUpperCase().trim() })
       });
-      
+
       setSuccess(true);
       setResult(response);
-      
+
       if (onSuccess) {
         setTimeout(() => onSuccess(response), 2000);
       }
@@ -38,27 +38,34 @@ export function InviteCodeForm({ onSuccess, onClose }) {
     }
   };
 
+  const handleCodeChange = (e) => {
+    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    setCode(value);
+    setError('');
+  };
+
   if (success && result) {
     return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-        <h3 className="text-xl font-bold text-white mb-2">{result.message}</h3>
-        <p className="text-gray-400 text-sm mb-4">
-          您已获得以下权限:
-        </p>
-        <div className="flex flex-wrap gap-2 mb-6">
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
+        <CheckCircle size={48} style={{ color: 'var(--success, #22c55e)', marginBottom: 16 }} />
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{result.message}</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>您已获得以下权限:</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 24 }}>
           {result.granted_permissions?.map((perm, index) => (
-            <span
-              key={index}
-              className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm"
-            >
+            <span key={index} style={{
+              padding: '3px 10px', borderRadius: 12, fontSize: 12,
+              background: 'var(--primary-10, rgba(99,102,241,0.1))', color: 'var(--primary)',
+            }}>
               {getPermissionName(perm)}
             </span>
           ))}
         </div>
         <button
           onClick={onClose}
-          className="px-6 py-2 bg-primary hover:bg-primary/80 rounded-lg text-white"
+          style={{
+            padding: '8px 24px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600,
+          }}
         >
           确定
         </button>
@@ -66,47 +73,55 @@ export function InviteCodeForm({ onSuccess, onClose }) {
     );
   }
 
-  const handleCodeChange = (e) => {
-    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-    setCode(value);
-    setError('');
-  };
-
   return (
-    <div className="p-6">
-      <h3 className="text-xl font-bold text-white mb-4">输入邀请码解锁社交功能</h3>
-      <p className="text-gray-400 text-sm mb-6">
+    <div style={{ padding: '20px 24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <KeyRound size={20} style={{ color: 'var(--primary)' }} />
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>输入邀请码</h3>
+      </div>
+      <p style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 20, lineHeight: 1.5 }}>
         请输入您收到的邀请码，解锁发帖、评论、关注等社交功能
       </p>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <input
-            type="text"
-            value={code}
-            onChange={handleCodeChange}
-            placeholder="请输入8位邀请码"
-            maxLength={8}
-            disabled={loading}
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary disabled:opacity-50"
-          />
-        </div>
-        
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <input
+          type="text"
+          value={code}
+          onChange={handleCodeChange}
+          placeholder="请输入8位邀请码"
+          maxLength={8}
+          disabled={loading}
+          style={{
+            width: '100%', padding: '10px 14px', borderRadius: 8,
+            border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)', fontSize: 15, fontWeight: 600,
+            letterSpacing: 3, outline: 'none', boxSizing: 'border-box',
+            fontFamily: 'monospace',
+          }}
+          autoFocus
+        />
+
         {error && (
-          <div className="flex items-center gap-2 text-red-400 text-sm">
-            <XCircle className="w-4 h-4" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--danger, #ef4444)', fontSize: 13 }}>
+            <XCircle size={14} />
             <span>{error}</span>
           </div>
         )}
-        
+
         <button
           type="submit"
           disabled={loading || !code.trim()}
-          className="w-full px-4 py-3 bg-primary hover:bg-primary/80 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white font-medium flex items-center justify-center gap-2"
+          style={{
+            width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
+            background: loading || !code.trim() ? 'var(--bg-tertiary)' : 'var(--primary)',
+            color: loading || !code.trim() ? 'var(--text-quaternary)' : '#fff',
+            fontSize: 14, fontWeight: 600, cursor: loading || !code.trim() ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
         >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} />
               验证中...
             </>
           ) : (
@@ -114,10 +129,14 @@ export function InviteCodeForm({ onSuccess, onClose }) {
           )}
         </button>
       </form>
-      
-      <p className="text-gray-500 text-xs mt-4 text-center">
-        邀请码区分大小写，请勿分享您的邀请码
+
+      <p style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 16, textAlign: 'center' }}>
+        邀请码为8位大写字母和数字组合
       </p>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
