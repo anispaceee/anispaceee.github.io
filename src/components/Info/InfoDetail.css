@@ -453,11 +453,16 @@
 /* ─── 轻小说 Tab 样式 ─── */
 /* ─── Hikarinagi Tab ─── */
 .hikarinagi-tab { display: flex; flex-direction: column; gap: 16px; }
-.hikarinagi-tab-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hikarinagi-tab-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .hikarinagi-tab-source { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-tertiary); font-weight: 600; }
-.hikarinagi-tab-link { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--primary); font-weight: 600; text-decoration: none; padding: 4px 10px; border-radius: 12px; background: var(--primary-bg); transition: all var(--transition-fast); }
-.hikarinagi-tab-link:hover { background: var(--primary); color: #fff; }
+.hikarinagi-tab-visit { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #fff; font-weight: 600; text-decoration: none; padding: 6px 14px; border-radius: var(--radius-full); background: var(--primary); transition: all var(--transition-fast); }
+.hikarinagi-tab-visit:hover { opacity: 0.85; transform: translateY(-1px); }
 .hikarinagi-tab-score { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #ffc107; font-weight: 600; padding: 8px 14px; background: rgba(255,193,7,0.08); border-radius: var(--radius-sm); }
+.hikarinagi-tab-info { background: rgba(255,255,255,0.06); border-radius: var(--radius-md); padding: 14px 16px; }
+.hikarinagi-tab-info h4 { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+.hikarinagi-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.hikarinagi-tag { display: inline-block; padding: 3px 10px; border-radius: var(--radius-full); background: rgba(255,255,255,0.08); color: var(--text-secondary); font-size: 12px; }
+.hikarinagi-summary { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin: 0; }
 .hikarinagi-tab-download { background: rgba(255,255,255,0.06); border-radius: var(--radius-lg); padding: 20px; }
 .hikarinagi-tab-download h4 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
 .hikarinagi-download-content { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
@@ -466,7 +471,7 @@
 .hikarinagi-download-item a { color: var(--primary); transition: opacity var(--transition-fast); }
 .hikarinagi-download-item a:hover { opacity: 0.8; }
 .hikarinagi-download-raw { font-size: 11px; color: var(--text-tertiary); background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm); overflow-x: auto; white-space: pre-wrap; }
-.hikarinagi-tab-empty { padding: 20px; text-align: center; color: var(--text-quaternary); font-size: 13px; }
+.hikarinagi-tab-download-hint { display: flex; align-items: center; gap: 6px; padding: 12px 16px; background: rgba(255,255,255,0.04); border-radius: var(--radius-md); font-size: 13px; color: var(--text-tertiary); }
 
 /* Hikarinagi 外部链接 */
 .hikarinagi-tab-links { margin-top: 16px; }

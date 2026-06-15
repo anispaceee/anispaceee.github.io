@@ -1579,24 +1579,83 @@ export default function InfoDetail() {
                   </div>
                 )}
 
-                {/* Hikarinagi 下载信息 Tab */}
+                {/* Hikarinagi 补充信息 Tab */}
                 {activeTab === 'hikarinagi' && hikarinagiLinked && (
                   <div className="hikarinagi-tab">
                     <div className="hikarinagi-tab-header">
                       <span className="hikarinagi-tab-source">
                         <Sparkles size={14} /> 数据来源：Hikarinagi（光凪）
                       </span>
+                      <a
+                        className="hikarinagi-tab-visit"
+                        href={hikarinagiLinked.type === 'galgame'
+                          ? `https://www.hikarinagi.org/galgame/${hikarinagiLinked.data?.galId || hikarinagiLinked.data?.id}`
+                          : `https://www.hikarinagi.org/lightnovel/${hikarinagiLinked.data?.novelId || hikarinagiLinked.data?.id}`}
+                        target="_blank" rel="noopener noreferrer"
+                      >
+                        <ExternalLink size={12} /> 前往光凪查看详情与下载
+                      </a>
                     </div>
 
                     {/* Hikarinagi 评分 */}
                     {hikarinagiLinked.data?.rate > 0 && (
                       <div className="hikarinagi-tab-score">
                         <Star size={16} fill="#ffc107" />
-                        <span>Hikarinagi 评分：{Number(hikarinagiLinked.data.rate).toFixed(1)}</span>
+                        <span>光凪评分：{Number(hikarinagiLinked.data.rate).toFixed(1)}</span>
                       </div>
                     )}
 
-                    {/* 下载信息 */}
+                    {/* 作者信息 */}
+                    {hikarinagiLinked.data?.author && (
+                      <div className="hikarinagi-tab-info">
+                        <h4><BookText size={14} /> 作者</h4>
+                        <span>{hikarinagiLinked.data.author.transName || hikarinagiLinked.data.author.name}</span>
+                      </div>
+                    )}
+
+                    {/* 出版社 / 文库 */}
+                    {(hikarinagiLinked.data?.bunko || hikarinagiLinked.data?.publishers?.length > 0) && (
+                      <div className="hikarinagi-tab-info">
+                        <h4><BookOpen size={14} /> {hikarinagiLinked.type === 'galgame' ? '制作组' : '文库/出版社'}</h4>
+                        {hikarinagiLinked.data.bunko && <span className="hikarinagi-tag">{hikarinagiLinked.data.bunko.name}</span>}
+                        {hikarinagiLinked.data.publishers?.filter(p => p.name || p.note).map((p, i) => (
+                          <span key={i} className="hikarinagi-tag">{p.name || p.note}</span>
+                        ))}
+                        {hikarinagiLinked.data.producers?.map((p, i) => (
+                          <span key={i} className="hikarinagi-tag">{p.producer?.name || p.name}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 标签 */}
+                    {hikarinagiLinked.data?.tags?.length > 0 && (
+                      <div className="hikarinagi-tab-info">
+                        <h4>标签</h4>
+                        <div className="hikarinagi-tags">
+                          {hikarinagiLinked.data.tags.slice(0, 15).map((t, i) => (
+                            <span key={i} className="hikarinagi-tag">{typeof t === 'string' ? t : t.tag?.name || t.name || t.tag}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 状态 */}
+                    {hikarinagiLinked.data?.novelStatus && (
+                      <div className="hikarinagi-tab-info">
+                        <h4>连载状态</h4>
+                        <span className="hikarinagi-tag">{hikarinagiLinked.data.novelStatus === 'SERIALIZING' ? '连载中' : hikarinagiLinked.data.novelStatus === 'COMPLETED' ? '已完结' : hikarinagiLinked.data.novelStatus}</span>
+                      </div>
+                    )}
+
+                    {/* 简介（如有中文简介） */}
+                    {hikarinagiLinked.data?.summary_cn && (
+                      <div className="hikarinagi-tab-info">
+                        <h4>简介</h4>
+                        <p className="hikarinagi-summary">{hikarinagiLinked.data.summary_cn}</p>
+                      </div>
+                    )}
+
+                    {/* 下载信息（需要认证，可能为空） */}
                     {hikarinagiLinked.downloadInfo ? (
                       <div className="hikarinagi-tab-download">
                         <h4><Download size={14} /> 下载信息</h4>
@@ -1616,7 +1675,9 @@ export default function InfoDetail() {
                         )}
                       </div>
                     ) : (
-                      <div className="hikarinagi-tab-empty">暂无下载信息</div>
+                      <div className="hikarinagi-tab-download-hint">
+                        <Download size={14} /> 下载资源需登录光凪账号，请点击上方链接前往查看
+                      </div>
                     )}
 
                     {/* 外部链接 */}
@@ -1648,7 +1709,7 @@ export default function InfoDetail() {
                                 <img src={item.bgmSubject.images.common} alt="" loading="lazy" />
                               )}
                               <span className="hikarinagi-related-name">
-                                {item.bgmSubject?.name_cn || item.bgmSubject?.name || item.name || item.nameCn}
+                                {item.bgmSubject?.name_cn || item.bgmSubject?.name || item.name || item.name_cn}
                               </span>
                             </Link>
                           ))}
