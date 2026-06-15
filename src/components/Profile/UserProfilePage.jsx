@@ -600,9 +600,9 @@ export default function UserProfilePage() {
           {canViewProfile && (
             <div className="user-profile-sidebar-stats">
               <h3>数据统计</h3>
-              <div className="sidebar-stat-row"><span>动画</span><span className="stat-val anime">{userMarks.filter(m => m.subject_type === 2).length}</span></div>
-              <div className="sidebar-stat-row"><span>游戏</span><span className="stat-val game">{userMarks.filter(m => m.subject_type === 4).length}</span></div>
-              <div className="sidebar-stat-row"><span>小说</span><span className="stat-val novel">{userMarks.filter(m => m.subject_type === 1).length}</span></div>
+              <div className="sidebar-stat-row"><span>动画</span><span className="stat-val anime">{userMarks.filter(m => Number(m.subject_type) === 2).length}</span></div>
+              <div className="sidebar-stat-row"><span>游戏</span><span className="stat-val game">{userMarks.filter(m => Number(m.subject_type) === 4).length}</span></div>
+              <div className="sidebar-stat-row"><span>小说</span><span className="stat-val novel">{userMarks.filter(m => Number(m.subject_type) === 1).length}</span></div>
               <div className="sidebar-stat-row divider"><span>均分</span><span className="stat-val score">{avgScore}</span></div>
             </div>
           )}
@@ -770,8 +770,8 @@ export default function UserProfilePage() {
                                     rating: { score: 0 },
                                     tags: [],
                                   }}
-                                  type={mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}
-                                  linkTo={`/info/${mark.subject_type === 1 ? 'novel' : mark.subject_type === 4 ? 'game' : 'anime'}/${mark.subject_id}`}
+                                  type={Number(mark.subject_type) === 1 ? 'novel' : Number(mark.subject_type) === 4 ? 'game' : 'anime'}
+                                  linkTo={`/info/${Number(mark.subject_type) === 1 ? 'novel' : Number(mark.subject_type) === 4 ? 'game' : 'anime'}/${mark.subject_id}`}
                                 />
                               ))}
                             </div>
@@ -801,7 +801,7 @@ export default function UserProfilePage() {
                             <div className="comment-item-header">
                               {comment.subject_name && (
                                 <Link
-                                  to={`/info/${comment.subject_type === 1 ? 'novel' : comment.subject_type === 4 ? 'game' : 'anime'}/${comment.subject_id}`}
+                                  to={`/info/${Number(comment.subject_type) === 1 ? 'novel' : Number(comment.subject_type) === 4 ? 'game' : 'anime'}/${comment.subject_id}`}
                                   className="comment-subject-link"
                                 >
                                   {comment.subject_name}
@@ -1085,7 +1085,7 @@ export default function UserProfilePage() {
                           <div className="comment-item-header">
                             {comment.subject_name && (
                               <Link
-                                to={`/info/${comment.subject_type === 1 ? 'novel' : comment.subject_type === 4 ? 'game' : 'anime'}/${comment.subject_id}`}
+                                to={`/info/${Number(comment.subject_type) === 1 ? 'novel' : Number(comment.subject_type) === 4 ? 'game' : 'anime'}/${comment.subject_id}`}
                                 className="comment-subject-link"
                               >
                                 {comment.subject_name}
