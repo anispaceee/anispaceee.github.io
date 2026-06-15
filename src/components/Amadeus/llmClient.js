@@ -8,8 +8,14 @@ function defaultModel(config) {
   return config.model || (config.provider === 'openai' ? 'gpt-3.5-turbo' : 'default');
 }
 
+/** Worker 代理端点（开发环境走 /api 前缀） */
+const LLM_PROXY = import.meta.env.DEV
+  ? '/api/llm/chat/completions'
+  : '/api/llm/chat/completions';
+
 /**
- * 统一 LLM 调用：优先流式（SSE），响应不是事件流时回落整段 JSON。
+ * 统一 LLM 调用：通过 Worker 代理转发，避免浏览器 CORS 限制。
+ * 请求体中携带 api_key 和 api_base，由 Worker 端转发到实际 LLM API。
  * @param config { provider, apiKey, baseUrl, model }
  * @param systemPrompt 角色 system prompt
  * @param messages [{ role, content }]（已是 user/assistant 历史）
@@ -17,12 +23,15 @@ function defaultModel(config) {
  * @returns 完整文本
  */
 export async function streamLLM(config, systemPrompt, messages, { signal, onToken } = {}) {
-  const url = endpointOf(config);
-  if (!url) throw new Error('请配置 API 地址');
-  const res = await fetch(url, {
+  const apiBase = endpointOf(config);
+  if (!apiBase) throw new Error('请配置 API 地址');
+
+  const res = await fetch(LLM_PROXY, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      api_key: config.apiKey,
+      api_base: apiBase,
       model: defaultModel(config),
       messages: [{ role: 'system', content: systemPrompt }, ...messages.slice(-10)],
       max_tokens: 800,
@@ -31,7 +40,11 @@ export async function streamLLM(config, systemPrompt, messages, { signal, onToke
     }),
     signal,
   });
-  if (!res.ok) throw new Error(`API 请求失败: ${res.status}`);
+  if (!res.ok) {
+    let detail = '';
+    try { const err = await res.json(); detail = err.detail || err.error || ''; } catch {}
+    throw new Error(`API 请求失败: ${res.status} ${detail}`);
+  }
 
   const ctype = res.headers.get('content-type') || '';
   // 非事件流：整段兜底
@@ -70,14 +83,26 @@ export async function streamLLM(config, systemPrompt, messages, { signal, onToke
 
 /** 发送一条最短请求测试连接，成功返回 true，失败抛错。 */
 export async function testConnection(config, signal) {
-  const url = endpointOf(config);
-  if (!url) throw new Error('请配置 API 地址');
-  const res = await fetch(url, {
+  const apiBase = endpointOf(config);
+  if (!apiBase) throw new Error('请配置 API 地址');
+
+  const res = await fetch(LLM_PROXY, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}) },
-    body: JSON.stringify({ model: defaultModel(config), messages: [{ role: 'user', content: 'ping' }], max_tokens: 16, stream: false }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key: config.apiKey,
+      api_base: apiBase,
+      model: defaultModel(config),
+      messages: [{ role: 'user', content: 'ping' }],
+      max_tokens: 16,
+      stream: false,
+    }),
     signal,
   });
-  if (!res.ok) throw new Error(`连接失败: ${res.status}`);
+  if (!res.ok) {
+    let detail = '';
+    try { const err = await res.json(); detail = err.detail || err.error || ''; } catch {}
+    throw new Error(`连接失败: ${res.status} ${detail}`);
+  }
   return true;
 }

@@ -5156,6 +5156,93 @@ export default {
       }
     }
 
+    // ── LLM API 代理：/api/llm/chat/completions ──
+    // 解决浏览器直接调用 LLM API 的 CORS 限制
+    if (request.method === 'POST' && url.pathname === '/api/llm/chat/completions') {
+      try {
+        const body = await request.json();
+        const { api_key, api_base, model, messages, stream, max_tokens, temperature } = body;
+
+        if (!api_key || !api_base) {
+          return jsonResponse({ error: '缺少 api_key 或 api_base' }, 400, origin);
+        }
+
+        // 只允许已知的 LLM API 域名，防止 SSRF
+        const allowedLLMHosts = [
+          'open.bigmodel.cn',     // 智谱 AI
+          'api.openai.com',       // OpenAI
+          'api.deepseek.com',     // DeepSeek
+          'dashscope.aliyuncs.com', // 阿里通义
+        ];
+        try {
+          const targetUrl = new URL(api_base);
+          if (!allowedLLMHosts.some(h => targetUrl.hostname.endsWith(h))) {
+            return jsonResponse({ error: '不允许的 LLM API 域名' }, 403, origin);
+          }
+        } catch {
+          return jsonResponse({ error: '无效的 api_base URL' }, 400, origin);
+        }
+
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${api_key}`,
+        };
+
+        const requestBody = {
+          model: model || 'glm-4-flash',
+          messages,
+          ...(stream !== undefined && { stream }),
+          ...(max_tokens !== undefined && { max_tokens }),
+          ...(temperature !== undefined && { temperature }),
+        };
+
+        if (stream) {
+          // 流式响应：透传 SSE
+          const upstream = await fetch(api_base, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!upstream.ok) {
+            const errText = await upstream.text();
+            return jsonResponse({ error: `LLM API 错误: ${upstream.status}`, detail: errText }, upstream.status, origin);
+          }
+
+          const { readable, writable } = new TransformStream();
+          upstream.body.pipeTo(writable);
+
+          return new Response(readable, {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+              ...corsHeaders(origin),
+            },
+          });
+        } else {
+          // 非流式响应
+          const upstream = await fetch(api_base, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(requestBody),
+          });
+
+          const data = await upstream.text();
+          return new Response(data, {
+            status: upstream.status,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders(origin),
+            },
+          });
+        }
+      } catch (err) {
+        return jsonResponse({ error: `LLM 代理错误: ${err.message}` }, 500, origin);
+      }
+    }
+
     // 健康检查
     if (url.pathname === '/') {
       return jsonResponse({ status: 'ok', service: 'ANISpace Proxy' }, 200, origin);
