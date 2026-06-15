@@ -240,7 +240,15 @@ export default function DockBar() {
                 </div>
                 <div className="dock-setting-group">
                   <label>社交功能</label>
-                  {socialMode ? (
+                  {isAdmin ? (
+                    <>
+                      <div className="dock-autohide-row">
+                        <button className={`dock-theme-btn ${socialMode ? 'active' : ''}`} onClick={() => toggleSocialMode(true)}>开启</button>
+                        <button className={`dock-theme-btn ${!socialMode ? 'active' : ''}`} onClick={() => toggleSocialMode(false)}>关闭</button>
+                      </div>
+                      <span className="dock-setting-hint">管理员可自由开关社交功能</span>
+                    </>
+                  ) : socialMode ? (
                     <>
                       <div className="dock-autohide-row">
                         <button className="dock-theme-btn active">已解锁</button>

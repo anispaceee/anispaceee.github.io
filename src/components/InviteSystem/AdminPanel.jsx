@@ -23,9 +23,8 @@ export function AdminPanel() {
   const [showGenerate, setShowGenerate] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateData, setGenerateData] = useState({
-    type: 'social',
+    type: 'year',
     max_uses: 1,
-    expires_days: 30,
     permissions: ['social.post', 'social.comment', 'social.follow', 'social.message', 'social.world']
   });
   const [copiedCode, setCopiedCode] = useState(null);
@@ -55,16 +54,11 @@ export function AdminPanel() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const expires_at = generateData.expires_days
-        ? new Date(Date.now() + generateData.expires_days * 24 * 60 * 60 * 1000).toISOString()
-        : null;
-
       const response = await apiRequest('/api/invites', {
         method: 'POST',
         body: JSON.stringify({
           type: generateData.type,
           max_uses: generateData.max_uses,
-          expires_at,
           permissions: generateData.permissions
         })
       });
@@ -211,7 +205,7 @@ export function AdminPanel() {
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Clock size={12} /> {invite.expires_at ? new Date(invite.expires_at).toLocaleDateString() : '永久'}
                     </span>
-                    <span style={{ color: 'var(--text-quaternary)' }}>{invite.type}</span>
+                    <span style={{ color: 'var(--text-quaternary)' }}>{invite.type === 'permanent' ? '永久' : invite.type === 'year' ? '1年' : invite.type}</span>
                   </div>
                   {/* 第三行：权限标签 */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -267,7 +261,7 @@ export function AdminPanel() {
             {/* 表单 */}
             <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>邀请类型</label>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>有效期类型</label>
                 <select
                   value={generateData.type}
                   onChange={(e) => setGenerateData({ ...generateData, type: e.target.value })}
@@ -276,9 +270,8 @@ export function AdminPanel() {
                     background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none',
                   }}
                 >
-                  <option value="social">社交功能（全部）</option>
-                  <option value="post">仅发帖</option>
-                  <option value="comment">仅评论</option>
+                  <option value="year">1年有效期</option>
+                  <option value="permanent">永久有效</option>
                 </select>
               </div>
               <div>
@@ -287,19 +280,6 @@ export function AdminPanel() {
                   type="number" min="1" max="100"
                   value={generateData.max_uses}
                   onChange={(e) => setGenerateData({ ...generateData, max_uses: parseInt(e.target.value) || 1 })}
-                  style={{
-                    width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-primary)',
-                    background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>过期天数（0 为永久）</label>
-                <input
-                  type="number" min="0"
-                  value={generateData.expires_days}
-                  onChange={(e) => setGenerateData({ ...generateData, expires_days: parseInt(e.target.value) || 0 })}
                   style={{
                     width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-primary)',
                     background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none',

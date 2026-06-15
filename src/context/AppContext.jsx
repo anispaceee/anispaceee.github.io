@@ -14,16 +14,12 @@ export function AppProvider({ children }) {
     return saved !== null ? saved : false; // 默认关闭社交（邀请制）
   });
 
-  // 登录时自动检查社交权限，管理员或有权限的用户自动开启社交模式
+  // 登录时自动检查社交权限
   useEffect(() => {
     if (isAuthenticated) {
-      // 管理员直接开启社交模式
-      if (currentUser?.is_admin) {
-        setSocialMode(true);
-        StorageService.set('anispace_social_mode', true);
-        return;
-      }
-      // 普通用户检查权限
+      // 管理员：如果之前已开启社交模式则保持，否则不强制开启（管理员可自由开关）
+      if (currentUser?.is_admin) return;
+      // 普通用户：检查权限后自动开启
       apiRequest('/api/permissions/check?permission=social.post')
         .then(res => {
           if (res.has_permission) {

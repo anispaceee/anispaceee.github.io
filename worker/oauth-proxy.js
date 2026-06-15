@@ -1099,7 +1099,15 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
     try {
       const body = await request.json();
-      const { type = 'social', max_uses = 1, expires_at, permissions = ['social.post', 'social.comment', 'social.follow', 'social.message', 'social.world'] } = body;
+      const { type = 'year', max_uses = 1, expires_at, permissions = ['social.post', 'social.comment', 'social.follow', 'social.message', 'social.world'] } = body;
+
+      // 根据类型自动计算过期时间
+      let finalExpiresAt = expires_at;
+      if (type === 'year') {
+        finalExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (type === 'permanent') {
+        finalExpiresAt = null; // 永久不过期
+      }
 
       let code;
       let retries = 10;
@@ -1116,7 +1124,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
       const result = await env.DB.prepare(
         'INSERT INTO invites (code, creator_id, max_uses, used_count, type, status, expires_at, permissions, created_at, updated_at) VALUES (?, ?, ?, 0, ?, "active", ?, ?, datetime("now"), datetime("now"))'
-      ).bind(code, adminUser.userId, max_uses, type, expires_at, JSON.stringify(permissions)).run();
+      ).bind(code, adminUser.userId, max_uses, type, finalExpiresAt, JSON.stringify(permissions)).run();
 
       const invite = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(result.meta.last_row_id).first();
       return jsonResponse(invite, 201, origin);
@@ -1181,6 +1189,9 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       if (invite.creator_id > 0) {
         batch.push(env.DB.prepare('UPDATE users SET invite_count = invite_count + 1 WHERE id = ?').bind(invite.creator_id));
       }
+
+      // 获得邀请码即成为管理员
+      batch.push(env.DB.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').bind(authUser.userId));
 
       await env.DB.batch(batch);
 
@@ -1419,8 +1430,15 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
   const userProfileMatch = pathname.match(/^\/api\/users\/(\d+)\/profile$/);
   if (userProfileMatch && method === 'GET') {
     const userId = Number(userProfileMatch[1]);
-    const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, allow_profile_view, allow_comments_public, auto_enrich, follower_count, following_count FROM users WHERE id = ?').bind(userId).first();
+    const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, allow_profile_view, allow_comments_public, follower_count, following_count FROM users WHERE id = ?').bind(userId).first();
     if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+    // auto_enrich 列可能尚未创建，单独查询以避免主查询失败
+    try {
+      const enrichRow = await env.DB.prepare('SELECT auto_enrich FROM users WHERE id = ?').bind(userId).first();
+      user.auto_enrich = enrichRow?.auto_enrich ?? 1;
+    } catch {
+      user.auto_enrich = 1;
+    }
     // 动态计算好友数
     const friendCount = await env.DB.prepare(
       "SELECT COUNT(*) AS cnt FROM friend_requests WHERE (from_user_id = ? OR to_user_id = ?) AND status = 'accepted'"
@@ -1877,8 +1895,13 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       ).bind(authUser.userId, subjectId).first();
 
       // 异步触发条目全量入库（不阻塞响应，受用户 auto_enrich 开关控制）
-      const userRow = await env.DB.prepare('SELECT auto_enrich FROM users WHERE id = ?').bind(authUser.userId).first();
-      if (userRow?.auto_enrich !== 0) {
+      try {
+        const userRow = await env.DB.prepare('SELECT auto_enrich FROM users WHERE id = ?').bind(authUser.userId).first();
+        if (userRow?.auto_enrich !== 0) {
+          context.waitUntil(bangumiEnrich.enrichSubject(env, Number(subjectId)));
+        }
+      } catch {
+        // auto_enrich 列可能尚未创建（migration 未执行），默认开启入库
         context.waitUntil(bangumiEnrich.enrichSubject(env, Number(subjectId)));
       }
 
