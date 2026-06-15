@@ -1110,7 +1110,7 @@ export default function InfoDetail() {
                 {/* Hikarinagi 下载信息：有关联数据时显示 */}
                 {hikarinagiLinked && (
                   <button className={`detail-tab ${activeTab === 'hikarinagi' ? 'active' : ''}`} onClick={() => setActiveTab('hikarinagi')}>
-                    <Download size={12} /> {hikarinagiLinked.type === 'galgame' ? 'Galgame' : '轻小说'}资源
+                    <Sparkles size={12} /> 光凪
                   </button>
                 )}
                 {hikarinagiLoading && (

@@ -80,21 +80,31 @@ export const SourceMerger = {
     const cacheKey = `hk_${bgmId}`;
     if (this._cache.has(cacheKey)) return this._cache.get(cacheKey);
 
-    // 策略1：通过 Bangumi ID 直接查询（最可靠，轻小说无需认证）
-    let hkMatch = null;
     const isGalgame = bgmSubject.type === 4;
+    let hkMatch = null;
+    let hkDetail = null; // 完整详情（可能来自 getByBangumiId 或 getById）
+    let hkId = null;
+
+    // 策略1：通过 Bangumi ID 直接查询（最可靠，轻小说无需认证）
+    // 注意：getByBangumiId 返回的数据不含 novelId/galId，但已包含完整详情
     try {
       const directResult = isGalgame
         ? await HikarinagiService.galgame.getByBangumiId(bgmId)
         : await HikarinagiService.lightnovel.getByBangumiId(bgmId);
       if (directResult) {
         hkMatch = directResult;
+        hkDetail = directResult; // getByBangumiId 已返回完整详情
+        // 尝试提取 ID（getByBangumiId 可能不含 novelId/galId）
+        hkId = directResult.galId || directResult.novelId || directResult.id || directResult._id;
       }
     } catch { /* Bangumi ID 查询失败，回退到名字匹配 */ }
 
     // 策略2：名字匹配搜索（降级方案）
     if (!hkMatch) {
       hkMatch = await this._findHikarinagi(bgmSubject);
+      if (hkMatch) {
+        hkId = hkMatch.galId || hkMatch.novelId || hkMatch.id || hkMatch._id;
+      }
     }
 
     if (!hkMatch) {
@@ -102,27 +112,31 @@ export const SourceMerger = {
       return null;
     }
 
-    // 并行获取补充数据
-    const hkId = hkMatch.galId || hkMatch.novelId || hkMatch.id;
+    // 如果还没有详情数据，通过 getById 获取
+    if (!hkDetail && hkId) {
+      try {
+        hkDetail = isGalgame
+          ? await HikarinagiService.galgame.getById(hkId)
+          : await HikarinagiService.lightnovel.getById(hkId);
+      } catch { /* 获取详情失败，使用搜索结果 */ }
+    }
 
-    // 获取详情（含评分等完整数据）
-    const [detail, downloadInfo, links, related] = await Promise.allSettled([
+    // 并行获取补充数据（需要认证，可能失败）
+    const effectiveId = hkId;
+    const [downloadInfo, links, related] = effectiveId ? await Promise.allSettled([
       isGalgame
-        ? HikarinagiService.galgame.getById(hkId)
-        : HikarinagiService.lightnovel.getById(hkId),
-      isGalgame
-        ? HikarinagiService.galgame.getDownloadInfo(hkId)
-        : HikarinagiService.lightnovel.getSeriesDownloadUrls(hkId),
-      isGalgame ? HikarinagiService.galgame.getLinks(hkId) : Promise.resolve(null),
-      isGalgame ? HikarinagiService.galgame.getRelated(hkId) : Promise.resolve(null),
-    ]);
+        ? HikarinagiService.galgame.getDownloadInfo(effectiveId)
+        : HikarinagiService.lightnovel.getSeriesDownloadUrls(effectiveId),
+      isGalgame ? HikarinagiService.galgame.getLinks(effectiveId) : Promise.resolve(null),
+      isGalgame ? HikarinagiService.galgame.getRelated(effectiveId) : Promise.resolve(null),
+    ]) : [null, null, null];
 
     const result = {
       match: hkMatch,
-      detail: detail.status === 'fulfilled' ? detail.value : null,
-      downloadInfo: downloadInfo.status === 'fulfilled' ? downloadInfo.value : null,
-      links: links.status === 'fulfilled' ? links.value : null,
-      related: related.status === 'fulfilled' ? related.value : null,
+      detail: hkDetail || hkMatch,
+      downloadInfo: downloadInfo?.status === 'fulfilled' ? downloadInfo.value : null,
+      links: links?.status === 'fulfilled' ? links.value : null,
+      related: related?.status === 'fulfilled' ? related.value : null,
     };
 
     this._cache.set(cacheKey, result);
