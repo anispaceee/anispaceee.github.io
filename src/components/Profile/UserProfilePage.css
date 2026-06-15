@@ -133,6 +133,17 @@
   color: #fff;
 }
 
+.user-profile-action-btn.export {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-secondary);
+}
+.user-profile-action-btn.export:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
 .user-profile-action-btn.settings {
   background: var(--bg-input);
   color: var(--text-secondary);
