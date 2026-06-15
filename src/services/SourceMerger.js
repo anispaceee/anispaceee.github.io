@@ -80,7 +80,23 @@ export const SourceMerger = {
     const cacheKey = `hk_${bgmId}`;
     if (this._cache.has(cacheKey)) return this._cache.get(cacheKey);
 
-    const hkMatch = await this._findHikarinagi(bgmSubject);
+    // 策略1：通过 Bangumi ID 直接查询（最可靠，轻小说无需认证）
+    let hkMatch = null;
+    const isGalgame = bgmSubject.type === 4;
+    try {
+      const directResult = isGalgame
+        ? await HikarinagiService.galgame.getByBangumiId(bgmId)
+        : await HikarinagiService.lightnovel.getByBangumiId(bgmId);
+      if (directResult) {
+        hkMatch = directResult;
+      }
+    } catch { /* Bangumi ID 查询失败，回退到名字匹配 */ }
+
+    // 策略2：名字匹配搜索（降级方案）
+    if (!hkMatch) {
+      hkMatch = await this._findHikarinagi(bgmSubject);
+    }
+
     if (!hkMatch) {
       this._cache.set(cacheKey, null);
       return null;
@@ -88,7 +104,6 @@ export const SourceMerger = {
 
     // 并行获取补充数据
     const hkId = hkMatch.galId || hkMatch.novelId || hkMatch.id;
-    const isGalgame = bgmSubject.type === 4;
 
     // 获取详情（含评分等完整数据）
     const [detail, downloadInfo, links, related] = await Promise.allSettled([
