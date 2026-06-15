@@ -175,12 +175,20 @@ export default function viteOAuthPlugin() {
             const chunks = [];
             for await (const chunk of req) chunks.push(chunk);
             const body = JSON.parse(Buffer.concat(chunks).toString());
-            const { api_key, api_base, model, messages, stream, max_tokens, temperature } = body;
+            let { api_key, api_base, model, messages, stream, max_tokens, temperature } = body;
 
-            if (!api_key || !api_base) {
+            // 内置默认：当前端未传 api_key 时，使用环境变量
+            if (!api_key && process.env.GLM_API_KEY) {
+              api_key = process.env.GLM_API_KEY;
+            }
+            if (!api_base) {
+              api_base = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+            }
+
+            if (!api_key) {
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: '缺少 api_key 或 api_base' }));
+              res.end(JSON.stringify({ error: '缺少 api_key 且未配置 GLM_API_KEY 环境变量' }));
               return;
             }
 

@@ -167,7 +167,7 @@ const CHAT_HISTORY_KEY = 'acg_amadeus_history';
 const PERSONA_LIST_KEY = 'acg_navi_personas';
 const ACTIVE_PERSONA_KEY = 'acg_navi_active_persona';
 const MAX_HISTORY = 200;
-const DEFAULT_LLM_CONFIG = { provider: 'local', apiKey: '', baseUrl: '', model: '', remember: false };
+const DEFAULT_LLM_CONFIG = { provider: 'glm4', apiKey: '', baseUrl: '', model: '', remember: false };
 const QUICK_REPLIES = ['推荐番剧', '命运石之门', '有什么功能？', '聊聊游戏', '讲个笑话'];
 
 function makeGreetingMessage(persona) {
@@ -513,7 +513,7 @@ export default function Amadeus() {
               <div className="amadeus-settings-group">
                 <label>回复模式</label>
                 <div className="amadeus-provider-select">
-                  {[{ key: 'local', label: '本地规则', desc: '无需API' }, { key: 'openai', label: 'OpenAI', desc: 'GPT系列' }, { key: 'custom', label: '自定义API', desc: '兼容OpenAI格式' }].map(p => (
+                  {[{ key: 'glm4', label: 'GLM-4', desc: '默认·免费' }, { key: 'local', label: '本地规则', desc: '无需API' }, { key: 'openai', label: 'OpenAI', desc: 'GPT系列' }, { key: 'custom', label: '自定义API', desc: '兼容OpenAI格式' }].map(p => (
                     <button key={p.key} className={`amadeus-provider-btn ${configDraft.provider === p.key ? 'active' : ''}`} onClick={() => setConfigDraft(prev => ({ ...prev, provider: p.key }))}>
                       <span className="amadeus-provider-btn-label">{p.label}</span>
                       <span className="amadeus-provider-btn-desc">{p.desc}</span>
@@ -521,7 +521,7 @@ export default function Amadeus() {
                   ))}
                 </div>
               </div>
-              {configDraft.provider !== 'local' && (
+              {configDraft.provider !== 'local' && configDraft.provider !== 'glm4' && (
                 <>
                   <div className="amadeus-settings-group"><label><Key size={12} /> API Key</label><input type="password" placeholder="输入API Key" value={configDraft.apiKey} onChange={e => setConfigDraft(prev => ({ ...prev, apiKey: e.target.value }))} /></div>
                   <div className="amadeus-settings-group"><label><Server size={12} /> API 地址</label><input placeholder="API URL" value={configDraft.baseUrl} onChange={e => setConfigDraft(prev => ({ ...prev, baseUrl: e.target.value }))} /></div>

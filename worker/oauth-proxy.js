@@ -14,6 +14,7 @@
  *   ALLOWED_ORIGIN         - 允许的前端域名（如 https://afterrain-2005.github.io）
  *   JWT_SECRET             - JWT 签名密钥
  *   ADMIN_SYNC_TOKEN       - 手动触发 bangumi-data 同步的鉴权 token（任意随机字符串）
+ *   GLM_API_KEY            - 智谱 AI API Key（Navi 默认 LLM，前端不暴露此 Key）
  */
 
 // ─── ES Module 依赖 ────────────────────────────────────────
@@ -5174,13 +5175,22 @@ export default {
 
     // ── LLM API 代理：/api/llm/chat/completions ──
     // 解决浏览器直接调用 LLM API 的 CORS 限制
+    // 当前端不传 api_key 时，使用 Worker 环境变量 GLM_API_KEY（内置默认 Key，不暴露到前端）
     if (request.method === 'POST' && url.pathname === '/api/llm/chat/completions') {
       try {
         const body = await request.json();
-        const { api_key, api_base, model, messages, stream, max_tokens, temperature } = body;
+        let { api_key, api_base, model, messages, stream, max_tokens, temperature } = body;
 
-        if (!api_key || !api_base) {
-          return jsonResponse({ error: '缺少 api_key 或 api_base' }, 400, origin);
+        // 内置默认：当前端使用 glm4 provider 且未传 api_key 时，使用环境变量
+        if (!api_key && env.GLM_API_KEY) {
+          api_key = env.GLM_API_KEY;
+        }
+        if (!api_base) {
+          api_base = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+        }
+
+        if (!api_key) {
+          return jsonResponse({ error: '缺少 api_key 且未配置 GLM_API_KEY 环境变量' }, 400, origin);
         }
 
         // 只允许已知的 LLM API 域名，防止 SSRF

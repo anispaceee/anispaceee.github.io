@@ -1,10 +1,12 @@
-/** 取请求端点：openai 缺省官方地址，custom 必须显式配置 baseUrl。 */
+/** 取请求端点：glm4 走 Worker 代理内置 Key，openai 缺省官方地址，custom 必须显式配置 baseUrl。 */
 function endpointOf(config) {
+  if (config.provider === 'glm4') return 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
   if (config.provider === 'openai') return config.baseUrl || 'https://api.openai.com/v1/chat/completions';
   return config.baseUrl;
 }
 
 function defaultModel(config) {
+  if (config.provider === 'glm4') return config.model || 'glm-4-flash';
   return config.model || (config.provider === 'openai' ? 'gpt-3.5-turbo' : 'default');
 }
 
