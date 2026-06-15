@@ -20,6 +20,7 @@
 import * as bangumiSync from './lib/bangumi-sync.js';
 import * as bangumiSearch from './lib/bangumi-search.js';
 import * as newsScraper from './lib/news-scraper.js';
+import * as bangumiEnrich from './lib/bangumi-enrich.js';
 
 // ─── SSRF 防护 ───────────────────────────────────────────
 
@@ -1060,7 +1061,7 @@ async function handleGithubToken(code, redirectUri, env) {
 
 // ─── Worker API 路由处理 ─────────────────────────────────────
 
-async function handleApiRoutes(pathname, request, env, origin) {
+async function handleApiRoutes(pathname, request, env, origin, context) {
   const method = request.method;
   const jwtSecret = env.JWT_SECRET || 'anispace-jwt-secret-change-me';
 
@@ -1846,6 +1847,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
       const collection = await env.DB.prepare(
         'SELECT * FROM collections WHERE user_id = ? AND subject_id = ?'
       ).bind(authUser.userId, subjectId).first();
+
+      // 异步触发条目全量入库（不阻塞响应）
+      context.waitUntil(bangumiEnrich.enrichSubject(env, Number(subjectId)));
 
       return jsonResponse(collection, 200, origin);
     } catch (err) {
@@ -4346,7 +4350,7 @@ function checkRateLimit(ip, pathname) {
 // ─── 主入口 ──────────────────────────────────────────────────
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, context) {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
 
@@ -4371,7 +4375,7 @@ export default {
 
     // ── Worker API 路由 ──
     if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions')) {
-      const result = await handleApiRoutes(url.pathname, request, env, origin);
+      const result = await handleApiRoutes(url.pathname, request, env, origin, context);
       if (result) return result;
     }
 
