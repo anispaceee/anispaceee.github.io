@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { UserService } from '../../services/api';
-import { X, Shield, MessageSquare } from 'lucide-react';
+import { X, Shield, MessageSquare, Database } from 'lucide-react';
 import './ProfileSettings.css';
 
 export default function ProfileSettings({ onClose }) {
@@ -9,6 +9,7 @@ export default function ProfileSettings({ onClose }) {
   const [settings, setSettings] = useState({
     allow_profile_view: true,
     allow_comments_public: true,
+    auto_enrich: true,
   });
   const [saving, setSaving] = useState(false);
 
@@ -18,6 +19,7 @@ export default function ProfileSettings({ onClose }) {
         setSettings({
           allow_profile_view: profile.allow_profile_view ?? true,
           allow_comments_public: profile.allow_comments_public ?? true,
+          auto_enrich: profile.auto_enrich ?? true,
         });
       }).catch(() => {});
     }
@@ -38,7 +40,7 @@ export default function ProfileSettings({ onClose }) {
     <div className="profile-settings-overlay" onClick={onClose}>
       <div className="profile-settings-modal" onClick={e => e.stopPropagation()}>
         <div className="profile-settings-header">
-          <h2>隐私设置</h2>
+          <h2>设置</h2>
           <button className="profile-settings-close" onClick={onClose}><X size={18} /></button>
         </div>
         <div className="profile-settings-body">
@@ -65,6 +67,19 @@ export default function ProfileSettings({ onClose }) {
             </div>
             <label className="profile-settings-toggle">
               <input type="checkbox" checked={settings.allow_comments_public} onChange={e => setSettings(s => ({ ...s, allow_comments_public: e.target.checked }))} />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+          <div className="profile-settings-item">
+            <div className="profile-settings-info">
+              <Database size={16} />
+              <div>
+                <div className="profile-settings-label">标记时自动收录条目</div>
+                <div className="profile-settings-desc">开启后，标记条目时自动将完整数据存入后端数据库，提升后续搜索和加载速度</div>
+              </div>
+            </div>
+            <label className="profile-settings-toggle">
+              <input type="checkbox" checked={settings.auto_enrich} onChange={e => setSettings(s => ({ ...s, auto_enrich: e.target.checked }))} />
               <span className="toggle-slider" />
             </label>
           </div>

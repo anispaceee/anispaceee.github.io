@@ -1408,7 +1408,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
   const userProfileMatch = pathname.match(/^\/api\/users\/(\d+)\/profile$/);
   if (userProfileMatch && method === 'GET') {
     const userId = Number(userProfileMatch[1]);
-    const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, allow_profile_view, allow_comments_public, follower_count, following_count FROM users WHERE id = ?').bind(userId).first();
+    const user = await env.DB.prepare('SELECT id, username, name, avatar, bio, sign, join_date, allow_profile_view, allow_comments_public, auto_enrich, follower_count, following_count FROM users WHERE id = ?').bind(userId).first();
     if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
     // 动态计算好友数
     const friendCount = await env.DB.prepare(
@@ -1434,9 +1434,9 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     if (authUser.userId !== userId) return jsonResponse({ error: '无权限' }, 403, origin);
     try {
       const body = await request.json();
-      const { allow_profile_view, allow_comments_public } = body;
-      await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ? WHERE id = ?')
-        .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, userId).run();
+      const { allow_profile_view, allow_comments_public, auto_enrich } = body;
+      await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ?, auto_enrich = ? WHERE id = ?')
+        .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, auto_enrich ?? 1, userId).run();
       return jsonResponse({ success: true }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '更新失败: ' + err.message }, 500, origin);
@@ -1865,8 +1865,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
         'SELECT * FROM collections WHERE user_id = ? AND subject_id = ?'
       ).bind(authUser.userId, subjectId).first();
 
-      // 异步触发条目全量入库（不阻塞响应）
-      context.waitUntil(bangumiEnrich.enrichSubject(env, Number(subjectId)));
+      // 异步触发条目全量入库（不阻塞响应，受用户 auto_enrich 开关控制）
+      const userRow = await env.DB.prepare('SELECT auto_enrich FROM users WHERE id = ?').bind(authUser.userId).first();
+      if (userRow?.auto_enrich !== 0) {
+        context.waitUntil(bangumiEnrich.enrichSubject(env, Number(subjectId)));
+      }
 
       return jsonResponse(collection, 200, origin);
     } catch (err) {
