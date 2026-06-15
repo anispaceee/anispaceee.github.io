@@ -5,17 +5,29 @@ import { KitsuService } from './KitsuService';
 import HikarinagiService from './HikarinagiService';
 import { BangumiService } from './api';
 
-// 简单的标题相似度计算（Levenshtein 距离的简化版）
+// 标题归一化：去除特殊符号，统一比较
+function normalizeTitle(s) {
+  if (!s) return '';
+  return s.toLowerCase().trim()
+    .replace(/[＊*・～~：:！!？?。.、,，\-\s]/g, ''); // 去除常见符号和空格
+}
+
+// 标题相似度计算
 function calculateSimilarity(a, b) {
   if (!a || !b) return 0;
   const sa = a.toLowerCase().trim();
   const sb = b.toLowerCase().trim();
   if (sa === sb) return 1;
-  if (sa.includes(sb) || sb.includes(sa)) return 0.85;
 
-  // 简单的字符重叠率
-  const setA = new Set(sa);
-  const setB = new Set(sb);
+  // 归一化后精确匹配
+  const na = normalizeTitle(sa);
+  const nb = normalizeTitle(sb);
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.9;
+
+  // 字符重叠率（基于归一化后的标题）
+  const setA = new Set(na);
+  const setB = new Set(nb);
   const intersection = new Set([...setA].filter(x => setB.has(x)));
   const union = new Set([...setA, ...setB]);
   return intersection.size / union.size;
