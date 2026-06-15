@@ -301,6 +301,7 @@ CREATE TABLE works (
   favorites_count INTEGER DEFAULT 0,
   rating_sum INTEGER DEFAULT 0,
   rating_count INTEGER DEFAULT 0,
+  is_visible INTEGER DEFAULT 1,
   is_flagged INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))

@@ -3354,6 +3354,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
       conditions.push('(title LIKE ? OR description LIKE ?)');
       bindParams.push(`%${search}%`, `%${search}%`);
     }
+    // 只显示公开且可见的作品
+    conditions.push('(is_visible = 1 OR is_visible IS NULL)');
+    conditions.push("visibility != 'private'");
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
@@ -3489,10 +3492,25 @@ async function handleApiRoutes(pathname, request, env, origin) {
       relatedData.previews = previews.results;
     }
 
+    // 为已登录用户附加 is_liked / is_favorited
+    const authUser = await getAuthUser(request, env);
+    let likedFavData = {};
+    if (authUser) {
+      const liked = await env.DB.prepare(
+        'SELECT id FROM work_likes WHERE user_id = ? AND work_id = ?'
+      ).bind(authUser.userId, workId).first();
+      const faved = await env.DB.prepare(
+        'SELECT id FROM work_favorites WHERE user_id = ? AND work_id = ?'
+      ).bind(authUser.userId, workId).first();
+      likedFavData.is_liked = liked ? 1 : 0;
+      likedFavData.is_favorited = faved ? 1 : 0;
+    }
+
     return jsonResponse({
       ...work,
       tags: safeJsonParse(work.tags, []),
       ...relatedData,
+      ...likedFavData,
     }, 200, origin);
   }
 

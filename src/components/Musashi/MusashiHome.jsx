@@ -14,9 +14,9 @@ const TYPE_TABS = [
 ];
 
 const SORT_OPTIONS = [
-  { key: 'latest',   label: '最新' },
-  { key: 'popular',  label: '最热' },
-  { key: 'rating',   label: '评分最高' },
+  { key: 'latest',   label: '最新', sort: 'latest' },
+  { key: 'popular',  label: '最热', sort: 'hot' },
+  { key: 'rating',   label: '评分最高', sort: 'rating' },
 ];
 
 const PAGE_SIZE = 20;
@@ -43,15 +43,15 @@ export default function MusashiHome() {
       try {
         const res = await MusashiService.getWorks({
           type: activeType || undefined,
-          sort: activeSort,
+          sort: SORT_OPTIONS.find(o => o.key === activeSort)?.sort || 'latest',
           page,
           limit: PAGE_SIZE,
           search: search || undefined,
         });
         if (!cancelled) {
-          const list = Array.isArray(res) ? res : (res.works || res.data || []);
-          const total = res.total ?? res.totalPages ?? 1;
-          setWorks(list);
+          const list = res.works || Array.isArray(res) ? res : (res.data || []);
+          const total = res.pagination?.total ?? res.total ?? 1;
+          setWorks(Array.isArray(list) ? list : []);
           setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)));
         }
       } catch {
