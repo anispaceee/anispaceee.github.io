@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Tv, Book, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { NewsService } from '../../services/api';
+import { Tv, Book, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Image as ImageIcon, X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { NewsService, BangumiService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
 import AnimeSchedule from './AnimeSchedule';
 import './NewsZone.css';
@@ -21,16 +21,20 @@ const SOURCE_CONFIG = {
   jikan_top: { label: 'MAL 热门', color: '#0b3d91', icon: Flame },
   kitsu_trending: { label: 'Kitsu 热门', color: '#f67f5f', icon: Flame },
   kitsu_current: { label: 'Kitsu 新番', color: '#ff7b5f', icon: Tv },
-  custom: { label: '站内资讯', color: '#10b981', icon: Sparkles },
+  custom: { label: '站内推荐', color: '#10b981', icon: Sparkles },
 };
 
 const CATEGORIES = ['全部', '新番导视', '热门推荐', '游戏推荐', '轻小说', 'VN推荐', '新作发售', 'Gal档案', '业界动态', '每周速报', 'Steam精选', 'Steam特惠', 'Steam新品'];
+
+// Bangumi type 映射
+const BANGUMI_TYPE_MAP = { 1: 'book', 2: 'anime', 3: 'music', 4: 'game', 6: 'real' };
 
 export default function NewsZone() {
   const navigate = useNavigate();
   const { isAuthenticated, openAuth } = useApp();
   const [feedNews, setFeedNews] = useState([]);
   const [customNews, setCustomNews] = useState([]);
+  const [bangumiMatchMap, setBangumiMatchMap] = useState({}); // { "source-source_id": { id, type, name } }
   const [loading, setLoading] = useState(true);
   const [activeSource, setActiveSource] = useState('');
   const [activeCategory, setActiveCategory] = useState('全部');
@@ -43,8 +47,9 @@ export default function NewsZone() {
   const [submitting, setSubmitting] = useState(false);
   const carouselTimerRef = useRef(null);
   const coverInputRef = useRef(null);
+  const initialLoadDone = useRef(false);
 
-  // 合并所有资讯
+  // 合并所有推荐
   const allNews = [...feedNews, ...customNews.map(n => ({ ...n, source: 'custom' }))];
   const hotNews = allNews.filter(n => n.cover).slice(0, 5);
 
@@ -55,9 +60,50 @@ export default function NewsZone() {
     return true;
   });
 
-  // 加载数据（全量一次性加载）
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  // 匹配Bangumi条目：批量搜索标题，缓存匹配结果
+  const matchBangumiSubjects = useCallback(async (newsItems) => {
+    const matchMap = {};
+    // 去重标题
+    const uniqueTitles = [...new Set(newsItems.map(n => n.title).filter(Boolean))];
+    // 限制并发，每批5个
+    const batchSize = 5;
+    for (let i = 0; i < uniqueTitles.length; i += batchSize) {
+      const batch = uniqueTitles.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(async (title) => {
+          try {
+            const data = await BangumiService.searchSubjects(title, 0, 3, 0);
+            if (data?.list?.length > 0) {
+              // 取第一个结果，要求标题相似度较高
+              const first = data.list[0];
+              const matchTitle = first.name || first.title_cn || '';
+              const matchTitleJP = first.name_cn || '';
+              // 简单匹配：标题包含关系或完全一致
+              const isMatch = title === matchTitle || title === matchTitleJP ||
+                matchTitle.includes(title) || title.includes(matchTitle) ||
+                matchTitleJP.includes(title) || title.includes(matchTitleJP);
+              if (isMatch) {
+                return { title, match: { id: first.id, type: first.type, name: matchTitle || matchTitleJP } };
+              }
+            }
+            return { title, match: null };
+          } catch {
+            return { title, match: null };
+          }
+        })
+      );
+      results.forEach(r => {
+        if (r.status === 'fulfilled' && r.value?.match) {
+          matchMap[r.value.title] = r.value.match;
+        }
+      });
+    }
+    return matchMap;
+  }, []);
+
+  // 加载数据（全量一次性加载，追加到底部）
+  const loadData = useCallback(async (isAutoRefresh = false) => {
+    if (!isAutoRefresh) setLoading(true);
     try {
       const [feedData, customData] = await Promise.allSettled([
         NewsService.getNewsFeed({ page: 1, limit: 9999 }),
@@ -65,19 +111,28 @@ export default function NewsZone() {
       ]);
       const newFeed = feedData.status === 'fulfilled' ? (feedData.value?.news || []) : [];
       const newCustom = customData.status === 'fulfilled' ? (customData.value?.news || []) : [];
+
       setFeedNews(newFeed);
       setCustomNews(newCustom);
+
+      // 首次加载时匹配Bangumi条目
+      if (!initialLoadDone.current) {
+        const allItems = [...newFeed, ...newCustom.map(n => ({ ...n, source: 'custom' }))];
+        const matchMap = await matchBangumiSubjects(allItems);
+        setBangumiMatchMap(matchMap);
+        initialLoadDone.current = true;
+      }
     } catch {
       // 静默失败
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [matchBangumiSubjects]);
 
   useEffect(() => {
     loadData();
-    // 每5分钟自动刷新数据
-    const timer = setInterval(() => loadData(), 5 * 60 * 1000);
+    // 每5分钟自动刷新数据（静默刷新，不跳动）
+    const timer = setInterval(() => loadData(true), 5 * 60 * 1000);
     return () => clearInterval(timer);
   }, [loadData]);
 
@@ -105,7 +160,7 @@ export default function NewsZone() {
     }
   };
 
-  // 提交资讯
+  // 提交推荐
   const resetForm = () => {
     setApplyForm({ title: '', source: '', link: '', category: '', cover: '' });
     setCoverPreview('');
@@ -159,6 +214,27 @@ export default function NewsZone() {
   const getSourceLabel = (source) => SOURCE_CONFIG[source]?.label || source;
   const getSourceColor = (source) => SOURCE_CONFIG[source]?.color || '#6b7280';
 
+  // 点击处理：优先站内跳转，其次外部链接
+  const handleNewsClick = (news) => {
+    const isArticle = news.type === 'article';
+    if (isArticle) {
+      navigate(`/news/${news.id}`);
+      return;
+    }
+    // 检查Bangumi匹配
+    const match = bangumiMatchMap[news.title];
+    if (match) {
+      const typeKey = BANGUMI_TYPE_MAP[match.type] || 'anime';
+      navigate(`/info/${typeKey}/${match.id}`);
+      return;
+    }
+    // 兜底：打开外部链接
+    if (news.link) window.open(news.link, '_blank');
+  };
+
+  // 判断是否有站内匹配
+  const hasBangumiMatch = (title) => !!bangumiMatchMap[title];
+
   return (
     <div className="news-zone">
       {/* Header */}
@@ -166,26 +242,26 @@ export default function NewsZone() {
         <div className="news-zone-title">
           <Newspaper size={20} />
           <h2>毒电波！！</h2>
-          <span className="news-zone-subtitle">二次元业界动态 · 新番导视 · 多源聚合</span>
+          <span className="news-zone-subtitle">条目推荐 · 新番导视 · 多源聚合</span>
         </div>
         <div className="news-zone-actions">
           <button
             className={`news-refresh-btn ${refreshing ? 'spinning' : ''}`}
             onClick={() => handleRefresh('')}
             disabled={refreshing}
-            title="刷新资讯"
+            title="刷新推荐"
           >
             <RefreshCw size={14} />
           </button>
           <button className="news-apply-btn" onClick={() => setShowApplyModal(true)}>
-            <Plus size={14} /> 投稿
+            <Plus size={14} /> 推荐
           </button>
           <div className="news-zone-tabs">
             <button
               className={`news-zone-tab ${activeTab === 'feed' ? 'active' : ''}`}
               onClick={() => setActiveTab('feed')}
             >
-              <Newspaper size={14} /> 资讯流
+              <Newspaper size={14} /> 推荐流
             </button>
             <button
               className={`news-zone-tab ${activeTab === 'schedule' ? 'active' : ''}`}
@@ -200,42 +276,45 @@ export default function NewsZone() {
       {/* 放送表 Tab */}
       {activeTab === 'schedule' && <AnimeSchedule />}
 
-      {/* 资讯流 Tab */}
+      {/* 推荐流 Tab */}
       {activeTab === 'feed' && (
         <>
       {/* 全宽大图 Banner 轮播 — 与首页格式一致 */}
       {hotNews.length > 0 && (
         <div className="news-carousel">
           <div className="news-carousel-track" style={{ transform: `translateX(-${carouselIndex * 100}%)` }}>
-            {hotNews.map((news, idx) => (
-              <div
-                key={news.id || idx}
-                className="news-carousel-slide"
-                onClick={() => {
-                  if (news.type === 'article' || news.id) navigate(`/news/${news.id}`);
-                  else if (news.link) window.open(news.link, '_blank');
-                }}
-              >
-                <div className="news-carousel-bg" style={{ backgroundImage: `url(${news.cover})` }} />
-                <div className="news-carousel-gradient" />
-                <div className="news-carousel-content">
-                  <div className="news-carousel-info">
-                    <div className="news-carousel-badge" style={{ backgroundColor: getSourceColor(news.source) }}>
-                      {getSourceLabel(news.source)}
-                    </div>
-                    <h2 className="news-carousel-title">{news.title}</h2>
-                    <div className="news-carousel-meta">
-                      <span className="news-carousel-type">{news.category || '资讯'}</span>
-                    </div>
-                    {news.summary && <p className="news-carousel-summary">{news.summary.length > 80 ? news.summary.substring(0, 80) + '...' : news.summary}</p>}
-                    <div className="news-carousel-actions">
-                      <span className="news-carousel-btn-primary">查看详情</span>
-                      {news.link && <span className="news-carousel-btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(news.link, '_blank'); }}>访问来源</span>}
+            {hotNews.map((news, idx) => {
+              const match = bangumiMatchMap[news.title];
+              return (
+                <div
+                  key={news.id || idx}
+                  className="news-carousel-slide"
+                  onClick={() => handleNewsClick(news)}
+                >
+                  <div className="news-carousel-bg" style={{ backgroundImage: `url(${news.cover})` }} />
+                  <div className="news-carousel-gradient" />
+                  <div className="news-carousel-content">
+                    <div className="news-carousel-info">
+                      <div className="news-carousel-badge" style={{ backgroundColor: getSourceColor(news.source) }}>
+                        {getSourceLabel(news.source)}
+                      </div>
+                      {match && <span className="news-carousel-badge" style={{ backgroundColor: '#10b981', marginLeft: 4 }}>站内</span>}
+                      <h2 className="news-carousel-title">{news.title}</h2>
+                      <div className="news-carousel-meta">
+                        <span className="news-carousel-type">{news.category || '推荐'}</span>
+                      </div>
+                      {news.summary && <p className="news-carousel-summary">{news.summary.length > 80 ? news.summary.substring(0, 80) + '...' : news.summary}</p>}
+                      <div className="news-carousel-actions">
+                        <span className="news-carousel-btn-primary">
+                          {match ? '查看条目' : '查看详情'}
+                        </span>
+                        {news.link && <span className="news-carousel-btn-secondary" onClick={(e) => { e.stopPropagation(); window.open(news.link, '_blank'); }}>查看原文</span>}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {hotNews.length > 1 && (
             <>
@@ -292,32 +371,31 @@ export default function NewsZone() {
         ))}
       </div>
 
-      {/* 资讯瀑布流 */}
+      {/* 推荐瀑布流 */}
       {loading ? (
         <div className="news-loading"><Loader2 size={16} className="spinning" /> 雨何时停？</div>
       ) : (
         <div className="news-masonry">
           {filteredNews.length === 0 ? (
-            <div className="news-empty">暂无资讯，点击刷新获取最新内容</div>
+            <div className="news-empty">暂无推荐，点击刷新获取最新内容</div>
           ) : (
             filteredNews.map(news => {
               const sourceConfig = SOURCE_CONFIG[news.source] || {};
               const isArticle = news.type === 'article';
-              const handleClick = () => {
-                if (isArticle) navigate(`/news/${news.id}`);
-                else if (news.link) window.open(news.link, '_blank');
-              };
+              const match = bangumiMatchMap[news.title];
+              const isInternal = !!match;
 
               return (
                 <div
                   key={`${news.source}-${news.id || news.source_id}`}
                   className="news-masonry-item"
-                  onClick={handleClick}
+                  onClick={() => handleNewsClick(news)}
                   style={{ cursor: 'pointer' }}
                 >
                   {news.cover && (
                     <div className="news-masonry-cover">
                       <img src={news.cover} alt="" loading="lazy" />
+                      {isInternal && <span className="news-masonry-internal-badge">站内</span>}
                     </div>
                   )}
                   <div className="news-masonry-body">
@@ -337,7 +415,16 @@ export default function NewsZone() {
                       <span className="news-masonry-date">
                         <Calendar size={10} /> {news.created_at?.split('T')[0] || ''}
                       </span>
-                      {isArticle ? (
+                      {isInternal ? (
+                        <>
+                          <span className="news-masonry-action">查看条目</span>
+                          {news.link && (
+                            <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-masonry-ext" onClick={e => e.stopPropagation()}>
+                              <ExternalLink size={10} /> 原文
+                            </a>
+                          )}
+                        </>
+                      ) : isArticle ? (
                         <span className="news-masonry-action">阅读全文</span>
                       ) : news.link ? (
                         <a href={news.link} target="_blank" rel="noopener noreferrer" className="news-masonry-ext" onClick={e => e.stopPropagation()}>
@@ -345,7 +432,7 @@ export default function NewsZone() {
                         </a>
                       ) : null}
                       {news.extra?.rating && (
-                        <span className="news-masonry-rating">★ {news.extra.rating}</span>
+                        <span className="news-masonry-rating"><Star size={10} /> {news.extra.rating}</span>
                       )}
                     </div>
                   </div>
@@ -357,12 +444,12 @@ export default function NewsZone() {
       )}
       </> )}
 
-      {/* 提交资讯 Modal */}
+      {/* 提交推荐 Modal */}
       {showApplyModal && (
         <div className="news-apply-overlay" onClick={handleCloseModal}>
           <div className="news-apply-modal" onClick={e => e.stopPropagation()}>
             <div className="news-apply-header">
-              <h3>提交资讯</h3>
+              <h3>提交推荐</h3>
               <button className="news-apply-close" onClick={handleCloseModal}>×</button>
             </div>
 
@@ -399,7 +486,7 @@ export default function NewsZone() {
               </div>
 
               <div className="news-form-group">
-                <label>资讯标题 *</label>
+                <label>推荐标题 *</label>
                 <input type="text" placeholder="例如：XX新作发售" value={applyForm.title} onChange={e => setApplyForm(prev => ({ ...prev, title: e.target.value }))} />
               </div>
               <div className="news-form-group">

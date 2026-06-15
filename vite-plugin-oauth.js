@@ -169,6 +169,77 @@ export default function viteOAuthPlugin() {
           return;
         }
 
+        // LLM API 代理：/api/llm/chat/completions
+        if (url.pathname === '/api/llm/chat/completions' && req.method === 'POST') {
+          try {
+            const chunks = [];
+            for await (const chunk of req) chunks.push(chunk);
+            const body = JSON.parse(Buffer.concat(chunks).toString());
+            const { api_key, api_base, model, messages, stream, max_tokens, temperature } = body;
+
+            if (!api_key || !api_base) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: '缺少 api_key 或 api_base' }));
+              return;
+            }
+
+            const requestBody = {
+              model: model || 'glm-4-flash',
+              messages,
+              ...(stream !== undefined && { stream }),
+              ...(max_tokens !== undefined && { max_tokens }),
+              ...(temperature !== undefined && { temperature }),
+            };
+
+            const upstream = await fetch(api_base, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${api_key}`,
+              },
+              body: JSON.stringify(requestBody),
+            });
+
+            if (!upstream.ok) {
+              const errText = await upstream.text();
+              res.statusCode = upstream.status;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: `LLM API 错误: ${upstream.status}`, detail: errText }));
+              return;
+            }
+
+            if (stream) {
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'text/event-stream');
+              res.setHeader('Cache-Control', 'no-cache');
+              res.setHeader('Connection', 'keep-alive');
+              const reader = upstream.body.getReader();
+              (async () => {
+                try {
+                  for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    res.write(value);
+                  }
+                } catch {}
+                res.end();
+              })();
+            } else {
+              const data = await upstream.text();
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(data);
+            }
+          } catch (err) {
+            console.error('LLM proxy error:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: `LLM 代理错误: ${err.message}` }));
+          }
+          return;
+        }
+
         next();
       });
     },

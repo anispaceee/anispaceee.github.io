@@ -650,7 +650,7 @@ export default function HomePage() {
                       // 站内文章跳转详情页
                       navigate(`/news/${news.id}`, { state: { article: news } });
                     } else if (news.link) {
-                      // 外链资讯打开新标签
+                      // 外链推荐打开新标签
                       window.open(news.link, '_blank');
                     }
                   };
@@ -664,7 +664,7 @@ export default function HomePage() {
                     </div>
                   );
                 }) : (
-                  <div className="home-news-empty">暂无资讯</div>
+                  <div className="home-news-empty">暂无推荐</div>
                 )}
               </div>
             </div>
