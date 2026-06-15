@@ -9,7 +9,8 @@
       img-src 'self' data: https: http:;
       media-src 'self' blob: https: http:;
       script-src 'self' 'unsafe-inline' blob:;
-      style-src 'self' 'unsafe-inline';
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com data:;
       worker-src 'self' blob:;
       connect-src 'self'
         https://api.bgm.tv https://bgm.tv
