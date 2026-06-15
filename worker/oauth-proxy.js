@@ -1464,8 +1464,14 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     try {
       const body = await request.json();
       const { allow_profile_view, allow_comments_public, auto_enrich } = body;
-      await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ?, auto_enrich = ? WHERE id = ?')
-        .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, auto_enrich ?? 1, userId).run();
+      // auto_enrich 列可能尚未创建，先尝试更新，失败则只更新其他字段
+      try {
+        await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ?, auto_enrich = ? WHERE id = ?')
+          .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, auto_enrich ?? 1, userId).run();
+      } catch {
+        await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ? WHERE id = ?')
+          .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, userId).run();
+      }
       return jsonResponse({ success: true }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '更新失败: ' + err.message }, 500, origin);
