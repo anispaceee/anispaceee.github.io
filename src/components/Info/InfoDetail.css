@@ -455,8 +455,8 @@
 .hikarinagi-tab { display: flex; flex-direction: column; gap: 16px; }
 .hikarinagi-tab-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .hikarinagi-tab-source { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-tertiary); font-weight: 600; }
-.hikarinagi-tab-visit { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #fff; font-weight: 600; text-decoration: none; padding: 6px 14px; border-radius: var(--radius-full); background: var(--primary); transition: all var(--transition-fast); }
-.hikarinagi-tab-visit:hover { opacity: 0.85; transform: translateY(-1px); }
+.hikarinagi-tab-source-link { display: inline-flex; align-items: center; gap: 3px; color: var(--primary); text-decoration: none; transition: opacity var(--transition-fast); }
+.hikarinagi-tab-source-link:hover { opacity: 0.8; }
 .hikarinagi-tab-score { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #ffc107; font-weight: 600; padding: 8px 14px; background: rgba(255,193,7,0.08); border-radius: var(--radius-sm); }
 .hikarinagi-tab-info { background: rgba(255,255,255,0.06); border-radius: var(--radius-md); padding: 14px 16px; }
 .hikarinagi-tab-info h4 { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }

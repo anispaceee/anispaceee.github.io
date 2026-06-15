@@ -1584,17 +1584,14 @@ export default function InfoDetail() {
                   <div className="hikarinagi-tab">
                     <div className="hikarinagi-tab-header">
                       <span className="hikarinagi-tab-source">
-                        <Sparkles size={14} /> 数据来源：Hikarinagi（光凪）
+                        <Sparkles size={14} /> 数据来源：<a
+                          className="hikarinagi-tab-source-link"
+                          href={hikarinagiLinked.type === 'galgame'
+                            ? `https://www.hikarinagi.org/galgame/${hikarinagiLinked.data?.galId || hikarinagiLinked.data?.id}`
+                            : `https://www.hikarinagi.org/lightnovel/${hikarinagiLinked.data?.novelId || hikarinagiLinked.data?.id}`}
+                          target="_blank" rel="noopener noreferrer"
+                        >Hikarinagi（光凪）<ExternalLink size={10} /></a>
                       </span>
-                      <a
-                        className="hikarinagi-tab-visit"
-                        href={hikarinagiLinked.type === 'galgame'
-                          ? `https://www.hikarinagi.org/galgame/${hikarinagiLinked.data?.galId || hikarinagiLinked.data?.id}`
-                          : `https://www.hikarinagi.org/lightnovel/${hikarinagiLinked.data?.novelId || hikarinagiLinked.data?.id}`}
-                        target="_blank" rel="noopener noreferrer"
-                      >
-                        <ExternalLink size={12} /> 前往光凪查看详情与下载
-                      </a>
                     </div>
 
                     {/* Hikarinagi 评分 */}
