@@ -165,6 +165,7 @@ export default function HomePage() {
   const [homeWorldInput, setHomeWorldInput] = useState('');
   const [homeWorldSending, setHomeWorldSending] = useState(false);
   const [recommendGals, setRecommendGals] = useState([]);
+  const [recommendGalsLoading, setRecommendGalsLoading] = useState(false);
   const [hotComments, setHotComments] = useState([]);
 
   useEffect(() => {
@@ -201,7 +202,28 @@ export default function HomePage() {
         ]);
         if (galData.status === 'fulfilled' && galData.value) {
           const gals = Array.isArray(galData.value) ? galData.value : (Array.isArray(galData.value?.data) ? galData.value.data : []);
-          setRecommendGals(gals.slice(0, 5));
+          // 用名称搜索Bangumi匹配，只保留能在Bangumi搜到的galgame
+          setRecommendGalsLoading(true);
+          const matchedGals = [];
+          for (const gal of gals.slice(0, 10)) {
+            const searchName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
+            if (!searchName) continue;
+            try {
+              const searchResult = await BangumiService.searchSubjects(searchName, 4, 5, 0);
+              const match = searchResult?.list?.find(r => {
+                const rName = r.name_cn || r.name || '';
+                const rOrigin = r.name || '';
+                return rName === searchName || rOrigin === searchName ||
+                  (Array.isArray(gal.originTitle) && gal.originTitle.some(t => t === rName || t === rOrigin));
+              });
+              if (match) {
+                matchedGals.push({ ...gal, bgmId: match.id, bgmData: match });
+              }
+            } catch {}
+            if (matchedGals.length >= 5) break;
+          }
+          setRecommendGals(matchedGals);
+          setRecommendGalsLoading(false);
         }
         if (commentData.status === 'fulfilled' && commentData.value) {
           const comments = Array.isArray(commentData.value) ? commentData.value : (Array.isArray(commentData.value?.data) ? commentData.value.data : []);
@@ -674,7 +696,7 @@ export default function HomePage() {
             <HomeTerminal />
 
             {/* 推荐 Galgame - Hikarinagi */}
-            {recommendGals.length > 0 && (
+            {(recommendGals.length > 0 || recommendGalsLoading) && (
             <div className="home-news-mac-window">
               <div className="home-news-titlebar">
                 <div className="home-news-controls">
@@ -686,13 +708,18 @@ export default function HomePage() {
                 <Link to="/wiki?type=galgame" className="home-news-more"><ArrowRight size={12} /></Link>
               </div>
               <div className="home-news-list">
-                {recommendGals.map(gal => {
-                  const galId = gal.galId || gal.id || gal._id;
+                {recommendGalsLoading ? (
+                  <div className="home-news-empty"><Loader2 size={14} className="spin" /> 匹配中...</div>
+                ) : recommendGals.length === 0 ? (
+                  <div className="home-news-empty">暂无推荐</div>
+                ) : recommendGals.map(gal => {
                   const galName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
                   const galCover = gal.cover || '';
                   const galScore = gal.rate || gal.score || 0;
+                  const bgmId = gal.bgmId;
+                  const preview = gal.bgmData ? extractPreview(gal.bgmData) : { id: bgmId, name: galName, type: 4, image: galCover };
                   return (
-                    <Link key={galId} to={`/info/hikarinagi/galgame/${galId}`} className="home-news-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Link key={bgmId || gal.galId} to={`/info/game/${bgmId}`} state={{ preview }} className="home-news-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {galCover && <img src={galCover} alt="" style={{ width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="home-news-item-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{galName}</div>

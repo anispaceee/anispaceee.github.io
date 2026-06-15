@@ -1,5 +1,19 @@
 import { typeToKey, extractPreview } from '../../utils/subjectType';
 import { PAGE_ROUTES, resolveRoute } from '../../utils/siteMap';
+import { streamLLM } from '../Amadeus/llmClient';
+import { PRESET_PERSONAS, buildSystemPrompt } from '../Amadeus/personas';
+
+const LLM_CONFIG_KEY = 'acg_amadeus_llm_config';
+const DEFAULT_LLM_CONFIG = { provider: 'glm4', apiKey: '', baseUrl: '', model: '', remember: false };
+
+function loadLLMConfig() {
+  try {
+    const raw = localStorage.getItem(LLM_CONFIG_KEY) || sessionStorage.getItem(LLM_CONFIG_KEY);
+    return raw ? { ...DEFAULT_LLM_CONFIG, ...JSON.parse(raw) } : DEFAULT_LLM_CONFIG;
+  } catch {
+    return DEFAULT_LLM_CONFIG;
+  }
+}
 
 export const COMMANDS = [
   {
@@ -89,6 +103,46 @@ export const COMMANDS = [
   },
   { name: 'neko', description: '🐱', run: () => '🐱 Meow~' },
   { name: 'elpsy', description: 'El Psy Kongroo!', run: () => 'El Psy Kongroo! 世界线变动率 1.048596%' },
+  {
+    name: 'navi', description: '向 Navi 提问 (navi <提问>)',
+    run: async (args, ctx) => {
+      const question = args.join(' ').trim();
+      if (!question) return { type: 'error', text: '用法: navi <提问>，如 navi 推荐一部治愈番' };
+
+      const config = loadLLMConfig();
+      if (config.provider === 'local' || !config.apiKey) {
+        return { type: 'error', text: 'Navi 未配置 API Key，请先在 Navi 应用中配置 LLM API' };
+      }
+
+      const persona = PRESET_PERSONAS[0]; // 牧瀬紅莉栖
+      const systemPrompt = buildSystemPrompt(persona);
+
+      // 用占位行开始流式输出
+      const placeholderIdx = Date.now();
+      ctx.print({ type: 'output', text: '⏳ Navi 思考中...', _id: placeholderIdx });
+
+      let fullText = '';
+      try {
+        await streamLLM(config, systemPrompt, [{ role: 'user', content: question }], {
+          onToken: (delta) => {
+            fullText += delta;
+            // 更新占位行内容
+            ctx.replaceLine(placeholderIdx, { type: 'output', text: `🧪 ${fullText}`, _id: placeholderIdx });
+          },
+        });
+        // 最终替换（确保完整）
+        if (fullText) {
+          ctx.replaceLine(placeholderIdx, { type: 'output', text: `🧪 ${fullText}`, _id: placeholderIdx });
+        } else {
+          ctx.replaceLine(placeholderIdx, { type: 'output', text: '🧪 ...（Navi 未返回内容）', _id: placeholderIdx });
+        }
+      } catch (err) {
+        ctx.replaceLine(placeholderIdx, { type: 'error', text: `Navi: ${err?.message || '请求失败'}`, _id: placeholderIdx });
+      }
+      // 返回空数组，因为已经通过 ctx.print/replaceLine 输出了
+      return [];
+    },
+  },
 ];
 
 /** 把命令返回值归一化为 OutputLine[] */

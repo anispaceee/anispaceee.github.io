@@ -446,11 +446,11 @@ export default function UserProfilePage() {
         items = CollectionMarkService.getLocalBackup();
       }
       if (items.length === 0) { alert('暂无收藏数据可导出'); return; }
-      const markLabels = CollectionMarkService.MARK_LABELS;
       const header = '条目ID,条目名称,状态,评分,评论,标记时间';
       const rows = items.map(m => {
         const name = (m.subject_name || '').replace(/"/g, '""');
         const comment = (m.comment || '').replace(/"/g, '""');
+        const markLabels = CollectionMarkService.getMarkLabels(m.subject_type);
         return `${m.subject_id},"${name}",${markLabels[m.status] || m.status},${m.rating ?? ''},"${comment}",${m.updated_at || m.saved_at || ''}`;
       });
       const csv = '\uFEFF' + [header, ...rows].join('\n');
@@ -799,7 +799,7 @@ export default function UserProfilePage() {
                       <div key={status} className="user-profile-category-section">
                         <div className="user-profile-category-header">
                           <span className="category-indicator" style={{ background: MARK_COLORS[status] }} />
-                          <span className="category-title">{CollectionMarkService.MARK_LABELS[status]}</span>
+                          <span className="category-title">{status === 'wish' ? '想看 / 想读 / 想玩' : status === 'collect' ? '看过 / 读过 / 玩过' : status === 'doing' ? '在看 / 在读 / 在玩' : CollectionMarkService.MARK_LABELS[status]}</span>
                           <span className="category-count">{items.length} 部</span>
                           {(status === 'on_hold' || status === 'dropped') ? (
                             isCollapsed && (
@@ -836,7 +836,7 @@ export default function UserProfilePage() {
                               ))}
                             </div>
                           ) : (
-                            <div className="category-empty">暂无{CollectionMarkService.MARK_LABELS[status]}</div>
+                            <div className="category-empty">暂无{status === 'wish' ? '想看/想读/想玩' : status === 'collect' ? '看过/读过/玩过' : status === 'doing' ? '在看/在读/在玩' : CollectionMarkService.MARK_LABELS[status]}</div>
                           )
                         )}
                       </div>

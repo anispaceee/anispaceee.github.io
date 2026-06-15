@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Tv, Loader2, ChevronDown, Sparkles, Gamepad2 } from 'lucide-react';
-import { AniBTService } from '../../services/api';
+import { AniBTService, BangumiService } from '../../services/api';
 import HikarinagiService from '../../services/HikarinagiService';
 import { extractPreview } from '../../utils/subjectType';
 import { SubjectCard, SkeletonCard } from '../Common/CommonComponents';
@@ -65,9 +65,28 @@ export default function AnimeSchedule() {
   useEffect(() => {
     setMonthlyGalsLoading(true);
     HikarinagiService.galgame.getMonthlyReleases()
-      .then(res => {
+      .then(async res => {
         const items = res?.items || res?.data || (Array.isArray(res) ? res : []);
-        setMonthlyGals(Array.isArray(items) ? items.slice(0, 20) : []);
+        const gals = Array.isArray(items) ? items : [];
+        // 用名称搜索Bangumi匹配，只保留能在Bangumi搜到的galgame
+        const matchedGals = [];
+        for (const gal of gals) {
+          const searchName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
+          if (!searchName) continue;
+          try {
+            const searchResult = await BangumiService.searchSubjects(searchName, 4, 5, 0);
+            const match = searchResult?.list?.find(r => {
+              const rName = r.name_cn || r.name || '';
+              const rOrigin = r.name || '';
+              return rName === searchName || rOrigin === searchName ||
+                (Array.isArray(gal.originTitle) && gal.originTitle.some(t => t === rName || t === rOrigin));
+            });
+            if (match) {
+              matchedGals.push({ ...gal, bgmId: match.id, bgmData: match });
+            }
+          } catch {}
+        }
+        setMonthlyGals(matchedGals.slice(0, 20));
       })
       .catch(() => setMonthlyGals([]))
       .finally(() => setMonthlyGalsLoading(false));
@@ -218,12 +237,13 @@ export default function AnimeSchedule() {
           </div>
           <div className="schedule-card-grid">
             {monthlyGals.map(gal => {
-              const galId = gal.galId || gal.id || gal._id;
               const galName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
               const galCover = gal.cover || '';
-              const galScore = gal.rate || gal.score || 0;
+              const galScore = gal.rate || gal.score || gal.avgRate || 0;
+              const bgmId = gal.bgmId;
+              const preview = gal.bgmData ? extractPreview(gal.bgmData) : { id: bgmId, name: galName, type: 4, image: galCover };
               return (
-                <Link key={galId} to={`/info/hikarinagi/galgame/${galId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link key={bgmId || gal.galId} to={`/info/game/${bgmId}`} state={{ preview }} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div className="subject-card">
                     <div className="subject-card-cover">
                       {galCover ? (

@@ -314,7 +314,7 @@ export default function ProfileStats() {
             {Object.entries(stats.markCounts).map(([key, count]) => (
               <div key={key} className={`mark-stat-badge mark-stat-${key}`}>
                 <span className="mark-stat-num">{count}</span>
-                <span className="mark-stat-label">{CollectionMarkService.MARK_LABELS[key]}</span>
+                <span className="mark-stat-label">{key === 'wish' ? '想看/读/玩' : key === 'collect' ? '看过/读/玩' : key === 'doing' ? '在看/读/玩' : CollectionMarkService.MARK_LABELS[key]}</span>
               </div>
             ))}
           </div>
@@ -373,7 +373,7 @@ export default function ProfileStats() {
                       <span className="activity-name">{item.subjectName || `条目 #${item.subjectId}`}</span>
                       <span className="activity-meta">
                         {item.subjectType === 2 ? '动画' : item.subjectType === 4 ? '游戏' : '小说'}
-                        <span className={`activity-mark mark-${item.mark}`}>{CollectionMarkService.MARK_LABELS[item.mark]}</span>
+                        <span className={`activity-mark mark-${item.mark}`}>{CollectionMarkService.getMarkLabels(item.subjectType)[item.mark]}</span>
                         {item.userScore && <span className="activity-score">⭐ {item.userScore}</span>}
                       </span>
                     </div>

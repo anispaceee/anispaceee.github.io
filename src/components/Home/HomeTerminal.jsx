@@ -25,6 +25,10 @@ export default function HomeTerminal() {
     setHistory(prev => [...prev, ...arr]);
   }, []);
 
+  const replaceLine = useCallback((id, newLine) => {
+    setHistory(prev => prev.map(line => line._id === id ? newLine : line));
+  }, []);
+
   const clear = useCallback(() => setHistory([]), []);
 
   const submit = useCallback(async () => {
@@ -35,12 +39,12 @@ export default function HomeTerminal() {
     setCursor(-1);
     setInput('');
     const ctx = {
-      navigate, currentUser, print, clear,
+      navigate, currentUser, print, replaceLine, clear,
       services: { BangumiService, WorldChannelService, MailService },
     };
     const out = await runCommand(raw, ctx);
     if (out.length) print(out);
-  }, [input, navigate, currentUser, print, clear]);
+  }, [input, navigate, currentUser, print, replaceLine, clear]);
 
   const onKeyDown = (e) => {
     if (e.key === 'Enter') { submit(); return; }

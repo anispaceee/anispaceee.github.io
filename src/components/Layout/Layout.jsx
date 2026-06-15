@@ -36,7 +36,7 @@ export default function Layout() {
         </AnimatePresence>
       </main>
       <footer className="app-footer">
-        <p>本站数据来源于 Bangumi 番组计划、Anibt 等优秀站点，详情请查阅 <Link to="/links">友情链接</Link></p>
+        <p>本站数据来源于 Bangumi 番组计划、Anibt 等优秀站点，详情请查阅 <Link to="/links">站点导航</Link></p>
       </footer>
     </div>
   );

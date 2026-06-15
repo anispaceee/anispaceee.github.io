@@ -185,7 +185,7 @@ export default function DockBar() {
     ...(socialMode ? [
       { key: 'friends', icon: <Users size={16} />, label: 'LeMU', active: windows.friends?.open && !windows.friends.minimized, onClick: () => handleAppClick('friends') },
     ] : []),
-    { key: 'links', icon: <Link2 size={16} />, label: '友情链接', active: windows.links?.open && !windows.links.minimized, onClick: () => handleAppClick('links') },
+    { key: 'links', icon: <Link2 size={16} />, label: '站点导航', active: windows.links?.open && !windows.links.minimized, onClick: () => handleAppClick('links') },
     ...(socialMode ? [
       { key: 'mailbox', icon: <Mail size={16} />, label: 'D-Mail', active: windows.mailbox?.open && !windows.mailbox.minimized, onClick: () => handleAppClick('mailbox'), badge: mailUnreadCount },
     ] : []),

@@ -536,6 +536,13 @@ export const ForumService = {
 export const CollectionMarkService = {
   MARKS: { WISH: 'wish', COLLECT: 'collect', DOING: 'doing', ON_HOLD: 'on_hold', DROPPED: 'dropped' },
   MARK_LABELS: { wish: '想看', collect: '看过', doing: '在看', on_hold: '搁置', dropped: '抛弃' },
+  // 根据条目类型返回对应标签：type 1=小说, 2=动画, 4=游戏, 6=三次元
+  getMarkLabels(subjectType) {
+    const t = Number(subjectType);
+    if (t === 1) return { wish: '想读', collect: '读过', doing: '在读', on_hold: '搁置', dropped: '抛弃' };
+    if (t === 4) return { wish: '想玩', collect: '玩过', doing: '在玩', on_hold: '搁置', dropped: '抛弃' };
+    return { wish: '想看', collect: '看过', doing: '在看', on_hold: '搁置', dropped: '抛弃' };
+  },
   MARK_COLORS: { wish: 'var(--secondary)', collect: 'var(--success)', doing: 'var(--accent-warm)', on_hold: 'var(--tag-novel)', dropped: 'var(--error)' },
   LOCAL_BACKUP_KEY: 'acg_local_backup_marks',
 
