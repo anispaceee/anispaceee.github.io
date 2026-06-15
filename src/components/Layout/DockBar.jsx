@@ -3,9 +3,12 @@ import { useApp } from '../../context/AppContext';
 import { useWindowManager } from '../../context/WindowManager';
 import { useMusic, FALLBACK_COVER } from '../../context/MusicContext';
 import { StorageService } from '../../services/api';
-import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2, Globe, Mail } from 'lucide-react';
+import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Brain, Users, ChevronUp, Bell, Gamepad2, PenSquare, Coffee, Link2, Globe, Mail, KeyRound } from 'lucide-react';
 import { getUnreadCount } from '../Notification/Notifications';
 import { setFireworkOn } from '../Common/FireworkEffect';
+import { InviteCodeForm } from '../InviteSystem/InviteCodeForm';
+import { AdminPanel } from '../InviteSystem/AdminPanel';
+import { apiRequest } from '../../services/api';
 import './DockBar.css';
 
 export default function DockBar() {
@@ -18,6 +21,9 @@ export default function DockBar() {
   const [launcherIndex, setLauncherIndex] = useState(-1);
   const [unreadCount, setUnreadCount] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [hoveringTrigger, setHoveringTrigger] = useState(false);
   const [hoveringDock, setHoveringDock] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
@@ -35,6 +41,15 @@ export default function DockBar() {
   });
   const dockRef = useRef(null);
   const hideTimerRef = useRef(null);
+
+  // 检查当前用户是否为管理员
+  useEffect(() => {
+    if (isAuthenticated) {
+      apiRequest('/api/invites').then(() => setIsAdmin(true)).catch(() => setIsAdmin(false));
+    } else {
+      setIsAdmin(false);
+    }
+  }, [isAuthenticated]);
 
   // macOS 风格 magnification：计算每个图标的缩放比例
   const getScale = useCallback((index) => {
@@ -241,6 +256,26 @@ export default function DockBar() {
                     <button className={`dock-theme-btn ${!socialMode ? 'active' : ''}`} onClick={() => toggleSocialMode(false)}>关闭</button>
                   </div>
                   <span className="dock-setting-hint">关闭后隐藏世界线、放課後、D-Mail等社交功能</span>
+                  {!socialMode && isAuthenticated && (
+                    <button
+                      className="dock-invite-btn"
+                      onClick={() => setShowInviteModal(true)}
+                      style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}
+                    >
+                      <KeyRound size={14} />
+                      输入邀请码解锁
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button
+                      className="dock-admin-btn"
+                      onClick={() => setShowAdminPanel(true)}
+                      style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}
+                    >
+                      <Settings size={14} />
+                      邀请码管理
+                    </button>
+                  )}
                 </div>
                 <div className="dock-setting-group">
                   <label>账户</label>
@@ -350,6 +385,42 @@ export default function DockBar() {
           );
         })}
       </div>
+
+      {/* 邀请码输入弹窗 */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowInviteModal(false)}>
+          <div className="bg-gray-900 rounded-xl w-full max-w-sm mx-4 border border-gray-700" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <h3 className="text-lg font-bold text-white">邀请码</h3>
+              <button onClick={() => setShowInviteModal(false)} className="p-1 hover:bg-gray-700 rounded">
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+            <InviteCodeForm
+              onSuccess={(result) => {
+                toggleSocialMode(true);
+                setShowInviteModal(false);
+              }}
+              onClose={() => setShowInviteModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 管理员邀请码管理面板 */}
+      {showAdminPanel && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowAdminPanel(false)}>
+          <div className="bg-gray-900 rounded-xl w-full max-w-4xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-700" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-700 sticky top-0 bg-gray-900 z-10">
+              <h3 className="text-lg font-bold text-white">邀请码管理</h3>
+              <button onClick={() => setShowAdminPanel(false)} className="p-1 hover:bg-gray-700 rounded">
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+            <AdminPanel />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

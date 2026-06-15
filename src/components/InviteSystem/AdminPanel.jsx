@@ -18,10 +18,7 @@ export function AdminPanel() {
   const fetchInvites = async () => {
     setLoading(true);
     try {
-      const response = await apiRequest('/api/invites', {
-        method: 'GET',
-        headers: { 'X-Admin-Token': process.env.VITE_ADMIN_SYNC_TOKEN || '' }
-      });
+      const response = await apiRequest('/api/invites');
       setInvites(response);
     } catch (err) {
       console.error('获取邀请码列表失败:', err);
@@ -43,7 +40,6 @@ export function AdminPanel() {
 
       const response = await apiRequest('/api/invites', {
         method: 'POST',
-        headers: { 'X-Admin-Token': process.env.VITE_ADMIN_SYNC_TOKEN || '' },
         body: JSON.stringify({
           type: generateData.type,
           max_uses: generateData.max_uses,
@@ -66,7 +62,6 @@ export function AdminPanel() {
     try {
       await apiRequest(`/api/invites/${id}`, {
         method: 'PUT',
-        headers: { 'X-Admin-Token': process.env.VITE_ADMIN_SYNC_TOKEN || '' },
         body: JSON.stringify({ status: 'revoked' })
       });
       fetchInvites();

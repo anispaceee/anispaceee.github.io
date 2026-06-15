@@ -211,7 +211,7 @@ function generateId(items) {
   return items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
 }
 
-export { ApiError, CacheManager, isOnline, validateSubject, normalizeSubject };
+export { ApiError, CacheManager, isOnline, validateSubject, normalizeSubject, apiRequest };
 export { StorageService } from './storage';
 
 // ─── AuthService ───

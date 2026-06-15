@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
   invite_count INTEGER DEFAULT 0,
   invite_quota INTEGER DEFAULT 0,
   total_points INTEGER DEFAULT 0,
-  is_admin INTEGER DEFAULT 1,
+  is_admin INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   UNIQUE(provider, provider_id)

@@ -182,6 +182,14 @@ async function getAuthUser(request, env) {
   return await verifyJWT(token, secret);
 }
 
+async function getAdminUser(request, env) {
+  const authUser = await getAuthUser(request, env);
+  if (!authUser) return null;
+  const user = await env.DB.prepare('SELECT is_admin FROM users WHERE id = ?').bind(authUser.userId).first();
+  if (!user || !user.is_admin) return null;
+  return authUser;
+}
+
 // ─── 原有常量 ───────────────────────────────────────────────
 
 const BANGUMI_TOKEN_URL = 'https://bgm.tv/oauth/access_token';
@@ -1069,13 +1077,10 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return code;
   }
 
-  // POST /api/invites — 管理员生成邀请码（需 ADMIN_SYNC_TOKEN）
+  // POST /api/invites — 管理员生成邀请码（需管理员权限）
   if (method === 'POST' && pathname === '/api/invites') {
-    const authHeader = request.headers.get('X-Admin-Token') || '';
-    const expected = env.ADMIN_SYNC_TOKEN || '';
-    if (!expected || authHeader !== expected) {
-      return jsonResponse({ error: '鉴权失败' }, 401, origin);
-    }
+    const adminUser = await getAdminUser(request, env);
+    if (!adminUser) return jsonResponse({ error: '需要管理员权限' }, 403, origin);
 
     try {
       const body = await request.json();
@@ -1096,7 +1101,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
       const result = await env.DB.prepare(
         'INSERT INTO invites (code, creator_id, max_uses, used_count, type, status, expires_at, permissions, created_at, updated_at) VALUES (?, ?, ?, 0, ?, "active", ?, ?, datetime("now"), datetime("now"))'
-      ).bind(code, 0, max_uses, type, expires_at, JSON.stringify(permissions)).run();
+      ).bind(code, adminUser.userId, max_uses, type, expires_at, JSON.stringify(permissions)).run();
 
       const invite = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(result.meta.last_row_id).first();
       return jsonResponse(invite, 201, origin);
@@ -1218,13 +1223,10 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(validPermissions, 200, origin);
   }
 
-  // POST /api/permissions/grant — 授予权限（需 ADMIN_SYNC_TOKEN）
+  // POST /api/permissions/grant — 授予权限（需管理员权限）
   if (method === 'POST' && pathname === '/api/permissions/grant') {
-    const authHeader = request.headers.get('X-Admin-Token') || '';
-    const expected = env.ADMIN_SYNC_TOKEN || '';
-    if (!expected || authHeader !== expected) {
-      return jsonResponse({ error: '鉴权失败' }, 401, origin);
-    }
+    const adminUser = await getAdminUser(request, env);
+    if (!adminUser) return jsonResponse({ error: '需要管理员权限' }, 403, origin);
 
     try {
       const body = await request.json();
@@ -1232,8 +1234,8 @@ async function handleApiRoutes(pathname, request, env, origin) {
       if (!user_id || !permission) return jsonResponse({ error: '缺少 user_id 或 permission' }, 400, origin);
 
       await env.DB.prepare(
-        'INSERT OR REPLACE INTO user_permissions (user_id, permission, granted_by, expires_at, created_at) VALUES (?, ?, 0, ?, datetime("now"))'
-      ).bind(user_id, permission, expires_at).run();
+        'INSERT OR REPLACE INTO user_permissions (user_id, permission, granted_by, expires_at, created_at) VALUES (?, ?, ?, ?, datetime("now"))'
+      ).bind(user_id, permission, adminUser.userId, expires_at).run();
 
       return jsonResponse({ success: true, message: '权限已授予' }, 200, origin);
     } catch (err) {
@@ -1241,13 +1243,10 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
-  // DELETE /api/permissions/revoke — 撤销权限（需 ADMIN_SYNC_TOKEN）
+  // DELETE /api/permissions/revoke — 撤销权限（需管理员权限）
   if (method === 'DELETE' && pathname === '/api/permissions/revoke') {
-    const authHeader = request.headers.get('X-Admin-Token') || '';
-    const expected = env.ADMIN_SYNC_TOKEN || '';
-    if (!expected || authHeader !== expected) {
-      return jsonResponse({ error: '鉴权失败' }, 401, origin);
-    }
+    const adminUser = await getAdminUser(request, env);
+    if (!adminUser) return jsonResponse({ error: '需要管理员权限' }, 403, origin);
 
     try {
       const body = await request.json();
@@ -1262,13 +1261,10 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
-  // GET /api/invites — 获取邀请码列表（需 ADMIN_SYNC_TOKEN）
+  // GET /api/invites — 获取邀请码列表（需管理员权限）
   if (method === 'GET' && pathname === '/api/invites') {
-    const authHeader = request.headers.get('X-Admin-Token') || '';
-    const expected = env.ADMIN_SYNC_TOKEN || '';
-    if (!expected || authHeader !== expected) {
-      return jsonResponse({ error: '鉴权失败' }, 401, origin);
-    }
+    const adminUser = await getAdminUser(request, env);
+    if (!adminUser) return jsonResponse({ error: '需要管理员权限' }, 403, origin);
 
     try {
       const invites = await env.DB.prepare(
@@ -1280,14 +1276,11 @@ async function handleApiRoutes(pathname, request, env, origin) {
     }
   }
 
-  // GET /api/invites/:id — 获取邀请码详情（需 ADMIN_SYNC_TOKEN）
+  // GET /api/invites/:id — 获取邀请码详情（需管理员权限）
   const inviteDetailMatch = pathname.match(/^\/api\/invites\/(\d+)$/);
   if (inviteDetailMatch && method === 'GET') {
-    const authHeader = request.headers.get('X-Admin-Token') || '';
-    const expected = env.ADMIN_SYNC_TOKEN || '';
-    if (!expected || authHeader !== expected) {
-      return jsonResponse({ error: '鉴权失败' }, 401, origin);
-    }
+    const adminUser = await getAdminUser(request, env);
+    if (!adminUser) return jsonResponse({ error: '需要管理员权限' }, 403, origin);
 
     const inviteId = Number(inviteDetailMatch[1]);
     const invite = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(inviteId).first();
@@ -1296,13 +1289,10 @@ async function handleApiRoutes(pathname, request, env, origin) {
     return jsonResponse(invite, 200, origin);
   }
 
-  // PUT /api/invites/:id — 更新邀请码状态（需 ADMIN_SYNC_TOKEN）
+  // PUT /api/invites/:id — 更新邀请码状态（需管理员权限）
   if (inviteDetailMatch && method === 'PUT') {
-    const authHeader = request.headers.get('X-Admin-Token') || '';
-    const expected = env.ADMIN_SYNC_TOKEN || '';
-    if (!expected || authHeader !== expected) {
-      return jsonResponse({ error: '鉴权失败' }, 401, origin);
-    }
+    const adminUser = await getAdminUser(request, env);
+    if (!adminUser) return jsonResponse({ error: '需要管理员权限' }, 403, origin);
 
     try {
       const inviteId = Number(inviteDetailMatch[1]);
@@ -1345,9 +1335,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
         ).bind(username || user.username, name || user.name, avatar || user.avatar, bio || user.bio, user.id).run();
         user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(user.id).first();
       } else {
-        // 创建新用户
+        // 创建新用户（is_admin 默认为 0，非管理员）
         const result = await env.DB.prepare(
-          'INSERT INTO users (provider, provider_id, username, name, avatar, bio, join_date, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'), datetime(\'now\'))'
+          'INSERT INTO users (provider, provider_id, username, name, avatar, bio, join_date, created_at, last_login, is_admin) VALUES (?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'), datetime(\'now\'), 0)'
         ).bind(provider, String(providerId), username || '', name || '', avatar || '', bio || '').run();
         user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(result.meta.last_row_id).first();
       }
