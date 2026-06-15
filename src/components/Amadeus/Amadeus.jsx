@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { StorageService, BangumiService } from '../../services/api';
+import { StorageService, BangumiService, CollectionMarkService } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
 import EmojiPicker from '../Common/EmojiPicker';
@@ -180,7 +180,7 @@ function makeGreetingMessage(persona) {
 }
 
 export default function Amadeus() {
-  const { isAuthenticated, openAuth } = useApp();
+  const { isAuthenticated, openAuth, currentUser } = useApp();
   const navigate = useNavigate();
 
   // 自设 OC（localStorage）
@@ -230,6 +230,7 @@ export default function Amadeus() {
   const [configSaved, setConfigSaved] = useState(false);
   const [llmError, setLlmError] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
+  const [userTags, setUserTags] = useState([]);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -251,6 +252,40 @@ export default function Amadeus() {
       abortRef.current?.abort();
     };
   }, []);
+
+  // 获取用户"看过"收藏的 tags，用于个性化推荐
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const collections = await CollectionMarkService.getByUserId(currentUser.id);
+        if (!Array.isArray(collections) || cancelled) return;
+        // 只取"看过"(collect)的条目，最多30个
+        const collectItems = collections.filter(c => c.status === 'collect').slice(0, 30);
+        if (collectItems.length === 0) return;
+        // 并发获取条目详情中的 tags
+        const results = await Promise.allSettled(
+          collectItems.map(c => BangumiService.getSubject(c.subject_id))
+        );
+        if (cancelled) return;
+        const tagCount = {};
+        results.forEach(r => {
+          if (r.status !== 'fulfilled' || !r.value?.tags) return;
+          r.value.tags.forEach(t => {
+            const name = typeof t === 'string' ? t : t.name;
+            if (name) tagCount[name] = (tagCount[name] || 0) + 1;
+          });
+        });
+        const topTags = Object.entries(tagCount)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20)
+          .map(([name]) => name);
+        if (!cancelled) setUserTags(topTags);
+      } catch { /* 静默失败，不影响主功能 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
 
   // 读取从最小化横条发送的待处理消息
   useEffect(() => {
@@ -339,7 +374,7 @@ export default function Amadeus() {
         messagesRef.current = [...messagesRef.current, placeholder];
         setMessages(prev => [...prev, placeholder]);
         const apiMessages = history.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content }));
-        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona), apiMessages, {
+        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, userTags), apiMessages, {
           signal: controller.signal,
           onToken: (delta) => {
             if (!mountedRef.current) return;
@@ -379,7 +414,7 @@ export default function Amadeus() {
       clearTimeout(timeoutId);
       if (abortRef.current === controller) setIsTyping(false);
     }
-  }, [messages, llmConfig, voiceEnabled, activePersona, runActions, speak, switchExpression]);
+  }, [messages, llmConfig, voiceEnabled, activePersona, userTags, runActions, speak, switchExpression]);
 
   const toggleListening = () => { if (!recognitionRef.current) return; isListening ? recognitionRef.current.stop() : (recognitionRef.current.start(), setIsListening(true)); };
   const clearChat = () => {

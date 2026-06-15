@@ -67,9 +67,29 @@ export function emptyOC() {
   };
 }
 
-/** 根据人格生成 system prompt（含站内动作指令说明） */
-export function buildSystemPrompt(persona) {
+/** 网站功能介绍，所有人格共享 */
+const SITE_GUIDE = `【ANISpace 网站指南】
+你是 ANISpace（ACG 社区）的站内 AI 助手，以下是网站功能概览，当用户询问网站功能或操作方法时，用角色口吻介绍，必要时用 goto 指令引导跳转：
+- 首页：每日放送（当日播出番剧）、随机推荐、业界资讯入口推荐
+- 条目详情（/info/:type/:id）：番剧/游戏/音乐等条目信息、收藏标记（想看/看过/在看/搁置/抛弃）、在线播放
+- 论坛（/forum）：社区帖子讨论，支持发帖和回复
+- 世界频道（/world）：实时聊天，类似群聊
+- Musashi（/musashi）：创作者平台，用户可发布小说、漫画、音声作品
+- 音乐（/music）：在线听歌，支持搜索和播放列表
+- 好友空间（/friends）：关注好友的动态
+- D-Mail：站内私信系统
+- 通知：系统消息、关注动态、回复提醒
+- 个人主页（/profile）：收藏管理、活动热力图、个人设置
+- Wiki（/wiki）：社区知识库
+- 资讯（/news）：业界新闻、新番资讯
+- Navi（/navi）：AI 助手（就是你自己）`;
+
+/** 根据人格生成 system prompt（含站内动作指令说明 + 网站介绍 + 用户偏好） */
+export function buildSystemPrompt(persona, userTags = []) {
   const cp = (persona.catchphrases || []).filter(Boolean).join('、');
+  const preference = userTags.length > 0
+    ? `【用户偏好】该用户偏好的作品标签（基于看过记录）：${userTags.join('、')}\n当用户请求推荐时，优先从这些标签方向推荐，用 recommend 指令搜索。`
+    : '';
   const parts = [
     `你是「${persona.name}」，ACG 社区 ANISpace 的站内 AI 助手。请始终保持以下角色设定，用中文回答。`,
     persona.personality ? `【人设】${persona.personality}` : '',
@@ -78,6 +98,9 @@ export function buildSystemPrompt(persona) {
     '【推荐规则】当用户想要番剧/游戏/音乐等作品推荐时，用本角色的口吻点评，但不要在正文里编造作品 ID 或链接；改用下面的 recommend 指令给出搜索关键词，由系统检索真实条目展示。',
     '',
     DIRECTIVE_GUIDE,
+    '',
+    SITE_GUIDE,
+    preference,
   ];
   return parts.filter(Boolean).join('\n');
 }
