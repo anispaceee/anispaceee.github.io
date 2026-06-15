@@ -537,22 +537,63 @@ export const CollectionMarkService = {
   MARKS: { WISH: 'wish', COLLECT: 'collect', DOING: 'doing', ON_HOLD: 'on_hold', DROPPED: 'dropped' },
   MARK_LABELS: { wish: '想看', collect: '看过', doing: '在看', on_hold: '搁置', dropped: '抛弃' },
   MARK_COLORS: { wish: 'var(--secondary)', collect: 'var(--success)', doing: 'var(--accent-warm)', on_hold: 'var(--tag-novel)', dropped: 'var(--error)' },
+  LOCAL_BACKUP_KEY: 'acg_local_backup_marks',
 
   async getByUserId(userId) {
     return await apiRequest(`/api/collections?userId=${userId}`);
   },
 
   async upsert(data) {
-    return await apiRequest('/api/collections', {
+    const result = await apiRequest('/api/collections', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    // 本地备份：检查开关后自动保存
+    this.saveToLocalBackup(data);
+    return result;
   },
 
   async remove(userId, subjectId) {
-    return await apiRequest(`/api/collections/${subjectId}?userId=${userId}`, {
+    const result = await apiRequest(`/api/collections/${subjectId}?userId=${userId}`, {
       method: 'DELETE',
     });
+    this.removeFromLocalBackup(subjectId);
+    return result;
+  },
+
+  // ─── 本地备份 ───
+  isLocalBackupEnabled() {
+    const settings = StorageService.get('acg_data_settings');
+    return settings?.local_backup === true;
+  },
+
+  saveToLocalBackup(data) {
+    if (!this.isLocalBackupEnabled()) return;
+    const marks = StorageService.get(this.LOCAL_BACKUP_KEY, []);
+    const idx = marks.findIndex(m => m.subject_id === data.subjectId);
+    const entry = {
+      subject_id: data.subjectId,
+      subject_name: data.subjectName || '',
+      subject_image: data.subjectImage || '',
+      subject_type: data.subjectType || 2,
+      status: data.status,
+      rating: data.rating ?? 0,
+      comment: data.comment || '',
+      saved_at: new Date().toISOString(),
+    };
+    if (idx >= 0) marks[idx] = entry;
+    else marks.push(entry);
+    StorageService.set(this.LOCAL_BACKUP_KEY, marks);
+  },
+
+  removeFromLocalBackup(subjectId) {
+    const marks = StorageService.get(this.LOCAL_BACKUP_KEY, []);
+    const filtered = marks.filter(m => m.subject_id !== subjectId);
+    StorageService.set(this.LOCAL_BACKUP_KEY, filtered);
+  },
+
+  getLocalBackup() {
+    return StorageService.get(this.LOCAL_BACKUP_KEY, []);
   },
 
   // 保留兼容旧代码的同步方法（从本地缓存读取）

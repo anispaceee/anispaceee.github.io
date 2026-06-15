@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { FriendService, FollowService, CollectionMarkService, UserService, MailService, BangumiAuthService, GitHubAuthService, StorageService, UserGuestbookService, ForumService, NewsService } from '../../services/api';
-import { Calendar, MapPin, Heart, LinkIcon, Shield, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2 } from 'lucide-react';
+import { extractPreview } from '../../utils/subjectType';
+import { Calendar, MapPin, Heart, LinkIcon, Shield, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download } from 'lucide-react';
 import { SubjectCard } from '../Common/CommonComponents';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import ActivityHeatmap from './ActivityHeatmap';
@@ -61,6 +62,10 @@ export default function UserProfilePage() {
   const avatarInputRef = useRef(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState('profile');
+  const [dataSettings, setDataSettings] = useState(() => {
+    const saved = StorageService.get('acg_data_settings');
+    return saved || { auto_enrich: true, local_backup: false };
+  });
   const [privacySettings, setPrivacySettings] = useState(() => {
     const prefs = StorageService.get('acg_current_user')?.preferences;
     return prefs?.privacy || StorageService.get('acg_privacy') || { profile: 'public', marks: 'public', info: 'public' };
@@ -416,6 +421,51 @@ export default function UserProfilePage() {
     updateProfile({ preferences: { ...(currentUser?.preferences || {}), privacy: updated } });
   };
 
+  // ─── 数据设置持久化 ───
+  useEffect(() => {
+    StorageService.set('acg_data_settings', dataSettings);
+    // 同步 auto_enrich 到后端
+    if (currentUser?.id) {
+      UserService.updateSettings(currentUser.id, { auto_enrich: dataSettings.auto_enrich ? 1 : 0 }).catch(() => {});
+    }
+  }, [dataSettings, currentUser?.id]);
+
+  // ─── 导出 CSV ───
+  const handleExportCSV = async () => {
+    const userId = currentUser?.id;
+    if (!userId) return;
+    try {
+      // 优先使用后端数据，本地备份作为补充
+      let items = [];
+      try {
+        const marks = await CollectionMarkService.getByUserId(userId);
+        items = Array.isArray(marks) ? marks : [];
+      } catch {}
+      // 如果后端无数据且有本地备份，使用本地备份
+      if (items.length === 0 && dataSettings.local_backup) {
+        items = CollectionMarkService.getLocalBackup();
+      }
+      if (items.length === 0) { alert('暂无收藏数据可导出'); return; }
+      const markLabels = CollectionMarkService.MARK_LABELS;
+      const header = '条目ID,条目名称,状态,评分,评论,标记时间';
+      const rows = items.map(m => {
+        const name = (m.subject_name || '').replace(/"/g, '""');
+        const comment = (m.comment || '').replace(/"/g, '""');
+        return `${m.subject_id},"${name}",${markLabels[m.status] || m.status},${m.rating ?? ''},"${comment}",${m.updated_at || m.saved_at || ''}`;
+      });
+      const csv = '\uFEFF' + [header, ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ANISpace_收藏数据_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('导出失败，请稍后重试');
+    }
+  };
+
   // ─── 判断是否可查看详情 ───
   const canViewProfile = isSelf || userInfo?.allow_profile_view;
 
@@ -492,6 +542,9 @@ export default function UserProfilePage() {
               <div className="user-profile-actions">
                 <button className="user-profile-action-btn edit" onClick={handleEdit}>
                   <Edit3 size={13} /> 编辑
+                </button>
+                <button className="user-profile-action-btn export" onClick={handleExportCSV}>
+                  <Download size={13} /> 导出数据
                 </button>
                 {socialMode && (
                 <Link to="/mailbox" className="user-profile-action-btn message">
@@ -778,6 +831,7 @@ export default function UserProfilePage() {
                                   }}
                                   type={Number(mark.subject_type) === 1 ? 'novel' : Number(mark.subject_type) === 4 ? 'game' : 'anime'}
                                   linkTo={`/info/${Number(mark.subject_type) === 1 ? 'novel' : Number(mark.subject_type) === 4 ? 'game' : 'anime'}/${mark.subject_id}`}
+                                  linkState={{ preview: extractPreview({ id: mark.subject_id, name: mark.subject_name, name_cn: mark.subject_name, type: Number(mark.subject_type), images: mark.subject_image ? { large: mark.subject_image, common: mark.subject_image } : {} }) }}
                                 />
                               ))}
                             </div>
@@ -808,6 +862,7 @@ export default function UserProfilePage() {
                               {comment.subject_name && (
                                 <Link
                                   to={`/info/${Number(comment.subject_type) === 1 ? 'novel' : Number(comment.subject_type) === 4 ? 'game' : 'anime'}/${comment.subject_id}`}
+                                  state={{ preview: extractPreview({ id: comment.subject_id, name: comment.subject_name, name_cn: comment.subject_name, type: Number(comment.subject_type), images: comment.subject_image ? { large: comment.subject_image, common: comment.subject_image } : {} }) }}
                                   className="comment-subject-link"
                                 >
                                   {comment.subject_name}
@@ -1092,6 +1147,7 @@ export default function UserProfilePage() {
                             {comment.subject_name && (
                               <Link
                                 to={`/info/${Number(comment.subject_type) === 1 ? 'novel' : Number(comment.subject_type) === 4 ? 'game' : 'anime'}/${comment.subject_id}`}
+                                state={{ preview: extractPreview({ id: comment.subject_id, name: comment.subject_name, name_cn: comment.subject_name, type: Number(comment.subject_type), images: comment.subject_image ? { large: comment.subject_image, common: comment.subject_image } : {} }) }}
                                 className="comment-subject-link"
                               >
                                 {comment.subject_name}
@@ -1291,6 +1347,9 @@ export default function UserProfilePage() {
               <button className={`settings-nav ${settingsTab === 'theme' ? 'active' : ''}`} onClick={() => setSettingsTab('theme')}>
                 <Smile size={14} /> 主题外观
               </button>
+              <button className={`settings-nav ${settingsTab === 'data' ? 'active' : ''}`} onClick={() => setSettingsTab('data')}>
+                <Database size={14} /> 数据
+              </button>
             </div>
             <div className="settings-content">
               {settingsTab === 'profile' && (
@@ -1404,6 +1463,44 @@ export default function UserProfilePage() {
                         <span className="theme-desc">{t.desc}</span>
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+              {settingsTab === 'data' && (
+                <div className="settings-section">
+                  <h3>数据管理</h3>
+                  <div className="data-settings-list">
+                    <div className="data-settings-item">
+                      <div className="data-settings-info">
+                        <Database size={16} />
+                        <div>
+                          <div className="data-settings-label">标记时收录到后端</div>
+                          <div className="data-settings-desc">开启后，标记条目时自动将完整数据存入后端数据库，提升后续搜索和加载速度</div>
+                        </div>
+                      </div>
+                      <label className="profile-settings-toggle">
+                        <input type="checkbox" checked={dataSettings.auto_enrich} onChange={e => setDataSettings(s => ({ ...s, auto_enrich: e.target.checked }))} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                    <div className="data-settings-item">
+                      <div className="data-settings-info">
+                        <HardDrive size={16} />
+                        <div>
+                          <div className="data-settings-label">标记时保存到本地</div>
+                          <div className="data-settings-desc">开启后，标记条目时同步保存到浏览器本地存储，可随时导出 CSV 备份</div>
+                        </div>
+                      </div>
+                      <label className="profile-settings-toggle">
+                        <input type="checkbox" checked={dataSettings.local_backup} onChange={e => setDataSettings(s => ({ ...s, local_backup: e.target.checked }))} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="data-settings-actions">
+                    <button className="data-settings-export-btn" onClick={handleExportCSV}>
+                      <Download size={14} /> 导出收藏数据 (CSV)
+                    </button>
                   </div>
                 </div>
               )}
