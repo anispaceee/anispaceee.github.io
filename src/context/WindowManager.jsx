@@ -12,6 +12,7 @@ const DEFAULT_WINDOW_CONFIG = {
   club: { title: 'Tea Time！', icon: '☕', width: 900, height: 650, minWidth: 600, minHeight: 450 },
   links: { title: '友情链接', icon: '🔗', width: 600, height: 500, minWidth: 400, minHeight: 350 },
   mailbox: { title: 'D-Mail', icon: '✉️', width: 700, height: 560, minWidth: 450, minHeight: 400 },
+  invite: { title: '邀请码管理', icon: '🔑', width: 700, height: 600, minWidth: 500, minHeight: 450 },
 };
 
 let nextZIndex = 1000;

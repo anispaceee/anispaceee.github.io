@@ -7,7 +7,6 @@ import WorldChannel from './components/WorldChannel/WorldChannel'
 import Forum from './components/Forum/Forum'
 import PostDetail from './components/Forum/PostDetail'
 import InfoDetail from './components/Info/InfoDetail'
-import HikarinagiDetail from './components/Info/HikarinagiDetail'
 import UserProfilePage from './components/Profile/UserProfilePage'
 import VideoPlayer from './components/Video/VideoPlayer'
 import Mailbox from './components/Mailbox/Mailbox'
@@ -32,6 +31,7 @@ import NovelReader from './components/Musashi/NovelReader';
 import MangaReader from './components/Musashi/MangaReader';
 import MyWorks from './components/Musashi/MyWorks';
 import NewsDetail from './components/NewsZone/NewsDetail'
+import { AdminPanel } from './components/InviteSystem/AdminPanel';
 import NewsZone from './components/NewsZone/NewsZone'
 import NewsEditor from './components/NewsZone/NewsEditor'
 import AuthModal from './components/Common/AuthModal'
@@ -137,6 +137,7 @@ function WindowLayer() {
             {win.id === 'club' && <Club />}
             {win.id === 'links' && <FriendLinks />}
             {win.id === 'mailbox' && <Mailbox />}
+            {win.id === 'invite' && <AdminPanel />}
           </AppWindow>
         );
       })}
@@ -438,7 +439,6 @@ function AppInner() {
           <Route path="/world" element={<SocialGuard><WorldChannel /></SocialGuard>} />
           <Route path="/forum" element={<SocialGuard><Forum /></SocialGuard>} />
           <Route path="/forum/post/:id" element={<SocialGuard><PostDetail /></SocialGuard>} />
-          <Route path="/info/hikarinagi/:type/:id" element={<HikarinagiDetail />} />
           <Route path="/info/:type/:id" element={<InfoDetail />} />
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<Navigate to="/" replace />} />

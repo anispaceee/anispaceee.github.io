@@ -7,7 +7,6 @@ import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volum
 import { getUnreadCount } from '../Notification/Notifications';
 import { setFireworkOn } from '../Common/FireworkEffect';
 import { InviteCodeForm } from '../InviteSystem/InviteCodeForm';
-import { AdminPanel } from '../InviteSystem/AdminPanel';
 import { apiRequest } from '../../services/api';
 import './DockBar.css';
 
@@ -22,7 +21,6 @@ export default function DockBar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [hoveringTrigger, setHoveringTrigger] = useState(false);
   const [hoveringDock, setHoveringDock] = useState(false);
@@ -284,7 +282,7 @@ export default function DockBar() {
                   {isAdmin && (
                     <button
                       className="dock-admin-btn"
-                      onClick={() => setShowAdminPanel(true)}
+                      onClick={() => openWindow('invite')}
                       style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}
                     >
                       <Settings size={14} />
@@ -422,20 +420,6 @@ export default function DockBar() {
         </div>
       )}
 
-      {/* 管理员邀请码管理面板 */}
-      {showAdminPanel && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowAdminPanel(false)}>
-          <div className="bg-gray-900 rounded-xl w-full max-w-4xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-700" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-700 sticky top-0 bg-gray-900 z-10">
-              <h3 className="text-lg font-bold text-white">邀请码管理</h3>
-              <button onClick={() => setShowAdminPanel(false)} className="p-1 hover:bg-gray-700 rounded">
-                <X size={18} className="text-gray-400" />
-              </button>
-            </div>
-            <AdminPanel />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,11 +1,27 @@
 import { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/api';
-import { Plus, X, Copy, Check, Clock, Users, Lock, RefreshCw } from 'lucide-react';
+import { Plus, Copy, Check, Clock, Users, Lock, RefreshCw, Trash2, KeyRound } from 'lucide-react';
+
+const PERMISSION_OPTIONS = [
+  { value: 'social.post', label: '发帖' },
+  { value: 'social.comment', label: '评论' },
+  { value: 'social.follow', label: '关注' },
+  { value: 'social.message', label: '私信' },
+  { value: 'social.world', label: '世界频道' },
+];
+
+const STATUS_MAP = {
+  active: { label: '有效', color: 'var(--success, #22c55e)' },
+  used: { label: '已用完', color: 'var(--text-quaternary, #6b7280)' },
+  expired: { label: '已过期', color: 'var(--warning, #eab308)' },
+  revoked: { label: '已撤销', color: 'var(--danger, #ef4444)' },
+};
 
 export function AdminPanel() {
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [generateData, setGenerateData] = useState({
     type: 'social',
     max_uses: 1,
@@ -13,28 +29,33 @@ export function AdminPanel() {
     permissions: ['social.post', 'social.comment', 'social.follow', 'social.message', 'social.world']
   });
   const [copiedCode, setCopiedCode] = useState(null);
-  const [message, setMessage] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchInvites = async () => {
     setLoading(true);
     try {
       const response = await apiRequest('/api/invites');
-      setInvites(response);
+      // 后端返回数组
+      setInvites(Array.isArray(response) ? response : []);
     } catch (err) {
       console.error('获取邀请码列表失败:', err);
+      setInvites([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchInvites();
-  }, []);
+  useEffect(() => { fetchInvites(); }, []);
 
   const handleGenerate = async () => {
-    setMessage('');
+    setGenerating(true);
     try {
-      const expires_at = generateData.expires_days 
+      const expires_at = generateData.expires_days
         ? new Date(Date.now() + generateData.expires_days * 24 * 60 * 60 * 1000).toISOString()
         : null;
 
@@ -48,25 +69,26 @@ export function AdminPanel() {
         })
       });
 
-      setMessage(`邀请码生成成功: ${response.code}`);
-      setShowGenerateModal(false);
+      showToast(`邀请码 ${response.code} 生成成功`);
+      setShowGenerate(false);
       fetchInvites();
     } catch (err) {
-      setMessage('生成失败: ' + err.message);
+      showToast('生成失败: ' + err.message, 'error');
+    } finally {
+      setGenerating(false);
     }
   };
 
   const handleRevoke = async (id, code) => {
-    if (!confirm(`确定要撤销邀请码 ${code} 吗？`)) return;
-    
     try {
       await apiRequest(`/api/invites/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'revoked' })
       });
+      showToast(`邀请码 ${code} 已撤销`);
       fetchInvites();
     } catch (err) {
-      alert('撤销失败: ' + err.message);
+      showToast('撤销失败: ' + err.message, 'error');
     }
   };
 
@@ -76,251 +98,272 @@ export function AdminPanel() {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (err) {
-      console.error('复制失败:', err);
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
     }
   };
 
-  const permissionOptions = [
-    { value: 'social.post', label: '发帖' },
-    { value: 'social.comment', label: '评论' },
-    { value: 'social.follow', label: '关注' },
-    { value: 'social.message', label: '私信' },
-    { value: 'social.world', label: '世界频道' },
-    { value: 'invite.generate', label: '生成邀请码' },
-  ];
-
-  const statusColors = {
-    active: 'bg-green-500',
-    used: 'bg-gray-500',
-    expired: 'bg-yellow-500',
-    revoked: 'bg-red-500'
-  };
-
-  const statusLabels = {
-    active: '有效',
-    used: '已用完',
-    expired: '已过期',
-    revoked: '已撤销'
+  const togglePermission = (perm) => {
+    const newPerms = generateData.permissions.includes(perm)
+      ? generateData.permissions.filter(p => p !== perm)
+      : [...generateData.permissions, perm];
+    setGenerateData({ ...generateData, permissions: newPerms });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 300 }}>
+        <div style={{ width: 24, height: 24, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white">邀请码管理</h2>
-        <button
-          onClick={() => setShowGenerateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg text-white"
-        >
-          <Plus className="w-5 h-5" />
-          生成邀请码
-        </button>
-      </div>
-
-      {message && (
-        <div className={`mb-4 p-3 rounded-lg text-sm ${message.includes('成功') ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-          {message}
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 100,
+          padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+          background: toast.type === 'error' ? 'rgba(239,68,68,0.9)' : 'rgba(34,197,94,0.9)',
+          color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'all 0.3s',
+        }}>
+          {toast.msg}
         </div>
       )}
 
-      <div className="bg-gray-800 rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-700">
-            <tr>
-              <th className="px-4 py-3 text-left text-gray-400 text-sm font-medium">邀请码</th>
-              <th className="px-4 py-3 text-left text-gray-400 text-sm font-medium">类型</th>
-              <th className="px-4 py-3 text-left text-gray-400 text-sm font-medium">使用情况</th>
-              <th className="px-4 py-3 text-left text-gray-400 text-sm font-medium">状态</th>
-              <th className="px-4 py-3 text-left text-gray-400 text-sm font-medium">过期时间</th>
-              <th className="px-4 py-3 text-left text-gray-400 text-sm font-medium">权限</th>
-              <th className="px-4 py-3 text-left text-gray-400 text-sm font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invites.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                  暂无邀请码，点击上方按钮生成
-                </td>
-              </tr>
-            ) : (
-              invites.map((invite) => (
-                <tr key={invite.id} className="border-t border-gray-700">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <code className="font-mono text-primary">{invite.code}</code>
-                      <button
-                        onClick={() => copyToClipboard(invite.code)}
-                        className="p-1 hover:bg-gray-700 rounded"
-                        title="复制"
-                      >
-                        {copiedCode === invite.code ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-300">{invite.type}</td>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-1 text-gray-300">
-                      <Users className="w-4 h-4" />
-                      {invite.used_count}/{invite.max_uses}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs text-white ${statusColors[invite.status]}`}>
-                      {statusLabels[invite.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-1 text-gray-400 text-sm">
-                      <Clock className="w-4 h-4" />
-                      {invite.expires_at ? new Date(invite.expires_at).toLocaleDateString() : '永久'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {JSON.parse(invite.permissions || '[]').map((perm, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs"
-                        >
-                          {permissionOptions.find(p => p.value === perm)?.label || perm}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {invite.status === 'active' && (
-                      <button
-                        onClick={() => handleRevoke(invite.id, invite.code)}
-                        className="flex items-center gap-1 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded text-sm"
-                      >
-                        <X className="w-4 h-4" />
-                        撤销
-                      </button>
-                    )}
-                    {invite.status !== 'active' && (
-                      <span className="flex items-center gap-1 text-gray-500 text-sm">
-                        <Lock className="w-4 h-4" />
-                        已锁定
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* 顶部操作栏 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <KeyRound size={18} style={{ color: 'var(--primary)' }} />
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>邀请码管理</span>
+          <span style={{ fontSize: 12, color: 'var(--text-quaternary)', marginLeft: 4 }}>{invites.length} 个邀请码</span>
+        </div>
+        <button
+          onClick={() => setShowGenerate(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <Plus size={15} /> 生成邀请码
+        </button>
       </div>
 
-      {showGenerateModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white">生成邀请码</h3>
-              <button
-                onClick={() => setShowGenerateModal(false)}
-                className="p-1 hover:bg-gray-700 rounded"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
+      {/* 列表区域 */}
+      <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+        {invites.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, color: 'var(--text-quaternary)' }}>
+            <KeyRound size={40} style={{ opacity: 0.3 }} />
+            <span style={{ fontSize: 14 }}>暂无邀请码</span>
+            <span style={{ fontSize: 12 }}>点击上方按钮生成第一个邀请码</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {invites.map((invite) => {
+              const statusInfo = STATUS_MAP[invite.status] || STATUS_MAP.active;
+              const perms = JSON.parse(invite.permissions || '[]');
+              return (
+                <div key={invite.id} style={{
+                  background: 'var(--bg-secondary)', borderRadius: 10, padding: '12px 14px',
+                  border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  {/* 第一行：邀请码 + 状态 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <code style={{
+                        fontFamily: 'monospace', fontSize: 16, fontWeight: 700, letterSpacing: 2,
+                        color: 'var(--primary)', background: 'var(--bg-tertiary)', padding: '4px 10px', borderRadius: 6,
+                      }}>
+                        {invite.code}
+                      </code>
+                      <button
+                        onClick={() => copyToClipboard(invite.code)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}
+                        title="复制"
+                      >
+                        {copiedCode === invite.code
+                          ? <Check size={14} style={{ color: 'var(--success, #22c55e)' }} />
+                          : <Copy size={14} style={{ color: 'var(--text-quaternary)' }} />
+                        }
+                      </button>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                      background: `${statusInfo.color}20`, color: statusInfo.color,
+                    }}>
+                      {statusInfo.label}
+                    </span>
+                  </div>
+                  {/* 第二行：详情 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-tertiary)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Users size={12} /> {invite.used_count}/{invite.max_uses}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={12} /> {invite.expires_at ? new Date(invite.expires_at).toLocaleDateString() : '永久'}
+                    </span>
+                    <span style={{ color: 'var(--text-quaternary)' }}>{invite.type}</span>
+                  </div>
+                  {/* 第三行：权限标签 */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {perms.map((perm, i) => (
+                      <span key={i} style={{
+                        fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                        background: 'var(--primary-10, rgba(99,102,241,0.1))', color: 'var(--primary)',
+                      }}>
+                        {PERMISSION_OPTIONS.find(p => p.value === perm)?.label || perm}
+                      </span>
+                    ))}
+                  </div>
+                  {/* 操作 */}
+                  {invite.status === 'active' && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                      <button
+                        onClick={() => handleRevoke(invite.id, invite.code)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                          background: 'rgba(239,68,68,0.1)', color: 'var(--danger, #ef4444)', fontSize: 12,
+                        }}
+                      >
+                        <Trash2 size={12} /> 撤销
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-            <div className="space-y-4">
+      {/* 生成邀请码面板 */}
+      {showGenerate && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 50,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowGenerate(false)}>
+          <div style={{
+            background: 'var(--bg-primary)', borderRadius: 12, width: 340, maxWidth: '90%',
+            border: '1px solid var(--border-primary)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          }} onClick={e => e.stopPropagation()}>
+            {/* 标题 */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 16px', borderBottom: '1px solid var(--border-primary)',
+            }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>生成邀请码</span>
+              <button onClick={() => setShowGenerate(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-quaternary)', fontSize: 18 }}>&times;</button>
+            </div>
+            {/* 表单 */}
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label className="block text-gray-400 text-sm mb-1">邀请类型</label>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>邀请类型</label>
                 <select
                   value={generateData.type}
                   onChange={(e) => setGenerateData({ ...generateData, type: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-primary)',
+                    background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none',
+                  }}
                 >
-                  <option value="social">社交功能</option>
+                  <option value="social">社交功能（全部）</option>
                   <option value="post">仅发帖</option>
                   <option value="comment">仅评论</option>
                 </select>
               </div>
-
               <div>
-                <label className="block text-gray-400 text-sm mb-1">最大使用次数</label>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>最大使用次数</label>
                 <input
-                  type="number"
-                  min="1"
-                  max="100"
+                  type="number" min="1" max="100"
                   value={generateData.max_uses}
                   onChange={(e) => setGenerateData({ ...generateData, max_uses: parseInt(e.target.value) || 1 })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-primary)',
+                    background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
                 />
               </div>
-
               <div>
-                <label className="block text-gray-400 text-sm mb-1">过期天数（留空为永久）</label>
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>过期天数（0 为永久）</label>
                 <input
-                  type="number"
-                  min="1"
+                  type="number" min="0"
                   value={generateData.expires_days}
                   onChange={(e) => setGenerateData({ ...generateData, expires_days: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-primary)',
+                    background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
                 />
               </div>
-
               <div>
-                <label className="block text-gray-400 text-sm mb-2">授予权限</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {permissionOptions.map((opt) => (
-                    <label
-                      key={opt.value}
-                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer ${
-                        generateData.permissions.includes(opt.value)
-                          ? 'bg-primary/20 border border-primary'
-                          : 'bg-gray-700 border border-gray-600'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={generateData.permissions.includes(opt.value)}
-                        onChange={(e) => {
-                          const newPermissions = e.target.checked
-                            ? [...generateData.permissions, opt.value]
-                            : generateData.permissions.filter(p => p !== opt.value);
-                          setGenerateData({ ...generateData, permissions: newPermissions });
+                <label style={{ display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 6 }}>授予权限</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {PERMISSION_OPTIONS.map((opt) => {
+                    const active = generateData.permissions.includes(opt.value);
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => togglePermission(opt.value)}
+                        style={{
+                          padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                          border: `1px solid ${active ? 'var(--primary)' : 'var(--border-primary)'}`,
+                          background: active ? 'var(--primary-10, rgba(99,102,241,0.1))' : 'var(--bg-secondary)',
+                          color: active ? 'var(--primary)' : 'var(--text-tertiary)',
+                          fontWeight: active ? 600 : 400,
                         }}
-                        className="rounded"
-                      />
-                      <span className="text-sm text-gray-300">{opt.label}</span>
-                    </label>
-                  ))}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
-
-            <div className="flex gap-3 mt-6">
+            {/* 按钮 */}
+            <div style={{ display: 'flex', gap: 8, padding: '0 16px 14px' }}>
               <button
-                onClick={() => setShowGenerateModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white"
+                onClick={() => setShowGenerate(false)}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid var(--border-primary)',
+                  background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer',
+                }}
               >
                 取消
               </button>
               <button
                 onClick={handleGenerate}
-                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg text-white flex items-center justify-center gap-2"
+                disabled={generating}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, border: 'none',
+                  background: generating ? 'var(--bg-tertiary)' : 'var(--primary)',
+                  color: generating ? 'var(--text-quaternary)' : '#fff',
+                  fontSize: 13, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
               >
-                <RefreshCw className="w-4 h-4" />
-                生成
+                <RefreshCw size={14} style={{ animation: generating ? 'spin 0.8s linear infinite' : 'none' }} />
+                {generating ? '生成中...' : '生成'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
