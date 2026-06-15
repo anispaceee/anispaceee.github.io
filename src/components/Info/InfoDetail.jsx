@@ -135,7 +135,7 @@ function StaffGroup({ role, members, defaultCollapsed = false }) {
 }
 
 // ─── 集数进度 Tab 组件 ───
-function EpisodeProgressTab({ subjectId, subjectType, episodes, episodesLoading, fetchEpisodes, user, API_BASE }) {
+function EpisodeProgressTab({ subjectId, subjectType, episodes, episodesLoading, fetchEpisodes, user, API_BASE, collectionMark, onAutoMark }) {
   const [progressMap, setProgressMap] = useState({}); // { episodeId: { status, comment, is_private, ... } }
   const [progressLoading, setProgressLoading] = useState(false);
   const [commentModal, setCommentModal] = useState(null); // { episode, ...currentProgress }
@@ -219,6 +219,10 @@ function EpisodeProgressTab({ subjectId, subjectType, episodes, episodesLoading,
           ...prev,
           [ep.id]: { episode_id: ep.id, episode_sort: ep.sort || ep.ep, status: 'watched', is_private: 0, comment: '' },
         }));
+        // 自动标记为「在看」
+        if (!collectionMark && onAutoMark) {
+          onAutoMark('doing');
+        }
       } catch (err) {
         console.warn('[EpisodeProgress] toggle failed:', err);
       }
@@ -1653,6 +1657,23 @@ export default function InfoDetail() {
                     fetchEpisodes={fetchWatchEpisodes}
                     user={currentUser}
                     API_BASE={API_BASE}
+                    collectionMark={collectionMark}
+                    onAutoMark={async (status) => {
+                      try {
+                        await CollectionMarkService.upsert({
+                          subjectId: parseInt(id),
+                          subjectType: subject?.type || 2,
+                          subjectName: subject?.name_cn || subject?.name || '',
+                          subjectImage: subject?.images?.common || subject?.images?.medium || '',
+                          status,
+                          rating: 0,
+                          comment: '',
+                        });
+                        setCollectionMark(status);
+                      } catch (err) {
+                        console.warn('[EpisodeProgress] auto mark failed:', err);
+                      }
+                    }}
                   />
                 )}
 
