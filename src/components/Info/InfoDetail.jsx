@@ -185,13 +185,6 @@ function EpisodeProgressTab({ subjectId, subjectType, episodes, episodesLoading,
   useEffect(() => { loadProgress(); }, [loadProgress]);
   useEffect(() => { loadEpComments(); }, [loadEpComments]);
 
-  // 加载集数列表（如果还没有）
-  useEffect(() => {
-    if (episodes.length === 0 && !episodesLoading && fetchEpisodes) {
-      fetchEpisodes();
-    }
-  }, [episodes.length, episodesLoading, fetchEpisodes]);
-
   // 点击格子切换已看/未看
   const toggleEpisode = async (ep) => {
     if (!user) return;
@@ -1051,9 +1044,9 @@ export default function InfoDetail() {
     }
   }, [subject]);
 
-  // 切换到站内观看标签时自动获取剧集
+  // 切换到站内观看/进度标签时自动获取剧集
   useEffect(() => {
-    if (activeTab === 'watch' && watchEpisodes.length === 0 && !watchEpisodesLoading) {
+    if ((activeTab === 'watch' || activeTab === 'progress') && watchEpisodes.length === 0 && !watchEpisodesLoading) {
       fetchWatchEpisodes();
     }
   }, [activeTab, watchEpisodes.length, watchEpisodesLoading, fetchWatchEpisodes]);
@@ -1658,7 +1651,7 @@ export default function InfoDetail() {
                     episodes={watchEpisodes}
                     episodesLoading={watchEpisodesLoading}
                     fetchEpisodes={fetchWatchEpisodes}
-                    user={user}
+                    user={currentUser}
                     API_BASE={API_BASE}
                   />
                 )}
