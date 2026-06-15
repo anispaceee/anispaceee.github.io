@@ -191,6 +191,19 @@ async function getAdminUser(request, env) {
   return authUser;
 }
 
+async function hasSocialPermission(env, userId, permission) {
+  // 管理员自动拥有所有权限
+  const user = await env.DB.prepare('SELECT is_admin FROM users WHERE id = ?').bind(userId).first();
+  if (user && user.is_admin) return true;
+  // 检查权限表
+  const perm = await env.DB.prepare(
+    'SELECT expires_at FROM user_permissions WHERE user_id = ? AND permission = ?'
+  ).bind(userId, permission).first();
+  if (!perm) return false;
+  if (perm.expires_at && new Date(perm.expires_at) < new Date()) return false;
+  return true;
+}
+
 // ─── 原有常量 ───────────────────────────────────────────────
 
 const BANGUMI_TOKEN_URL = 'https://bgm.tv/oauth/access_token';
@@ -1628,10 +1641,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }, 200, origin);
   }
 
-  // POST /api/posts — 创建帖子（需认证）
+  // POST /api/posts — 创建帖子（需认证 + 社交权限）
   if (method === 'POST' && pathname === '/api/posts') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.post')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
 
     try {
       const body = await request.json();
@@ -1709,11 +1723,12 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     return jsonResponse({ ...parsedPost, views: (post.views || 0) + 1, replies: parsedReplies }, 200, origin);
   }
 
-  // POST /api/posts/:id/replies — 添加回复（需认证）
+  // POST /api/posts/:id/replies — 添加回复（需认证 + 社交权限）
   const replyMatch = pathname.match(/^\/api\/posts\/(\d+)\/replies$/);
   if (replyMatch && method === 'POST') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.comment')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
     const postId = Number(replyMatch[1]);
 
     try {
@@ -1748,11 +1763,12 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }
   }
 
-  // POST /api/posts/:id/like — 切换点赞（需认证）
+  // POST /api/posts/:id/like — 切换点赞（需认证 + 社交权限）
   const likeMatch = pathname.match(/^\/api\/posts\/(\d+)\/like$/);
   if (likeMatch && method === 'POST') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.post')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
     const postId = Number(likeMatch[1]);
 
     const existing = await env.DB.prepare(
@@ -1875,11 +1891,12 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     return jsonResponse({ message: '已删除收藏' }, 200, origin);
   }
 
-  // POST /api/follows/:userId — 切换关注（需认证）
+  // POST /api/follows/:userId — 切换关注（需认证 + 社交权限）
   const followMatch = pathname.match(/^\/api\/follows\/(\d+)$/);
   if (followMatch && method === 'POST') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.follow')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
     const targetUserId = Number(followMatch[1]);
 
     try {
@@ -2425,10 +2442,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }, 200, origin);
   }
 
-  // POST /api/world-messages — 发送世界消息（需认证）
+  // POST /api/world-messages — 发送世界消息（需认证 + 社交权限）
   if (method === 'POST' && pathname === '/api/world-messages') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.world')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
 
     try {
       const body = await request.json();
@@ -2987,10 +3005,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     return jsonResponse({ message: '已标记为已读' }, 200, origin);
   }
 
-  // POST /api/private-messages — 发送私信（需认证）
+  // POST /api/private-messages — 发送私信（需认证 + 社交权限）
   if (method === 'POST' && pathname === '/api/private-messages') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.message')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
 
     try {
       const body = await request.json();
@@ -3111,10 +3130,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }
   }
 
-  // POST /api/friend-posts — 创建好友动态（需认证）
+  // POST /api/friend-posts — 创建好友动态（需认证 + 社交权限）
   if (method === 'POST' && pathname === '/api/friend-posts') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.post')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
 
     try {
       const body = await request.json();
@@ -3138,11 +3158,12 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }
   }
 
-  // POST /api/friend-posts/:id/like — 切换点赞（需认证）
+  // POST /api/friend-posts/:id/like — 切换点赞（需认证 + 社交权限）
   const fpLikeMatch = pathname.match(/^\/api\/friend-posts\/(\d+)\/like$/);
   if (fpLikeMatch && method === 'POST') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.post')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
     const postId = Number(fpLikeMatch[1]);
 
     try {
@@ -3169,11 +3190,12 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }
   }
 
-  // POST /api/friend-posts/:id/comments — 添加评论（需认证）
+  // POST /api/friend-posts/:id/comments — 添加评论（需认证 + 社交权限）
   const fpCommentMatch = pathname.match(/^\/api\/friend-posts\/(\d+)\/comments$/);
   if (fpCommentMatch && method === 'POST') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    if (!await hasSocialPermission(env, authUser.userId, 'social.comment')) return jsonResponse({ error: '社交功能未解锁，请使用邀请码' }, 403, origin);
     const postId = Number(fpCommentMatch[1]);
 
     try {

@@ -45,23 +45,17 @@ import { StorageService, WorldChannelService, FriendPostService } from './servic
 import { useApp } from './context/AppContext'
 import { initMediaSources } from './services/media/initSources'
 
-// 社交模式守卫：社交功能关闭时显示提示
+// 社交模式守卫：社交功能关闭时显示提示（邀请制，不可自由开启）
 function SocialGuard({ children }) {
-  const { socialMode, toggleSocialMode } = useApp();
+  const { socialMode } = useApp();
   if (socialMode) return children;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16, color: 'var(--text-secondary)' }}>
       <MessageCircle size={48} style={{ color: 'var(--text-quaternary)' }} />
-      <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>社交功能已关闭</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>社交功能未解锁</h2>
       <p style={{ fontSize: 13, color: 'var(--text-tertiary)', maxWidth: 320, textAlign: 'center' }}>
-        当前处于安静模式，社交功能已隐藏。你可以在 Dock 设置中重新开启。
+        社交功能需要邀请码才能解锁。请在 Dock 设置中输入邀请码。
       </p>
-      <button
-        onClick={() => toggleSocialMode(true)}
-        style={{ padding: '8px 24px', borderRadius: 20, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
-      >
-        开启社交功能
-      </button>
     </div>
   );
 }

@@ -251,20 +251,35 @@ export default function DockBar() {
                 </div>
                 <div className="dock-setting-group">
                   <label>社交功能</label>
-                  <div className="dock-autohide-row">
-                    <button className={`dock-theme-btn ${socialMode ? 'active' : ''}`} onClick={() => toggleSocialMode(true)}>开启</button>
-                    <button className={`dock-theme-btn ${!socialMode ? 'active' : ''}`} onClick={() => toggleSocialMode(false)}>关闭</button>
-                  </div>
-                  <span className="dock-setting-hint">关闭后隐藏世界线、放課後、D-Mail等社交功能</span>
-                  {!socialMode && isAuthenticated && (
-                    <button
-                      className="dock-invite-btn"
-                      onClick={() => setShowInviteModal(true)}
-                      style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}
-                    >
-                      <KeyRound size={14} />
-                      输入邀请码解锁
-                    </button>
+                  {socialMode ? (
+                    <>
+                      <div className="dock-autohide-row">
+                        <button className="dock-theme-btn active">已解锁</button>
+                      </div>
+                      <span className="dock-setting-hint">社交功能已通过邀请码解锁</span>
+                    </>
+                  ) : isAuthenticated ? (
+                    <>
+                      <div className="dock-autohide-row">
+                        <button className="dock-theme-btn active" style={{ opacity: 0.5, cursor: 'not-allowed' }}>未解锁</button>
+                      </div>
+                      <span className="dock-setting-hint">社交功能需要邀请码才能解锁</span>
+                      <button
+                        className="dock-invite-btn"
+                        onClick={() => setShowInviteModal(true)}
+                        style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}
+                      >
+                        <KeyRound size={14} />
+                        输入邀请码解锁
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="dock-autohide-row">
+                        <button className="dock-theme-btn active" style={{ opacity: 0.5, cursor: 'not-allowed' }}>未解锁</button>
+                      </div>
+                      <span className="dock-setting-hint">登录后输入邀请码解锁社交功能</span>
+                    </>
                   )}
                   {isAdmin && (
                     <button
