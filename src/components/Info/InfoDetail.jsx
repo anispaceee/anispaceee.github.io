@@ -335,14 +335,27 @@ export default function InfoDetail() {
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : new ApiError(err.message || '加载失败');
       // NSFW 条目：用 preview 数据构造最小 subject，走正常渲染流程
-      if (apiErr.code === 'NOT_FOUND' && preview) {
+      if (apiErr.code === 'NOT_FOUND') {
         setIsNsfw(true);
+        let nsfwPreview = preview;
+        // 如果没有 preview 数据，构造一个最基础的 subject（只有 id）
+        // 仍然允许收藏/标记操作
+        if (!nsfwPreview) {
+          nsfwPreview = {
+            id: parseInt(id),
+            name: `条目 #${id}`,
+            name_cn: '',
+            type: 2,
+            image: '',
+            images: {},
+          };
+        }
         setSubject({
           id: parseInt(id),
-          name: preview.name || '',
-          name_cn: preview.name_cn || '',
-          type: preview.type || 2,
-          images: preview.images || { large: preview.image || '', common: preview.image || '' },
+          name: nsfwPreview.name || '',
+          name_cn: nsfwPreview.name_cn || '',
+          type: nsfwPreview.type || 2,
+          images: nsfwPreview.images || { large: nsfwPreview.image || '', common: nsfwPreview.image || '' },
           rating: { score: 0, total: 0, count: {} },
           collection: { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
           tags: [],

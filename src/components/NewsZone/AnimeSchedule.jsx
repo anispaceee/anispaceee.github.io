@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Tv, Loader2, ChevronDown, Sparkles, Gamepad2 } from 'lucide-react';
 import { AniBTService } from '../../services/api';
 import HikarinagiService from '../../services/HikarinagiService';
+import { extractPreview } from '../../utils/subjectType';
 import { SubjectCard, SkeletonCard } from '../Common/CommonComponents';
 import './AnimeSchedule.css';
 
@@ -196,6 +197,7 @@ export default function AnimeSchedule() {
                       item={item}
                       type="anime"
                       linkTo={`/info/2/${item.id}`}
+                      linkState={{ preview: extractPreview(item) }}
                     />
                   ))
                 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BangumiService, StorageService } from '../../services/api';
 import { Search, Loader2, X, Clock, Tv, BookOpen, Gamepad2, Music, Users, MessageCircle, Film, Newspaper, ChevronRight, Trash2 } from 'lucide-react';
+import { extractPreview } from '../../utils/subjectType';
 import './GlobalSearch.css';
 
 const SEARCH_HISTORY_KEY = 'acg_search_history';
@@ -195,7 +196,7 @@ export default function GlobalSearch({ onClose }) {
       navigate(`/forum/post/${item.id}`);
     } else {
       const typeKey = typeCode === 1 ? 'novel' : typeCode === 4 ? 'game' : typeCode === 3 ? 'music' : 'anime';
-      navigate(`/info/${typeKey}/${item.id}`);
+      navigate(`/info/${typeKey}/${item.id}`, { state: { preview: extractPreview(item) } });
     }
     onClose();
   };

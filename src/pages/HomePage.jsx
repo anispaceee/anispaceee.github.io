@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService } from '../services/api';
 import HikarinagiService from '../services/HikarinagiService';
+import { extractPreview } from '../utils/subjectType';
 import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper, Send, Image, X, Users as UsersIcon } from 'lucide-react';
 import { SubjectCard, SkeletonCard, ErrorState } from '../components/Common/CommonComponents';
 import UserAvatar from '../components/Common/UserAvatar';
@@ -110,7 +111,7 @@ function RandomRecommendCard({ subject, loading, onRefresh, activeType, onTypeCh
 
   return (
     <div className="random-recommend-card">
-      <Link to={linkTo} className="random-cover-link">
+      <Link to={linkTo} state={{ preview: extractPreview(subject) }} className="random-cover-link">
         <div className="random-cover-wrap">
           {!coverLoaded && !coverFailed && <div className="random-cover-skeleton shimmer" />}
           <img
@@ -128,7 +129,7 @@ function RandomRecommendCard({ subject, loading, onRefresh, activeType, onTypeCh
         </div>
       </Link>
       <div className="random-info">
-        <Link to={linkTo} className="random-title">{title}</Link>
+        <Link to={linkTo} state={{ preview: extractPreview(subject) }} className="random-title">{title}</Link>
         <p className="random-summary">{summary}</p>
         <div className="random-meta">
           <div className="random-type-filter">
@@ -470,7 +471,7 @@ export default function HomePage() {
                 const title = item.name_cn || item.name || '';
                 const summary = item.summary || '';
                 return (
-                  <Link key="clone-last" to={`/info/anime/${item.id}`} className="home-banner-slide">
+                  <Link key="clone-last" to={`/info/anime/${item.id}`} state={{ preview: extractPreview(item) }} className="home-banner-slide">
                     <div className="home-banner-bg" style={{ backgroundImage: `url(${img})` }} />
                     <div className="home-banner-gradient" />
                     <div className="home-banner-content">
@@ -500,7 +501,7 @@ export default function HomePage() {
                 const title = item.name_cn || item.name || '';
                 const summary = item.summary || '';
                 return (
-                  <Link key={item.id} to={`/info/${typePath}/${item.id}`} className="home-banner-slide">
+                  <Link key={item.id} to={`/info/${typePath}/${item.id}`} state={{ preview: extractPreview(item) }} className="home-banner-slide">
                     <div className="home-banner-bg" style={{ backgroundImage: `url(${img})` }} />
                     <div className="home-banner-gradient" />
                     <div className="home-banner-content">
@@ -529,7 +530,7 @@ export default function HomePage() {
                 const title = item.name_cn || item.name || '';
                 const summary = item.summary || '';
                 return (
-                  <Link key="clone-first" to={`/info/anime/${item.id}`} className="home-banner-slide">
+                  <Link key="clone-first" to={`/info/anime/${item.id}`} state={{ preview: extractPreview(item) }} className="home-banner-slide">
                     <div className="home-banner-bg" style={{ backgroundImage: `url(${img})` }} />
                     <div className="home-banner-gradient" />
                     <div className="home-banner-content">
@@ -586,7 +587,7 @@ export default function HomePage() {
               <div className="home-calendar-grid">
                 {calendarLoading ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />) :
                   calendarItems.map(item => (
-                    <SubjectCard key={item.id} item={item} type="anime" linkTo={`/info/anime/${item.id}`} />
+                    <SubjectCard key={item.id} item={item} type="anime" linkTo={`/info/anime/${item.id}`} linkState={{ preview: extractPreview(item) }} />
                   ))}
               </div>
             </div>

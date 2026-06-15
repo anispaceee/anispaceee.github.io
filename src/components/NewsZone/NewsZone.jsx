@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Tv, Book, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Image as ImageIcon, X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { NewsService, BangumiService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
+import { extractPreview } from '../../utils/subjectType';
 import AnimeSchedule from './AnimeSchedule';
 import './NewsZone.css';
 
@@ -107,7 +108,7 @@ export default function NewsZone() {
     if (cached !== undefined) {
       if (cached) {
         const typeKey = BANGUMI_TYPE_MAP[cached.type] || 'anime';
-        navigate(`/info/${typeKey}/${cached.id}`);
+        navigate(`/info/${typeKey}/${cached.id}`, { state: { preview: extractPreview(cached) } });
       } else {
         if (news.link) window.open(news.link, '_blank');
       }
@@ -125,7 +126,7 @@ export default function NewsZone() {
             matchCache.current[news.title] = match;
             setBangumiMatchMap(prev => ({ ...prev, [news.title]: match }));
             const typeKey = BANGUMI_TYPE_MAP[match.type] || 'anime';
-            navigate(`/info/${typeKey}/${match.id}`);
+            navigate(`/info/${typeKey}/${match.id}`, { state: { preview: extractPreview(match) } });
             return;
           }
         }
