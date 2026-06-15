@@ -11,7 +11,7 @@ export function AppProvider({ children }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [socialMode, setSocialMode] = useState(() => {
     const saved = StorageService.get('anispace_social_mode');
-    return saved !== null ? saved : true; // 默认开启社交
+    return saved !== null ? saved : false; // 默认关闭社交（邀请制）
   });
 
   useEffect(() => {

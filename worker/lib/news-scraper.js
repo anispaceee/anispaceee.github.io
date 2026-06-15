@@ -4,9 +4,15 @@
  * 数据源：
  * 1. Bangumi Calendar API — 当季新番
  * 2. Bangumi 热门排行 — 高分动画
- * 3. 月幕 Galgame — Galgame 发行（OAuth2 API）
- * 4. HikariNagi — 光凪 Galgame 社区（HTML 爬取）
- * 5. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
+ * 3. Bangumi 游戏排行 — 高分游戏
+ * 4. Bangumi 小说排行 — 高分小说/漫画
+ * 5. 月幕 Galgame — Galgame 发行（OAuth2 API）
+ * 6. HikariNagi — 光凪 Galgame 社区（HTML 爬取）
+ * 7. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
+ * 8. VNDB — 视觉小说数据库（公开 API）
+ * 9. Steam — 精选/特惠游戏
+ * 10. Jikan Season — MyAnimeList 当季新番（公开 API）
+ * 11. Jikan Top — MyAnimeList 热门排行（公开 API）
  *
  * 注意：AniList 和 B站 API 在 Cloudflare Worker 环境中被封禁（403/412），不可用
  *
@@ -84,6 +90,77 @@ async function scrapeBangumiHot() {
   } catch {
     return [];
   }
+}
+
+// ─── Bangumi 游戏排行 ─────────────────────────────────────
+
+async function scrapeBangumiGame() {
+  const res = await fetch(`${BANGUMI_API}/v0/subjects?type=4&sort=rank&limit=20`, {
+    headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
+  });
+  if (!res.ok) return [];
+
+  try {
+    const data = await res.json();
+    const items = (data.data || []).map(item => ({
+      source: 'bangumi_game',
+      source_id: `bgm_game_${item.id}`,
+      title: item.name_cn || item.name || '',
+      link: `https://bgm.tv/subject/${item.id}`,
+      summary: `评分 ${item.rating?.score || '-'} · 排名 #${item.rank || '-'} · ${(item.tags || []).slice(0, 3).map(t => t.name).join('/')}`,
+      cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
+      category: '游戏推荐',
+      extra: JSON.stringify({
+        rating: item.rating?.score || 0,
+        rank: item.rank || 0,
+        name_jp: item.name || '',
+        bgm_id: item.id,
+        platform: item.platform || '',
+        tags: (item.tags || []).slice(0, 5).map(t => t.name),
+      }),
+    }));
+    return items;
+  } catch {
+    return [];
+  }
+}
+
+// ─── Bangumi 小说/漫画排行 ────────────────────────────────
+
+async function scrapeBangumiBook() {
+  const items = [];
+
+  // type=1 小说, type=3 音乐
+  for (const [type, typeName] of [[1, '小说'], [3, '音乐']]) {
+    try {
+      const res = await fetch(`${BANGUMI_API}/v0/subjects?type=${type}&sort=rank&limit=10`, {
+        headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
+      });
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      for (const item of (data.data || [])) {
+        items.push({
+          source: 'bangumi_book',
+          source_id: `bgm_book_${item.id}`,
+          title: item.name_cn || item.name || '',
+          link: `https://bgm.tv/subject/${item.id}`,
+          summary: `${typeName} · 评分 ${item.rating?.score || '-'} · 排名 #${item.rank || '-'}`,
+          cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
+          category: typeName === '小说' ? '轻小说' : '音乐推荐',
+          extra: JSON.stringify({
+            rating: item.rating?.score || 0,
+            rank: item.rank || 0,
+            name_jp: item.name || '',
+            bgm_id: item.id,
+            type: typeName,
+          }),
+        });
+      }
+    } catch {}
+  }
+
+  return items;
 }
 
 // ─── 月幕 Galgame (OAuth2 API) ─────────────────────────────
@@ -365,15 +442,292 @@ async function scrapeCnGal() {
   return items.slice(0, 25);
 }
 
+// ─── VNDB 视觉小说数据库 (公开 API) ──────────────────────
+
+const VNDB_API = 'https://api.vndb.org/kana/vn';
+
+async function scrapeVNDB() {
+  const items = [];
+
+  // 1. 高评分视觉小说
+  try {
+    const res = await fetch(VNDB_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filters: ['votecount', '>=', 100],
+        fields: 'title, image.url, rating, length_minutes, developers.name, developers.original',
+        sort: 'rating',
+        results: 15,
+        page: 1,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      for (const vn of (data.results || [])) {
+        const title = vn.title || '';
+        if (!title) continue;
+        const rating = vn.rating ? (vn.rating / 10).toFixed(1) : '-';
+        const dev = (vn.developers || [])[0]?.name || (vn.developers || [])[0]?.original || '';
+        const lengthMin = vn.length_minutes || 0;
+        const lengthStr = lengthMin > 0 ? ` · 约${Math.round(lengthMin / 60)}小时` : '';
+        items.push({
+          source: 'vndb',
+          source_id: `vndb_${vn.id}`,
+          title,
+          link: `https://vndb.org/${vn.id}`,
+          summary: `VNDB ${rating}分${dev ? ` · ${dev}` : ''}${lengthStr}`,
+          cover: vn.image?.url || '',
+          category: 'VN推荐',
+          extra: JSON.stringify({
+            vndbId: vn.id,
+            rating: vn.rating || 0,
+            lengthMinutes: vn.length_minutes || 0,
+            developer: dev,
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  // 2. 最近新增的视觉小说
+  try {
+    const res = await fetch(VNDB_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filters: ['released', '>=', '2026-01-01'],
+        fields: 'title, image.url, rating, length_minutes, developers.name',
+        sort: 'released',
+        results: 10,
+        page: 1,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      for (const vn of (data.results || [])) {
+        const title = vn.title || '';
+        if (!title) continue;
+        if (items.find(i => i.source_id === `vndb_${vn.id}`)) continue;
+        const rating = vn.rating ? (vn.rating / 10).toFixed(1) : '-';
+        const dev = (vn.developers || [])[0]?.name || '';
+        items.push({
+          source: 'vndb',
+          source_id: `vndb_new_${vn.id}`,
+          title,
+          link: `https://vndb.org/${vn.id}`,
+          summary: `新作VN · ${rating}分${dev ? ` · ${dev}` : ''}`,
+          cover: vn.image?.url || '',
+          category: '新作发售',
+          extra: JSON.stringify({
+            vndbId: vn.id,
+            rating: vn.rating || 0,
+            developer: dev,
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  return items.slice(0, 25);
+}
+
+// ─── Steam 精选/特惠 ──────────────────────────────────────
+
+async function scrapeSteam() {
+  const items = [];
+
+  try {
+    const res = await fetch('https://store.steampowered.com/api/featuredcategories/', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!res.ok) return items;
+
+    const data = await res.json();
+
+    // 1. Spotlight 精选
+    const spotlight = data.spotlight || [];
+    for (const item of spotlight.slice(0, 5)) {
+      const title = item.name || '';
+      if (!title) continue;
+      items.push({
+        source: 'steam',
+        source_id: `steam_spot_${item.id}`,
+        title,
+        link: `https://store.steampowered.com/app/${item.id}`,
+        summary: `Steam 精选${item.discounted ? ` · -${item.discount_percent}%` : ''}`,
+        cover: item.header_image?.replace('http://', 'https://') || item.large_capsule_image?.replace('http://', 'https://') || '',
+        category: 'Steam精选',
+        extra: JSON.stringify({
+          appId: item.id,
+          discounted: item.discounted || false,
+          discountPercent: item.discount_percent || 0,
+          finalPrice: item.final_price || 0,
+        }),
+      });
+    }
+
+    // 2. Daily Deal 每日特惠
+    const deals = data.specials || data.daily_deals || [];
+    for (const item of (deals.items || deals).slice(0, 10)) {
+      const title = item.name || '';
+      if (!title) continue;
+      if (items.find(i => i.source_id === `steam_deal_${item.id}`)) continue;
+      items.push({
+        source: 'steam',
+        source_id: `steam_deal_${item.id}`,
+        title,
+        link: `https://store.steampowered.com/app/${item.id}`,
+        summary: `Steam 特惠 · -${item.discount_percent || 0}%`,
+        cover: item.header_image?.replace('http://', 'https://') || item.large_capsule_image?.replace('http://', 'https://') || '',
+        category: 'Steam特惠',
+        extra: JSON.stringify({
+          appId: item.id,
+          discountPercent: item.discount_percent || 0,
+          originalPrice: item.original_price || 0,
+          finalPrice: item.final_price || 0,
+        }),
+      });
+    }
+
+    // 3. New Releases 新品
+    const newReleases = data.new_releases || [];
+    for (const item of (newReleases.items || newReleases).slice(0, 5)) {
+      const title = item.name || '';
+      if (!title) continue;
+      if (items.find(i => i.source_id === `steam_new_${item.id}`)) continue;
+      items.push({
+        source: 'steam',
+        source_id: `steam_new_${item.id}`,
+        title,
+        link: `https://store.steampowered.com/app/${item.id}`,
+        summary: 'Steam 新品',
+        cover: item.header_image?.replace('http://', 'https://') || item.large_capsule_image?.replace('http://', 'https://') || '',
+        category: 'Steam新品',
+        extra: JSON.stringify({
+          appId: item.id,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 20);
+}
+
+// ─── Jikan (MyAnimeList) ──────────────────────────────────────
+// 爬取当季新番和热门排行
+
+const JIKAN_API = 'https://api.jikan.moe/v4';
+
+async function scrapeJikanSeason() {
+  const items = [];
+
+  try {
+    // 获取当季新番
+    const res = await fetch(`${JIKAN_API}/seasons/now?limit=25`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const title = anime.title || anime.title_japanese || '';
+      if (!title) continue;
+
+      const genres = (anime.genres || []).map(g => g.name).join('、');
+      const studios = (anime.studios || []).map(s => s.name).join('、');
+      const score = anime.score || 0;
+      const status = anime.status || '';
+
+      items.push({
+        source: 'jikan_season',
+        source_id: `mal_${anime.mal_id}`,
+        title,
+        link: anime.url || `https://myanimelist.net/anime/${anime.mal_id}`,
+        summary: `${anime.type || 'TV'} · ${anime.episodes || '?'}集 · 评分 ${score} · ${genres || '未知类型'}`,
+        cover: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '',
+        category: '新番导视',
+        extra: JSON.stringify({
+          malId: anime.mal_id,
+          score,
+          episodes: anime.episodes,
+          type: anime.type,
+          status,
+          genres,
+          studios,
+          year: anime.year,
+          season: anime.season,
+          airing: anime.airing,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 25);
+}
+
+async function scrapeJikanTop() {
+  const items = [];
+
+  try {
+    // 获取评分排行
+    const res = await fetch(`${JIKAN_API}/top/anime?filter=bypopularity&limit=25`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const title = anime.title || anime.title_japanese || '';
+      if (!title) continue;
+
+      const genres = (anime.genres || []).map(g => g.name).join('、');
+      const score = anime.score || 0;
+      const rank = anime.rank || 0;
+      const popularity = anime.popularity || 0;
+
+      items.push({
+        source: 'jikan_top',
+        source_id: `mal_top_${anime.mal_id}`,
+        title,
+        link: anime.url || `https://myanimelist.net/anime/${anime.mal_id}`,
+        summary: `排名 #${rank} · 评分 ${score} · ${popularity}人收藏`,
+        cover: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '',
+        category: '热门推荐',
+        extra: JSON.stringify({
+          malId: anime.mal_id,
+          score,
+          rank,
+          popularity,
+          genres,
+          type: anime.type,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 25);
+}
+
 // ─── 统一爬取入口 ──────────────────────────────────────────
 
 export async function runAllScrapers(db) {
   const scrapers = [
     { name: 'bangumi_calendar', fn: scrapeBangumiCalendar },
     { name: 'bangumi_hot', fn: scrapeBangumiHot },
+    { name: 'bangumi_game', fn: scrapeBangumiGame },
+    { name: 'bangumi_book', fn: scrapeBangumiBook },
     { name: 'ymgal', fn: scrapeYmgal },
     { name: 'hikarinagi', fn: scrapeHikariNagi },
     { name: 'cngal', fn: scrapeCnGal },
+    { name: 'vndb', fn: scrapeVNDB },
+    { name: 'steam', fn: scrapeSteam },
+    { name: 'jikan_season', fn: scrapeJikanSeason },
+    { name: 'jikan_top', fn: scrapeJikanTop },
   ];
 
   const results = {};
@@ -415,9 +769,15 @@ export async function scrapeSingleSource(sourceName) {
   const scrapers = {
     bangumi_calendar: scrapeBangumiCalendar,
     bangumi_hot: scrapeBangumiHot,
+    bangumi_game: scrapeBangumiGame,
+    bangumi_book: scrapeBangumiBook,
     ymgal: scrapeYmgal,
     hikarinagi: scrapeHikariNagi,
     cngal: scrapeCnGal,
+    vndb: scrapeVNDB,
+    steam: scrapeSteam,
+    jikan_season: scrapeJikanSeason,
+    jikan_top: scrapeJikanTop,
   };
 
   const fn = scrapers[sourceName];

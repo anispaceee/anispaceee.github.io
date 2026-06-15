@@ -17,6 +17,8 @@ const SOURCE_CONFIG = {
   cngal: { label: 'CnGal', color: '#06b6d4', icon: Book },
   vndb: { label: 'VNDB', color: '#6366f1', icon: Book },
   steam: { label: 'Steam', color: '#1b2838', icon: Sparkles },
+  jikan_season: { label: 'MAL 当季', color: '#2e51a2', icon: Tv },
+  jikan_top: { label: 'MAL 热门', color: '#0b3d91', icon: Flame },
   custom: { label: '站内资讯', color: '#10b981', icon: Sparkles },
 };
 

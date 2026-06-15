@@ -1737,3 +1737,73 @@ export const QQMusicService = {
     return data?.lrc || '';
   },
 };
+
+// ─── JikanService (MyAnimeList API) ───
+// 通过Worker代理调用Jikan API
+export const JikanService = {
+  async getAnime(id) {
+    return apiRequest(`/api/jikan/anime/${id}`);
+  },
+
+  async getTopAnime(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/api/jikan/top/anime${query ? '?' + query : ''}`);
+  },
+
+  async getSeasonNow() {
+    return apiRequest(`/api/jikan/seasons/now`);
+  },
+
+  async getSeason(year, season) {
+    return apiRequest(`/api/jikan/seasons/${year}/${season}`);
+  },
+
+  async getAnimeRecommendations() {
+    return apiRequest(`/api/jikan/recommendations/anime`);
+  },
+
+  async searchAnime(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/api/jikan/anime${query ? '?' + query : ''}`);
+  },
+
+  async getRandomAnime() {
+    return apiRequest(`/api/jikan/random/anime`);
+  },
+
+  async getAnimeCharacters(id) {
+    return apiRequest(`/api/jikan/anime/${id}/characters`);
+  },
+
+  async getAnimeStaff(id) {
+    return apiRequest(`/api/jikan/anime/${id}/staff`);
+  },
+
+  async getAnimePictures(id) {
+    return apiRequest(`/api/jikan/anime/${id}/pictures`);
+  },
+};
+
+// ─── TraceMoeService (番剧识别) ───
+// 通过Worker代理调用trace.moe API
+export const TraceMoeService = {
+  async searchByUrl(imageUrl) {
+    const query = new URLSearchParams({ url: imageUrl }).toString();
+    return apiRequest(`/api/tracemoe/search?${query}`);
+  },
+
+  async searchByImage(imageFile) {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    const res = await fetch(`${API_BASE}/api/tracemoe/search`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('识别失败');
+    return res.json();
+  },
+
+  async getMe() {
+    return apiRequest(`/api/tracemoe/me`);
+  },
+};

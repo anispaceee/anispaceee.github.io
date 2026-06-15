@@ -15,6 +15,8 @@ const SOURCE_CONFIG = {
   cngal: { label: 'CnGal', color: '#06b6d4' },
   vndb: { label: 'VNDB', color: '#6366f1' },
   steam: { label: 'Steam', color: '#1b2838' },
+  jikan_season: { label: 'MAL 当季', color: '#2e51a2' },
+  jikan_top: { label: 'MAL 热门', color: '#0b3d91' },
   custom: { label: '站内资讯', color: '#10b981' },
 };
 

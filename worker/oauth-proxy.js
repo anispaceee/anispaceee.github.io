@@ -348,6 +348,92 @@ async function handleBangumiProxy(pathname, searchParams, request, env, origin) 
 
 const HIKARINAGI_API_URL = 'https://www.hikarinagi.org/api/v2';
 
+// ─── Jikan API 代理 (MyAnimeList) ────────────────────────────────────────
+
+const JIKAN_API_URL = 'https://api.jikan.moe/v4';
+
+// ─── trace.moe API 代理 (番剧识别) ────────────────────────────────────────
+
+const TRACEMOE_API_URL = 'https://api.trace.moe';
+
+// Jikan API 代理处理函数
+async function handleJikanProxy(pathname, searchParams, request, env, origin) {
+  const targetUrl = `${JIKAN_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+
+  // 检查缓存（Jikan数据缓存24小时）
+  const cache = caches.default;
+  const cacheKey = new Request(targetUrl, { method: 'GET' });
+  if (request.method === 'GET') {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      const headers = new Headers(cached.headers);
+      headers.set('X-Cache', 'HIT');
+      Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+      return new Response(cached.body, { status: cached.status, headers });
+    }
+  }
+
+  const headers = {
+    'User-Agent': 'ANISpace/1.0 (https://anispaceee.github.io)',
+    'Accept': 'application/json',
+  };
+
+  const res = await fetch(targetUrl, { method: 'GET', headers });
+
+  const resHeaders = new Headers();
+  resHeaders.set('Content-Type', 'application/json');
+  resHeaders.set('X-Cache', 'MISS');
+  Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+  const responseBody = await res.text();
+
+  // 缓存 GET 请求（24小时，与Jikan官方缓存一致）
+  if (request.method === 'GET' && res.ok) {
+    const cacheResponse = new Response(responseBody, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
+    try { await cache.put(cacheKey, cacheResponse); } catch {}
+  }
+
+  return new Response(responseBody, {
+    status: res.status,
+    headers: resHeaders,
+  });
+}
+
+// trace.moe API 代理处理函数
+async function handleTraceMoeProxy(pathname, searchParams, request, env, origin) {
+  const targetUrl = `${TRACEMOE_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+
+  const headers = {
+    'User-Agent': 'ANISpace/1.0 (https://anispaceee.github.io)',
+    'Accept': 'application/json',
+  };
+
+  // 如果是POST请求（上传图片），需要透传body
+  const fetchOptions = { method: request.method, headers };
+  if (request.method === 'POST') {
+    const contentType = request.headers.get('Content-Type');
+    if (contentType) headers['Content-Type'] = contentType;
+    fetchOptions.body = await request.arrayBuffer();
+  }
+
+  const res = await fetch(targetUrl, fetchOptions);
+
+  const resHeaders = new Headers();
+  resHeaders.set('Content-Type', 'application/json');
+  Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+  return new Response(await res.text(), {
+    status: res.status,
+    headers: resHeaders,
+  });
+}
+
 async function handleHikarinagiProxy(pathname, searchParams, request, env, origin) {
   const targetUrl = `${HIKARINAGI_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
 
@@ -916,6 +1002,274 @@ async function handleGithubToken(code, redirectUri, env) {
 async function handleApiRoutes(pathname, request, env, origin) {
   const method = request.method;
   const jwtSecret = env.JWT_SECRET || 'anispace-jwt-secret-change-me';
+
+  // ─── 邀请制系统 API ───
+
+  function generateInviteCode(length = 8) {
+    const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    const array = new Uint32Array(length);
+    crypto.getRandomValues(array);
+    for (let i = 0; i < length; i++) {
+      code += charset[array[i] % charset.length];
+    }
+    return code;
+  }
+
+  // POST /api/invites — 管理员生成邀请码（需 ADMIN_SYNC_TOKEN）
+  if (method === 'POST' && pathname === '/api/invites') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+
+    try {
+      const body = await request.json();
+      const { type = 'social', max_uses = 1, expires_at, permissions = ['social.post', 'social.comment', 'social.follow', 'social.message', 'social.world'] } = body;
+
+      let code;
+      let retries = 10;
+      do {
+        code = generateInviteCode(8);
+        const existing = await env.DB.prepare('SELECT id FROM invites WHERE code = ?').bind(code).first();
+        if (!existing) break;
+        retries--;
+      } while (retries > 0);
+
+      if (!code) {
+        return jsonResponse({ error: '生成邀请码失败' }, 500, origin);
+      }
+
+      const result = await env.DB.prepare(
+        'INSERT INTO invites (code, creator_id, max_uses, used_count, type, status, expires_at, permissions, created_at, updated_at) VALUES (?, ?, ?, 0, ?, "active", ?, ?, datetime("now"), datetime("now"))'
+      ).bind(code, 0, max_uses, type, expires_at, JSON.stringify(permissions)).run();
+
+      const invite = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(invite, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '生成邀请码失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/invites/claim — 用户使用邀请码（需认证）
+  if (method === 'POST' && pathname === '/api/invites/claim') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { code } = body;
+      if (!code) return jsonResponse({ error: '缺少邀请码' }, 400, origin);
+
+      const invite = await env.DB.prepare('SELECT * FROM invites WHERE code = ? AND status = "active"').bind(code.toUpperCase()).first();
+      if (!invite) return jsonResponse({ error: '邀请码无效或已过期' }, 404, origin);
+
+      // 检查是否已过期
+      if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+        await env.DB.prepare("UPDATE invites SET status = 'expired', updated_at = datetime('now') WHERE id = ?").bind(invite.id).run();
+        return jsonResponse({ error: '邀请码已过期' }, 400, origin);
+      }
+
+      // 检查使用次数
+      if (invite.used_count >= invite.max_uses) {
+        await env.DB.prepare("UPDATE invites SET status = 'used', updated_at = datetime('now') WHERE id = ?").bind(invite.id).run();
+        return jsonResponse({ error: '邀请码已用完' }, 400, origin);
+      }
+
+      // 检查用户是否已使用过邀请码
+      const existingRelation = await env.DB.prepare('SELECT id FROM invite_relations WHERE invitee_id = ?').bind(authUser.userId).first();
+      if (existingRelation) {
+        return jsonResponse({ error: '您已使用过邀请码' }, 400, origin);
+      }
+
+      // 解析权限列表
+      const permissions = JSON.parse(invite.permissions || '[]');
+
+      // 开始事务
+      const batch = [];
+
+      // 更新邀请码使用次数
+      batch.push(env.DB.prepare('UPDATE invites SET used_count = used_count + 1, updated_at = datetime("now") WHERE id = ?').bind(invite.id));
+
+      // 创建邀请关系记录
+      batch.push(env.DB.prepare(
+        'INSERT INTO invite_relations (invite_id, inviter_id, invitee_id, granted_permissions, created_at) VALUES (?, ?, ?, ?, datetime("now"))'
+      ).bind(invite.id, invite.creator_id, authUser.userId, JSON.stringify(permissions)));
+
+      // 授予权限
+      for (const permission of permissions) {
+        batch.push(env.DB.prepare(
+          'INSERT OR IGNORE INTO user_permissions (user_id, permission, granted_by, expires_at, created_at) VALUES (?, ?, ?, ?, datetime("now"))'
+        ).bind(authUser.userId, permission, invite.creator_id, invite.expires_at));
+      }
+
+      // 更新用户邀请计数
+      if (invite.creator_id > 0) {
+        batch.push(env.DB.prepare('UPDATE users SET invite_count = invite_count + 1 WHERE id = ?').bind(invite.creator_id));
+      }
+
+      await env.DB.batch(batch);
+
+      // 如果使用次数已达上限，标记为已使用
+      if (invite.used_count + 1 >= invite.max_uses) {
+        await env.DB.prepare("UPDATE invites SET status = 'used', updated_at = datetime('now') WHERE id = ?").bind(invite.id).run();
+      }
+
+      return jsonResponse({
+        success: true,
+        message: '邀请码验证成功，已解锁社交功能',
+        granted_permissions: permissions,
+        invite_code: code,
+        inviter_id: invite.creator_id,
+        expires_at: invite.expires_at,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '使用邀请码失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/permissions/check — 检查用户是否拥有指定权限（需认证）
+  if (method === 'GET' && pathname === '/api/permissions/check') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const permission = new URL(request.url).searchParams.get('permission');
+    if (!permission) return jsonResponse({ error: '缺少 permission 参数' }, 400, origin);
+
+    const userPermission = await env.DB.prepare(
+      'SELECT * FROM user_permissions WHERE user_id = ? AND permission = ?'
+    ).bind(authUser.userId, permission).first();
+
+    const hasPermission = userPermission && (!userPermission.expires_at || new Date(userPermission.expires_at) > new Date());
+
+    return jsonResponse({
+      has_permission: hasPermission,
+      permission,
+      expires_at: userPermission?.expires_at || null,
+      granted_by: userPermission?.granted_by || null,
+    }, 200, origin);
+  }
+
+  // GET /api/permissions — 获取当前用户的权限列表（需认证）
+  if (method === 'GET' && pathname === '/api/permissions') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const permissions = await env.DB.prepare(
+      'SELECT * FROM user_permissions WHERE user_id = ?'
+    ).bind(authUser.userId).all();
+
+    const validPermissions = permissions.results.filter(p => !p.expires_at || new Date(p.expires_at) > new Date());
+
+    return jsonResponse(validPermissions, 200, origin);
+  }
+
+  // POST /api/permissions/grant — 授予权限（需 ADMIN_SYNC_TOKEN）
+  if (method === 'POST' && pathname === '/api/permissions/grant') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+
+    try {
+      const body = await request.json();
+      const { user_id, permission, expires_at } = body;
+      if (!user_id || !permission) return jsonResponse({ error: '缺少 user_id 或 permission' }, 400, origin);
+
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO user_permissions (user_id, permission, granted_by, expires_at, created_at) VALUES (?, ?, 0, ?, datetime("now"))'
+      ).bind(user_id, permission, expires_at).run();
+
+      return jsonResponse({ success: true, message: '权限已授予' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '授予权限失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/permissions/revoke — 撤销权限（需 ADMIN_SYNC_TOKEN）
+  if (method === 'DELETE' && pathname === '/api/permissions/revoke') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+
+    try {
+      const body = await request.json();
+      const { user_id, permission } = body;
+      if (!user_id || !permission) return jsonResponse({ error: '缺少 user_id 或 permission' }, 400, origin);
+
+      await env.DB.prepare('DELETE FROM user_permissions WHERE user_id = ? AND permission = ?').bind(user_id, permission).run();
+
+      return jsonResponse({ success: true, message: '权限已撤销' }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '撤销权限失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/invites — 获取邀请码列表（需 ADMIN_SYNC_TOKEN）
+  if (method === 'GET' && pathname === '/api/invites') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+
+    try {
+      const invites = await env.DB.prepare(
+        'SELECT * FROM invites ORDER BY created_at DESC'
+      ).all();
+      return jsonResponse(invites.results, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '获取邀请码列表失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/invites/:id — 获取邀请码详情（需 ADMIN_SYNC_TOKEN）
+  const inviteDetailMatch = pathname.match(/^\/api\/invites\/(\d+)$/);
+  if (inviteDetailMatch && method === 'GET') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+
+    const inviteId = Number(inviteDetailMatch[1]);
+    const invite = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(inviteId).first();
+    if (!invite) return jsonResponse({ error: '邀请码不存在' }, 404, origin);
+
+    return jsonResponse(invite, 200, origin);
+  }
+
+  // PUT /api/invites/:id — 更新邀请码状态（需 ADMIN_SYNC_TOKEN）
+  if (inviteDetailMatch && method === 'PUT') {
+    const authHeader = request.headers.get('X-Admin-Token') || '';
+    const expected = env.ADMIN_SYNC_TOKEN || '';
+    if (!expected || authHeader !== expected) {
+      return jsonResponse({ error: '鉴权失败' }, 401, origin);
+    }
+
+    try {
+      const inviteId = Number(inviteDetailMatch[1]);
+      const body = await request.json();
+      const { status } = body;
+
+      if (!status || !['active', 'revoked', 'used', 'expired'].includes(status)) {
+        return jsonResponse({ error: '无效的状态值' }, 400, origin);
+      }
+
+      await env.DB.prepare(
+        "UPDATE invites SET status = ?, updated_at = datetime('now') WHERE id = ?"
+      ).bind(status, inviteId).run();
+
+      const updated = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(inviteId).first();
+      return jsonResponse(updated, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新邀请码失败: ' + err.message }, 500, origin);
+    }
+  }
 
   // POST /api/auth/login — OAuth 登录（查找/创建用户，返回 JWT）
   if (method === 'POST' && pathname === '/api/auth/login') {
@@ -2198,9 +2552,9 @@ async function handleApiRoutes(pathname, request, env, origin) {
     const total = countResult?.total || 0;
 
     // 多源交替排列：按来源分组，每组取最新数据，然后轮询交替
-    // 先获取所有数据（限制200条避免过多），在代码中交替排列
+    // 全量获取所有数据（瀑布流一次性加载）
     const allNews = await env.DB.prepare(
-      `SELECT id, source, title, link, summary, cover, category, extra, scraped_at AS created_at FROM scraped_news ${whereClause} ORDER BY scraped_at DESC LIMIT 200`
+      `SELECT id, source, title, link, summary, cover, category, extra, scraped_at AS created_at FROM scraped_news ${whereClause} ORDER BY scraped_at DESC`
     ).bind(...bindParams).all();
 
     // 按来源分组
@@ -2210,13 +2564,13 @@ async function handleApiRoutes(pathname, request, env, origin) {
       sourceGroups[item.source].push(item);
     }
 
-    // 轮询交替：从每个来源依次取一条，直到取够limit
+    // 轮询交替：从每个来源依次取一条，直到所有数据排完
     const interleaved = [];
     const sourceKeys = Object.keys(sourceGroups);
     const cursors = {};
     for (const key of sourceKeys) cursors[key] = 0;
 
-    while (interleaved.length < 200) {
+    while (true) {
       let added = false;
       for (const key of sourceKeys) {
         if (cursors[key] < sourceGroups[key].length) {
@@ -2228,12 +2582,8 @@ async function handleApiRoutes(pathname, request, env, origin) {
       if (!added) break;
     }
 
-    // 分页
-    const offset = (page - 1) * limit;
-    const pageItems = interleaved.slice(offset, offset + limit);
-
-    // 解析 extra JSON 字段
-    const parsedItems = pageItems.map(item => {
+    // 解析 extra JSON 字段（全量返回，不分页）
+    const parsedItems = interleaved.map(item => {
       let extra = {};
       try { extra = JSON.parse(item.extra || '{}'); } catch {}
       return { ...item, extra };
@@ -2241,7 +2591,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     return jsonResponse({
       news: parsedItems,
-      pagination: { page, limit, total },
+      pagination: { page: 1, limit: total, total },
     }, 200, origin);
   }
 
@@ -3850,6 +4200,8 @@ const RL_LIMITS = {
   '/api/friend-posts': 20,
   '/api/works': 20,       // 作品创建/编辑/互动
   '/api/reading-progress': 30, // 阅读进度更新
+  '/api/invites': 5,      // 邀请码相关操作
+  '/api/permissions': 10, // 权限管理操作
 };
 
 const rlStore = new Map(); // key: `${ip}:${pathGroup}`, value: { count, resetAt }
@@ -3915,7 +4267,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin);
       if (result) return result;
     }
@@ -3990,6 +4342,18 @@ export default {
     if (url.pathname.startsWith('/api/hikarinagi/')) {
       const hikariPath = url.pathname.replace('/api/hikarinagi', '');
       return handleHikarinagiProxy(hikariPath, url.searchParams, request, env, origin);
+    }
+
+    // Jikan API 代理 (MyAnimeList)：/api/jikan/*
+    if (url.pathname.startsWith('/api/jikan/')) {
+      const jikanPath = url.pathname.replace('/api/jikan', '');
+      return handleJikanProxy(jikanPath, url.searchParams, request, env, origin);
+    }
+
+    // trace.moe API 代理 (番剧识别)：/api/tracemoe/*
+    if (url.pathname.startsWith('/api/tracemoe/')) {
+      const tracemoePath = url.pathname.replace('/api/tracemoe', '');
+      return handleTraceMoeProxy(tracemoePath, url.searchParams, request, env, origin);
     }
 
     // wenku8 轻小说代理：/api/wenku8/*
