@@ -224,16 +224,159 @@ export const MusashiService = {
     return apiFetch(`/works/${workId}/rating`);
   },
 
-  async submitRating(workId, rating) {
+  async rateWork(workId, rating, dimensionScores = null) {
+    const body = { rating };
+    if (dimensionScores) body.dimension_scores = dimensionScores;
     return apiFetch(`/works/${workId}/rating`, {
       method: 'POST',
-      body: JSON.stringify({ rating }),
+      body: JSON.stringify(body),
     });
   },
 
   async deleteRating(workId) {
     return apiFetch(`/works/${workId}/rating`, {
       method: 'DELETE',
+    });
+  },
+
+  // ── 插画图片管理 ──
+
+  async addIllustrations(workId, images) {
+    return apiFetch(`/works/${workId}/illustrations`, {
+      method: 'POST',
+      body: JSON.stringify({ images }),
+    });
+  },
+
+  async deleteIllustration(workId, imageId) {
+    return apiFetch(`/works/${workId}/illustrations/${imageId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async reorderIllustrations(workId, order) {
+    return apiFetch(`/works/${workId}/illustrations/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ order }),
+    });
+  },
+
+  // ── 排行榜 ──
+
+  async getRankings({ type = 'daily', category = 'all', limit = 20 } = {}) {
+    const params = new URLSearchParams({ type, category, limit });
+    return apiFetch(`/works/rankings?${params}`);
+  },
+
+  // ── 创作者主页 ──
+
+  async getPortfolio(userId) {
+    return apiFetch(`/users/${userId}/portfolio`);
+  },
+
+  // ── 关注动态流 ──
+
+  async getFeed({ page = 1, limit = 20 } = {}) {
+    const params = new URLSearchParams({ page, limit });
+    return apiFetch(`/feed?${params}`);
+  },
+
+  // ── 系列 ──
+
+  async createSeries(data) {
+    return apiFetch('/series', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getSeries(id) {
+    return apiFetch(`/series/${id}`);
+  },
+
+  async updateSeries(id, data) {
+    return apiFetch(`/series/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteSeries(id) {
+    return apiFetch(`/series/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async addWorkToSeries(seriesId, workId) {
+    return apiFetch(`/series/${seriesId}/works`, {
+      method: 'POST',
+      body: JSON.stringify({ work_id: workId }),
+    });
+  },
+
+  async removeWorkFromSeries(seriesId, workId) {
+    return apiFetch(`/series/${seriesId}/works/${workId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // ── 约稿企划 ──
+
+  async getCommissions({ page = 1, limit = 20, category = '', status = 'open' } = {}) {
+    const params = new URLSearchParams({ page, limit, status });
+    if (category) params.set('category', category);
+    return apiFetch(`/commissions?${params}`);
+  },
+
+  async getCommission(id) {
+    return apiFetch(`/commissions/${id}`);
+  },
+
+  async createCommission(data) {
+    return apiFetch('/commissions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateCommission(id, data) {
+    return apiFetch(`/commissions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteCommission(id) {
+    return apiFetch(`/commissions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async respondCommission(id, data) {
+    return apiFetch(`/commissions/${id}/respond`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // ── 作品讨论区 ──
+
+  async getWorkDiscussions(workId, { page = 1, limit = 20 } = {}) {
+    const params = new URLSearchParams({ page, limit });
+    return apiFetch(`/works/${workId}/discussions?${params}`);
+  },
+
+  // ── 读者感想 ──
+
+  async getWorkImpressions(workId, { page = 1, limit = 20 } = {}) {
+    const params = new URLSearchParams({ page, limit });
+    return apiFetch(`/works/${workId}/impressions?${params}`);
+  },
+
+  async submitImpression(workId, data) {
+    return apiFetch(`/works/${workId}/impressions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 };

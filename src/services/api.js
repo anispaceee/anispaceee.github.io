@@ -1891,3 +1891,41 @@ export const KitsuService = {
     return apiRequest(`/api/kitsu/anime/${id}/productions`);
   },
 };
+
+// ─── ProfileService ───
+// 用户画像获取与刷新
+export const ProfileService = {
+  async getProfile() {
+    return apiRequest('/api/profile');
+  },
+
+  async refreshProfile() {
+    return apiRequest('/api/profile/refresh', {
+      method: 'POST',
+    });
+  },
+};
+
+// ─── BehaviorService ───
+// 用户行为上报
+export const BehaviorService = {
+  async report(action, targetType = '', targetId = 0, metadata = {}) {
+    return apiRequest('/api/behavior', {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        target_type: targetType,
+        target_id: targetId,
+        metadata,
+      }),
+    });
+  },
+};
+
+// ─── RecommendService ───
+// 推荐结果获取
+export const RecommendService = {
+  async getRecommend(scene = 'home_random') {
+    return apiRequest(`/api/recommend?scene=${scene}`);
+  },
+};

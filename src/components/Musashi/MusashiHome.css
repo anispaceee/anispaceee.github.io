@@ -80,6 +80,9 @@
 }
 
 .mh-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 6px 16px;
   border-radius: 20px;
   font-size: 13px;
@@ -88,6 +91,10 @@
   background: var(--bg-card);
   border: 1px solid var(--border-primary);
   transition: all var(--transition-fast);
+}
+
+.mh-tab svg {
+  flex-shrink: 0;
 }
 
 .mh-tab:hover {
@@ -184,11 +191,9 @@
 
 /* ─── Grid ─── */
 
-.mh-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 20px;
-}
+/*
+.mh-grid is now defined in the Waterfall grid section below
+*/
 
 /* ─── Pagination ─── */
 
@@ -285,5 +290,196 @@
 
   .mh-publish-btn {
     align-self: flex-start;
+  }
+}
+
+/* ─── Main Layout (Content + Sidebar) ─── */
+
+.mh-main {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.mh-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Rankings Sidebar ─── */
+
+.mh-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 80px;
+}
+
+.mh-rankings {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.mh-rankings-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--primary-bg);
+}
+
+.mh-rankings-header svg {
+  color: var(--primary);
+}
+
+.mh-rankings-tabs {
+  display: flex;
+  padding: 8px 12px;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.mh-rankings-tab {
+  flex: 1;
+  padding: 4px 0;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mh-rankings-tab:hover {
+  color: var(--text-primary);
+}
+
+.mh-rankings-tab.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.mh-rankings-list {
+  padding: 8px;
+}
+
+.mh-rankings-empty {
+  text-align: center;
+  padding: 20px;
+  font-size: 13px;
+  color: var(--text-quaternary);
+}
+
+.mh-rankings-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.mh-rankings-item:hover {
+  background: var(--bg-input);
+}
+
+.mh-rankings-rank {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #999;
+  background: #f0f0f0;
+  flex-shrink: 0;
+}
+
+.mh-rankings-rank.rank-1 {
+  background: #ff6b9d;
+  color: #fff;
+}
+
+.mh-rankings-rank.rank-2 {
+  background: #ff9f43;
+  color: #fff;
+}
+
+.mh-rankings-rank.rank-3 {
+  background: #feca57;
+  color: #fff;
+}
+
+.mh-rankings-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mh-rankings-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mh-rankings-author {
+  font-size: 11px;
+  color: var(--text-quaternary);
+}
+
+.mh-rankings-score {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* ─── Waterfall grid (masonry) ─── */
+
+.mh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+@media (min-width: 900px) {
+  .mh-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+/* ─── Responsive: hide sidebar on small screens ─── */
+
+@media (max-width: 900px) {
+  .mh-main {
+    flex-direction: column;
+  }
+
+  .mh-sidebar {
+    width: 100%;
+    position: static;
+  }
+
+  .mh-rankings-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 4px;
   }
 }

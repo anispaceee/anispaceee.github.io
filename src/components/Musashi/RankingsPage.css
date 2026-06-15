@@ -1,0 +1,249 @@
+.rp-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+.rp-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rp-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.rp-back:hover {
+  color: var(--primary);
+}
+
+.rp-title {
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.rp-title svg {
+  color: var(--primary);
+}
+
+.rp-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.rp-tab {
+  padding: 6px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rp-tab:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.rp-tab.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.rp-categories {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.rp-cat-btn {
+  padding: 4px 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rp-cat-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+.rp-cat-btn.active {
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.rp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rp-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rp-item:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(255, 107, 157, 0.1);
+  transform: translateX(4px);
+}
+
+.rp-rank {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #999;
+  background: #f0f0f0;
+  flex-shrink: 0;
+}
+
+.rp-rank.rank-gold {
+  background: linear-gradient(135deg, #ff6b9d, #ff9f43);
+  color: #fff;
+  font-size: 16px;
+}
+
+.rp-rank.rank-silver {
+  background: linear-gradient(135deg, #a0aec0, #718096);
+  color: #fff;
+}
+
+.rp-rank.rank-bronze {
+  background: linear-gradient(135deg, #f6ad55, #ed8936);
+  color: #fff;
+}
+
+.rp-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0f0f0;
+}
+
+.rp-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rp-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #999;
+}
+
+.rp-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rp-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rp-item-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.rp-item-author {
+  color: var(--text-tertiary);
+}
+
+.rp-item-type {
+  color: var(--text-quaternary);
+  padding: 0 6px;
+  background: var(--bg-input);
+  border-radius: 10px;
+}
+
+.rp-score {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.rp-loading,
+.rp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 12px;
+  color: var(--text-quaternary);
+}
+
+.rp-loading p,
+.rp-empty p {
+  font-size: 14px;
+}
+
+.rp-empty svg {
+  opacity: 0.4;
+}
+
+.rp-spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

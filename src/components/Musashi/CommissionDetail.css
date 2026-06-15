@@ -1,0 +1,242 @@
+.cod-page {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+.cod-back a {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.cod-back a:hover { color: var(--primary); }
+
+.cod-main {
+  margin: 20px 0;
+}
+
+.cod-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cod-category {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.cod-status {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+.cod-status.open { background: #ff6b9d22; color: #ff6b9d; }
+.cod-status.closed { background: #eee; color: #999; }
+
+.cod-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.cod-meta {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cod-budget, .cod-deadline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cod-creator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cod-creator:hover { border-color: var(--primary); }
+
+.cod-creator-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.cod-desc {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.cod-requirements {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+}
+
+.cod-requirements h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.cod-requirements p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+/* Respond */
+.cod-respond {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+}
+
+.cod-respond h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.cod-respond-msg {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  font-size: 13px;
+  resize: vertical;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.cod-respond-msg:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.cod-respond-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cod-respond-price {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.cod-respond-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.cod-respond-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Responses */
+.cod-responses {
+  margin-top: 24px;
+}
+
+.cod-responses h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: var(--text-primary);
+}
+
+.cod-response-item {
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.cod-response-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cod-response-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.cod-response-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cod-response-price {
+  font-size: 12px;
+  color: var(--primary);
+  margin-left: auto;
+}
+
+.cod-response-msg {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+.cod-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 12px;
+  color: var(--text-quaternary);
+}
+
+.cod-loading a { color: var(--primary); }
+
+.cod-spinning { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

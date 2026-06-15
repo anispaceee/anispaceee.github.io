@@ -4,6 +4,7 @@ import { Eye, Star } from 'lucide-react';
 import './WorkCard.css';
 
 const TYPE_CONFIG = {
+  illustration: { label: '插画', color: '#ff6b9d' },
   galgame: { label: 'Galgame', color: '#ff9f43' },
   novel:   { label: '小说',   color: '#9b59b6' },
   manga:   { label: '漫画',   color: '#00a1d6' },

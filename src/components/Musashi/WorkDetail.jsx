@@ -4,6 +4,8 @@ import { MusashiService } from '../../services/musashiApi';
 import { useApp } from '../../context/AppContext';
 import UserAvatar from '../Common/UserAvatar';
 import StarRating from './StarRating';
+import IllustrationGallery from './IllustrationGallery';
+import DimensionRating from './DimensionRating';
 import {
   Eye, Heart, Bookmark, Flag, Edit3,
   ChevronLeft, ChevronRight, Download,
@@ -13,6 +15,7 @@ import {
 import './WorkDetail.css';
 
 const TYPE_CONFIG = {
+  illustration: { label: '插画', color: '#ff6b9d' },
   galgame: { label: 'Galgame', color: '#ff9f43' },
   novel:   { label: '小说',   color: '#9b59b6' },
   manga:   { label: '漫画',   color: '#00a1d6' },
@@ -70,7 +73,11 @@ export default function WorkDetail() {
   const [reporting, setReporting] = useState(false);
 
   // 评分
-  const [ratingData, setRatingData] = useState({ average: 0, count: 0, userRating: 0 });
+  const [ratingData, setRatingData] = useState({
+    average: 0, count: 0, userRating: 0,
+    userDimensionScores: null, avgDimensionScores: null,
+  });
+  const [dimensionScores, setDimensionScores] = useState({});
 
   // ─── 加载作品详情 ───
   useEffect(() => {
@@ -143,7 +150,10 @@ export default function WorkDetail() {
           average: data.average || 0,
           count: data.count || 0,
           userRating: data.userRating || 0,
+          userDimensionScores: data.userDimensionScores || null,
+          avgDimensionScores: data.avgDimensionScores || null,
         });
+        setDimensionScores(data.userDimensionScores || {});
       })
       .catch(() => {});
   }, [workId]);
@@ -203,7 +213,7 @@ export default function WorkDetail() {
       if (rating === 0) {
         await MusashiService.deleteRating(workId);
       } else {
-        await MusashiService.submitRating(workId, rating);
+        await MusashiService.submitRating(workId, rating, dimensionScores);
       }
       // 重新加载评分
       const data = await MusashiService.getRating(workId);
@@ -211,9 +221,12 @@ export default function WorkDetail() {
         average: data.average || 0,
         count: data.count || 0,
         userRating: data.userRating || 0,
+        userDimensionScores: data.userDimensionScores || null,
+        avgDimensionScores: data.avgDimensionScores || null,
       });
+      setDimensionScores(data.userDimensionScores || {});
     } catch {}
-  }, [workId, isAuthenticated, openAuth]);
+  }, [workId, isAuthenticated, openAuth, dimensionScores]);
 
   // ─── 轮播 ───
   const previews = Array.isArray(work?.preview_images) ? work.preview_images.slice(0, 20) : [];
@@ -339,6 +352,30 @@ export default function WorkDetail() {
             size="medium"
           />
 
+          {isAuthenticated && (
+            <DimensionRating
+              workType={work.type}
+              initialScores={ratingData.userDimensionScores || {}}
+              onChange={(scores) => setDimensionScores(scores)}
+              disabled={ratingData.userRating === 0}
+            />
+          )}
+
+          {ratingData.avgDimensionScores && (
+            <div className="wd-avg-dimensions">
+              <div className="wd-avg-dim-title">平均维度评分</div>
+              {Object.entries(ratingData.avgDimensionScores).map(([key, val]) => (
+                <div key={key} className="wd-avg-dim-row">
+                  <span className="wd-avg-dim-label">{key}</span>
+                  <div className="wd-avg-dim-bar">
+                    <div className="wd-avg-dim-fill" style={{ width: `${(val / 5) * 100}%` }} />
+                  </div>
+                  <span className="wd-avg-dim-value">{val}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="wd-actions">
             <button
               className={`wd-action-btn wd-like-btn${liked ? ' active' : ''}`}
@@ -367,6 +404,11 @@ export default function WorkDetail() {
           </div>
         </div>
       </div>
+
+      {/* ─── 插画特有区域：多图画廊 ─── */}
+      {work.type === 'illustration' && (
+        <IllustrationGallery illustrations={work.illustrations || []} />
+      )}
 
       {/* ─── Galgame 特有区域 ─── */}
       {work.type === 'galgame' && (

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Klee+One:wght@400;600&display=swap');
+
 :root {
   --primary: #e886a2;
   --primary-hover: #f09bb3;
@@ -58,6 +60,9 @@
   --blur-xl: 60px;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --font-musashi: 'Zen Kaku Gothic New', 'M PLUS Rounded 1c', 'Klee One', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  --font-musashi-title: 'M PLUS Rounded 1c', 'Zen Kaku Gothic New', 'Klee One', sans-serif;
+  --font-musashi-body: 'Zen Kaku Gothic New', 'M PLUS Rounded 1c', 'Klee One', sans-serif;
   --header-height: 60px;
   --sidebar-width: 220px;
   --max-content: 1200px;
@@ -193,6 +198,60 @@ ul, ol { list-style: none; }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── 武藏也 日式字体 ─── */
+.mh-page, .rp-page, .cp-page, .cop-page, .cod-page, .wd-page,
+.musashi-page * {
+  font-family: var(--font-musashi);
+}
+
+.mh-title, .rp-title, .cp-name, .cop-title, .cod-title, .wd-title,
+.musashi-title {
+  font-family: var(--font-musashi-title);
+  letter-spacing: 0.02em;
+}
+
+/* ─── 武藏也动画增强 ─── */
+.mh-grid > * {
+  animation: fadeInUp 0.4s ease both;
+  animation-delay: calc(var(--i, 0) * 0.05s);
+}
+
+.mh-rankings-item {
+  animation: fadeIn 0.3s ease both;
+  animation-delay: calc(var(--i, 0) * 0.03s);
+}
+
+.cp-work-card {
+  transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.25s ease;
+}
+
+.cp-work-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(255, 107, 157, 0.15);
+}
+
+.cop-item, .rp-item {
+  transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cop-item:hover, .rp-item:hover {
+  transform: translateX(6px);
+}
+
+/* 卡片悬停微交互 */
+.mh-tab, .mh-sort-btn, .rp-tab, .cop-cat-btn {
+  transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* 按钮涟漪效果 */
+.mh-publish-btn, .cop-create-btn {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.mh-publish-btn:active, .cop-create-btn:active {
+  transform: scale(0.96);
+}
 
 .animate-fade-in { animation: fadeIn 0.3s ease; }
 .animate-fade-in-up { animation: fadeInUp 0.4s ease; }

@@ -15,7 +15,7 @@ import MusicPlayer from './components/Music/MusicPlayer'
 import MinimizedBar from './components/Layout/MinimizedBar'
 import LoginNotificationBar from './components/Layout/LoginNotificationBar'
 import { useMusic, FALLBACK_COVER } from './context/MusicContext'
-import { Play, Pause, SkipBack, SkipForward, Music, Brain, Coffee, Globe, Users, Bell, Gamepad2, Send, Link2, Mail } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Music, Brain, Coffee, Globe, Users, Bell, Gamepad2, Send, Link2, Mail, MessageCircle } from 'lucide-react'
 import Amadeus from './components/Amadeus/Amadeus'
 import FriendSpace from './components/FriendSpace/FriendSpace'
 import Notifications from './components/Notification/Notifications'
@@ -30,6 +30,10 @@ import WorkEdit from './components/Musashi/WorkEdit';
 import NovelReader from './components/Musashi/NovelReader';
 import MangaReader from './components/Musashi/MangaReader';
 import MyWorks from './components/Musashi/MyWorks';
+import RankingsPage from './components/Musashi/RankingsPage';
+import CreatorProfile from './components/Musashi/CreatorProfile';
+import CommissionPage from './components/Musashi/CommissionPage';
+import CommissionDetail from './components/Musashi/CommissionDetail';
 import NewsDetail from './components/NewsZone/NewsDetail'
 import { AdminPanel } from './components/InviteSystem/AdminPanel';
 import NewsZone from './components/NewsZone/NewsZone'
@@ -443,6 +447,10 @@ function AppInner() {
           <Route path="/wiki" element={<Wiki />} />
           <Route path="/links" element={<Navigate to="/" replace />} />
           <Route path="/musashi/new" element={<SocialGuard><WorkCreate /></SocialGuard>} />
+          <Route path="/musashi/rankings" element={<SocialGuard><RankingsPage /></SocialGuard>} />
+          <Route path="/musashi/creator/:userId" element={<SocialGuard><CreatorProfile /></SocialGuard>} />
+          <Route path="/musashi/commissions/:commId" element={<SocialGuard><CommissionDetail /></SocialGuard>} />
+          <Route path="/musashi/commissions" element={<SocialGuard><CommissionPage /></SocialGuard>} />
           <Route path="/musashi/:workId/edit" element={<SocialGuard><WorkEdit /></SocialGuard>} />
           <Route path="/musashi/:workId/read" element={<SocialGuard><NovelReader /></SocialGuard>} />
           <Route path="/musashi/:workId/read/:chapter" element={<SocialGuard><NovelReader /></SocialGuard>} />

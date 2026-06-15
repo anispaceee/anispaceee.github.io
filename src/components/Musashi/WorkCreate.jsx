@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { MusashiService } from '../../services/musashiApi';
-import { Gamepad2, BookOpen, Palette, ArrowLeft, Loader2 } from 'lucide-react';
+import { Gamepad2, BookOpen, Palette, Image, ArrowLeft, Loader2 } from 'lucide-react';
 import ImageUploader from './ImageUploader';
+import IllustrationUploader from './IllustrationUploader';
 import './WorkCreate.css';
 
 const WORK_TYPES = [
   {
-    key: 'galgame',
-    label: 'Galgame',
-    icon: Gamepad2,
-    description: '视觉小说、文字冒险游戏，支持多分支剧情与资源下载',
+    key: 'illustration',
+    label: '插画',
+    icon: Image,
+    description: '原创插画/同人图，支持多图投稿与画廊展示',
   },
   {
     key: 'novel',
@@ -24,6 +25,12 @@ const WORK_TYPES = [
     label: '漫画',
     icon: Palette,
     description: '原创漫画、四格、条漫，支持多话多页图片展示',
+  },
+  {
+    key: 'galgame',
+    label: 'Galgame',
+    icon: Gamepad2,
+    description: '视觉小说、文字冒险游戏，支持多分支剧情与资源下载',
   },
 ];
 
@@ -52,6 +59,8 @@ export default function WorkCreate() {
     tags: '',
     status: 'ongoing',
     visibility: 'public',
+    illustrations: [],
+    aiAllowed: true,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -78,6 +87,10 @@ export default function WorkCreate() {
       setError('标题不能为空');
       return;
     }
+    if (selectedType === 'illustration' && form.illustrations.length === 0) {
+      setError('请至少添加一张作品图片');
+      return;
+    }
     setError('');
     setSubmitting(true);
     try {
@@ -93,6 +106,10 @@ export default function WorkCreate() {
         status: form.status,
         visibility: form.visibility,
       };
+      if (selectedType === 'illustration') {
+        data.illustrations = form.illustrations;
+        data.ai_allowed = form.aiAllowed ? 1 : 0;
+      }
       const result = await MusashiService.createWork(data);
       navigate(`/musashi/${result.id || result._id}/edit`);
     } catch (err) {
@@ -165,6 +182,25 @@ export default function WorkCreate() {
               placeholder="https://example.com/cover.jpg"
               variant="cover"
             />
+
+            {selectedType === 'illustration' && (
+              <>
+                <IllustrationUploader
+                  images={form.illustrations}
+                  onChange={(images) => handleFormChange('illustrations', images)}
+                  max={20}
+                />
+
+                <label className="work-form-label work-form-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={form.aiAllowed}
+                    onChange={(e) => handleFormChange('aiAllowed', e.target.checked)}
+                  />
+                  <span>允许 AI 学习此作品</span>
+                </label>
+              </>
+            )}
 
             <label className="work-form-label">
               标签

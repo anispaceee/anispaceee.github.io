@@ -1,16 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Loader2, BookOpen } from 'lucide-react';
+import { Search, Plus, Loader2, BookOpen, Image, Palette, Gamepad2, Star, TrendingUp } from 'lucide-react';
 import { MusashiService } from '../../services/musashiApi';
 import { useApp } from '../../context/AppContext';
 import WorkCard from './WorkCard';
 import './MusashiHome.css';
 
 const TYPE_TABS = [
-  { key: '',      label: '全部' },
-  { key: 'galgame', label: 'Galgame' },
-  { key: 'novel',   label: '小说' },
-  { key: 'manga',   label: '漫画' },
+  { key: '',      label: '全部', icon: null },
+  { key: 'illustration', label: '插画', icon: Image },
+  { key: 'novel',   label: '小说', icon: BookOpen },
+  { key: 'manga',   label: '漫画', icon: Palette },
+  { key: 'galgame', label: 'Galgame', icon: Gamepad2 },
 ];
 
 const SORT_OPTIONS = [
@@ -34,6 +35,17 @@ export default function MusashiHome() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const debounceRef = useRef(null);
+
+  // Rankings state
+  const [rankings, setRankings] = useState([]);
+  const [rankType, setRankType] = useState('daily');
+
+  // Fetch rankings
+  useEffect(() => {
+    MusashiService.getRankings({ type: rankType, category: activeType || 'all', limit: 10 })
+      .then(data => setRankings(data.rankings || []))
+      .catch(() => setRankings([]));
+  }, [rankType, activeType]);
 
   // Fetch works
   useEffect(() => {
@@ -116,6 +128,7 @@ export default function MusashiHome() {
               className={`mh-tab${activeType === tab.key ? ' active' : ''}`}
               onClick={() => setActiveType(tab.key)}
             >
+              {tab.icon && <tab.icon size={14} />}
               {tab.label}
             </button>
           ))}
@@ -150,51 +163,100 @@ export default function MusashiHome() {
         )}
       </div>
 
-      {/* Content */}
-      {loading && (
-        <div className="mh-loading">
-          <Loader2 size={32} className="mh-spinning" />
-          <p>加载中...</p>
-        </div>
-      )}
-
-      {!loading && works.length === 0 && (
-        <div className="mh-empty">
-          <BookOpen size={48} />
-          <p>{search ? '未找到相关作品，试试其他关键词' : '暂无作品，快来发布第一个吧'}</p>
-        </div>
-      )}
-
-      {!loading && works.length > 0 && (
-        <>
-          <div className="mh-grid">
-            {works.map(work => (
-              <WorkCard key={work.id} work={work} />
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mh-pagination">
-              <button
-                className="mh-page-btn"
-                disabled={page <= 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-              >
-                上一页
-              </button>
-              <span className="mh-page-info">{page} / {totalPages}</span>
-              <button
-                className="mh-page-btn"
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              >
-                下一页
-              </button>
+      {/* Main Content + Sidebar */}
+      <div className="mh-main">
+        <div className="mh-content">
+          {/* Content */}
+          {loading && (
+            <div className="mh-loading">
+              <Loader2 size={32} className="mh-spinning" />
+              <p>加载中...</p>
             </div>
           )}
-        </>
-      )}
+
+          {!loading && works.length === 0 && (
+            <div className="mh-empty">
+              <BookOpen size={48} />
+              <p>{search ? '未找到相关作品，试试其他关键词' : '暂无作品，快来发布第一个吧'}</p>
+            </div>
+          )}
+
+          {!loading && works.length > 0 && (
+            <>
+              <div className="mh-grid">
+                {works.map(work => (
+                  <WorkCard key={work.id} work={work} />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mh-pagination">
+                  <button
+                    className="mh-page-btn"
+                    disabled={page <= 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                  >
+                    上一页
+                  </button>
+                  <span className="mh-page-info">{page} / {totalPages}</span>
+                  <button
+                    className="mh-page-btn"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  >
+                    下一页
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Rankings Sidebar */}
+        <aside className="mh-sidebar">
+          <div className="mh-rankings">
+            <div className="mh-rankings-header">
+              <TrendingUp size={16} />
+              <span>排行榜</span>
+            </div>
+            <div className="mh-rankings-tabs">
+              {['daily', 'weekly', 'monthly'].map(rt => (
+                <button
+                  key={rt}
+                  className={`mh-rankings-tab${rankType === rt ? ' active' : ''}`}
+                  onClick={() => setRankType(rt)}
+                >
+                  {{ daily: '日榜', weekly: '周榜', monthly: '月榜' }[rt]}
+                </button>
+              ))}
+            </div>
+            <div className="mh-rankings-list">
+              {rankings.length === 0 && (
+                <div className="mh-rankings-empty">暂无数据</div>
+              )}
+              {rankings.map((item, idx) => (
+                <div
+                  key={item.work_id || idx}
+                  className="mh-rankings-item"
+                  onClick={() => navigate(`/musashi/${item.work_id}`)}
+                >
+                  <span className={`mh-rankings-rank rank-${idx + 1}`}>
+                    {idx + 1}
+                  </span>
+                  <div className="mh-rankings-info">
+                    <span className="mh-rankings-title">{item.title}</span>
+                    <span className="mh-rankings-author">{item.author_name}</span>
+                  </div>
+                  {item.score && (
+                    <span className="mh-rankings-score">{Math.round(item.score)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

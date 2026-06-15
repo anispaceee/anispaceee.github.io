@@ -205,6 +205,60 @@
   gap: 4px;
 }
 
+/* ─── Dimension bars ─── */
+
+.wd-avg-dimensions {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+
+.wd-avg-dim-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.wd-avg-dim-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.wd-avg-dim-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.wd-avg-dim-bar {
+  flex: 1;
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.wd-avg-dim-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b9d, #f59e0b);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.wd-avg-dim-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  width: 24px;
+  text-align: right;
+}
+
 /* ─── Actions ─── */
 
 .wd-actions {

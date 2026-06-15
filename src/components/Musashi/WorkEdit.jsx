@@ -6,6 +6,7 @@ import ChapterManager from './ChapterManager';
 import MangaChapterManager from './MangaChapterManager';
 import GalgameDownloadManager from './GalgameDownloadManager';
 import ImageUploader from './ImageUploader';
+import IllustrationUploader from './IllustrationUploader';
 import { ArrowLeft, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import './WorkEdit.css';
 
@@ -22,6 +23,7 @@ const VISIBILITY_OPTIONS = [
 ];
 
 const TYPE_LABELS = {
+  illustration: '插画',
   galgame: 'Galgame',
   novel: '小说',
   manga: '漫画',
@@ -43,6 +45,8 @@ export default function WorkEdit() {
     tags: '',
     status: 'ongoing',
     visibility: 'public',
+    illustrations: [],
+    aiAllowed: true,
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -69,6 +73,12 @@ export default function WorkEdit() {
             tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
             status: data.status || 'ongoing',
             visibility: data.visibility || 'public',
+            illustrations: Array.isArray(data.illustrations) ? data.illustrations.map(img => ({
+              id: img.id,
+              url: img.image_url || img.url,
+              caption: img.caption || '',
+            })) : [],
+            aiAllowed: data.ai_allowed !== 0,
           });
         }
       } catch (err) {
@@ -119,6 +129,31 @@ export default function WorkEdit() {
         visibility: form.visibility,
       };
       await MusashiService.updateWork(workId, data);
+
+      // 插画类型：同步图片变更
+      if (work.type === 'illustration') {
+        const existingIds = (work.illustrations || []).map(img => img.id);
+        const currentIds = form.illustrations.filter(img => img.id).map(img => img.id);
+        const toDelete = existingIds.filter(id => !currentIds.includes(id));
+        const newImages = form.illustrations.filter(img => !img.id);
+
+        // 删除已移除的图片
+        for (const imgId of toDelete) {
+          await MusashiService.deleteIllustration(workId, imgId);
+        }
+
+        // 添加新图片
+        if (newImages.length > 0) {
+          await MusashiService.addIllustrations(workId, newImages);
+        }
+
+        // 更新排序
+        const orderedIds = form.illustrations.filter(img => img.id).map(img => img.id);
+        if (orderedIds.length > 1) {
+          await MusashiService.reorderIllustrations(workId, orderedIds);
+        }
+      }
+
       // 重新加载作品详情
       const updated = await MusashiService.getWork(workId);
       setWork(updated);
@@ -231,6 +266,14 @@ export default function WorkEdit() {
           placeholder="https://example.com/cover.jpg"
           variant="cover"
         />
+
+        {work.type === 'illustration' && (
+          <IllustrationUploader
+            images={form.illustrations}
+            onChange={(images) => handleFormChange('illustrations', images)}
+            max={20}
+          />
+        )}
 
         <label className="work-form-label">
           标签

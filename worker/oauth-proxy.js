@@ -22,6 +22,8 @@ import * as bangumiSync from './lib/bangumi-sync.js';
 import * as bangumiSearch from './lib/bangumi-search.js';
 import * as newsScraper from './lib/news-scraper.js';
 import * as bangumiEnrich from './lib/bangumi-enrich.js';
+import * as userProfile from './lib/user-profile.js';
+import * as recommendEngine from './lib/recommend-engine.js';
 
 // ─── SSRF 防护 ───────────────────────────────────────────
 
@@ -3542,14 +3544,15 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }, 200, origin);
   }
 
-  // GET /api/works — 作品列表（支持 type/sort/page/limit/search 参数）
+  // GET /api/works — 作品列表（支持 type/category/sort/page/limit/search/series_id 参数）
   if (method === 'GET' && pathname === '/api/works') {
     const sp = new URL(request.url).searchParams;
     const page = Math.max(1, Number(sp.get('page')) || 1);
     const limit = Math.min(100, Math.max(1, Number(sp.get('limit')) || 20));
     const sort = sp.get('sort') || 'latest';
-    const type = sp.get('type') || '';
+    const type = sp.get('type') || sp.get('category') || '';
     const search = sp.get('search') || '';
+    const seriesId = sp.get('series_id') || '';
     const offset = (page - 1) * limit;
 
     const conditions = [];
@@ -3562,6 +3565,10 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     if (search) {
       conditions.push('(title LIKE ? OR description LIKE ?)');
       bindParams.push(`%${search}%`, `%${search}%`);
+    }
+    if (seriesId) {
+      conditions.push('w.series_id = ?');
+      bindParams.push(Number(seriesId));
     }
     // 只显示公开且可见的作品
     conditions.push('(is_visible = 1 OR is_visible IS NULL)');
@@ -3640,18 +3647,43 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       const body = await request.json();
       const { type, title, description, coverUrl, cover, tags, status, visibility } = body;
       if (!title || !type) return jsonResponse({ error: '标题和类型不能为空' }, 400, origin);
-      if (!['novel', 'manga', 'galgame'].includes(type)) return jsonResponse({ error: '类型必须为 novel、manga 或 galgame' }, 400, origin);
+      if (!['illustration', 'novel', 'manga', 'galgame'].includes(type)) return jsonResponse({ error: '类型必须为 illustration、novel、manga 或 galgame' }, 400, origin);
 
       const coverImage = coverUrl || cover || null;
       const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : '[]';
+      const { illustrations } = body; // 插画类型的多图数组
 
       const result = await env.DB.prepare(
-        "INSERT INTO works (author_id, type, title, description, cover_image, tags, status, visibility, views_count, likes_count, favorites_count, comments_count, rating_sum, rating_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, datetime('now'), datetime('now'))"
-      ).bind(authUser.userId, type, title, description || null, coverImage, tagsJson, status || 'ongoing', visibility || 'public').run();
+        "INSERT INTO works (author_id, type, title, description, cover_image, tags, status, visibility, illustration_count, views_count, likes_count, favorites_count, comments_count, rating_sum, rating_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, datetime('now'), datetime('now'))"
+      ).bind(authUser.userId, type, title, description || null, coverImage, tagsJson, status || 'ongoing', visibility || 'public', illustrations ? illustrations.length : 0).run();
+
+      // 插画类型：保存多图
+      const workId = result.meta.last_row_id;
+      if (type === 'illustration' && Array.isArray(illustrations) && illustrations.length > 0) {
+        for (let i = 0; i < illustrations.length; i++) {
+          await env.DB.prepare(
+            'INSERT INTO illustration_images (work_id, image_url, sort_order, caption) VALUES (?, ?, ?, ?)'
+          ).bind(workId, illustrations[i].url || illustrations[i], i, illustrations[i].caption || '').run();
+        }
+      }
 
       const work = await env.DB.prepare(
         'SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id WHERE w.id = ?'
-      ).bind(result.meta.last_row_id).first();
+      ).bind(workId).first();
+
+      // 异步写入关注者动态流
+      context.waitUntil((async () => {
+        try {
+          const followers = await env.DB.prepare(
+            'SELECT follower_id FROM follows WHERE following_id = ?'
+          ).bind(authUser.userId).all();
+          for (const follower of followers.results) {
+            await env.DB.prepare(
+              'INSERT INTO user_feed (user_id, work_id, creator_id, event_type) VALUES (?, ?, ?, ?)'
+            ).bind(follower.follower_id, workId, authUser.userId, 'new_work').run();
+          }
+        } catch (e) { /* feed写入失败不影响主流程 */ }
+      })());
 
       return jsonResponse({
         ...work,
@@ -3690,6 +3722,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
         ch.pages = pages.results;
       }
       relatedData.chapters = chapters.results;
+    } else if (work.type === 'illustration') {
+      const images = await env.DB.prepare(
+        'SELECT * FROM illustration_images WHERE work_id = ? ORDER BY sort_order ASC'
+      ).bind(workId).all();
+      relatedData.illustrations = images.results;
     } else if (work.type === 'galgame') {
       const downloads = await env.DB.prepare(
         'SELECT * FROM galgame_downloads WHERE work_id = ?'
@@ -4415,15 +4452,46 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     // 查询当前用户评分
     const authUser = await getAuthUser(request, env);
     let userRating = null;
+    let userDimensionScores = null;
     if (authUser) {
-      const row = await env.DB.prepare('SELECT rating FROM work_ratings WHERE user_id = ? AND work_id = ?').bind(authUser.userId, workId).first();
-      if (row) userRating = row.rating;
+      const row = await env.DB.prepare('SELECT rating, dimension_scores FROM work_ratings WHERE user_id = ? AND work_id = ?').bind(authUser.userId, workId).first();
+      if (row) {
+        userRating = row.rating;
+        userDimensionScores = safeJsonParse(row.dimension_scores);
+      }
+    }
+
+    // 平均多维度评分
+    const avgDimensions = await env.DB.prepare(
+      'SELECT dimension_scores FROM work_ratings WHERE work_id = ? AND dimension_scores IS NOT NULL'
+    ).bind(workId).all();
+    let avgDimensionScores = null;
+    if (avgDimensions.results.length > 0) {
+      const sums = {};
+      let count = 0;
+      for (const row of avgDimensions.results) {
+        const dims = safeJsonParse(row.dimension_scores);
+        if (dims) {
+          count++;
+          for (const [key, val] of Object.entries(dims)) {
+            sums[key] = (sums[key] || 0) + val;
+          }
+        }
+      }
+      if (count > 0) {
+        avgDimensionScores = {};
+        for (const [key, sum] of Object.entries(sums)) {
+          avgDimensionScores[key] = Math.round((sum / count) * 10) / 10;
+        }
+      }
     }
 
     return jsonResponse({
       average: Math.round(avgRating * 10) / 10,
       count: work.rating_count,
       userRating,
+      userDimensionScores,
+      avgDimensionScores,
     }, 200, origin);
   }
 
@@ -4439,6 +4507,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       if (!rating || rating < 1 || rating > 5 || !Number.isInteger(rating)) {
         return jsonResponse({ error: '评分必须为 1-5 的整数' }, 400, origin);
       }
+      const dimensionScores = body.dimension_scores ? JSON.stringify(body.dimension_scores) : null;
 
       // 检查作品是否存在
       const work = await env.DB.prepare('SELECT id FROM works WHERE id = ?').bind(workId).first();
@@ -4448,10 +4517,10 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       const existing = await env.DB.prepare('SELECT rating FROM work_ratings WHERE user_id = ? AND work_id = ?').bind(authUser.userId, workId).first();
       const oldRating = existing ? existing.rating : 0;
 
-      // 插入或更新评分
+      // 插入或更新评分（含 dimension_scores）
       await env.DB.prepare(
-        "INSERT INTO work_ratings (user_id, work_id, rating, created_at, updated_at) VALUES (?, ?, ?, datetime('now'), datetime('now')) ON CONFLICT(user_id, work_id) DO UPDATE SET rating = excluded.rating, updated_at = datetime('now')"
-      ).bind(authUser.userId, workId, rating).run();
+        "INSERT INTO work_ratings (user_id, work_id, rating, dimension_scores, created_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now')) ON CONFLICT(user_id, work_id) DO UPDATE SET rating = excluded.rating, dimension_scores = excluded.dimension_scores, updated_at = datetime('now')"
+      ).bind(authUser.userId, workId, rating, dimensionScores).run();
 
       // 更新 works 表的去规范化评分统计
       if (oldRating > 0) {
@@ -4495,6 +4564,774 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     ).bind(existing.rating, workId).run();
 
     return jsonResponse({ success: true }, 200, origin);
+  }
+
+  // ─── 插画图片管理 ──────────────────────────────────
+
+  // POST /api/works/:id/illustrations — 批量添加插画图片
+  const illMatch = pathname.match(/^\/api\/works\/(\d+)\/illustrations$/);
+  if (illMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(illMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id, type FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+    if (work.type !== 'illustration') return jsonResponse({ error: '仅插画类型支持添加图片' }, 400, origin);
+
+    try {
+      const body = await request.json();
+      const { images } = body; // [{ url, caption }]
+      if (!Array.isArray(images) || images.length === 0) return jsonResponse({ error: '请提供图片数组' }, 400, origin);
+
+      // 获取当前最大排序
+      const maxOrder = await env.DB.prepare(
+        'SELECT MAX(sort_order) AS max_order FROM illustration_images WHERE work_id = ?'
+      ).bind(workId).first();
+      let nextOrder = (maxOrder?.max_order ?? -1) + 1;
+
+      for (const img of images) {
+        await env.DB.prepare(
+          'INSERT INTO illustration_images (work_id, image_url, sort_order, caption) VALUES (?, ?, ?, ?)'
+        ).bind(workId, img.url, nextOrder, img.caption || '').run();
+        nextOrder++;
+      }
+
+      // 更新 illustration_count
+      const countResult = await env.DB.prepare(
+        'SELECT COUNT(*) AS cnt FROM illustration_images WHERE work_id = ?'
+      ).bind(workId).first();
+      await env.DB.prepare('UPDATE works SET illustration_count = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .bind(countResult.cnt, workId).run();
+
+      // 返回更新后的图片列表
+      const updatedImages = await env.DB.prepare(
+        'SELECT * FROM illustration_images WHERE work_id = ? ORDER BY sort_order ASC'
+      ).bind(workId).all();
+
+      return jsonResponse({ illustrations: updatedImages.results }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '添加图片失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/works/:id/illustrations/:iid — 删除单张插画图片
+  const illDelMatch = pathname.match(/^\/api\/works\/(\d+)\/illustrations\/(\d+)$/);
+  if (illDelMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(illDelMatch[1]);
+    const imageId = Number(illDelMatch[2]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    const image = await env.DB.prepare('SELECT id FROM illustration_images WHERE id = ? AND work_id = ?')
+      .bind(imageId, workId).first();
+    if (!image) return jsonResponse({ error: '图片不存在' }, 404, origin);
+
+    await env.DB.prepare('DELETE FROM illustration_images WHERE id = ?').bind(imageId).run();
+
+    // 更新 illustration_count
+    const countResult = await env.DB.prepare(
+      'SELECT COUNT(*) AS cnt FROM illustration_images WHERE work_id = ?'
+    ).bind(workId).first();
+    await env.DB.prepare('UPDATE works SET illustration_count = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .bind(countResult.cnt, workId).run();
+
+    return jsonResponse({ success: true, illustration_count: countResult.cnt }, 200, origin);
+  }
+
+  // PUT /api/works/:id/illustrations/reorder — 重新排序插画图片
+  const illReorderMatch = pathname.match(/^\/api\/works\/(\d+)\/illustrations\/reorder$/);
+  if (illReorderMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(illReorderMatch[1]);
+
+    const work = await env.DB.prepare('SELECT author_id FROM works WHERE id = ?').bind(workId).first();
+    if (!work) return jsonResponse({ error: '作品不存在' }, 404, origin);
+    if (work.author_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { order } = body; // [imageId1, imageId2, ...]
+      if (!Array.isArray(order)) return jsonResponse({ error: '请提供排序数组' }, 400, origin);
+
+      for (let i = 0; i < order.length; i++) {
+        await env.DB.prepare(
+          'UPDATE illustration_images SET sort_order = ? WHERE id = ? AND work_id = ?'
+        ).bind(i, order[i], workId).run();
+      }
+
+      const updatedImages = await env.DB.prepare(
+        'SELECT * FROM illustration_images WHERE work_id = ? ORDER BY sort_order ASC'
+      ).bind(workId).all();
+
+      return jsonResponse({ illustrations: updatedImages.results }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '排序失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ─── 排行榜 API ──────────────────────────────────
+
+  // GET /api/works/rankings — 排行榜数据
+  const rankingsMatch = pathname.match(/^\/api\/works\/rankings$/);
+  if (rankingsMatch && method === 'GET') {
+    const sp = new URL(request.url).searchParams;
+    const rankType = sp.get('type') || 'daily'; // daily / weekly / monthly
+    const category = sp.get('category') || 'all'; // illustration / novel / manga / galgame / all
+    const limit = Math.min(50, Math.max(1, Number(sp.get('limit')) || 20));
+
+    // 验证 type 参数
+    if (!['daily', 'weekly', 'monthly'].includes(rankType)) {
+      return jsonResponse({ error: 'type 必须为 daily、weekly 或 monthly' }, 400, origin);
+    }
+
+    let query = 'SELECT wr.*, w.title, w.type, w.cover_image, w.author_id, u.name AS author_name, u.avatar AS author_avatar FROM work_rankings wr JOIN works w ON wr.work_id = w.id JOIN users u ON w.author_id = u.id WHERE wr.rank_type = ?';
+    const params = [rankType];
+
+    if (category !== 'all') {
+      query += ' AND wr.category = ?';
+      params.push(category);
+    }
+
+    query += ' ORDER BY wr.rank_position ASC LIMIT ?';
+    params.push(limit);
+
+    try {
+      const rankings = await env.DB.prepare(query).bind(...params).all();
+      return jsonResponse({ rankings: rankings.results, type: rankType, category }, 200, origin);
+    } catch (err) {
+      // 表可能未创建（迁移未执行），返回空数据
+      return jsonResponse({ rankings: [], type: rankType, category }, 200, origin);
+    }
+  }
+
+  // ─── 用户画像 API ───
+
+  // GET /api/profile — 获取当前用户画像
+  if (method === 'GET' && pathname === '/api/profile') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const profile = await env.DB.prepare(
+        'SELECT * FROM user_profiles WHERE user_id = ?'
+      ).bind(authUser.userId).first();
+
+      if (!profile) {
+        return jsonResponse({ error: '画像未生成' }, 404, origin);
+      }
+
+      return jsonResponse({
+        user_id: profile.user_id,
+        tag_weights: safeJsonParse(profile.tag_weights, {}),
+        type_affinity: safeJsonParse(profile.type_affinity, {}),
+        consumption_stats: safeJsonParse(profile.consumption_stats, {}),
+        rating_tendency: profile.rating_tendency,
+        activity_score: profile.activity_score,
+        last_action_at: profile.last_action_at,
+        version: profile.version,
+        similar_users: safeJsonParse(profile.similar_users, []),
+        updated_at: profile.updated_at,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '获取画像失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/profile/refresh — 触发画像重算
+  if (method === 'POST' && pathname === '/api/profile/refresh') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const profile = await userProfile.computeUserProfile(env.DB, authUser.userId);
+
+      await env.DB.prepare(
+        `INSERT OR REPLACE INTO user_profiles
+         (user_id, tag_weights, type_affinity, consumption_stats, rating_tendency,
+          activity_score, last_action_at, version, similar_users, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        profile.user_id, profile.tag_weights, profile.type_affinity,
+        profile.consumption_stats, profile.rating_tendency,
+        profile.activity_score, profile.last_action_at,
+        profile.version, profile.similar_users, profile.updated_at
+      ).run();
+
+      // 异步计算相似用户并更新推荐缓存
+      context.waitUntil((async () => {
+        const similar = await userProfile.computeSimilarUsers(env.DB, authUser.userId);
+        await env.DB.prepare(
+          'UPDATE user_profiles SET similar_users = ? WHERE user_id = ?'
+        ).bind(JSON.stringify(similar), authUser.userId).run();
+        await recommendEngine.refreshUserRecommendCache(env.DB, authUser.userId);
+      })());
+
+      return jsonResponse({
+        user_id: profile.user_id,
+        tag_weights: safeJsonParse(profile.tag_weights, {}),
+        type_affinity: safeJsonParse(profile.type_affinity, {}),
+        consumption_stats: safeJsonParse(profile.consumption_stats, {}),
+        rating_tendency: profile.rating_tendency,
+        activity_score: profile.activity_score,
+        updated_at: profile.updated_at,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '画像刷新失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ─── 推荐 API ───
+
+  // GET /api/recommend?scene= — 获取推荐缓存
+  if (method === 'GET' && pathname === '/api/recommend') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const url = new URL(request.url);
+    const scene = url.searchParams.get('scene') || 'home_random';
+
+    try {
+      const cache = await env.DB.prepare(
+        'SELECT * FROM recommend_cache WHERE user_id = ? AND scene = ?'
+      ).bind(authUser.userId, scene).first();
+
+      if (cache) {
+        return jsonResponse({
+          user_id: cache.user_id,
+          scene: cache.scene,
+          items: safeJsonParse(cache.items, []),
+          generated_at: cache.generated_at,
+        }, 200, origin);
+      }
+
+      // 缓存未命中 → 返回热门推荐
+      const hot = await recommendEngine.getHotRecommendations(env.DB);
+      return jsonResponse({
+        user_id: authUser.userId,
+        scene,
+        items: hot,
+        generated_at: new Date().toISOString(),
+        fallback: true,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '获取推荐失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ─── 行为上报 API ───
+
+  // POST /api/behavior — 上报用户行为
+  if (method === 'POST' && pathname === '/api/behavior') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { action, target_type, target_id, metadata } = body;
+
+      if (!action) {
+        return jsonResponse({ error: '缺少 action 字段' }, 400, origin);
+      }
+
+      const result = await env.DB.prepare(
+        'INSERT INTO behavior_log (user_id, action, target_type, target_id, metadata) VALUES (?, ?, ?, ?, ?)'
+      ).bind(
+        authUser.userId, action,
+        target_type || '', target_id || 0,
+        JSON.stringify(metadata || {})
+      ).run();
+
+      // 更新 user_profiles.last_action_at
+      await env.DB.prepare(
+        "UPDATE user_profiles SET last_action_at = datetime('now') WHERE user_id = ?"
+      ).bind(authUser.userId).run();
+
+      return jsonResponse({ id: result.meta.last_row_id, success: true }, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '行为上报失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ─── 管理员推荐刷新 ───
+
+  // GET /api/recommend/refresh — 管理员手动刷新全局缓存
+  if (method === 'GET' && pathname === '/api/recommend/refresh') {
+    const adminUser = await getAdminUser(request, env);
+    if (!adminUser) return jsonResponse({ error: '需要管理员权限' }, 403, origin);
+
+    context.waitUntil(recommendEngine.refreshAllRecommendCaches(env.DB));
+
+    return jsonResponse({ success: true, message: '全局推荐缓存刷新已触发' }, 200, origin);
+  }
+
+  // ─── 创作者主页 API ──────────────────────────────────
+
+  // GET /api/users/:id/portfolio — 创作者主页（作品集+统计）
+  const portfolioMatch = pathname.match(/^\/api\/users\/(\d+)\/portfolio$/);
+  if (portfolioMatch && method === 'GET') {
+    const userId = Number(portfolioMatch[1]);
+
+    try {
+      // 用户基本信息
+      const user = await env.DB.prepare(
+        'SELECT id, name, avatar, bio, banner_image, commission_status, created_at FROM users WHERE id = ?'
+      ).bind(userId).first();
+      if (!user) return jsonResponse({ error: '用户不存在' }, 404, origin);
+
+      // 作品列表（公开可见）
+      const works = await env.DB.prepare(
+        `SELECT w.*, u.name AS author_name, u.avatar AS author_avatar
+         FROM works w JOIN users u ON w.author_id = u.id
+         WHERE w.author_id = ? AND w.is_visible = 1 AND w.visibility != 'private'
+         ORDER BY w.created_at DESC LIMIT 50`
+      ).bind(userId).all();
+
+      // 统计计数
+      const stats = await env.DB.prepare(
+        `SELECT
+           COUNT(*) AS total_works,
+           SUM(views_count) AS total_views,
+           SUM(likes_count) AS total_likes,
+           SUM(favorites_count) AS total_favorites
+         FROM works WHERE author_id = ? AND is_visible = 1`
+      ).bind(userId).first();
+
+      // 按类型分组作品
+      const worksByType = { illustration: [], novel: [], manga: [], galgame: [] };
+      for (const w of works.results) {
+        if (worksByType[w.type]) worksByType[w.type].push(w);
+      }
+
+      return jsonResponse({
+        user: {
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar,
+          bio: user.bio,
+          banner_image: user.banner_image,
+          commission_status: user.commission_status,
+          created_at: user.created_at,
+        },
+        stats: {
+          total_works: stats.total_works || 0,
+          total_views: stats.total_views || 0,
+          total_likes: stats.total_likes || 0,
+          total_favorites: stats.total_favorites || 0,
+        },
+        portfolio: worksByType,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '获取创作者主页失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ─── 关注动态流 API ──────────────────────────────────
+
+  // GET /api/feed — 关注创作者的动态流
+  if (method === 'GET' && pathname === '/api/feed') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(50, Math.max(1, Number(sp.get('limit')) || 20));
+    const offset = (page - 1) * limit;
+
+    try {
+      const feed = await env.DB.prepare(
+        `SELECT uf.*, w.title, w.type, w.cover_image,
+                u.name AS creator_name, u.avatar AS creator_avatar
+         FROM user_feed uf
+         JOIN works w ON uf.work_id = w.id
+         JOIN users u ON uf.creator_id = u.id
+         WHERE uf.user_id = ?
+         ORDER BY uf.created_at DESC
+         LIMIT ? OFFSET ?`
+      ).bind(authUser.userId, limit, offset).all();
+
+      // 标记为已读
+      context.waitUntil(
+        env.DB.prepare(
+          'UPDATE user_feed SET is_read = 1 WHERE user_id = ? AND is_read = 0'
+        ).bind(authUser.userId).run()
+      );
+
+      return jsonResponse({ feed: feed.results, page, limit }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ feed: [], page, limit }, 200, origin);
+    }
+  }
+
+  // ─── 系列 API ──────────────────────────────────
+
+  // POST /api/series — 创建系列
+  if (method === 'POST' && pathname === '/api/series') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { title, description, cover_image } = body;
+      if (!title) return jsonResponse({ error: '系列标题不能为空' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO work_series (creator_id, title, description, cover_image) VALUES (?, ?, ?, ?)'
+      ).bind(authUser.userId, title, description || '', cover_image || '').run();
+
+      const series = await env.DB.prepare('SELECT * FROM work_series WHERE id = ?').bind(result.meta.last_row_id).first();
+      return jsonResponse(series, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '创建系列失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/series/:id — 系列详情
+  const seriesMatch = pathname.match(/^\/api\/series\/(\d+)$/);
+  if (seriesMatch && method === 'GET') {
+    const seriesId = Number(seriesMatch[1]);
+
+    try {
+      const series = await env.DB.prepare(
+        'SELECT s.*, u.name AS creator_name, u.avatar AS creator_avatar FROM work_series s JOIN users u ON s.creator_id = u.id WHERE s.id = ?'
+      ).bind(seriesId).first();
+      if (!series) return jsonResponse({ error: '系列不存在' }, 404, origin);
+
+      // 获取系列中的作品
+      const works = await env.DB.prepare(
+        `SELECT w.*, sw.sort_order, u.name AS author_name, u.avatar AS author_avatar
+         FROM series_works sw
+         JOIN works w ON sw.work_id = w.id
+         JOIN users u ON w.author_id = u.id
+         WHERE sw.series_id = ?
+         ORDER BY sw.sort_order ASC`
+      ).bind(seriesId).all();
+
+      return jsonResponse({ ...series, works: works.results }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '获取系列失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // PUT /api/series/:id — 更新系列
+  if (seriesMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const seriesId = Number(seriesMatch[1]);
+
+    const series = await env.DB.prepare('SELECT creator_id FROM work_series WHERE id = ?').bind(seriesId).first();
+    if (!series) return jsonResponse({ error: '系列不存在' }, 404, origin);
+    if (series.creator_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { title, description, cover_image } = body;
+      await env.DB.prepare(
+        'UPDATE work_series SET title = ?, description = ?, cover_image = ?, updated_at = datetime(\'now\') WHERE id = ?'
+      ).bind(title, description || '', cover_image || '', seriesId).run();
+
+      const updated = await env.DB.prepare('SELECT * FROM work_series WHERE id = ?').bind(seriesId).first();
+      return jsonResponse(updated, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新系列失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/series/:id — 删除系列
+  if (seriesMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const seriesId = Number(seriesMatch[1]);
+
+    const series = await env.DB.prepare('SELECT creator_id FROM work_series WHERE id = ?').bind(seriesId).first();
+    if (!series) return jsonResponse({ error: '系列不存在' }, 404, origin);
+    if (series.creator_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM series_works WHERE series_id = ?').bind(seriesId).run();
+    await env.DB.prepare('DELETE FROM work_series WHERE id = ?').bind(seriesId).run();
+    return jsonResponse({ success: true }, 200, origin);
+  }
+
+  // POST /api/series/:id/works — 添加作品到系列
+  const seriesWorkMatch = pathname.match(/^\/api\/series\/(\d+)\/works$/);
+  if (seriesWorkMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const seriesId = Number(seriesWorkMatch[1]);
+
+    const series = await env.DB.prepare('SELECT creator_id FROM work_series WHERE id = ?').bind(seriesId).first();
+    if (!series) return jsonResponse({ error: '系列不存在' }, 404, origin);
+    if (series.creator_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { work_id } = body;
+      if (!work_id) return jsonResponse({ error: '请提供作品ID' }, 400, origin);
+
+      // 获取当前最大排序
+      const maxOrder = await env.DB.prepare(
+        'SELECT MAX(sort_order) AS max_order FROM series_works WHERE series_id = ?'
+      ).bind(seriesId).first();
+      const nextOrder = (maxOrder?.max_order ?? -1) + 1;
+
+      await env.DB.prepare(
+        'INSERT OR IGNORE INTO series_works (series_id, work_id, sort_order) VALUES (?, ?, ?)'
+      ).bind(seriesId, work_id, nextOrder).run();
+
+      // 更新作品的 series_id
+      await env.DB.prepare('UPDATE works SET series_id = ? WHERE id = ?').bind(seriesId, work_id).run();
+
+      const works = await env.DB.prepare(
+        'SELECT sw.*, w.title, w.type FROM series_works sw JOIN works w ON sw.work_id = w.id WHERE sw.series_id = ? ORDER BY sw.sort_order ASC'
+      ).bind(seriesId).all();
+
+      return jsonResponse({ works: works.results }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '添加作品失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/series/:id/works/:workId — 从系列移除作品
+  const seriesWorkDelMatch = pathname.match(/^\/api\/series\/(\d+)\/works\/(\d+)$/);
+  if (seriesWorkDelMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const seriesId = Number(seriesWorkDelMatch[1]);
+    const workId = Number(seriesWorkDelMatch[2]);
+
+    const series = await env.DB.prepare('SELECT creator_id FROM work_series WHERE id = ?').bind(seriesId).first();
+    if (!series) return jsonResponse({ error: '系列不存在' }, 404, origin);
+    if (series.creator_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM series_works WHERE series_id = ? AND work_id = ?').bind(seriesId, workId).run();
+    await env.DB.prepare('UPDATE works SET series_id = NULL WHERE id = ? AND series_id = ?').bind(workId, seriesId).run();
+
+    return jsonResponse({ success: true }, 200, origin);
+  }
+
+  // ─── 约稿企划 API ──────────────────────────────────
+
+  // POST /api/commissions — 创建约稿企划
+  if (method === 'POST' && pathname === '/api/commissions') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const { title, description, budget_min, budget_max, deadline, category, requirements } = body;
+      if (!title || !description) return jsonResponse({ error: '标题和描述不能为空' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        `INSERT INTO commissions (creator_id, title, description, budget_min, budget_max, deadline, category, requirements, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')`
+      ).bind(authUser.userId, title, description, budget_min || null, budget_max || null,
+        deadline || null, category || 'illustration', requirements || '').run();
+
+      const commission = await env.DB.prepare(
+        'SELECT c.*, u.name AS creator_name, u.avatar AS creator_avatar FROM commissions c JOIN users u ON c.creator_id = u.id WHERE c.id = ?'
+      ).bind(result.meta.last_row_id).first();
+
+      return jsonResponse(commission, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '创建企划失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/commissions — 约稿列表
+  if (method === 'GET' && pathname === '/api/commissions') {
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(50, Math.max(1, Number(sp.get('limit')) || 20));
+    const category = sp.get('category') || '';
+    const status = sp.get('status') || 'open';
+    const offset = (page - 1) * limit;
+
+    const conditions = ['status = ?'];
+    const bindParams = [status];
+    if (category) { conditions.push('category = ?'); bindParams.push(category); }
+
+    const where = conditions.join(' AND ');
+    const commissions = await env.DB.prepare(
+      `SELECT c.*, u.name AS creator_name, u.avatar AS creator_avatar
+       FROM commissions c JOIN users u ON c.creator_id = u.id
+       WHERE ${where} ORDER BY c.created_at DESC LIMIT ? OFFSET ?`
+    ).bind(...bindParams, limit, offset).all();
+
+    const countResult = await env.DB.prepare(
+      `SELECT COUNT(*) AS cnt FROM commissions WHERE ${where}`
+    ).bind(...bindParams).first();
+
+    return jsonResponse({
+      commissions: commissions.results,
+      page, limit,
+      total: countResult.cnt,
+    }, 200, origin);
+  }
+
+  // GET /api/commissions/:id — 约稿详情
+  const commMatch = pathname.match(/^\/api\/commissions\/(\d+)$/);
+  if (commMatch && method === 'GET') {
+    const commId = Number(commMatch[1]);
+    const commission = await env.DB.prepare(
+      `SELECT c.*, u.name AS creator_name, u.avatar AS creator_avatar
+       FROM commissions c JOIN users u ON c.creator_id = u.id WHERE c.id = ?`
+    ).bind(commId).first();
+    if (!commission) return jsonResponse({ error: '企划不存在' }, 404, origin);
+
+    // 获取响应列表
+    const responses = await env.DB.prepare(
+      `SELECT cr.*, u.name AS responder_name, u.avatar AS responder_avatar
+       FROM commission_responses cr JOIN users u ON cr.responder_id = u.id
+       WHERE cr.commission_id = ? ORDER BY cr.created_at DESC`
+    ).bind(commId).all();
+
+    return jsonResponse({ ...commission, responses: responses.results }, 200, origin);
+  }
+
+  // PUT /api/commissions/:id — 更新约稿
+  if (commMatch && method === 'PUT') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const commId = Number(commMatch[1]);
+
+    const comm = await env.DB.prepare('SELECT creator_id FROM commissions WHERE id = ?').bind(commId).first();
+    if (!comm) return jsonResponse({ error: '企划不存在' }, 404, origin);
+    if (comm.creator_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    try {
+      const body = await request.json();
+      const { title, description, budget_min, budget_max, deadline, status, category, requirements } = body;
+      await env.DB.prepare(
+        `UPDATE commissions SET title=?, description=?, budget_min=?, budget_max=?, deadline=?, status=?, category=?, requirements=?, updated_at=datetime('now') WHERE id=?`
+      ).bind(title, description, budget_min || null, budget_max || null,
+        deadline || null, status || 'open', category || 'illustration', requirements || '', commId).run();
+
+      const updated = await env.DB.prepare('SELECT * FROM commissions WHERE id = ?').bind(commId).first();
+      return jsonResponse(updated, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '更新失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/commissions/:id — 删除约稿
+  if (commMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const commId = Number(commMatch[1]);
+
+    const comm = await env.DB.prepare('SELECT creator_id FROM commissions WHERE id = ?').bind(commId).first();
+    if (!comm) return jsonResponse({ error: '企划不存在' }, 404, origin);
+    if (comm.creator_id !== authUser.userId) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    await env.DB.prepare('DELETE FROM commission_responses WHERE commission_id = ?').bind(commId).run();
+    await env.DB.prepare('DELETE FROM commissions WHERE id = ?').bind(commId).run();
+    return jsonResponse({ success: true }, 200, origin);
+  }
+
+  // POST /api/commissions/:id/respond — 应征约稿
+  const commRespondMatch = pathname.match(/^\/api\/commissions\/(\d+)\/respond$/);
+  if (commRespondMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const commId = Number(commRespondMatch[1]);
+
+    const comm = await env.DB.prepare('SELECT * FROM commissions WHERE id = ?').bind(commId).first();
+    if (!comm) return jsonResponse({ error: '企划不存在' }, 404, origin);
+    if (comm.status !== 'open') return jsonResponse({ error: '该企划已关闭' }, 400, origin);
+
+    try {
+      const body = await request.json();
+      const { message, price, timeline } = body;
+      if (!message) return jsonResponse({ error: '请填写应征说明' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO commission_responses (commission_id, responder_id, message, price, timeline) VALUES (?, ?, ?, ?, ?)'
+      ).bind(commId, authUser.userId, message, price || null, timeline || '').run();
+
+      const response = await env.DB.prepare(
+        'SELECT cr.*, u.name AS responder_name, u.avatar AS responder_avatar FROM commission_responses cr JOIN users u ON cr.responder_id = u.id WHERE cr.id = ?'
+      ).bind(result.meta.last_row_id).first();
+
+      return jsonResponse(response, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '应征失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // ─── 作品讨论区 API ──────────────────────────────────
+
+  // GET /api/works/:id/discussions — 作品讨论帖列表
+  const worksDiscussionsMatch = pathname.match(/^\/api\/works\/(\d+)\/discussions$/);
+  if (worksDiscussionsMatch && method === 'GET') {
+    const workId = Number(worksDiscussionsMatch[1]);
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(50, Math.max(1, Number(sp.get('limit')) || 20));
+    const offset = (page - 1) * limit;
+
+    const posts = await env.DB.prepare(
+      `SELECT p.*, u.name AS author_name, u.avatar AS author_avatar
+       FROM posts p JOIN users u ON p.author_id = u.id
+       WHERE p.work_id = ? AND p.is_visible = 1
+       ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
+    ).bind(workId, limit, offset).all();
+
+    const countResult = await env.DB.prepare(
+      'SELECT COUNT(*) AS cnt FROM posts WHERE work_id = ? AND is_visible = 1'
+    ).bind(workId).first();
+
+    return jsonResponse({ posts: posts.results, total: countResult.cnt, page, limit }, 200, origin);
+  }
+
+  // ─── 读者感想 API ──────────────────────────────────
+
+  // POST /api/works/:id/impressions — 提交读者感想
+  const impressionsMatch = pathname.match(/^\/api\/works\/(\d+)\/impressions$/);
+  if (impressionsMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const workId = Number(impressionsMatch[1]);
+
+    try {
+      const body = await request.json();
+      const { content, is_spoiler } = body;
+      if (!content) return jsonResponse({ error: '感想内容不能为空' }, 400, origin);
+
+      const result = await env.DB.prepare(
+        'INSERT INTO reader_impressions (work_id, user_id, content, is_spoiler) VALUES (?, ?, ?, ?)'
+      ).bind(workId, authUser.userId, content, is_spoiler ? 1 : 0).run();
+
+      const impression = await env.DB.prepare(
+        'SELECT ri.*, u.name AS user_name, u.avatar AS user_avatar FROM reader_impressions ri JOIN users u ON ri.user_id = u.id WHERE ri.id = ?'
+      ).bind(result.meta.last_row_id).first();
+
+      return jsonResponse(impression, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '提交感想失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/works/:id/impressions — 读者感想列表
+  if (impressionsMatch && method === 'GET') {
+    const workId = Number(impressionsMatch[1]);
+    const sp = new URL(request.url).searchParams;
+    const page = Math.max(1, Number(sp.get('page')) || 1);
+    const limit = Math.min(50, Math.max(1, Number(sp.get('limit')) || 20));
+    const offset = (page - 1) * limit;
+
+    const impressions = await env.DB.prepare(
+      `SELECT ri.*, u.name AS user_name, u.avatar AS user_avatar
+       FROM reader_impressions ri JOIN users u ON ri.user_id = u.id
+       WHERE ri.work_id = ? ORDER BY ri.likes_count DESC, ri.created_at DESC LIMIT ? OFFSET ?`
+    ).bind(workId, limit, offset).all();
+
+    return jsonResponse({ impressions: impressions.results, page, limit }, 200, origin);
   }
 
   // 未匹配的 API 路由
@@ -4589,7 +5426,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin, context);
       if (result) return result;
     }
@@ -5489,6 +6326,72 @@ export default {
         } catch (err) {
           console.error('Bangumi sync error:', err.message);
         }
+      }
+
+      // 每小时：排行榜计算
+      try {
+        const categories = ['illustration', 'novel', 'manga', 'galgame', 'all'];
+        const rankTypes = ['daily', 'weekly', 'monthly'];
+        const now = new Date();
+        const timeRanges = {
+          daily: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+          weekly: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          monthly: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+
+        // 清除旧排名
+        await env.DB.prepare('DELETE FROM work_rankings').run();
+
+        for (const rankType of rankTypes) {
+          for (const category of categories) {
+            const since = timeRanges[rankType];
+            let query = `
+              SELECT w.id, w.title, w.type, w.cover_image, w.author_id,
+                     (w.views_count * 0.3 + w.likes_count * 3 + w.favorites_count * 5 + w.comments_count * 2) AS score
+              FROM works w
+              WHERE w.is_visible = 1 AND w.visibility != 'private'
+                AND w.created_at >= ?
+            `;
+            const bindParams = [since];
+
+            if (category !== 'all') {
+              query += ' AND w.type = ?';
+              bindParams.push(category);
+            }
+
+            query += ' ORDER BY score DESC LIMIT 50';
+
+            try {
+              const works = await env.DB.prepare(query).bind(...bindParams).all();
+              for (let rank = 0; rank < works.results.length; rank++) {
+                const w = works.results[rank];
+                await env.DB.prepare(
+                  'INSERT INTO work_rankings (work_id, rank_type, category, rank_position, score, calculated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))'
+                ).bind(w.id, rankType, category, rank + 1, w.score).run();
+              }
+            } catch (err) {
+              console.error(`Ranking calc error [${rankType}/${category}]:`, err.message);
+            }
+          }
+        }
+        console.log('Rankings calculation completed');
+      } catch (err) {
+        console.error('Rankings calculation error:', err.message);
+      }
+
+      // 每小时：清理过期行为日志 + 刷新推荐缓存
+      try {
+        await userProfile.cleanupBehaviorLog(env.DB);
+        console.log('Behavior log cleanup completed');
+      } catch (err) {
+        console.error('Behavior log cleanup error:', err.message);
+      }
+
+      try {
+        await recommendEngine.refreshAllRecommendCaches(env.DB);
+        console.log('Recommend cache refresh completed');
+      } catch (err) {
+        console.error('Recommend cache refresh error:', err.message);
       }
     })());
   },
