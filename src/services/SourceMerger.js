@@ -113,11 +113,15 @@ export const SourceMerger = {
         // Hikarinagi 搜索返回 { items: [...], meta: {...} }
         const items = Array.isArray(results) ? results : results?.items || results?.list || [];
         for (const item of items) {
-          // Hikarinagi 字段：originTitle（数组，含日文名和英文名）、transTitle（中文名）
+          // Hikarinagi 字段因类型而异：
+          // Galgame: originTitle（数组）、transTitle
+          // 轻小说: name、name_cn、otherNames（数组）
           const hkTitles = [
             ...(Array.isArray(item.originTitle) ? item.originTitle : []),
+            ...(Array.isArray(item.otherNames) ? item.otherNames : []),
             item.transTitle,
             item.name,
+            item.name_cn,
             item.nameCn,
           ].filter(Boolean);
           for (const ht of hkTitles) {
@@ -142,7 +146,7 @@ export const SourceMerger = {
 
     const results = await Promise.allSettled(
       toCheck.map(item => {
-        const name = item.name || item.nameCn;
+        const name = item.name || item.name_cn || item.nameCn || item.transTitle;
         if (!name) return Promise.resolve(null);
         return BangumiService.searchSubjects(name, typeCode, 1, 0)
           .then(res => {
