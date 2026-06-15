@@ -2,6 +2,8 @@
 
 import { AniListService } from './AniListService';
 import { KitsuService } from './KitsuService';
+import HikarinagiService from './HikarinagiService';
+import { BangumiService } from './api';
 
 // 简单的标题相似度计算（Levenshtein 距离的简化版）
 function calculateSimilarity(a, b) {
@@ -52,6 +54,104 @@ export const SourceMerger = {
 
     this._cache.set(bgmId, result);
     return result;
+  },
+
+  // ─── Hikarinagi 名字匹配合并 ───
+
+  async mergeHikarinagiData(bgmSubject) {
+    const bgmId = bgmSubject?.id;
+    if (!bgmId) return null;
+
+    // 仅游戏(type=4)和小说(type=1)走 Hikarinagi 合并
+    if (bgmSubject.type !== 4 && bgmSubject.type !== 1) return null;
+
+    const cacheKey = `hk_${bgmId}`;
+    if (this._cache.has(cacheKey)) return this._cache.get(cacheKey);
+
+    const hkMatch = await this._findHikarinagi(bgmSubject);
+    if (!hkMatch) {
+      this._cache.set(cacheKey, null);
+      return null;
+    }
+
+    // 并行获取补充数据
+    const hkId = hkMatch.galId || hkMatch.novelId || hkMatch.id;
+    const isGalgame = bgmSubject.type === 4;
+
+    const [downloadInfo, links, related] = await Promise.allSettled([
+      isGalgame
+        ? HikarinagiService.galgame.getDownloadInfo(hkId)
+        : HikarinagiService.lightnovel.getSeriesDownloadUrls(hkId),
+      isGalgame ? HikarinagiService.galgame.getLinks(hkId) : Promise.resolve(null),
+      isGalgame ? HikarinagiService.galgame.getRelated(hkId) : Promise.resolve(null),
+    ]);
+
+    const result = {
+      match: hkMatch,
+      downloadInfo: downloadInfo.status === 'fulfilled' ? downloadInfo.value : null,
+      links: links.status === 'fulfilled' ? links.value : null,
+      related: related.status === 'fulfilled' ? related.value : null,
+    };
+
+    this._cache.set(cacheKey, result);
+    return result;
+  },
+
+  async _findHikarinagi(bgmSubject) {
+    const type = bgmSubject.type === 4 ? 'galgame' : bgmSubject.type === 1 ? 'novel' : null;
+    if (!type) return null;
+
+    const titles = [bgmSubject.name, bgmSubject.name_cn].filter(Boolean);
+    for (const title of titles) {
+      try {
+        const results = await HikarinagiService.search.search({ keyword: title, type, limit: 3 });
+        const items = Array.isArray(results) ? results : results?.list || [];
+        for (const item of items) {
+          const hkTitles = [item.name, item.nameCn].filter(Boolean);
+          for (const ht of hkTitles) {
+            for (const bt of titles) {
+              if (calculateSimilarity(ht, bt) > 0.85) {
+                return item;
+              }
+            }
+          }
+        }
+      } catch { /* 搜索失败，跳过 */ }
+    }
+    return null;
+  },
+
+  // 过滤相关推荐：仅保留能在 Bangumi 中搜到的条目
+  async filterRelatedByBangumi(relatedItems, bgmType) {
+    if (!relatedItems || relatedItems.length === 0) return [];
+
+    const typeCode = bgmType === 4 ? 4 : 1;
+    const toCheck = relatedItems.slice(0, 5);
+
+    const results = await Promise.allSettled(
+      toCheck.map(item => {
+        const name = item.name || item.nameCn;
+        if (!name) return Promise.resolve(null);
+        return BangumiService.searchSubjects(name, typeCode, 1, 0)
+          .then(res => {
+            const match = res.list?.[0];
+            if (match) {
+              const matchName = match.name || match.name_cn;
+              if (calculateSimilarity(matchName, name) > 0.85) {
+                return { ...item, bgmSubject: match };
+              }
+            }
+            return null;
+          })
+          .catch(() => null);
+      })
+    );
+
+    const verified = [];
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) verified.push(r.value);
+    }
+    return verified;
   },
 
   async _findAniList(bgmSubject) {

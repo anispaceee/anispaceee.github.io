@@ -280,26 +280,28 @@ export default function InfoDetail() {
       if (!data || !data.id) throw new ApiError('请求的内容不存在', 404, 'NOT_FOUND');
       setSubject(data); setProgress(90);
 
-      // 异步查询 Hikarinagi 关联数据（仅游戏/小说类型）
-      // 注意：Bangumi ID 关联查询需要认证，未登录时静默跳过
+      // 异步查询 Hikarinagi 关联数据（仅游戏/小说类型，通过名字匹配）
       if (data.type === 4 || data.type === 1) {
         setHikarinagiLoading(true);
         const hkType = data.type === 4 ? 'galgame' : 'lightnovel';
-        const hkService = data.type === 4 ? HikarinagiService.galgame : HikarinagiService.lightnovel;
-        hkService.getByBangumiId(id)
-          .then(async (hkData) => {
-            // request 已自动提取内层 data，hkData 直接就是条目数据
-            if (!hkData || (!hkData.galId && !hkData.novelId && !hkData.id)) {
+        SourceMerger.mergeHikarinagiData({ id, name: data.name, name_cn: data.name_cn, type: data.type })
+          .then(async (result) => {
+            if (!result) {
               setHikarinagiLinked(null);
               return;
             }
-            const hkId = hkData.galId || hkData.novelId || hkData.id;
-            if (!hkId) { setHikarinagiLinked(null); return; }
-            let downloadInfo = null;
-            if (hkType === 'galgame' && hkId) {
-              try { downloadInfo = await HikarinagiService.galgame.getDownloadInfo(hkId); } catch {}
+            // 过滤相关推荐：仅保留能在 Bangumi 中搜到的条目
+            let verifiedRelated = null;
+            if (result.related) {
+              verifiedRelated = await SourceMerger.filterRelatedByBangumi(result.related, data.type);
             }
-            setHikarinagiLinked({ type: hkType, data: hkData, downloadInfo });
+            setHikarinagiLinked({
+              type: hkType,
+              data: result.match,
+              downloadInfo: result.downloadInfo,
+              links: result.links,
+              related: verifiedRelated,
+            });
           })
           .catch(() => setHikarinagiLinked(null))
           .finally(() => setHikarinagiLoading(false));
@@ -1623,6 +1625,43 @@ export default function InfoDetail() {
                       </div>
                     ) : (
                       <div className="hikarinagi-tab-empty">暂无下载信息</div>
+                    )}
+
+                    {/* 外部链接 */}
+                    {hikarinagiLinked.links && (Array.isArray(hikarinagiLinked.links) ? hikarinagiLinked.links.length > 0 : true) && (
+                      <div className="hikarinagi-tab-links">
+                        <h4><ExternalLink size={14} /> 外部链接</h4>
+                        <div className="hikarinagi-links-list">
+                          {(Array.isArray(hikarinagiLinked.links) ? hikarinagiLinked.links : [hikarinagiLinked.links]).map((link, i) => (
+                            <a key={i} href={link.url || link} target="_blank" rel="noopener noreferrer" className="hikarinagi-link-item">
+                              <ExternalLink size={12} /> {link.name || link.title || `链接 ${i + 1}`}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 相关推荐（已过滤：仅显示能在 Bangumi 搜到的条目） */}
+                    {hikarinagiLinked.related && hikarinagiLinked.related.length > 0 && (
+                      <div className="hikarinagi-tab-related">
+                        <h4><Sparkles size={14} /> 相关推荐</h4>
+                        <div className="hikarinagi-related-grid">
+                          {hikarinagiLinked.related.map((item, i) => (
+                            <Link
+                              key={i}
+                              to={`/info/${item.bgmSubject?.id}`}
+                              className="hikarinagi-related-card"
+                            >
+                              {item.bgmSubject?.images?.common && (
+                                <img src={item.bgmSubject.images.common} alt="" loading="lazy" />
+                              )}
+                              <span className="hikarinagi-related-name">
+                                {item.bgmSubject?.name_cn || item.bgmSubject?.name || item.name || item.nameCn}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}

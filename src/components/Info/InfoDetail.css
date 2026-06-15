@@ -467,6 +467,22 @@
 .hikarinagi-download-item a:hover { opacity: 0.8; }
 .hikarinagi-download-raw { font-size: 11px; color: var(--text-tertiary); background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm); overflow-x: auto; white-space: pre-wrap; }
 .hikarinagi-tab-empty { padding: 20px; text-align: center; color: var(--text-quaternary); font-size: 13px; }
+
+/* Hikarinagi 外部链接 */
+.hikarinagi-tab-links { margin-top: 16px; }
+.hikarinagi-tab-links h4 { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-secondary); }
+.hikarinagi-links-list { display: flex; flex-direction: column; gap: 6px; }
+.hikarinagi-link-item { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); font-size: 13px; color: var(--primary); text-decoration: none; transition: background var(--transition-fast); }
+.hikarinagi-link-item:hover { background: rgba(255,255,255,0.08); }
+
+/* Hikarinagi 相关推荐 */
+.hikarinagi-tab-related { margin-top: 16px; }
+.hikarinagi-tab-related h4 { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-secondary); }
+.hikarinagi-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.hikarinagi-related-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(255,255,255,0.04); border-radius: var(--radius-md); text-decoration: none; transition: background var(--transition-fast); }
+.hikarinagi-related-card:hover { background: rgba(255,255,255,0.08); }
+.hikarinagi-related-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: var(--radius-sm); }
+.hikarinagi-related-name { font-size: 12px; color: var(--text-secondary); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-tab-loading { display: inline-flex; align-items: center; color: var(--primary); }
 
 .novel-tab-layout { display: flex; flex-direction: column; gap: 20px; }
