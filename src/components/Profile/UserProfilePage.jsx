@@ -26,7 +26,7 @@ const GitHubIcon = ({ size = 16 }) => (
 export default function UserProfilePage() {
   const { userId: urlUserId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, isAuthenticated, openAuth, updateProfile } = useApp();
+  const { currentUser, isAuthenticated, openAuth, updateProfile, socialMode } = useApp();
 
   // 如果没有 URL 参数（/profile 路由），使用当前用户 ID
   const effectiveUserId = urlUserId || (currentUser?.id);
@@ -493,14 +493,16 @@ export default function UserProfilePage() {
                 <button className="user-profile-action-btn edit" onClick={handleEdit}>
                   <Edit3 size={13} /> 编辑
                 </button>
+                {socialMode && (
                 <Link to="/mailbox" className="user-profile-action-btn message">
                   <Mail size={13} /> D-Mail{unreadMail > 0 && <span className="mail-badge-small">{unreadMail}</span>}
                 </Link>
+                )}
                 <button className="user-profile-action-btn settings" onClick={() => setShowSettings(true)}>
                   <Settings size={13} /> 设置
                 </button>
               </div>
-            ) : (
+            ) : socialMode ? (
               <div className="user-profile-actions">
                 {friendStatus === 'accepted' && (
                   <>
@@ -565,7 +567,7 @@ export default function UserProfilePage() {
                   </>
                 )}
               </div>
-            )}
+            ) : null}
 
             {/* ─── 个人信息 ─── */}
             <div className="user-profile-meta-list">
@@ -588,12 +590,14 @@ export default function UserProfilePage() {
             </div>
 
             {/* ─── 社交统计 ─── */}
+            {socialMode && (
             <div className="user-profile-social">
               <div className="user-profile-social-item"><span className="social-num">{userInfo.postCount || 0}</span><span className="social-label">帖子</span></div>
               <div className={`user-profile-social-item clickable ${socialTab === 'following' ? 'active' : ''}`} onClick={() => handleSocialClick('following')}><span className="social-num">{userInfo.followingCount || 0}</span><span className="social-label">关注</span></div>
               <div className={`user-profile-social-item clickable ${socialTab === 'followers' ? 'active' : ''}`} onClick={() => handleSocialClick('followers')}><span className="social-num">{userInfo.followerCount || 0}</span><span className="social-label">粉丝</span></div>
               <div className={`user-profile-social-item clickable ${socialTab === 'friends' ? 'active' : ''}`} onClick={() => handleSocialClick('friends')}><span className="social-num">{userInfo.friend_count || userInfo.friendCount || 0}</span><span className="social-label">好友</span></div>
             </div>
+            )}
           </div>
 
           {/* ─── 数据统计 ─── */}
@@ -689,7 +693,7 @@ export default function UserProfilePage() {
                 <button className={`user-profile-tab ${activeTab === 'collections' ? 'active' : ''}`} onClick={() => setActiveTab('collections')}>
                   <BookOpen size={14} /> 收藏
                 </button>
-                {isSelf && (
+                {socialMode && isSelf && (
                   <button className={`user-profile-tab ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
                     <Users size={14} /> 好友
                     {receivedRequests.length > 0 && <span className="user-profile-tab-badge">{receivedRequests.length}</span>}
@@ -704,9 +708,11 @@ export default function UserProfilePage() {
                 <button className={`user-profile-tab ${activeTab === 'news' ? 'active' : ''}`} onClick={() => setActiveTab('news')}>
                   <Newspaper size={14} /> 资讯
                 </button>
+                {socialMode && (
                 <button className={`user-profile-tab ${activeTab === 'posts' ? 'active' : ''}`} onClick={() => setActiveTab('posts')}>
                   <BookOpen size={14} /> 发帖
                 </button>
+                )}
               </div>
 
               {/* ─── 收藏标签页 ─── */}
