@@ -8,10 +8,11 @@ function defaultModel(config) {
   return config.model || (config.provider === 'openai' ? 'gpt-3.5-turbo' : 'default');
 }
 
-/** Worker 代理端点（开发环境走 /api 前缀） */
+/** Worker 代理端点：开发环境走 Vite 中间件，生产环境走 Worker 完整 URL */
+const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
 const LLM_PROXY = import.meta.env.DEV
   ? '/api/llm/chat/completions'
-  : '/api/llm/chat/completions';
+  : `${API_BASE}/api/llm/chat/completions`;
 
 /**
  * 统一 LLM 调用：通过 Worker 代理转发，避免浏览器 CORS 限制。
