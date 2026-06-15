@@ -1,6 +1,6 @@
 import { StorageService } from './storage';
 
-const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+const API_BASE = (import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev') + '/api';
 
 // ─── 请求辅助函数，自动附加 Authorization header ───
 async function apiFetch(path, options = {}) {
