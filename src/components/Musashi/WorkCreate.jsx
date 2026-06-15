@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import MusashiService from '../../services/musashiApi';
+import { MusashiService } from '../../services/musashiApi';
 import { Gamepad2, BookOpen, Palette, ArrowLeft, Loader2 } from 'lucide-react';
 import ImageUploader from './ImageUploader';
 import './WorkCreate.css';

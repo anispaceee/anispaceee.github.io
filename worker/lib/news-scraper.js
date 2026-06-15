@@ -13,6 +13,8 @@
  * 9. Steam — 精选/特惠游戏
  * 10. Jikan Season — MyAnimeList 当季新番（公开 API）
  * 11. Jikan Top — MyAnimeList 热门排行（公开 API）
+ * 12. Kitsu Trending — Kitsu 热门动漫（公开 API）
+ * 13. Kitsu Current — Kitsu 正在播出（公开 API）
  *
  * 注意：AniList 和 B站 API 在 Cloudflare Worker 环境中被封禁（403/412），不可用
  *
@@ -713,6 +715,105 @@ async function scrapeJikanTop() {
   return items.slice(0, 25);
 }
 
+// ─── Kitsu (动漫数据库) ──────────────────────────────────────
+// 爬取热门动漫和当季新番
+
+const KITSU_API = 'https://kitsu.io/api/edge';
+
+async function scrapeKitsuTrending() {
+  const items = [];
+
+  try {
+    // 获取热门动漫
+    const res = await fetch(`${KITSU_API}/anime?page[limit]=20&sort=popularityRank`, {
+      headers: { 'Accept': 'application/vnd.api+json' },
+    });
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const attrs = anime.attributes || {};
+      const title = attrs.canonicalTitle || attrs.titles?.en_jp || attrs.titles?.ja || '';
+      if (!title) continue;
+
+      const score = attrs.averageRating || 0;
+      const rank = attrs.popularityRank || 0;
+      const ratingRank = attrs.ratingRank || 0;
+      const status = attrs.status || '';
+      const type = attrs.subtype || 'TV';
+
+      items.push({
+        source: 'kitsu_trending',
+        source_id: `kitsu_${anime.id}`,
+        title,
+        link: `https://kitsu.io/anime/${anime.id}`,
+        summary: `${type} · ${attrs.episodeCount || '?'}集 · 评分 ${score/10 || '?'} · 热门排名 #${rank}`,
+        cover: attrs.posterImage?.large || attrs.posterImage?.medium || attrs.posterImage?.original || '',
+        category: '热门推荐',
+        extra: JSON.stringify({
+          kitsuId: anime.id,
+          slug: attrs.slug,
+          score,
+          popularityRank: rank,
+          ratingRank,
+          status,
+          type,
+          startDate: attrs.startDate,
+          endDate: attrs.endDate,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 20);
+}
+
+async function scrapeKitsuCurrent() {
+  const items = [];
+
+  try {
+    // 获取当前播出动漫
+    const res = await fetch(`${KITSU_API}/anime?page[limit]=20&filter[status]=current&sort=startDate`, {
+      headers: { 'Accept': 'application/vnd.api+json' },
+    });
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const attrs = anime.attributes || {};
+      const title = attrs.canonicalTitle || attrs.titles?.en_jp || attrs.titles?.ja || '';
+      if (!title) continue;
+
+      const score = attrs.averageRating || 0;
+      const type = attrs.subtype || 'TV';
+
+      items.push({
+        source: 'kitsu_current',
+        source_id: `kitsu_cur_${anime.id}`,
+        title,
+        link: `https://kitsu.io/anime/${anime.id}`,
+        summary: `${type} · 正在播出 · 评分 ${score/10 || '?'}`,
+        cover: attrs.posterImage?.large || attrs.posterImage?.medium || attrs.posterImage?.original || '',
+        category: '新番导视',
+        extra: JSON.stringify({
+          kitsuId: anime.id,
+          slug: attrs.slug,
+          score,
+          type,
+          startDate: attrs.startDate,
+          status: attrs.status,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 20);
+}
+
 // ─── 统一爬取入口 ──────────────────────────────────────────
 
 export async function runAllScrapers(db) {
@@ -728,6 +829,8 @@ export async function runAllScrapers(db) {
     { name: 'steam', fn: scrapeSteam },
     { name: 'jikan_season', fn: scrapeJikanSeason },
     { name: 'jikan_top', fn: scrapeJikanTop },
+    { name: 'kitsu_trending', fn: scrapeKitsuTrending },
+    { name: 'kitsu_current', fn: scrapeKitsuCurrent },
   ];
 
   const results = {};
@@ -778,6 +881,8 @@ export async function scrapeSingleSource(sourceName) {
     steam: scrapeSteam,
     jikan_season: scrapeJikanSeason,
     jikan_top: scrapeJikanTop,
+    kitsu_trending: scrapeKitsuTrending,
+    kitsu_current: scrapeKitsuCurrent,
   };
 
   const fn = scrapers[sourceName];

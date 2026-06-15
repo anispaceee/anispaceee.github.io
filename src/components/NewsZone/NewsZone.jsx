@@ -19,6 +19,8 @@ const SOURCE_CONFIG = {
   steam: { label: 'Steam', color: '#1b2838', icon: Sparkles },
   jikan_season: { label: 'MAL 当季', color: '#2e51a2', icon: Tv },
   jikan_top: { label: 'MAL 热门', color: '#0b3d91', icon: Flame },
+  kitsu_trending: { label: 'Kitsu 热门', color: '#f67f5f', icon: Flame },
+  kitsu_current: { label: 'Kitsu 新番', color: '#ff7b5f', icon: Tv },
   custom: { label: '站内资讯', color: '#10b981', icon: Sparkles },
 };
 

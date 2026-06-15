@@ -1807,3 +1807,39 @@ export const TraceMoeService = {
     return apiRequest(`/api/tracemoe/me`);
   },
 };
+
+// ─── KitsuService (动漫数据库) ───
+// 通过Worker代理调用Kitsu API
+export const KitsuService = {
+  async getAnime(id) {
+    return apiRequest(`/api/kitsu/anime/${id}`);
+  },
+
+  async getTrending(limit = 20) {
+    return apiRequest(`/api/kitsu/anime?page[limit]=${limit}&sort=popularityRank`);
+  },
+
+  async getCurrent(limit = 20) {
+    return apiRequest(`/api/kitsu/anime?page[limit]=${limit}&filter[status]=current&sort=startDate`);
+  },
+
+  async searchAnime(keyword, limit = 20) {
+    return apiRequest(`/api/kitsu/anime?page[limit]=${limit}&filter[text]=${encodeURIComponent(keyword)}`);
+  },
+
+  async getAnimeCategories(id) {
+    return apiRequest(`/api/kitsu/anime/${id}/categories`);
+  },
+
+  async getAnimeCharacters(id) {
+    return apiRequest(`/api/kitsu/anime/${id}/characters`);
+  },
+
+  async getAnimeStaff(id) {
+    return apiRequest(`/api/kitsu/anime/${id}/staff`);
+  },
+
+  async getAnimeProductions(id) {
+    return apiRequest(`/api/kitsu/anime/${id}/productions`);
+  },
+};

@@ -120,6 +120,10 @@ export default function NovelReader() {
   }, [workId, currentChapter]);
 
   // ─── Save reading progress (debounce 500ms) ───
+  const currentIndex = chapters.findIndex(
+    (c) => String(c.id || c._id) === String(currentChapter?.id || currentChapter?._id)
+  );
+
   const saveProgress = useCallback((scrollPos) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
@@ -127,12 +131,14 @@ export default function NovelReader() {
       try {
         await MusashiService.updateProgress(workId, {
           chapter_id: currentChapter.id || currentChapter._id,
-          chapter_number: currentChapter.chapter_number || currentIndex + 1,
+          chapter_number: currentChapter.chapter_number || (chapters.findIndex(
+            (c) => String(c.id || c._id) === String(currentChapter?.id || currentChapter?._id)
+          ) + 1),
           scroll_position: scrollPos,
         });
       } catch { /* silently fail */ }
     }, 500);
-  }, [workId, currentChapter, currentIndex]);
+  }, [workId, currentChapter, chapters]);
 
   // ─── Scroll handler ───
   useEffect(() => {
@@ -163,10 +169,6 @@ export default function NovelReader() {
   });
 
   // ─── Navigation helpers ───
-  const currentIndex = chapters.findIndex(
-    (c) => String(c.id || c._id) === String(currentChapter?.id || currentChapter?._id)
-  );
-
   const goToPrevChapter = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentChapter(chapters[currentIndex - 1]);

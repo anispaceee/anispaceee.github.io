@@ -356,6 +356,10 @@ const JIKAN_API_URL = 'https://api.jikan.moe/v4';
 
 const TRACEMOE_API_URL = 'https://api.trace.moe';
 
+// ─── Kitsu API 代理 ────────────────────────────────────────
+
+const KITSU_API_URL = 'https://kitsu.io/api/edge';
+
 // Jikan API 代理处理函数
 async function handleJikanProxy(pathname, searchParams, request, env, origin) {
   const targetUrl = `${JIKAN_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
@@ -429,6 +433,55 @@ async function handleTraceMoeProxy(pathname, searchParams, request, env, origin)
   Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
 
   return new Response(await res.text(), {
+    status: res.status,
+    headers: resHeaders,
+  });
+}
+
+// Kitsu API 代理处理函数
+async function handleKitsuProxy(pathname, searchParams, request, env, origin) {
+  const targetUrl = `${KITSU_API_URL}${pathname}${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+
+  // 检查缓存
+  const cache = caches.default;
+  const cacheKey = new Request(targetUrl, { method: 'GET' });
+  if (request.method === 'GET') {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      const headers = new Headers(cached.headers);
+      headers.set('X-Cache', 'HIT');
+      Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+      return new Response(cached.body, { status: cached.status, headers });
+    }
+  }
+
+  const headers = {
+    'User-Agent': 'ANISpace/1.0 (https://anispaceee.github.io)',
+    'Accept': 'application/vnd.api+json',
+  };
+
+  const res = await fetch(targetUrl, { method: 'GET', headers });
+
+  const resHeaders = new Headers();
+  resHeaders.set('Content-Type', 'application/vnd.api+json');
+  resHeaders.set('X-Cache', 'MISS');
+  Object.entries(corsHeaders(origin)).forEach(([k, v]) => resHeaders.set(k, v));
+
+  const responseBody = await res.text();
+
+  // 缓存 GET 请求（1小时）
+  if (request.method === 'GET' && res.ok) {
+    const cacheResponse = new Response(responseBody, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'application/vnd.api+json; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+    try { await cache.put(cacheKey, cacheResponse); } catch {}
+  }
+
+  return new Response(responseBody, {
     status: res.status,
     headers: resHeaders,
   });
@@ -3323,9 +3376,46 @@ async function handleApiRoutes(pathname, request, env, origin) {
       `SELECT COUNT(*) AS total FROM works w ${whereClause}`
     ).bind(...bindParams).first();
 
+    // 为已登录用户附加 is_liked / is_favorited
+    const authUser = await getAuthUser(request, env);
+    let worksWithFlags = works.results;
+    if (authUser && worksWithFlags.length > 0) {
+      const workIds = worksWithFlags.map(w => w.id);
+      const likedRows = await env.DB.prepare(
+        `SELECT work_id FROM work_likes WHERE user_id = ? AND work_id IN (${workIds.map(() => '?').join(',')})`
+      ).bind(authUser.userId, ...workIds).all();
+      const favRows = await env.DB.prepare(
+        `SELECT work_id FROM work_favorites WHERE user_id = ? AND work_id IN (${workIds.map(() => '?').join(',')})`
+      ).bind(authUser.userId, ...workIds).all();
+      const likedSet = new Set(likedRows.results.map(r => r.work_id));
+      const favSet = new Set(favRows.results.map(r => r.work_id));
+      worksWithFlags = worksWithFlags.map(w => ({
+        ...w,
+        is_liked: likedSet.has(w.id) ? 1 : 0,
+        is_favorited: favSet.has(w.id) ? 1 : 0,
+      }));
+    }
+
     return jsonResponse({
-      works: works.results,
+      works: worksWithFlags,
       pagination: { page, limit, total: countResult?.total || 0 },
+    }, 200, origin);
+  }
+
+  // GET /api/works/my — 当前用户的作品列表
+  if (method === 'GET' && pathname === '/api/works/my') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const works = await env.DB.prepare(
+      'SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id WHERE w.author_id = ? ORDER BY w.created_at DESC'
+    ).bind(authUser.userId).all();
+
+    return jsonResponse({
+      works: works.results.map(w => ({
+        ...w,
+        tags: safeJsonParse(w.tags, []),
+      })),
     }, 200, origin);
   }
 
@@ -3336,15 +3426,16 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     try {
       const body = await request.json();
-      const { type, title, description, cover, tags, status } = body;
+      const { type, title, description, coverUrl, cover, tags, status, visibility } = body;
       if (!title || !type) return jsonResponse({ error: '标题和类型不能为空' }, 400, origin);
       if (!['novel', 'manga', 'galgame'].includes(type)) return jsonResponse({ error: '类型必须为 novel、manga 或 galgame' }, 400, origin);
 
+      const coverImage = coverUrl || cover || null;
       const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : '[]';
 
       const result = await env.DB.prepare(
-        "INSERT INTO works (author_id, type, title, description, cover_image, tags, status, views_count, likes_count, favorites_count, comments_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, datetime('now'), datetime('now'))"
-      ).bind(authUser.userId, type, title, description || null, cover || null, tagsJson, status || 'ongoing').run();
+        "INSERT INTO works (author_id, type, title, description, cover_image, tags, status, visibility, views_count, likes_count, favorites_count, comments_count, rating_sum, rating_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, datetime('now'), datetime('now'))"
+      ).bind(authUser.userId, type, title, description || null, coverImage, tagsJson, status || 'ongoing', visibility || 'public').run();
 
       const work = await env.DB.prepare(
         'SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id WHERE w.id = ?'
@@ -3417,12 +3508,15 @@ async function handleApiRoutes(pathname, request, env, origin) {
 
     try {
       const body = await request.json();
-      const { title, description, cover, tags, status } = body;
+      const { title, description, coverUrl, cover, tags, status, visibility, is_visible } = body;
+      const coverImage = coverUrl || cover || null;
       const tagsJson = tags ? JSON.stringify(tags) : undefined;
+      const visibilityVal = visibility || null;
+      const isVisible = is_visible !== undefined ? (is_visible ? 1 : 0) : null;
 
       await env.DB.prepare(
-        "UPDATE works SET title = COALESCE(?, title), description = COALESCE(?, description), cover_image = COALESCE(?, cover_image), tags = COALESCE(?, tags), status = COALESCE(?, status), updated_at = datetime('now') WHERE id = ?"
-      ).bind(title || null, description || null, cover || null, tagsJson || null, status || null, workId).run();
+        "UPDATE works SET title = COALESCE(?, title), description = COALESCE(?, description), cover_image = COALESCE(?, cover_image), tags = COALESCE(?, tags), status = COALESCE(?, status), visibility = COALESCE(?, visibility), is_visible = COALESCE(?, is_visible), updated_at = datetime('now') WHERE id = ?"
+      ).bind(title || null, description || null, coverImage, tagsJson || null, status || null, visibilityVal, isVisible, workId).run();
 
       const updated = await env.DB.prepare(
         'SELECT w.*, u.name AS author_name, u.avatar AS author_avatar FROM works w JOIN users u ON w.author_id = u.id WHERE w.id = ?'
@@ -3462,6 +3556,7 @@ async function handleApiRoutes(pathname, request, env, origin) {
       batch.push(env.DB.prepare('DELETE FROM work_favorites WHERE work_id = ?').bind(workId));
       batch.push(env.DB.prepare('DELETE FROM work_comments WHERE work_id = ?').bind(workId));
       batch.push(env.DB.prepare('DELETE FROM work_reports WHERE work_id = ?').bind(workId));
+      batch.push(env.DB.prepare('DELETE FROM work_ratings WHERE work_id = ?').bind(workId));
       batch.push(env.DB.prepare('DELETE FROM reading_progress WHERE work_id = ?').bind(workId));
       batch.push(env.DB.prepare('DELETE FROM works WHERE id = ?').bind(workId));
       await env.DB.batch(batch);
@@ -4354,6 +4449,12 @@ export default {
     if (url.pathname.startsWith('/api/tracemoe/')) {
       const tracemoePath = url.pathname.replace('/api/tracemoe', '');
       return handleTraceMoeProxy(tracemoePath, url.searchParams, request, env, origin);
+    }
+
+    // Kitsu API 代理：/api/kitsu/*
+    if (url.pathname.startsWith('/api/kitsu/')) {
+      const kitsuPath = url.pathname.replace('/api/kitsu', '');
+      return handleKitsuProxy(kitsuPath, url.searchParams, request, env, origin);
     }
 
     // wenku8 轻小说代理：/api/wenku8/*
