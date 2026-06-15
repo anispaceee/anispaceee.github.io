@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
-import HikarinagiService from '../../services/HikarinagiService';
 import { SubjectCard } from '../Common/CommonComponents';
-import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2, ShieldOff, ImagePlus, X, Sparkles, BookText } from 'lucide-react';
+import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2, ShieldOff, ImagePlus, X } from 'lucide-react';
 import { typeToKey, extractPreview } from '../../utils/subjectType';
 import './Wiki.css';
 
@@ -15,8 +14,6 @@ const TYPE_OPTIONS = [
   { key: 'music', label: '音乐', typeCode: 3, icon: Music },
   { key: 'real', label: '三次元', typeCode: 6, icon: Film },
   { key: 'person', label: '人物', typeCode: 'person', icon: Users },
-  { key: 'galgame', label: 'Galgame', typeCode: 'hikarinagi-gal', icon: Sparkles, source: 'hikarinagi' },
-  { key: 'lightnovel', label: '轻小说', typeCode: 'hikarinagi-ln', icon: BookText, source: 'hikarinagi' },
 ];
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="280" fill="%23f9f3f5"%3E%3Crect width="200" height="280" rx="10"/%3E%3Ctext x="100" y="140" text-anchor="middle" fill="%23d4b8c0" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E';
@@ -25,59 +22,6 @@ const HISTORY_KEY = 'anispace_search_history';
 const NSFW_FILTER_KEY = 'anispace_filter_nsfw';
 const BG_IMAGE_KEY = 'anispace_wiki_bg_image';
 const MAX_HISTORY = 12;
-
-// ─── Hikarinagi 数据映射 ───
-// 将 Hikarinagi 返回的数据映射为与 Bangumi 兼容的格式，复用 SubjectCard
-// Galgame 格式: { galId, transTitle, originTitle[], cover, producers[], nsfw }
-// LightNovel 格式: { novelId, name, name_cn, cover, author{}, bunko{} }
-// Search 结果: { galId/novelId, transTitle/name, originTitle[], cover, producers[] }
-
-function mapHikarinagiGalgame(item) {
-  const id = item.galId || item.id || item._id;
-  const nameCn = item.transTitle || '';
-  const originNames = Array.isArray(item.originTitle) ? item.originTitle : [item.originTitle || ''].filter(Boolean);
-  const name = nameCn || originNames[0] || '';
-  const cover = item.cover || '';
-  const tags = (item.tags || []).map(t => t.tag?.name || (typeof t === 'string' ? t : '')).filter(Boolean);
-  const rate = item.rate || item.score || 0;
-  return {
-    id,
-    name,
-    name_cn: nameCn || name,
-    type: 4, // Bangumi 游戏类型
-    images: { large: cover, common: cover, medium: cover },
-    rating: { score: rate, total: 0 },
-    summary: item.introduction || item.summary || '',
-    tags,
-    _source: 'hikarinagi',
-    _sourceType: 'galgame',
-  };
-}
-
-function mapHikarinagiLightNovel(item) {
-  const id = item.novelId || item.id || item._id;
-  const name = item.name || '';
-  const nameCn = item.name_cn || '';
-  const cover = item.cover || '';
-  const tags = (item.tags || []).map(t => t.tag?.name || (typeof t === 'string' ? t : '')).filter(Boolean);
-  const rate = item.rate || item.score || 0;
-  return {
-    id,
-    name,
-    name_cn: nameCn || name,
-    type: 1, // Bangumi 小说类型
-    images: { large: cover, common: cover, medium: cover },
-    rating: { score: rate, total: 0 },
-    summary: item.introduction || item.summary || '',
-    tags,
-    _source: 'hikarinagi',
-    _sourceType: 'lightnovel',
-  };
-}
-
-function isHikarinagiType(typeKey) {
-  return typeKey === 'galgame' || typeKey === 'lightnovel';
-}
 
 function getSearchHistory() {
   try {
@@ -209,13 +153,7 @@ export default function Wiki() {
       try {
         const typeOption = TYPE_OPTIONS.find(t => t.key === activeType);
 
-        // Hikarinagi 搜索
-        if (typeOption?.source === 'hikarinagi') {
-          const isGal = typeOption.key === 'galgame';
-          const data = await HikarinagiService.search.search({ keyword: value, type: isGal ? 'galgame' : 'novel', page: 1, limit: 8 });
-          const items = (data?.items || data?.data || []).slice(0, 8);
-          setLiveResults(items.map(isGal ? mapHikarinagiGalgame : mapHikarinagiLightNovel));
-        } else if (typeOption?.typeCode === 'person') {
+        if (typeOption?.typeCode === 'person') {
           const data = await BangumiService.searchPersons(value, 8, 0);
           setLiveResults((data.data || []).map(item => ({
             ...item,
@@ -257,20 +195,7 @@ export default function Wiki() {
     try {
       const typeOption = TYPE_OPTIONS.find(t => t.key === type);
 
-      // Hikarinagi 搜索
-      if (typeOption?.source === 'hikarinagi') {
-        const isGal = typeOption.key === 'galgame';
-        const data = await HikarinagiService.search.search({
-          keyword: q,
-          type: isGal ? 'galgame' : 'novel',
-          page: p,
-          limit: PAGE_SIZE,
-        });
-        const items = data?.items || data?.data || [];
-        const mapper = isGal ? mapHikarinagiGalgame : mapHikarinagiLightNovel;
-        setResults(items.map(mapper));
-        setTotal(data?.meta?.totalItems || data?.total || items.length);
-      } else if (typeOption?.typeCode === 'person') {
+      if (typeOption?.typeCode === 'person') {
         const data = await BangumiService.searchPersons(q, PAGE_SIZE, offset);
         const personResults = data.data || [];
         setResults(personResults.map(item => ({
@@ -398,11 +323,6 @@ export default function Wiki() {
                       const cover = item.images?.large || item.images?.common || item.images?.medium || '';
                       const name = item.name_cn || item.name || '';
                       const isPerson = item.type === 'person';
-                      const isHikari = item._source === 'hikarinagi';
-                      const hikariType = item._sourceType || 'galgame';
-                      const liveLinkTo = isHikari
-                        ? `/info/hikarinagi/${hikariType}/${item.id}`
-                        : `/info/${typeToKey(item.type)}/${item.id}`;
                       const inner = (
                         <>
                           {isPerson ? (
@@ -414,7 +334,6 @@ export default function Wiki() {
                             <span className="wiki-live-name">{name}</span>
                             <div className="wiki-live-meta">
                               {isPerson && <span className="wiki-live-type-badge"><Users size={9} /> 人物</span>}
-                              {isHikari && <span className="wiki-live-type-badge"><Sparkles size={9} /> {hikariType === 'galgame' ? 'Gal' : 'LN'}</span>}
                               {item.rating?.score > 0 && <span className="wiki-live-score"><Star size={10} fill="#ffc107" /> {item.rating.score.toFixed(1)}</span>}
                               {isPerson && item.short_summary && <span className="wiki-live-summary">{item.short_summary.slice(0, 30)}...</span>}
                             </div>
@@ -431,8 +350,8 @@ export default function Wiki() {
                         </div>
                       ) : (
                         <Link
-                          key={isHikari ? `hk-${item.id}` : item.id}
-                          to={liveLinkTo}
+                          key={item.id}
+                          to={`/info/${typeToKey(item.type)}/${item.id}`}
                           state={{ preview: extractPreview(item) }}
                           className={`wiki-live-item ${suggestionIndex === idx ? 'focused' : ''}`}
                           onClick={() => setShowLiveResults(false)}
@@ -613,7 +532,6 @@ export default function Wiki() {
           {results.map(item => {
             const typeCode = item.type || 2;
             const isPerson = typeCode === 'person';
-            const isHikari = item._source === 'hikarinagi';
 
             if (isPerson) {
               const name = item.name_cn || item.name || '';
@@ -634,21 +552,6 @@ export default function Wiki() {
                     </button>
                   </div>
                 </div>
-              );
-            }
-
-            // Hikarinagi 条目：链接到 /info/hikarinagi/{type}/{id}
-            if (isHikari) {
-              const hikariType = item._sourceType || 'galgame';
-              const typeKey = hikariType === 'galgame' ? 'game' : 'novel';
-              return (
-                <SubjectCard
-                  key={`hk-${item.id}`}
-                  item={item}
-                  type={typeKey}
-                  linkTo={`/info/hikarinagi/${hikariType}/${item.id}`}
-                  linkState={{ preview: extractPreview(item) }}
-                />
               );
             }
 
