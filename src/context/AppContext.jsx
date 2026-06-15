@@ -17,6 +17,13 @@ export function AppProvider({ children }) {
   // 登录时自动检查社交权限，管理员或有权限的用户自动开启社交模式
   useEffect(() => {
     if (isAuthenticated) {
+      // 管理员直接开启社交模式
+      if (currentUser?.is_admin) {
+        setSocialMode(true);
+        StorageService.set('anispace_social_mode', true);
+        return;
+      }
+      // 普通用户检查权限
       apiRequest('/api/permissions/check?permission=social.post')
         .then(res => {
           if (res.has_permission) {
@@ -26,7 +33,7 @@ export function AppProvider({ children }) {
         })
         .catch(() => {});
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser?.is_admin]);
 
   useEffect(() => {
     if (currentUser) {

@@ -60,6 +60,40 @@ export default function NewsZone() {
     return true;
   });
 
+  // 标题相似度匹配：兼容英文/罗马音/日文/中文
+  const isTitleMatch = (searchTitle, result) => {
+    // 收集结果的所有标题变体
+    const variants = [
+      result.name,           // 原始标题（日文/罗马音）
+      result.name_cn,        // 中文标题
+      result.title_cn,       // 中文标题（别名）
+      ...(result.alias || []), // 别名列表
+    ].filter(Boolean).map(s => s.toLowerCase().trim());
+
+    const search = searchTitle.toLowerCase().trim();
+
+    // 精确匹配
+    if (variants.some(v => v === search)) return true;
+
+    // 包含匹配（至少一方包含另一方，且较短方长度>=3避免误匹配）
+    if (search.length >= 3 && variants.some(v => v.includes(search) || search.includes(v))) return true;
+
+    // 去除常见后缀后再匹配（如 Season 2, 2nd Season, 第2期 等）
+    const cleanSearch = search
+      .replace(/\s*(season\s*\d+|\d+(?:st|nd|rd|th)\s*season|第\d+[期季]|第\d+話|part\s*\d+|cour\s*\d+|\d+期)$/i, '')
+      .replace(/\s*\(.*\)\s*|\s*\[.*\]\s*/g, '')
+      .trim();
+    const cleanVariants = variants.map(v =>
+      v.replace(/\s*(season\s*\d+|\d+(?:st|nd|rd|th)\s*season|第\d+[期季]|第\d+話|part\s*\d+|cour\s*\d+|\d+期)$/i, '')
+       .replace(/\s*\(.*\)\s*|\s*\[.*\]\s*/g, '')
+       .trim()
+    );
+
+    if (cleanSearch.length >= 3 && cleanVariants.some(v => v === cleanSearch || v.includes(cleanSearch) || cleanSearch.includes(v))) return true;
+
+    return false;
+  };
+
   // 懒匹配：点击时搜索Bangumi并缓存结果
   const matchAndNavigate = useCallback(async (news) => {
     const isArticle = news.type === 'article';
@@ -75,30 +109,25 @@ export default function NewsZone() {
         const typeKey = BANGUMI_TYPE_MAP[cached.type] || 'anime';
         navigate(`/info/${typeKey}/${cached.id}`);
       } else {
-        // 已确认无匹配，打开外链
         if (news.link) window.open(news.link, '_blank');
       }
       return;
     }
 
-    // 首次点击：搜索Bangumi
+    // 首次点击：搜索Bangumi，取前5个结果逐一匹配
     try {
-      const data = await BangumiService.searchSubjects(news.title, 0, 3, 0);
+      const data = await BangumiService.searchSubjects(news.title, 0, 5, 0);
       if (data?.list?.length > 0) {
-        const first = data.list[0];
-        const matchTitle = first.name || first.title_cn || '';
-        const matchTitleJP = first.name_cn || '';
-        const isMatch = news.title === matchTitle || news.title === matchTitleJP ||
-          matchTitle.includes(news.title) || news.title.includes(matchTitle) ||
-          matchTitleJP.includes(news.title) || news.title.includes(matchTitleJP);
-
-        if (isMatch) {
-          const match = { id: first.id, type: first.type, name: matchTitle || matchTitleJP };
-          matchCache.current[news.title] = match;
-          setBangumiMatchMap(prev => ({ ...prev, [news.title]: match }));
-          const typeKey = BANGUMI_TYPE_MAP[match.type] || 'anime';
-          navigate(`/info/${typeKey}/${match.id}`);
-          return;
+        // 在前5个结果中找到最佳匹配
+        for (const result of data.list) {
+          if (isTitleMatch(news.title, result)) {
+            const match = { id: result.id, type: result.type, name: result.name || result.name_cn };
+            matchCache.current[news.title] = match;
+            setBangumiMatchMap(prev => ({ ...prev, [news.title]: match }));
+            const typeKey = BANGUMI_TYPE_MAP[match.type] || 'anime';
+            navigate(`/info/${typeKey}/${match.id}`);
+            return;
+          }
         }
       }
       // 无匹配

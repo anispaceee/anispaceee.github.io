@@ -7,7 +7,6 @@ import { Settings, MessageCircle, Music, Sparkles, X, Sun, Moon, Contrast, Volum
 import { getUnreadCount } from '../Notification/Notifications';
 import { setFireworkOn } from '../Common/FireworkEffect';
 import { InviteCodeForm } from '../InviteSystem/InviteCodeForm';
-import { apiRequest } from '../../services/api';
 import './DockBar.css';
 
 export default function DockBar() {
@@ -21,7 +20,8 @@ export default function DockBar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  // 检查当前用户是否为管理员
+  const isAdmin = isAuthenticated && currentUser?.is_admin;
   const [hoveringTrigger, setHoveringTrigger] = useState(false);
   const [hoveringDock, setHoveringDock] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState(-1);
@@ -39,15 +39,6 @@ export default function DockBar() {
   });
   const dockRef = useRef(null);
   const hideTimerRef = useRef(null);
-
-  // 检查当前用户是否为管理员
-  useEffect(() => {
-    if (isAuthenticated) {
-      apiRequest('/api/invites').then(() => setIsAdmin(true)).catch(() => setIsAdmin(false));
-    } else {
-      setIsAdmin(false);
-    }
-  }, [isAuthenticated]);
 
   // macOS 风格 magnification：计算每个图标的缩放比例
   const getScale = useCallback((index) => {

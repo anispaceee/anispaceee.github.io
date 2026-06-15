@@ -1237,13 +1237,16 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
+    const user = await env.DB.prepare('SELECT is_admin FROM users WHERE id = ?').bind(authUser.userId).first();
+    const isAdmin = user && user.is_admin;
+
     const permissions = await env.DB.prepare(
       'SELECT * FROM user_permissions WHERE user_id = ?'
     ).bind(authUser.userId).all();
 
     const validPermissions = permissions.results.filter(p => !p.expires_at || new Date(p.expires_at) > new Date());
 
-    return jsonResponse(validPermissions, 200, origin);
+    return jsonResponse({ permissions: validPermissions, is_admin: !!isAdmin }, 200, origin);
   }
 
   // POST /api/permissions/grant — 授予权限（需管理员权限）
