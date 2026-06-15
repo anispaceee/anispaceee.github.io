@@ -338,8 +338,29 @@ export default function InfoDetail() {
       if (apiErr.code === 'NOT_FOUND') {
         setIsNsfw(true);
         let nsfwPreview = preview;
-        // 如果没有 preview 数据，构造一个最基础的 subject（只有 id）
-        // 仍然允许收藏/标记操作
+        // 尝试通过搜索 API 获取高清封面和完整信息
+        if (nsfwPreview && (nsfwPreview.name || nsfwPreview.name_cn)) {
+          try {
+            const searchName = nsfwPreview.name_cn || nsfwPreview.name;
+            const searchResult = await BangumiService.searchSubjects(searchName, nsfwPreview.type || 0, 5, 0);
+            const match = searchResult?.list?.find(r => String(r.id) === String(id));
+            if (match && match.images?.large) {
+              nsfwPreview = {
+                ...nsfwPreview,
+                name: match.name || nsfwPreview.name,
+                name_cn: match.name_cn || nsfwPreview.name_cn,
+                type: match.type || nsfwPreview.type,
+                image: match.images.large,
+                images: match.images,
+                rating: match.rating,
+                collection: match.collection,
+                tags: match.tags,
+                infobox: match.infobox,
+                summary: match.summary,
+              };
+            }
+          } catch {}
+        }
         if (!nsfwPreview) {
           nsfwPreview = {
             id: parseInt(id),
@@ -356,11 +377,11 @@ export default function InfoDetail() {
           name_cn: nsfwPreview.name_cn || '',
           type: nsfwPreview.type || 2,
           images: nsfwPreview.images || { large: nsfwPreview.image || '', common: nsfwPreview.image || '' },
-          rating: { score: 0, total: 0, count: {} },
-          collection: { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
-          tags: [],
-          infobox: [],
-          summary: '',
+          rating: nsfwPreview.rating || { score: 0, total: 0, count: {} },
+          collection: nsfwPreview.collection || { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
+          tags: nsfwPreview.tags || [],
+          infobox: nsfwPreview.infobox || [],
+          summary: nsfwPreview.summary || '',
         });
         setCharacters([]); setPersons([]);
         // 仍然获取用户评分/收藏/收录数据
