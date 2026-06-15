@@ -5,24 +5,23 @@
 -- 约束变更在 API 层处理（POST/PUT 时校验 illustration 类型）
 
 -- ============================================================
--- 1. 修改现有表 - works
+-- 1. 修改现有表 - works（如果列已存在请单独执行）
 -- ============================================================
-ALTER TABLE works ADD COLUMN series_id INTEGER REFERENCES work_series(id);
-ALTER TABLE works ADD COLUMN illustration_count INTEGER DEFAULT 0;
-ALTER TABLE works ADD COLUMN ai_allowed INTEGER DEFAULT 1;
+-- ALTER TABLE works ADD COLUMN series_id INTEGER REFERENCES work_series(id);
+-- ALTER TABLE works ADD COLUMN illustration_count INTEGER DEFAULT 0;
+-- ALTER TABLE works ADD COLUMN ai_allowed INTEGER DEFAULT 1;
 
 -- ============================================================
 -- 2. 修改现有表 - users
 -- ============================================================
 ALTER TABLE users ADD COLUMN commission_status TEXT DEFAULT 'closed';
-ALTER TABLE users ADD COLUMN bio TEXT DEFAULT '';
-ALTER TABLE users ADD COLUMN banner_image TEXT DEFAULT '';
+-- bio 和 banner_image 可能已存在，跳过
 
 -- ============================================================
--- 3. 修改现有表 - posts（复用为作品讨论区）
+-- 3. 修改现有表 - posts（如果列已存在请单独执行）
 -- ============================================================
-ALTER TABLE posts ADD COLUMN work_id INTEGER REFERENCES works(id);
-ALTER TABLE posts ADD COLUMN discussion_category TEXT;
+-- ALTER TABLE posts ADD COLUMN work_id INTEGER REFERENCES works(id);
+-- ALTER TABLE posts ADD COLUMN discussion_category TEXT;
 
 -- ============================================================
 -- 4. 新增表 - 插画多图
@@ -141,4 +140,4 @@ CREATE TABLE IF NOT EXISTS reader_impressions (
 -- ============================================================
 -- 12. 扩展 work_ratings — 支持多维度评分（Galgame）
 -- ============================================================
-ALTER TABLE work_ratings ADD COLUMN dimension_scores TEXT DEFAULT NULL;
+-- ALTER TABLE work_ratings ADD COLUMN dimension_scores TEXT DEFAULT NULL;
