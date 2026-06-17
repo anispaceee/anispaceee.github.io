@@ -8,7 +8,7 @@
       default-src 'self';
       img-src 'self' data: https: http:;
       media-src 'self' blob: https: http:;
-      script-src 'self' 'unsafe-inline' blob:;
+      script-src 'self' 'unsafe-inline' blob: https://challenges.cloudflare.com;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
       worker-src 'self' blob:;
@@ -39,6 +39,7 @@
         https://cj.lziapi.com https://www.feisuzyapi.com https://bfzyapi.com https://www.kuaikan-api.com https://cj.ffzyapi.com https://www.919dm.com
         wss: blob:;
       frame-ancestors 'none';
+      frame-src https://challenges.cloudflare.com;
     " />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />

@@ -294,6 +294,56 @@ function formatUser(user) {
   return user;
 }
 
+// ─── 密码哈希 (PBKDF2) ──────────────────────────────────────
+
+async function hashPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  const saltB64 = arrayBufferToBase64(salt.buffer);
+  const hashB64 = arrayBufferToBase64(derivedBits);
+  return `${saltB64}:${hashB64}`;
+}
+
+async function verifyPassword(password, storedHash) {
+  const [saltB64, hashB64] = storedHash.split(':');
+  if (!saltB64 || !hashB64) return false;
+  const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  const computedB64 = arrayBufferToBase64(derivedBits);
+  return computedB64 === hashB64;
+}
+
+// ─── Turnstile 验证 ─────────────────────────────────────────
+
+async function verifyTurnstile(token, secret) {
+  if (!token || !secret) return false;
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret, response: token }),
+    });
+    const data = await res.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Bangumi API 代理 ────────────────────────────────────────
 
 async function handleBangumiProxy(pathname, searchParams, request, env, origin) {
@@ -1382,6 +1432,116 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       }
 
       const token = await signJWT({ userId: user.id, provider: user.provider, providerId: user.provider_id }, jwtSecret);
+      return jsonResponse({ token, user: formatUser(user) }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '登录失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/auth/register — 邮箱注册
+  if (method === 'POST' && pathname === '/api/auth/register') {
+    try {
+      const body = await request.json();
+      const { email, username, password, turnstileToken } = body;
+
+      // 校验必填字段
+      if (!email || !username || !password) {
+        return jsonResponse({ error: '邮箱、用户名和密码不能为空' }, 400, origin);
+      }
+
+      // 校验邮箱格式
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(email) || email.length > 254) {
+        return jsonResponse({ error: '邮箱格式不正确' }, 400, origin);
+      }
+
+      // 校验用户名：2-20 字符，字母/数字/下划线/中文
+      const usernameRe = /^[\w\u4e00-\u9fff]{2,20}$/;
+      if (!usernameRe.test(username)) {
+        return jsonResponse({ error: '用户名需2-20字符，仅允许字母、数字、下划线、中文' }, 400, origin);
+      }
+
+      // 校验密码：8-64 字符，至少包含字母和数字
+      if (password.length < 8 || password.length > 64 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+        return jsonResponse({ error: '密码需8-64字符，至少包含字母和数字' }, 400, origin);
+      }
+
+      // Turnstile 验证
+      const turnstileValid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY);
+      if (!turnstileValid) {
+        return jsonResponse({ error: '人机验证失败，请重试' }, 400, origin);
+      }
+
+      // 检查邮箱是否已注册
+      const existingEmail = await env.DB.prepare(
+        'SELECT id FROM users WHERE provider = ? AND provider_id = ?'
+      ).bind('email', email.toLowerCase()).first();
+      if (existingEmail) {
+        return jsonResponse({ error: '该邮箱已被注册' }, 400, origin);
+      }
+
+      // 检查用户名是否已占用
+      const existingUsername = await env.DB.prepare(
+        'SELECT id FROM users WHERE username = ?'
+      ).bind(username).first();
+      if (existingUsername) {
+        return jsonResponse({ error: '该用户名已被占用' }, 400, origin);
+      }
+
+      // 哈希密码
+      const passwordHash = await hashPassword(password);
+
+      // 创建用户
+      const result = await env.DB.prepare(
+        'INSERT INTO users (provider, provider_id, username, name, avatar, bio, password_hash, email_verified, join_date, last_login, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?, 0, datetime(\'now\'), datetime(\'now\'), 0)'
+      ).bind('email', email.toLowerCase(), username, username, '', '', passwordHash).run();
+
+      const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(result.meta.last_row_id).first();
+
+      const token = await signJWT({ userId: user.id, provider: 'email', providerId: email.toLowerCase() }, jwtSecret);
+      return jsonResponse({ token, user: formatUser(user) }, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '注册失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/auth/login-email — 邮箱密码登录
+  if (method === 'POST' && pathname === '/api/auth/login-email') {
+    try {
+      const body = await request.json();
+      const { email, password, turnstileToken } = body;
+
+      if (!email || !password) {
+        return jsonResponse({ error: '邮箱和密码不能为空' }, 400, origin);
+      }
+
+      // Turnstile 验证
+      const turnstileValid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET_KEY);
+      if (!turnstileValid) {
+        return jsonResponse({ error: '人机验证失败，请重试' }, 400, origin);
+      }
+
+      // 查找用户
+      const user = await env.DB.prepare(
+        'SELECT * FROM users WHERE provider = ? AND provider_id = ?'
+      ).bind('email', email.toLowerCase()).first();
+
+      if (!user || !user.password_hash) {
+        return jsonResponse({ error: '邮箱或密码错误' }, 401, origin);
+      }
+
+      // 验证密码
+      const valid = await verifyPassword(password, user.password_hash);
+      if (!valid) {
+        return jsonResponse({ error: '邮箱或密码错误' }, 401, origin);
+      }
+
+      // 更新 last_login
+      await env.DB.prepare(
+        'UPDATE users SET last_login = datetime(\'now\') WHERE id = ?'
+      ).bind(user.id).run();
+
+      const token = await signJWT({ userId: user.id, provider: 'email', providerId: user.provider_id }, jwtSecret);
       return jsonResponse({ token, user: formatUser(user) }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '登录失败: ' + err.message }, 500, origin);

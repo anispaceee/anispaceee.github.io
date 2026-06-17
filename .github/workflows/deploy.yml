@@ -37,6 +37,7 @@ jobs:
           VITE_GITHUB_CLIENT_ID: ${{ secrets.VITE_GITHUB_CLIENT_ID }}
           VITE_GITHUB_CLIENT_SECRET: ${{ secrets.VITE_GITHUB_CLIENT_SECRET }}
           VITE_OAUTH_PROXY_URL: ${{ secrets.VITE_OAUTH_PROXY_URL }}
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

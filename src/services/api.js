@@ -1691,6 +1691,39 @@ export const GitHubAuthService = {
   },
 };
 
+// ─── EmailAuthService ───
+export const EmailAuthService = {
+  async register({ email, username, password, turnstileToken }) {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, username, password, turnstileToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || '注册失败' };
+      return data;
+    } catch (err) {
+      return { error: err.message || '注册服务异常' };
+    }
+  },
+
+  async login({ email, password, turnstileToken }) {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, turnstileToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || '登录失败' };
+      return data;
+    } catch (err) {
+      return { error: err.message || '登录服务异常' };
+    }
+  },
+};
+
 // ─── QQMusicService ───
 // 保持不变，仍使用 QQ 音乐 API
 export const QQMusicService = {
