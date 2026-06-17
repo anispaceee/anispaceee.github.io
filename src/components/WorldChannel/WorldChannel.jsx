@@ -32,10 +32,13 @@ export default function WorldChannel() {
     try {
       const data = await WorldChannelService.getMessages(pageNum, PAGE_SIZE);
       const newPosts = data.messages || [];
+      // 后端返回 DESC（最新在前），反转后最旧在上、最新在下（聊天框风格）
+      const reversed = [...newPosts].reverse();
       if (append) {
-        setPosts(prev => [...prev, ...newPosts]);
+        // 加载更早的消息，插入到顶部
+        setPosts(prev => [...reversed, ...prev]);
       } else {
-        setPosts(newPosts);
+        setPosts(reversed);
       }
       setHasMore(newPosts.length >= PAGE_SIZE);
     } catch {
@@ -45,10 +48,18 @@ export default function WorldChannel() {
     }
   }, []);
 
+  // 滚动到底部（最新消息位置）
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
     setLoading(true);
-    loadPosts(1, false);
-  }, [loadPosts]);
+    loadPosts(1, false).then(() => {
+      // 首次加载后滚动到底部
+      setTimeout(scrollToBottom, 100);
+    });
+  }, [loadPosts, scrollToBottom]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -73,10 +84,11 @@ export default function WorldChannel() {
         replies_count: 0,
         created_at: sent.created_at || new Date().toISOString(),
       };
-      setPosts(prev => [newPost, ...prev]);
+      setPosts(prev => [...prev, newPost]);
       setNewContent('');
       setNewImages([]);
       setShowNewPost(false);
+      setTimeout(scrollToBottom, 50);
     } catch {
       const newPost = {
         id: Date.now(),
@@ -89,10 +101,11 @@ export default function WorldChannel() {
         replies_count: 0,
         created_at: new Date().toISOString(),
       };
-      setPosts(prev => [newPost, ...prev]);
+      setPosts(prev => [...prev, newPost]);
       setNewContent('');
       setNewImages([]);
       setShowNewPost(false);
+      setTimeout(scrollToBottom, 50);
     } finally {
       setSubmitting(false);
     }

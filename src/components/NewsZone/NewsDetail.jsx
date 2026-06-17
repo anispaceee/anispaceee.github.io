@@ -13,7 +13,6 @@ const SOURCE_CONFIG = {
   ymgal: { label: '月幕 Galgame', color: '#a855f7' },
   hikarinagi: { label: '光凪', color: '#f472b6' },
   cngal: { label: 'CnGal', color: '#06b6d4' },
-  vndb: { label: 'VNDB', color: '#6366f1' },
   steam: { label: 'Steam', color: '#1b2838' },
   jikan_season: { label: 'MAL 当季', color: '#2e51a2' },
   jikan_top: { label: 'MAL 热门', color: '#0b3d91' },

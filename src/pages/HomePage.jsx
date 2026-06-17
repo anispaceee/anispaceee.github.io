@@ -186,7 +186,7 @@ export default function HomePage() {
         const feedData = await NewsService.getNewsFeed({ limit: 5 });
         const feedItems = (feedData.news || []).map(n => ({
           ...n,
-          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'bangumi_game' ? 'Bangumi游戏' : n.source === 'bangumi_book' ? 'Bangumi书籍' : n.source === 'ymgal' ? '月幕' : n.source === 'hikarinagi' ? '光凪' : n.source === 'cngal' ? 'CnGal' : n.source === 'vndb' ? 'VNDB' : n.source === 'steam' ? 'Steam' : n.source,
+          source: n.source === 'bangumi_calendar' ? 'Bangumi' : n.source === 'bangumi_hot' ? 'Bangumi热门' : n.source === 'bangumi_game' ? 'Bangumi游戏' : n.source === 'bangumi_book' ? 'Bangumi书籍' : n.source === 'ymgal' ? '月幕' : n.source === 'hikarinagi' ? '光凪' : n.source === 'cngal' ? 'CnGal' : n.source === 'steam' ? 'Steam' : n.source,
         }));
         setNewsItems(prev => {
           const existing = prev.filter(p => !feedItems.find(f => f.title === p.title));

@@ -9,7 +9,7 @@
  * 5. 月幕 Galgame — Galgame 发行（OAuth2 API）
  * 6. HikariNagi — 光凪 Galgame 社区（HTML 爬取）
  * 7. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
- * 8. VNDB — 视觉小说数据库（公开 API）
+ * 8. Steam — Steam 精选/特惠/新品
  * 9. Steam — 精选/特惠游戏
  * 10. Jikan Season — MyAnimeList 当季新番（公开 API）
  * 11. Jikan Top — MyAnimeList 热门排行（公开 API）
@@ -444,95 +444,7 @@ async function scrapeCnGal() {
   return items.slice(0, 25);
 }
 
-// ─── VNDB 视觉小说数据库 (公开 API) ──────────────────────
 
-const VNDB_API = 'https://api.vndb.org/kana/vn';
-
-async function scrapeVNDB() {
-  const items = [];
-
-  // 1. 高评分视觉小说
-  try {
-    const res = await fetch(VNDB_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filters: ['votecount', '>=', 100],
-        fields: 'title, image.url, rating, length_minutes, developers.name, developers.original',
-        sort: 'rating',
-        results: 15,
-        page: 1,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      for (const vn of (data.results || [])) {
-        const title = vn.title || '';
-        if (!title) continue;
-        const rating = vn.rating ? (vn.rating / 10).toFixed(1) : '-';
-        const dev = (vn.developers || [])[0]?.name || (vn.developers || [])[0]?.original || '';
-        const lengthMin = vn.length_minutes || 0;
-        const lengthStr = lengthMin > 0 ? ` · 约${Math.round(lengthMin / 60)}小时` : '';
-        items.push({
-          source: 'vndb',
-          source_id: `vndb_${vn.id}`,
-          title,
-          link: `https://vndb.org/${vn.id}`,
-          summary: `VNDB ${rating}分${dev ? ` · ${dev}` : ''}${lengthStr}`,
-          cover: vn.image?.url || '',
-          category: 'VN推荐',
-          extra: JSON.stringify({
-            vndbId: vn.id,
-            rating: vn.rating || 0,
-            lengthMinutes: vn.length_minutes || 0,
-            developer: dev,
-          }),
-        });
-      }
-    }
-  } catch {}
-
-  // 2. 最近新增的视觉小说
-  try {
-    const res = await fetch(VNDB_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filters: ['released', '>=', '2026-01-01'],
-        fields: 'title, image.url, rating, length_minutes, developers.name',
-        sort: 'released',
-        results: 10,
-        page: 1,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      for (const vn of (data.results || [])) {
-        const title = vn.title || '';
-        if (!title) continue;
-        if (items.find(i => i.source_id === `vndb_${vn.id}`)) continue;
-        const rating = vn.rating ? (vn.rating / 10).toFixed(1) : '-';
-        const dev = (vn.developers || [])[0]?.name || '';
-        items.push({
-          source: 'vndb',
-          source_id: `vndb_new_${vn.id}`,
-          title,
-          link: `https://vndb.org/${vn.id}`,
-          summary: `新作VN · ${rating}分${dev ? ` · ${dev}` : ''}`,
-          cover: vn.image?.url || '',
-          category: '新作发售',
-          extra: JSON.stringify({
-            vndbId: vn.id,
-            rating: vn.rating || 0,
-            developer: dev,
-          }),
-        });
-      }
-    }
-  } catch {}
-
-  return items.slice(0, 25);
-}
 
 // ─── Steam 精选/特惠 ──────────────────────────────────────
 
@@ -853,7 +765,6 @@ export async function runAllScrapers(db) {
     { name: 'ymgal', fn: scrapeYmgal },
     { name: 'hikarinagi', fn: scrapeHikariNagi },
     { name: 'cngal', fn: scrapeCnGal },
-    { name: 'vndb', fn: scrapeVNDB },
     { name: 'steam', fn: scrapeSteam },
     { name: 'jikan_season', fn: scrapeJikanSeason },
     { name: 'jikan_top', fn: scrapeJikanTop },
@@ -905,7 +816,6 @@ export async function scrapeSingleSource(sourceName) {
     ymgal: scrapeYmgal,
     hikarinagi: scrapeHikariNagi,
     cngal: scrapeCnGal,
-    vndb: scrapeVNDB,
     steam: scrapeSteam,
     jikan_season: scrapeJikanSeason,
     jikan_top: scrapeJikanTop,

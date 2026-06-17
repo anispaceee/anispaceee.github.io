@@ -16,7 +16,6 @@ const SOURCE_CONFIG = {
   ymgal: { label: '月幕 Galgame', color: '#a855f7', icon: Sparkles },
   hikarinagi: { label: '光凪', color: '#f472b6', icon: Sparkles },
   cngal: { label: 'CnGal', color: '#06b6d4', icon: Book },
-  vndb: { label: 'VNDB', color: '#6366f1', icon: Book },
   steam: { label: 'Steam', color: '#1b2838', icon: Sparkles },
   jikan_season: { label: 'MAL 当季', color: '#2e51a2', icon: Tv },
   jikan_top: { label: 'MAL 热门', color: '#0b3d91', icon: Flame },
@@ -25,7 +24,7 @@ const SOURCE_CONFIG = {
   custom: { label: '站内推荐', color: '#10b981', icon: Sparkles },
 };
 
-const CATEGORIES = ['全部', '新番导视', '热门推荐', '游戏推荐', '轻小说', 'VN推荐', '新作发售', 'Gal档案', '业界动态', '每周速报', 'Steam精选', 'Steam特惠', 'Steam新品'];
+const CATEGORIES = ['全部', '新番导视', '热门推荐', '游戏推荐', '轻小说', '新作发售', 'Gal档案', '业界动态', '每周速报', 'Steam精选', 'Steam特惠', 'Steam新品'];
 
 // Bangumi type 映射
 const BANGUMI_TYPE_MAP = { 1: 'book', 2: 'anime', 3: 'music', 4: 'game', 6: 'real' };
