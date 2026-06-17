@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ForumService } from '../../services/api';
+import { ForumService, ProfileService } from '../../services/api';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import RichTextEditor from '../Common/RichTextEditor';
 import { ForumLeftSidebar, ForumRightSidebar } from './ForumSidebar';
@@ -129,6 +129,16 @@ export default function Forum() {
   const [imageInputMode, setImageInputMode] = useState('upload'); // 'upload' | 'url'
   const imageInputRef = useRef(null);
 
+  const [typeAffinity, setTypeAffinity] = useState({});
+
+  // 获取用户画像用于帖子加权
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    ProfileService.getProfile()
+      .then(p => setTypeAffinity(p?.type_affinity || {}))
+      .catch(() => setTypeAffinity({}));
+  }, [currentUser?.id]);
+
   // 从后端加载帖子（带 category 和 sort 参数）
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
@@ -148,14 +158,34 @@ export default function Forum() {
 
   // 前端仅做搜索过滤（搜索仍为前端功能，后端无全文搜索）
   const filteredPosts = useMemo(() => {
-    if (!searchQuery) return posts;
-    const q = searchQuery.toLowerCase();
-    return posts.filter(p =>
-      p.title.toLowerCase().includes(q) ||
-      p.content.toLowerCase().includes(q) ||
-      (p.tags && Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(q)))
-    );
-  }, [searchQuery, posts]);
+    let result = posts;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        p.content.toLowerCase().includes(q) ||
+        (p.tags && Array.isArray(p.tags) && p.tags.some(t => t.toLowerCase().includes(q)))
+      );
+    }
+    // 类型亲和度加权排序
+    const boardWeightMap = {};
+    if (typeAffinity.anime > 0.3) {
+      const w = typeAffinity.anime > 0.5 ? 1.3 : 1.15;
+      boardWeightMap.newanime = w; boardWeightMap.oldanime = w;
+    }
+    if (typeAffinity.game > 0.3) {
+      const w = typeAffinity.game > 0.5 ? 1.3 : 1.15;
+      boardWeightMap.galgame = w; boardWeightMap.game = w;
+    }
+    if (typeAffinity.novel > 0.3) {
+      const w = typeAffinity.novel > 0.5 ? 1.3 : 1.15;
+      boardWeightMap.novel = w;
+    }
+    return result.map(p => ({
+      ...p,
+      _weight: boardWeightMap[p.category] || 1.0,
+    })).sort((a, b) => b._weight - a._weight);
+  }, [searchQuery, posts, typeAffinity]);
 
   const getPostAuthor = (post) => {
     if (post.author_name) return { name: post.author_name, avatar: post.author_avatar };

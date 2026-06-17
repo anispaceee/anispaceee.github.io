@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService } from '../services/api';
+import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService, RecommendService } from '../services/api';
 import HikarinagiService from '../services/HikarinagiService';
 import { extractPreview } from '../utils/subjectType';
 import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper, Send, Image, X, Users as UsersIcon } from 'lucide-react';
@@ -155,7 +155,7 @@ function RandomRecommendCard({ subject, loading, onRefresh, activeType, onTypeCh
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { currentUser, isAuthenticated, openAuth, socialMode } = useApp();
+  const { currentUser, isAuthenticated, openAuth, socialMode, filterNsfw } = useApp();
 
   const [hotPosts, setHotPosts] = useState([]);
   const [recentMessages, setRecentMessages] = useState([]);
@@ -165,7 +165,6 @@ export default function HomePage() {
   const [homeWorldInput, setHomeWorldInput] = useState('');
   const [homeWorldSending, setHomeWorldSending] = useState(false);
   const [recommendGals, setRecommendGals] = useState([]);
-  const [recommendGalsLoading, setRecommendGalsLoading] = useState(false);
   const [hotComments, setHotComments] = useState([]);
 
   useEffect(() => {
@@ -201,38 +200,30 @@ export default function HomePage() {
           HikarinagiService.page.getHotComments(),
         ]);
         if (galData.status === 'fulfilled' && galData.value) {
-          const gals = Array.isArray(galData.value) ? galData.value : (Array.isArray(galData.value?.data) ? galData.value.data : []);
-          // 用名称搜索Bangumi匹配，只保留能在Bangumi搜到的galgame
-          setRecommendGalsLoading(true);
-          const matchedGals = [];
-          for (const gal of gals.slice(0, 10)) {
-            const searchName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
-            if (!searchName) continue;
-            try {
-              const searchResult = await BangumiService.searchSubjects(searchName, 4, 5, 0);
-              const match = searchResult?.list?.find(r => {
-                const rName = r.name_cn || r.name || '';
-                const rOrigin = r.name || '';
-                return rName === searchName || rOrigin === searchName ||
-                  (Array.isArray(gal.originTitle) && gal.originTitle.some(t => t === rName || t === rOrigin));
+          const gals = Array.isArray(galData.value) ? galData.value : [];
+          // 过滤限制级内容（基于标签）
+          if (filterNsfw) {
+            const nsfwKeywords = ['R18', 'r18', '成人向', '18禁', '18+', 'NSFW', 'nsfw', '成人', '成年向'];
+            const filtered = gals.filter(gal => {
+              const tags = gal.tags || [];
+              return !tags.some(tag => {
+                const tagName = typeof tag === 'string' ? tag : (tag.name || tag.tag || '');
+                return nsfwKeywords.some(kw => tagName.toLowerCase().includes(kw.toLowerCase()));
               });
-              if (match) {
-                matchedGals.push({ ...gal, bgmId: match.id, bgmData: match });
-              }
-            } catch {}
-            if (matchedGals.length >= 5) break;
+            });
+            setRecommendGals(filtered.slice(0, 5));
+          } else {
+            setRecommendGals(gals.slice(0, 5));
           }
-          setRecommendGals(matchedGals);
-          setRecommendGalsLoading(false);
         }
         if (commentData.status === 'fulfilled' && commentData.value) {
-          const comments = Array.isArray(commentData.value) ? commentData.value : (Array.isArray(commentData.value?.data) ? commentData.value.data : []);
+          const comments = Array.isArray(commentData.value) ? commentData.value : [];
           setHotComments(comments.slice(0, 5));
         }
       } catch {}
     };
     loadHomeData();
-  }, []);
+  }, [filterNsfw]);
 
   const handleHomeWorldSend = useCallback(async () => {
     if (!isAuthenticated || !homeWorldInput.trim() || homeWorldSending) return;
@@ -289,7 +280,17 @@ export default function HomePage() {
             return true;
           });
           const sorted = unique.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0));
-          setCarouselItems(sorted);
+          // 过滤限制级内容
+          let finalItems = sorted;
+          if (filterNsfw && finalItems.length > 0) {
+            try {
+              const inaccessibleIds = await BangumiService.checkAccessibility(finalItems);
+              if (inaccessibleIds.size > 0) {
+                finalItems = finalItems.filter(item => !inaccessibleIds.has(item.id));
+              }
+            } catch {}
+          }
+          setCarouselItems(finalItems);
         } else {
           // 降级到 Bangumi Calendar
           const data = await BangumiService.getCalendar();
@@ -299,7 +300,17 @@ export default function HomePage() {
             const seen = new Set();
             const unique = animeItems.filter(item => { if (seen.has(item.id)) return false; seen.add(item.id); return true; });
             const sorted = unique.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0));
-            setCarouselItems(sorted);
+            // 过滤限制级内容
+            let finalItems = sorted;
+            if (filterNsfw && finalItems.length > 0) {
+              try {
+                const inaccessibleIds = await BangumiService.checkAccessibility(finalItems);
+                if (inaccessibleIds.size > 0) {
+                  finalItems = finalItems.filter(item => !inaccessibleIds.has(item.id));
+                }
+              } catch {}
+            }
+            setCarouselItems(finalItems);
           }
         }
       } catch {
@@ -312,14 +323,24 @@ export default function HomePage() {
             const seen = new Set();
             const unique = animeItems.filter(item => { if (seen.has(item.id)) return false; seen.add(item.id); return true; });
             const sorted = unique.sort((a, b) => (b.rating?.score || 0) - (a.rating?.score || 0));
-            setCarouselItems(sorted);
+            // 过滤限制级内容
+            let finalItems = sorted;
+            if (filterNsfw && finalItems.length > 0) {
+              try {
+                const inaccessibleIds = await BangumiService.checkAccessibility(finalItems);
+                if (inaccessibleIds.size > 0) {
+                  finalItems = finalItems.filter(item => !inaccessibleIds.has(item.id));
+                }
+              } catch {}
+            }
+            setCarouselItems(finalItems);
           }
         } catch { setCarouselItems([]); }
       }
       finally { setCarouselLoading(false); }
     };
     loadCarousel();
-  }, []);
+  }, [filterNsfw]);
 
   // 无缝循环：到达 clone 时瞬移
   useEffect(() => {
@@ -408,15 +429,59 @@ export default function HomePage() {
   const fetchRandom = useCallback(async (type) => {
     setRandomLoading(true);
     try {
-      const typeCode = TYPE_OPTIONS.find(o => o.key === (type || randomType))?.typeCode || 0;
-      const subject = await BangumiService.getRandomSubject(typeCode);
-      setRandomSubject(subject);
+      const data = await RecommendService.getRecommend('home_random');
+      const items = data?.items || [];
+      if (items.length > 0) {
+        // 加权随机选择一条
+        const totalWeight = items.reduce((s, i) => s + (i.score || 1), 0);
+        let rand = Math.random() * totalWeight;
+        let selected = items[0];
+        for (const item of items) {
+          rand -= (item.score || 1);
+          if (rand <= 0) { selected = item; break; }
+        }
+        const subject = await BangumiService.getSubject(selected.subject_id);
+        if (subject) {
+          // 过滤限制级内容
+          if (filterNsfw) {
+            try {
+              const inaccessibleIds = await BangumiService.checkAccessibility([subject]);
+              if (inaccessibleIds.has(subject.id)) {
+                setRandomSubject(null);
+                setRandomLoading(false);
+                return;
+              }
+            } catch {}
+          }
+          setRandomSubject(subject);
+        }
+        else throw new Error('No subject returned');
+      } else {
+        throw new Error('Empty recommend');
+      }
     } catch {
-      setRandomSubject(null);
+      // 降级：使用原有随机逻辑
+      try {
+        const typeCode = TYPE_OPTIONS.find(o => o.key === (type || randomType))?.typeCode || 0;
+        const subject = await BangumiService.getRandomSubject(typeCode);
+        if (subject && filterNsfw) {
+          try {
+            const inaccessibleIds = await BangumiService.checkAccessibility([subject]);
+            if (inaccessibleIds.has(subject.id)) {
+              setRandomSubject(null);
+              setRandomLoading(false);
+              return;
+            }
+          } catch {}
+        }
+        setRandomSubject(subject);
+      } catch {
+        setRandomSubject(null);
+      }
     } finally {
       setRandomLoading(false);
     }
-  }, [randomType]);
+  }, [randomType, filterNsfw]);
 
   const handleRandomTypeChange = useCallback((type) => {
     setRandomType(type);
@@ -448,20 +513,63 @@ export default function HomePage() {
             _anibtAiringAt: anime.airingAt || 0,
           })),
         }));
+        // 过滤限制级内容
+        if (filterNsfw) {
+          for (const dayGroup of converted) {
+            if (dayGroup.items.length > 0) {
+              try {
+                const inaccessibleIds = await BangumiService.checkAccessibility(dayGroup.items);
+                if (inaccessibleIds.size > 0) {
+                  dayGroup.items = dayGroup.items.filter(item => !inaccessibleIds.has(item.id));
+                }
+              } catch {}
+            }
+          }
+        }
         setCalendarData(converted);
       } else {
         // 降级到 Bangumi Calendar
         const data = await BangumiService.getCalendar();
-        if (Array.isArray(data)) setCalendarData(data);
+        if (Array.isArray(data)) {
+          // 过滤限制级内容
+          if (filterNsfw) {
+            for (const dayGroup of data) {
+              if (dayGroup.items && dayGroup.items.length > 0) {
+                try {
+                  const inaccessibleIds = await BangumiService.checkAccessibility(dayGroup.items);
+                  if (inaccessibleIds.size > 0) {
+                    dayGroup.items = dayGroup.items.filter(item => !inaccessibleIds.has(item.id));
+                  }
+                } catch {}
+              }
+            }
+          }
+          setCalendarData(data);
+        }
       }
     } catch {
       // 降级到 Bangumi Calendar
       try {
         const data = await BangumiService.getCalendar();
-        if (Array.isArray(data)) setCalendarData(data);
+        if (Array.isArray(data)) {
+          // 过滤限制级内容
+          if (filterNsfw) {
+            for (const dayGroup of data) {
+              if (dayGroup.items && dayGroup.items.length > 0) {
+                try {
+                  const inaccessibleIds = await BangumiService.checkAccessibility(dayGroup.items);
+                  if (inaccessibleIds.size > 0) {
+                    dayGroup.items = dayGroup.items.filter(item => !inaccessibleIds.has(item.id));
+                  }
+                } catch {}
+              }
+            }
+          }
+          setCalendarData(data);
+        }
       } catch {}
     } finally { setCalendarLoading(false); }
-  }, []);
+  }, [filterNsfw]);
 
   const todayCalendar = calendarData.find(d => d.weekday?.id === activeWeekday);
   const calendarItems = todayCalendar?.items || [];
@@ -696,7 +804,7 @@ export default function HomePage() {
             <HomeTerminal />
 
             {/* 推荐 Galgame - Hikarinagi */}
-            {(recommendGals.length > 0 || recommendGalsLoading) && (
+            {(recommendGals.length > 0) && (
             <div className="home-news-mac-window">
               <div className="home-news-titlebar">
                 <div className="home-news-controls">
@@ -708,18 +816,15 @@ export default function HomePage() {
                 <Link to="/wiki?type=galgame" className="home-news-more"><ArrowRight size={12} /></Link>
               </div>
               <div className="home-news-list">
-                {recommendGalsLoading ? (
-                  <div className="home-news-empty"><Loader2 size={14} className="spin" /> 匹配中...</div>
-                ) : recommendGals.length === 0 ? (
+                {recommendGals.length === 0 ? (
                   <div className="home-news-empty">暂无推荐</div>
                 ) : recommendGals.map(gal => {
                   const galName = gal.transTitle || (Array.isArray(gal.originTitle) ? gal.originTitle[0] : gal.originTitle) || '';
                   const galCover = gal.cover || '';
                   const galScore = gal.rate || gal.score || 0;
-                  const bgmId = gal.bgmId;
-                  const preview = gal.bgmData ? extractPreview(gal.bgmData) : { id: bgmId, name: galName, type: 4, image: galCover };
+                  const preview = { id: gal.galId, name: galName, name_cn: galName, type: 4, image: galCover, images: { large: galCover } };
                   return (
-                    <Link key={bgmId || gal.galId} to={`/info/game/${bgmId}`} state={{ preview }} className="home-news-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Link key={gal.galId} to={`/info/hikarinagi/galgame/${gal.galId}`} state={{ preview }} className="home-news-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {galCover && <img src={galCover} alt="" style={{ width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="home-news-item-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{galName}</div>

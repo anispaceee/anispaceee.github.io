@@ -84,12 +84,42 @@ const SITE_GUIDE = `【ANISpace 网站指南】
 - 资讯（/news）：业界新闻、新番资讯
 - Navi（/navi）：AI 助手（就是你自己）`;
 
-/** 根据人格生成 system prompt（含站内动作指令说明 + 网站介绍 + 用户偏好） */
-export function buildSystemPrompt(persona, userTags = []) {
+/** 根据画像生成用户偏好文本片段 */
+function buildUserProfileFragment(profile) {
+  if (!profile) return '';
+  const tagWeights = profile.tag_weights || {};
+  const typeAffinity = profile.type_affinity || {};
+  const stats = profile.consumption_stats || {};
+
+  const topTags = Object.entries(tagWeights)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([k, v]) => `${k}(${(v * 100).toFixed(0)}%)`)
+    .join('、');
+
+  const typeParts = [];
+  if (typeAffinity.anime > 0) typeParts.push(`动画类${(typeAffinity.anime * 100).toFixed(0)}%`);
+  if (typeAffinity.game > 0) typeParts.push(`游戏类${(typeAffinity.game * 100).toFixed(0)}%`);
+  if (typeAffinity.novel > 0) typeParts.push(`小说类${(typeAffinity.novel * 100).toFixed(0)}%`);
+
+  const ratingStyle = profile.rating_tendency === 'strict'
+    ? '严格（不轻易给高分）'
+    : profile.rating_tendency === 'generous'
+    ? '宽松（容易给高分）'
+    : '正常';
+
+  return `【用户画像】
+- 偏好标签（权重越高越喜欢）：${topTags || '暂无数据'}
+- 类型偏好：${typeParts.join('、') || '暂无数据'}
+- 收藏总数：${stats.total_collections || 0}，平均评分：${stats.avg_rating || '暂无'}
+- 评分风格：${ratingStyle}
+当用户请求推荐时，优先推荐与以上偏好匹配的作品。`;
+}
+
+/** 根据人格生成 system prompt（含站内动作指令说明 + 网站介绍 + 用户画像） */
+export function buildSystemPrompt(persona, profile = null) {
   const cp = (persona.catchphrases || []).filter(Boolean).join('、');
-  const preference = userTags.length > 0
-    ? `【用户偏好】该用户偏好的作品标签（基于看过记录）：${userTags.join('、')}\n当用户请求推荐时，优先从这些标签方向推荐，用 recommend 指令搜索。`
-    : '';
+  const preference = buildUserProfileFragment(profile);
   const parts = [
     `你是「${persona.name}」，ACG 社区 ANISpace 的站内 AI 助手。请始终保持以下角色设定，用中文回答。`,
     persona.personality ? `【人设】${persona.personality}` : '',

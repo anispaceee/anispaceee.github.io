@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { FriendService, FollowService, CollectionMarkService, UserService, MailService, BangumiAuthService, GitHubAuthService, StorageService, UserGuestbookService, ForumService, NewsService } from '../../services/api';
 import { extractPreview } from '../../utils/subjectType';
-import { Calendar, MapPin, Heart, LinkIcon, Shield, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download } from 'lucide-react';
+import { Calendar, MapPin, Heart, LinkIcon, Shield, ShieldOff, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download } from 'lucide-react';
 import { SubjectCard } from '../Common/CommonComponents';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import ActivityHeatmap from './ActivityHeatmap';
@@ -27,7 +27,7 @@ const GitHubIcon = ({ size = 16 }) => (
 export default function UserProfilePage() {
   const { userId: urlUserId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, isAuthenticated, openAuth, updateProfile, socialMode } = useApp();
+  const { currentUser, isAuthenticated, openAuth, updateProfile, socialMode, filterNsfw, toggleFilterNsfw } = useApp();
 
   // 如果没有 URL 参数（/profile 路由），使用当前用户 ID
   const effectiveUserId = urlUserId || (currentUser?.id);
@@ -1350,6 +1350,9 @@ export default function UserProfilePage() {
               <button className={`settings-nav ${settingsTab === 'data' ? 'active' : ''}`} onClick={() => setSettingsTab('data')}>
                 <Database size={14} /> 数据
               </button>
+              <button className={`settings-nav ${settingsTab === 'content' ? 'active' : ''}`} onClick={() => setSettingsTab('content')}>
+                <ShieldOff size={14} /> 内容过滤
+              </button>
             </div>
             <div className="settings-content">
               {settingsTab === 'profile' && (
@@ -1501,6 +1504,26 @@ export default function UserProfilePage() {
                     <button className="data-settings-export-btn" onClick={handleExportCSV}>
                       <Download size={14} /> 导出收藏数据 (CSV)
                     </button>
+                  </div>
+                </div>
+              )}
+              {settingsTab === 'content' && (
+                <div className="settings-section">
+                  <h3>内容过滤</h3>
+                  <div className="data-settings-list">
+                    <div className="data-settings-item">
+                      <div className="data-settings-info">
+                        <ShieldOff size={16} />
+                        <div>
+                          <div className="data-settings-label">屏蔽限制级内容</div>
+                          <div className="data-settings-desc">开启后，搜索结果、首页推荐中将不显示限制级（NSFW/R18）内容</div>
+                        </div>
+                      </div>
+                      <label className="profile-settings-toggle">
+                        <input type="checkbox" checked={filterNsfw} onChange={e => toggleFilterNsfw(e.target.checked)} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
                   </div>
                 </div>
               )}

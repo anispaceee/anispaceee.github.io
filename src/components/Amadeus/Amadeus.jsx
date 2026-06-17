@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { StorageService, BangumiService, CollectionMarkService } from '../../services/api';
+import { StorageService, BangumiService, CollectionMarkService, ProfileService } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
 import EmojiPicker from '../Common/EmojiPicker';
@@ -230,7 +230,7 @@ export default function Amadeus() {
   const [configSaved, setConfigSaved] = useState(false);
   const [llmError, setLlmError] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
-  const [userTags, setUserTags] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -253,36 +253,35 @@ export default function Amadeus() {
     };
   }, []);
 
-  // 获取用户"看过"收藏的 tags，用于个性化推荐
+  // 获取用户画像，用于个性化
   useEffect(() => {
     if (!currentUser?.id) return;
     let cancelled = false;
     (async () => {
       try {
-        const collections = await CollectionMarkService.getByUserId(currentUser.id);
-        if (!Array.isArray(collections) || cancelled) return;
-        // 只取"看过"(collect)的条目，最多30个
-        const collectItems = collections.filter(c => c.status === 'collect').slice(0, 30);
-        if (collectItems.length === 0) return;
-        // 并发获取条目详情中的 tags
-        const results = await Promise.allSettled(
-          collectItems.map(c => BangumiService.getSubject(c.subject_id))
-        );
+        // 获取画像
+        let profile = await ProfileService.getProfile();
         if (cancelled) return;
-        const tagCount = {};
-        results.forEach(r => {
-          if (r.status !== 'fulfilled' || !r.value?.tags) return;
-          r.value.tags.forEach(t => {
-            const name = typeof t === 'string' ? t : t.name;
-            if (name) tagCount[name] = (tagCount[name] || 0) + 1;
-          });
-        });
-        const topTags = Object.entries(tagCount)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 20)
-          .map(([name]) => name);
-        if (!cancelled) setUserTags(topTags);
-      } catch { /* 静默失败，不影响主功能 */ }
+
+        // 检查是否需要懒更新（> 24h 未更新）
+        if (profile && profile.updated_at) {
+          const hoursSinceUpdate = (Date.now() - new Date(profile.updated_at).getTime()) / (1000 * 60 * 60);
+          if (hoursSinceUpdate > 24) {
+            // 后台触发刷新
+            ProfileService.refreshProfile().then(refreshed => {
+              if (!cancelled && refreshed) setUserProfile(refreshed);
+            }).catch(() => {});
+          }
+        }
+
+        if (!cancelled) setUserProfile(profile);
+      } catch {
+        // 画像未生成（新用户），尝试刷新
+        try {
+          const refreshed = await ProfileService.refreshProfile();
+          if (!cancelled && refreshed) setUserProfile(refreshed);
+        } catch { /* 静默失败 */ }
+      }
     })();
     return () => { cancelled = true; };
   }, [currentUser?.id]);
@@ -374,7 +373,7 @@ export default function Amadeus() {
         messagesRef.current = [...messagesRef.current, placeholder];
         setMessages(prev => [...prev, placeholder]);
         const apiMessages = history.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content }));
-        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, userTags), apiMessages, {
+        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, userProfile), apiMessages, {
           signal: controller.signal,
           onToken: (delta) => {
             if (!mountedRef.current) return;

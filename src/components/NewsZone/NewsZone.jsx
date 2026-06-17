@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Tv, Book, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Image as ImageIcon, X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { NewsService, BangumiService } from '../../services/api';
+import { NewsService, BangumiService, ProfileService } from '../../services/api';
 import { useApp } from '../../context/AppContext';
 import { extractPreview } from '../../utils/subjectType';
 import AnimeSchedule from './AnimeSchedule';
@@ -32,16 +32,17 @@ const BANGUMI_TYPE_MAP = { 1: 'book', 2: 'anime', 3: 'music', 4: 'game', 6: 'rea
 
 export default function NewsZone() {
   const navigate = useNavigate();
-  const { isAuthenticated, openAuth } = useApp();
+  const { isAuthenticated, openAuth, currentUser } = useApp();
   const [feedNews, setFeedNews] = useState([]);
   const [customNews, setCustomNews] = useState([]);
-  const [bangumiMatchMap, setBangumiMatchMap] = useState({}); // { title: { id, type, name } }
+  const [bangumiMatchMap, setBangumiMatchMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeSource, setActiveSource] = useState('');
   const [activeCategory, setActiveCategory] = useState('全部');
   const [activeTab, setActiveTab] = useState('feed');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [typeAffinity, setTypeAffinity] = useState({});
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [applyForm, setApplyForm] = useState({ title: '', source: '', link: '', category: '', cover: '' });
   const [coverPreview, setCoverPreview] = useState('');
@@ -54,12 +55,48 @@ export default function NewsZone() {
   const allNews = [...feedNews, ...customNews.map(n => ({ ...n, source: 'custom' }))];
   const hotNews = allNews.filter(n => n.cover).slice(0, 5);
 
-  // 筛选
-  const filteredNews = allNews.filter(n => {
-    if (activeSource && n.source !== activeSource) return false;
-    if (activeCategory !== '全部' && n.category !== activeCategory) return false;
-    return true;
-  });
+  // 获取用户画像用于资讯加权
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    ProfileService.getProfile()
+      .then(p => setTypeAffinity(p?.type_affinity || {}))
+      .catch(() => setTypeAffinity({}));
+  }, [currentUser?.id]);
+
+  // 筛选（含类型亲和度加权排序）
+  const filteredNews = useMemo(() => {
+    let result = allNews.filter(n => {
+      if (activeSource && n.source !== activeSource) return false;
+      if (activeCategory !== '全部' && n.category !== activeCategory) return false;
+      return true;
+    });
+
+    // 类型亲和度加权
+    const categoryWeightMap = {};
+    if (typeAffinity.anime > 0.3) {
+      const w = typeAffinity.anime > 0.5 ? 1.3 : 1.15;
+      categoryWeightMap['新番导视'] = w;
+      categoryWeightMap['热门推荐'] = w;
+      categoryWeightMap['每周速报'] = w;
+    }
+    if (typeAffinity.game > 0.3) {
+      const w = typeAffinity.game > 0.5 ? 1.3 : 1.15;
+      categoryWeightMap['游戏推荐'] = w;
+      categoryWeightMap['VN推荐'] = w;
+      categoryWeightMap['Steam精选'] = w;
+      categoryWeightMap['Steam特惠'] = w;
+      categoryWeightMap['Steam新品'] = w;
+    }
+    if (typeAffinity.novel > 0.3) {
+      const w = typeAffinity.novel > 0.5 ? 1.3 : 1.15;
+      categoryWeightMap['轻小说'] = w;
+    }
+
+    return result.map(n => ({
+      ...n,
+      _weight: categoryWeightMap[n.category] || 1.0,
+    })).sort((a, b) => b._weight - a._weight);
+  }, [allNews, activeSource, activeCategory, typeAffinity]);
 
   // 标题相似度匹配：兼容英文/罗马音/日文/中文
   const isTitleMatch = (searchTitle, result) => {

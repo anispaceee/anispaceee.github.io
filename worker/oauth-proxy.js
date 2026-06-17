@@ -1441,6 +1441,13 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     } catch {
       user.auto_enrich = 1;
     }
+    // filter_nsfw 列可能尚未创建，单独查询以避免主查询失败
+    try {
+      const nsfwRow = await env.DB.prepare('SELECT filter_nsfw FROM users WHERE id = ?').bind(userId).first();
+      user.filter_nsfw = nsfwRow?.filter_nsfw ?? 1;
+    } catch {
+      user.filter_nsfw = 1;
+    }
     // 动态计算好友数
     const friendCount = await env.DB.prepare(
       "SELECT COUNT(*) AS cnt FROM friend_requests WHERE (from_user_id = ? OR to_user_id = ?) AND status = 'accepted'"
@@ -1465,11 +1472,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     if (authUser.userId !== userId) return jsonResponse({ error: '无权限' }, 403, origin);
     try {
       const body = await request.json();
-      const { allow_profile_view, allow_comments_public, auto_enrich } = body;
-      // auto_enrich 列可能尚未创建，先尝试更新，失败则只更新其他字段
+      const { allow_profile_view, allow_comments_public, auto_enrich, filter_nsfw } = body;
+      // auto_enrich / filter_nsfw 列可能尚未创建，先尝试更新，失败则只更新其他字段
       try {
-        await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ?, auto_enrich = ? WHERE id = ?')
-          .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, auto_enrich ?? 1, userId).run();
+        await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ?, auto_enrich = ?, filter_nsfw = ? WHERE id = ?')
+          .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, auto_enrich ?? 1, filter_nsfw ?? 1, userId).run();
       } catch {
         await env.DB.prepare('UPDATE users SET allow_profile_view = ?, allow_comments_public = ? WHERE id = ?')
           .bind(allow_profile_view ?? 1, allow_comments_public ?? 1, userId).run();

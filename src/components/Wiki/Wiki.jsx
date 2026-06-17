@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { BangumiService, ApiError } from '../../services/api';
+import { useApp } from '../../context/AppContext';
 import { SubjectCard } from '../Common/CommonComponents';
 import { Search, BookOpen, Tv, Gamepad2, Music, Film, ExternalLink, Star, Users, Loader2, AlertCircle, RotateCw, Clock, Trash2, ShieldOff, ImagePlus, X } from 'lucide-react';
 import { typeToKey, extractPreview } from '../../utils/subjectType';
@@ -19,7 +20,6 @@ const TYPE_OPTIONS = [
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="280" fill="%23f9f3f5"%3E%3Crect width="200" height="280" rx="10"/%3E%3Ctext x="100" y="140" text-anchor="middle" fill="%23d4b8c0" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E';
 
 const HISTORY_KEY = 'anispace_search_history';
-const NSFW_FILTER_KEY = 'anispace_filter_nsfw';
 const BG_IMAGE_KEY = 'anispace_wiki_bg_image';
 const MAX_HISTORY = 12;
 
@@ -43,15 +43,13 @@ function clearSearchHistory() {
 export default function Wiki() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { filterNsfw, toggleFilterNsfw } = useApp();
 
   const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const [activeType, setActiveType] = useState(() => {
     const typeParam = searchParams.get('type');
     if (typeParam && TYPE_OPTIONS.some(t => t.key === typeParam)) return typeParam;
     return 'all';
-  });
-  const [filterNsfw, setFilterNsfw] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(NSFW_FILTER_KEY) || 'false'); } catch { return false; }
   });
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -245,11 +243,7 @@ export default function Wiki() {
   };
 
   const toggleNsfwFilter = () => {
-    setFilterNsfw(prev => {
-      const next = !prev;
-      localStorage.setItem(NSFW_FILTER_KEY, JSON.stringify(next));
-      return next;
-    });
+    toggleFilterNsfw();
   };
 
   const handleBgUpload = (e) => {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { AuthService, NotificationService, MailService, StorageService, apiRequest } from '../services/api';
+import { AuthService, NotificationService, MailService, StorageService, UserService, apiRequest } from '../services/api';
 
 const AppContext = createContext();
 
@@ -13,6 +13,10 @@ export function AppProvider({ children }) {
     const saved = StorageService.get('anispace_social_mode');
     return saved !== null ? saved : false; // 默认关闭社交（邀请制）
   });
+  const [filterNsfw, setFilterNsfw] = useState(() => {
+    const saved = StorageService.get('anispace_filter_nsfw');
+    return saved !== null ? saved : true; // 默认开启屏蔽限制级
+  });
 
   // 登录时自动检查社交权限
   useEffect(() => {
@@ -25,6 +29,15 @@ export function AppProvider({ children }) {
           if (res.has_permission) {
             setSocialMode(true);
             StorageService.set('anispace_social_mode', true);
+          }
+        })
+        .catch(() => {});
+      // 同步限制级过滤设置
+      apiRequest('/api/users/' + currentUser.id + '/profile')
+        .then(profile => {
+          if (typeof profile.filter_nsfw === 'number') {
+            setFilterNsfw(profile.filter_nsfw !== 0);
+            StorageService.set('anispace_filter_nsfw', profile.filter_nsfw !== 0);
           }
         })
         .catch(() => {});
@@ -80,6 +93,15 @@ export function AppProvider({ children }) {
     StorageService.set('anispace_social_mode', newVal);
   }, [socialMode]);
 
+  const toggleFilterNsfw = useCallback((val) => {
+    const newVal = val !== undefined ? val : !filterNsfw;
+    setFilterNsfw(newVal);
+    StorageService.set('anispace_filter_nsfw', newVal);
+    if (currentUser?.id) {
+      UserService.updateSettings(currentUser.id, { filter_nsfw: newVal ? 1 : 0 }).catch(() => {});
+    }
+  }, [filterNsfw, currentUser?.id]);
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -97,6 +119,8 @@ export function AppProvider({ children }) {
       setNotifications,
       setMailUnreadCount,
       toggleSocialMode,
+      filterNsfw,
+      toggleFilterNsfw,
     }}>
       {children}
     </AppContext.Provider>
