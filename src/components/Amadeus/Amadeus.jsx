@@ -373,7 +373,8 @@ export default function Amadeus() {
         messagesRef.current = [...messagesRef.current, placeholder];
         setMessages(prev => [...prev, placeholder]);
         const apiMessages = history.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content }));
-        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, userProfile), apiMessages, {
+        const tags = userProfile?.tag_weights ? Object.keys(userProfile.tag_weights).slice(0, 20) : [];
+        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, tags), apiMessages, {
           signal: controller.signal,
           onToken: (delta) => {
             if (!mountedRef.current) return;
@@ -413,7 +414,7 @@ export default function Amadeus() {
       clearTimeout(timeoutId);
       if (abortRef.current === controller) setIsTyping(false);
     }
-  }, [messages, llmConfig, voiceEnabled, activePersona, userTags, runActions, speak, switchExpression]);
+  }, [messages, llmConfig, voiceEnabled, activePersona, userProfile, runActions, speak, switchExpression]);
 
   const toggleListening = () => { if (!recognitionRef.current) return; isListening ? recognitionRef.current.stop() : (recognitionRef.current.start(), setIsListening(true)); };
   const clearChat = () => {
