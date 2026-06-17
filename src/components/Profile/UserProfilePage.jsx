@@ -50,6 +50,7 @@ export default function UserProfilePage() {
   const [requestMessage, setRequestMessage] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({});
   const [activityData, setActivityData] = useState([]);
   const [userComments, setUserComments] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -817,7 +818,7 @@ export default function UserProfilePage() {
                         {!isCollapsed && (
                           items.length > 0 ? (
                             <div className="category-covers">
-                              {(expandedCategory === status ? items : items.slice(0, 6)).map(mark => (
+                              {(expandedCategory === status ? items : items.slice(0, 5)).map(mark => (
                                 <SubjectCard
                                   key={`${mark.user_id}_${mark.subject_id}`}
                                   item={{
@@ -849,6 +850,12 @@ export default function UserProfilePage() {
                       <MessageSquare size={16} style={{ color: 'var(--primary)' }} />
                       <span className="category-title">评论</span>
                       <span className="category-count">{userComments.length} 条</span>
+                      {userComments.length > 5 && !expandedSections.comments && (
+                        <span className="category-more" onClick={() => setExpandedSections(prev => ({ ...prev, comments: true }))}>更多 →</span>
+                      )}
+                      {expandedSections.comments && (
+                        <span className="category-more" onClick={() => setExpandedSections(prev => ({ ...prev, comments: false }))}>收起 ↑</span>
+                      )}
                     </div>
                     {commentsLoading ? (
                       <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-quaternary)' }}>
@@ -856,7 +863,7 @@ export default function UserProfilePage() {
                       </div>
                     ) : userComments.length > 0 ? (
                       <div className="user-profile-comments">
-                        {userComments.slice(0, 10).map(comment => (
+                        {(expandedSections.comments ? userComments : userComments.slice(0, 5)).map(comment => (
                           <div key={comment.id} className="user-profile-comment-item">
                             <div className="comment-item-header">
                               {comment.subject_name && (
@@ -1099,7 +1106,7 @@ export default function UserProfilePage() {
                         </div>
                       ) : guestbookMessages.length > 0 ? (
                         <div className="guestbook-list">
-                          {guestbookMessages.map(msg => (
+                          {(expandedSections.guestbook ? guestbookMessages : guestbookMessages.slice(0, 5)).map(msg => (
                             <div key={msg.id} className="guestbook-item">
                               <div className="guestbook-item-header">
                                 <Link to={`/user/${msg.author_id}`} className="guestbook-author">
@@ -1127,6 +1134,12 @@ export default function UserProfilePage() {
                       ) : (
                         <div className="category-empty">暂无留言</div>
                       )}
+                      {guestbookMessages.length > 5 && !expandedSections.guestbook && (
+                        <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, guestbook: true }))}>更多 →</span>
+                      )}
+                      {expandedSections.guestbook && guestbookMessages.length > 5 && (
+                        <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, guestbook: false }))}>收起 ↑</span>
+                      )}
                     </>
                   )}
                 </div>
@@ -1141,7 +1154,7 @@ export default function UserProfilePage() {
                     </div>
                   ) : userComments.length > 0 ? (
                     <div className="user-profile-comments">
-                      {userComments.map(comment => (
+                      {(expandedSections.commentsTab ? userComments : userComments.slice(0, 5)).map(comment => (
                         <div key={comment.id} className="user-profile-comment-item">
                           <div className="comment-item-header">
                             {comment.subject_name && (
@@ -1168,6 +1181,12 @@ export default function UserProfilePage() {
                     </div>
                   ) : (
                     <div className="category-empty">暂无评论</div>
+                  )}
+                  {userComments.length > 5 && !expandedSections.commentsTab && (
+                    <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, commentsTab: true }))}>更多 →</span>
+                  )}
+                  {expandedSections.commentsTab && userComments.length > 5 && (
+                    <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, commentsTab: false }))}>收起 ↑</span>
                   )}
                 </div>
               )}
@@ -1204,7 +1223,7 @@ export default function UserProfilePage() {
                     </div>
                   ) : userNews.length > 0 ? (
                     <div className="user-profile-news-list">
-                      {userNews.map(item => (
+                      {(expandedSections.news ? userNews : userNews.slice(0, 5)).map(item => (
                         <Link key={item.id} to={`/news/${item.id}`} className="user-profile-news-item">
                           <div className="news-item-info">
                             <span className="news-item-title">{item.title}</span>
@@ -1216,6 +1235,12 @@ export default function UserProfilePage() {
                     </div>
                   ) : (
                     <div className="category-empty">暂无资讯</div>
+                  )}
+                  {userNews.length > 5 && !expandedSections.news && (
+                    <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, news: true }))}>更多 →</span>
+                  )}
+                  {expandedSections.news && userNews.length > 5 && (
+                    <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, news: false }))}>收起 ↑</span>
                   )}
                 </div>
               )}
@@ -1252,7 +1277,7 @@ export default function UserProfilePage() {
                     </div>
                   ) : userPosts.length > 0 ? (
                     <div className="user-profile-posts-list">
-                      {userPosts.map(post => (
+                      {(expandedSections.posts ? userPosts : userPosts.slice(0, 5)).map(post => (
                         <Link key={post.id} to={`/forum/${post.id}`} className="user-profile-post-item">
                           <div className="post-item-info">
                             <span className="post-item-title">{post.title}</span>
@@ -1263,6 +1288,12 @@ export default function UserProfilePage() {
                     </div>
                   ) : (
                     <div className="category-empty">暂无发帖</div>
+                  )}
+                  {userPosts.length > 5 && !expandedSections.posts && (
+                    <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, posts: true }))}>更多 →</span>
+                  )}
+                  {expandedSections.posts && userPosts.length > 5 && (
+                    <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, posts: false }))}>收起 ↑</span>
                   )}
                 </div>
               )}
