@@ -1,5 +1,6 @@
 import amadeusImg from '../../assets/Amadeus.webp';
 import { DIRECTIVE_GUIDE } from './naviActions';
+import { BangumiService, RecommendService } from '../../services/api';
 
 /** 预设人格库。image 为内置立绘（仅红莉栖有），其余用 avatar emoji 占位。 */
 export const PRESET_PERSONAS = [
@@ -116,10 +117,92 @@ function buildUserProfileFragment(profile) {
 当用户请求推荐时，优先推荐与以上偏好匹配的作品。`;
 }
 
-/** 根据人格生成 system prompt（含站内动作指令说明 + 网站介绍 + 用户画像） */
-export function buildSystemPrompt(persona, profile = null) {
+/**
+ * 并行获取站内实时数据（今日放送、热门作品、个性化推荐）。
+ * 所有请求均容错，失败返回空数组，不影响主流程。
+ * 返回 { todayBroadcast, popularAnime, recommendations }
+ */
+export async function fetchSiteData() {
+  const [calendarResult, popularResult, recommendResult] = await Promise.allSettled([
+    BangumiService.getCalendar(),
+    BangumiService.getPopular('anime', 8, 0),
+    RecommendService.getRecommend('home_random').catch(() => null),
+  ]);
+
+  // 今日放送：从 calendar 中提取当天番剧
+  let todayBroadcast = [];
+  if (calendarResult.status === 'fulfilled' && Array.isArray(calendarResult.value)) {
+    const today = new Date().getDay(); // 0=周日, 1=周一...
+    const weekdayMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const todayKey = weekdayMap[today];
+    const todayData = calendarResult.value.find(d =>
+      d.weekday?.en === todayKey || d.weekday?.cn === ['日', '一', '二', '三', '四', '五', '六'][today]
+    );
+    if (todayData?.items) {
+      todayBroadcast = todayData.items.slice(0, 10).map(item => ({
+        name: item.name_cn || item.name,
+        score: item.rating?.score || 0,
+      }));
+    }
+  }
+
+  // 热门动画
+  let popularAnime = [];
+  if (popularResult.status === 'fulfilled' && popularResult.value?.data) {
+    popularAnime = popularResult.value.data.map(item => ({
+      name: item.name_cn || item.name,
+      score: item.rating?.score || 0,
+    }));
+  }
+
+  // 个性化推荐（后端推荐引擎）
+  let recommendations = [];
+  if (recommendResult.status === 'fulfilled' && Array.isArray(recommendResult.value)) {
+    recommendations = recommendResult.value.slice(0, 6).map(item => ({
+      name: item.name_cn || item.name,
+      score: item.rating?.score || item.score || 0,
+    }));
+  }
+
+  return { todayBroadcast, popularAnime, recommendations };
+}
+
+/** 将站内实时数据格式化为 system prompt 片段 */
+function buildSiteDataContext(siteData) {
+  if (!siteData) return '';
+  const parts = [];
+
+  if (siteData.todayBroadcast?.length > 0) {
+    const list = siteData.todayBroadcast.map((item, i) =>
+      `${i + 1}. ${item.name}${item.score ? ` (评分${item.score})` : ''}`
+    ).join('\n');
+    parts.push(`【今日放送】以下是今天更新的番剧（数据来自Bangumi放送表）：\n${list}`);
+  }
+
+  if (siteData.popularAnime?.length > 0) {
+    const list = siteData.popularAnime.map((item, i) =>
+      `${i + 1}. ${item.name}${item.score ? ` (评分${item.score})` : ''}`
+    ).join('\n');
+    parts.push(`【当前热门动画】以下是站内热门番剧：\n${list}`);
+  }
+
+  if (siteData.recommendations?.length > 0) {
+    const list = siteData.recommendations.map((item, i) =>
+      `${i + 1}. ${item.name}${item.score ? ` (评分${item.score})` : ''}`
+    ).join('\n');
+    parts.push(`【系统推荐】以下是根据你的偏好生成的推荐：\n${list}`);
+  }
+
+  return parts.length > 0
+    ? `【站内实时数据】以下是当前站内的实时数据，你可以在回答中引用这些信息（如用户问"今天有什么番更新"时直接引用今日放送列表）。推荐时优先从以下列表中选取，也可用 recommend 指令搜索更多：\n\n${parts.join('\n\n')}`
+    : '';
+}
+
+/** 根据人格生成 system prompt（含站内动作指令说明 + 网站介绍 + 用户画像 + 站内实时数据） */
+export function buildSystemPrompt(persona, profile = null, siteData = null) {
   const cp = (persona.catchphrases || []).filter(Boolean).join('、');
   const preference = buildUserProfileFragment(profile);
+  const siteContext = buildSiteDataContext(siteData);
   const parts = [
     `你是「${persona.name}」，ACG 社区 ANISpace 的站内 AI 助手。请始终保持以下角色设定，用中文回答。`,
     persona.personality ? `【人设】${persona.personality}` : '',
@@ -131,6 +214,7 @@ export function buildSystemPrompt(persona, profile = null) {
     '',
     SITE_GUIDE,
     preference,
+    siteContext,
   ];
   return parts.filter(Boolean).join('\n');
 }

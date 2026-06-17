@@ -4,7 +4,7 @@ import { StorageService, BangumiService, CollectionMarkService, ProfileService }
 import { useNavigate } from 'react-router-dom';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
 import EmojiPicker from '../Common/EmojiPicker';
-import { PRESET_PERSONAS, emptyOC, buildSystemPrompt } from './personas';
+import { PRESET_PERSONAS, emptyOC, buildSystemPrompt, fetchSiteData } from './personas';
 import { parseDirectives, resolveGoto, runSearchAction } from './naviActions';
 import { streamLLM, testConnection } from './llmClient';
 import './Amadeus.css';
@@ -373,8 +373,10 @@ export default function Amadeus() {
         messagesRef.current = [...messagesRef.current, placeholder];
         setMessages(prev => [...prev, placeholder]);
         const apiMessages = history.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content }));
-        const tags = userProfile?.tag_weights ? Object.keys(userProfile.tag_weights).slice(0, 20) : [];
-        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, tags), apiMessages, {
+        // 并行获取站内实时数据（今日放送/热门/推荐），注入 system prompt
+        const siteData = await fetchSiteData();
+        if (!mountedRef.current) return;
+        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, userProfile, siteData), apiMessages, {
           signal: controller.signal,
           onToken: (delta) => {
             if (!mountedRef.current) return;
