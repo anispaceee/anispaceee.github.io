@@ -4922,6 +4922,16 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
     try {
+      // 补录用户收藏中缺失的条目数据到 bangumi_subjects 表
+      const collections = await env.DB.prepare(
+        'SELECT subject_id FROM collections WHERE user_id = ?'
+      ).bind(authUser.userId).all();
+      const enrichPromises = [];
+      for (const c of (collections.results || [])) {
+        enrichPromises.push(bangumiEnrich.enrichSubject(env, Number(c.subject_id)));
+      }
+      await Promise.allSettled(enrichPromises);
+
       const profile = await userProfile.computeUserProfile(env.DB, authUser.userId);
 
       await env.DB.prepare(
