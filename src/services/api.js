@@ -1962,3 +1962,39 @@ export const RecommendService = {
     return apiRequest(`/api/recommend?scene=${scene}`);
   },
 };
+
+// ─── ExploreService ───
+// 探索流
+export const ExploreService = {
+  async getFeed(category = '', page = 1) {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    params.set('page', page);
+    return apiRequest(`/api/explore?${params.toString()}`);
+  },
+};
+
+// ─── PromotionService ───
+// 推广位
+export const PromotionService = {
+  async getPromotions(slot = 'home') {
+    return apiRequest(`/api/promotions?slot=${slot}`);
+  },
+};
+
+// ─── SearchSuggestionService ───
+// 搜索建议
+export const SearchSuggestionService = {
+  async getSuggestions(query) {
+    if (!query || query.length < 2) return { suggestions: [] };
+    return apiRequest(`/api/search/suggestions?q=${encodeURIComponent(query)}`);
+  },
+};
+
+// ─── ShortProfileService ───
+// 短期画像
+export const ShortProfileService = {
+  async getShortProfile() {
+    return apiRequest('/api/profile/short');
+  },
+};

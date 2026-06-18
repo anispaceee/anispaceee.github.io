@@ -2,6 +2,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService, RecommendService } from '../services/api';
+import { behaviorCollector } from '../lib/BehaviorCollector';
+import { sessionProfile } from '../lib/SessionProfile';
 import HikarinagiService from '../services/HikarinagiService';
 import { extractPreview } from '../utils/subjectType';
 import { ArrowRight, Flame, Heart, MessageSquare, Calendar, RefreshCw, Star, Shuffle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Loader2, Tv, BookOpen, Gamepad2, MessageCircle, Globe, Clock, TrendingUp, Newspaper, Send, Image, X, Users as UsersIcon } from 'lucide-react';
@@ -81,6 +83,7 @@ function RandomRecommendCard({ subject, loading, onRefresh, activeType, onTypeCh
     if (now - lastClick < 2000) return;
     setLastClick(now);
     onRefresh();
+    behaviorCollector.trackRecommendClick(subject?.id, 'home_random', 0, 'random', activeType);
   };
 
   if (loading && !subject) {
@@ -156,6 +159,11 @@ function RandomRecommendCard({ subject, loading, onRefresh, activeType, onTypeCh
 export default function HomePage() {
   const navigate = useNavigate();
   const { currentUser, isAuthenticated, openAuth, socialMode, filterNsfw } = useApp();
+
+  useEffect(() => {
+    behaviorCollector.trackPageEnter('home');
+    return () => behaviorCollector.trackPageLeave();
+  }, []);
 
   const [hotPosts, setHotPosts] = useState([]);
   const [recentMessages, setRecentMessages] = useState([]);

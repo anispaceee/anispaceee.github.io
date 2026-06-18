@@ -1,6 +1,8 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService, Wenku8Service } from '../../services/api';
+import { behaviorCollector } from '../../lib/BehaviorCollector';
+import { sessionProfile } from '../../lib/SessionProfile';
 import { BangumiDataService } from '../../services/BangumiDataService';
 import HikarinagiService from '../../services/HikarinagiService';
 import { SourceMerger } from '../../services/SourceMerger';
@@ -801,6 +803,7 @@ export default function InfoDetail() {
     try {
       await RatingService.addRatingAsync(currentUser.id, parseInt(id), subject?.type || 2, score);
       setUserScore(score);
+      behaviorCollector.trackRate(parseInt(id), score, subject?.type || 2);
     } catch {}
   };
 
@@ -1294,6 +1297,7 @@ export default function InfoDetail() {
                           comment: '',
                         });
                         setCollectionMark(key);
+                        behaviorCollector.trackMarkCollection(parseInt(id), key, subject?.type || 2);
                       }
                     }}>{label}</button>
                 ))}

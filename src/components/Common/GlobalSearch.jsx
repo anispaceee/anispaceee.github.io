@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BangumiService, StorageService } from '../../services/api';
+import { BangumiService, StorageService, SearchSuggestionService } from '../../services/api';
+import { behaviorCollector } from '../../lib/BehaviorCollector';
+import { sessionProfile } from '../../lib/SessionProfile';
 import { Search, Loader2, X, Clock, Tv, BookOpen, Gamepad2, Music, Users, MessageCircle, Film, Newspaper, ChevronRight, Trash2 } from 'lucide-react';
 import { extractPreview } from '../../utils/subjectType';
 import './GlobalSearch.css';
@@ -126,41 +128,48 @@ export default function GlobalSearch({ onClose }) {
     setLoading(true);
     const grouped = {};
     try {
-      const [animeRes, novelRes, gameRes, musicRes] = await Promise.allSettled([
+      // 并行搜索：Bangumi API + 搜索建议
+      const [animeRes, novelRes, gameRes, musicRes, suggestRes] = await Promise.allSettled([
         BangumiService.searchSubjects(q, 2, 5, 0),
         BangumiService.searchSubjects(q, 1, 5, 0),
         BangumiService.searchSubjects(q, 4, 5, 0),
         BangumiService.searchSubjects(q, 3, 5, 0),
+        SearchSuggestionService.getSuggestions(q),
       ]);
       if (animeRes.status === 'fulfilled' && animeRes.value?.list?.length) grouped.anime = animeRes.value.list;
       if (novelRes.status === 'fulfilled' && novelRes.value?.list?.length) grouped.novel = novelRes.value.list;
       if (gameRes.status === 'fulfilled' && gameRes.value?.list?.length) grouped.game = gameRes.value.list;
       if (musicRes.status === 'fulfilled' && musicRes.value?.list?.length) grouped.music = musicRes.value.list;
 
+      // 使用后端搜索建议（基于 bangumi_subjects 索引）
+      if (suggestRes.status === 'fulfilled' && suggestRes.value?.suggestions?.length) {
+        setSuggestions(suggestRes.value.suggestions.map(s => s.name_cn || s.name));
+      } else {
+        // fallback: 从搜索结果提取建议
+        const suggestionSet = new Set();
+        [...(grouped.anime || []), ...(grouped.novel || []), ...(grouped.game || []), ...(grouped.music || [])].forEach(item => {
+          const name = item.name_cn || item.name;
+          if (name && name.toLowerCase().includes(q.toLowerCase())) {
+            suggestionSet.add(name);
+          }
+        });
+        setSuggestions(Array.from(suggestionSet).slice(0, 8));
+      }
+
+      // 帖子搜索（本地缓存）
       try {
-        const personRes = await fetch(`https://api.bgm.tv/v0/persons?keyword=${encodeURIComponent(q)}&limit=5&offset=0`);
-        if (personRes.ok) {
-          const personData = await personRes.json();
-          if (personData.data?.length) grouped.person = personData.data;
-        }
+        const forumPosts = StorageService.get('acg_forum_posts') || [];
+        const matchedPosts = forumPosts.filter(p =>
+          p.title.toLowerCase().includes(q.toLowerCase()) ||
+          p.content.toLowerCase().includes(q.toLowerCase()) ||
+          (p.tags && p.tags.some(t => t.toLowerCase().includes(q.toLowerCase())))
+        ).slice(0, 5);
+        if (matchedPosts.length > 0) grouped.post = matchedPosts;
       } catch {}
 
-      const forumPosts = StorageService.get('acg_forum_posts') || [];
-      const matchedPosts = forumPosts.filter(p =>
-        p.title.toLowerCase().includes(q.toLowerCase()) ||
-        p.content.toLowerCase().includes(q.toLowerCase()) ||
-        (p.tags && p.tags.some(t => t.toLowerCase().includes(q.toLowerCase())))
-      ).slice(0, 5);
-      if (matchedPosts.length > 0) grouped.post = matchedPosts;
-
-      const suggestionSet = new Set();
-      [...(grouped.anime || []), ...(grouped.novel || []), ...(grouped.game || []), ...(grouped.music || [])].forEach(item => {
-        const name = item.name_cn || item.name;
-        if (name && name.toLowerCase().includes(q.toLowerCase())) {
-          suggestionSet.add(name);
-        }
-      });
-      setSuggestions(Array.from(suggestionSet).slice(0, 8));
+      // 行为追踪：搜索
+      behaviorCollector.track('search', 'search', 0, { query: q, result_count: Object.values(grouped).reduce((s, l) => s + l.length, 0) });
+      sessionProfile.trackAction('search', 0, { query: q });
     } catch {} finally {
       setLoading(false);
     }
@@ -190,6 +199,9 @@ export default function GlobalSearch({ onClose }) {
     const item = flatItem.item;
     const typeCode = item.type || 2;
     saveHistory(query);
+    // 行为追踪：搜索点击
+    behaviorCollector.trackSearchClick(query, item.id, 0, flatItem.type);
+    sessionProfile.trackAction('search_click', item.id, { type: flatItem.type, query });
     if (typeCode === 'person' || flatItem.type === 'person') {
       window.open(`https://mzh.moegirl.org.cn/index.php?search=${encodeURIComponent(item.name || item.name_cn)}`, '_blank');
     } else if (flatItem.type === 'post') {

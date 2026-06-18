@@ -24,6 +24,8 @@ import * as newsScraper from './lib/news-scraper.js';
 import * as bangumiEnrich from './lib/bangumi-enrich.js';
 import * as userProfile from './lib/user-profile.js';
 import * as recommendEngine from './lib/recommend-engine.js';
+import * as behaviorCollector from './lib/behavior-collector.js';
+import * as exploreEngine from './lib/explore-engine.js';
 
 // ─── SSRF 防护 ───────────────────────────────────────────
 
@@ -4904,6 +4906,9 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
         last_action_at: profile.last_action_at,
         version: profile.version,
         similar_users: safeJsonParse(profile.similar_users, []),
+        social_features: safeJsonParse(profile.social_features, {}),
+        preference_vector: safeJsonParse(profile.preference_vector, {}),
+        lifecycle_stage: profile.lifecycle_stage || 'new',
         updated_at: profile.updated_at,
       }, 200, origin);
     } catch (err) {
@@ -4922,13 +4927,16 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       await env.DB.prepare(
         `INSERT OR REPLACE INTO user_profiles
          (user_id, tag_weights, type_affinity, consumption_stats, rating_tendency,
-          activity_score, last_action_at, version, similar_users, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          activity_score, last_action_at, version, similar_users,
+          social_features, preference_vector, lifecycle_stage, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         profile.user_id, profile.tag_weights, profile.type_affinity,
         profile.consumption_stats, profile.rating_tendency,
         profile.activity_score, profile.last_action_at,
-        profile.version, profile.similar_users, profile.updated_at
+        profile.version, profile.similar_users,
+        profile.social_features, profile.preference_vector, profile.lifecycle_stage,
+        profile.updated_at
       ).run();
 
       // 异步计算相似用户并更新推荐缓存
@@ -5023,6 +5031,106 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       return jsonResponse({ id: result.meta.last_row_id, success: true }, 201, origin);
     } catch (err) {
       return jsonResponse({ error: '行为上报失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/behavior/batch — 批量行为上报
+  if (method === 'POST' && pathname === '/api/behavior/batch') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const actions = body.actions;
+      if (!Array.isArray(actions) || actions.length === 0) {
+        return jsonResponse({ error: 'actions 必须为非空数组' }, 400, origin);
+      }
+      if (actions.length > 50) {
+        return jsonResponse({ error: '单次最多上报50条行为' }, 400, origin);
+      }
+
+      await behaviorCollector.batchInsertBehaviors(env.DB, authUser.userId, actions);
+
+      // 更新 last_action_at
+      await env.DB.prepare(
+        "UPDATE user_profiles SET last_action_at = datetime('now') WHERE user_id = ?"
+      ).bind(authUser.userId).run();
+
+      return jsonResponse({ success: true, count: actions.length }, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '批量上报失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/explore — 探索流
+  if (method === 'GET' && pathname === '/api/explore') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const url = new URL(request.url);
+    const category = url.searchParams.get('category') || '';
+    const page = parseInt(url.searchParams.get('page') || '1', 10);
+
+    try {
+      const profile = await env.DB.prepare(
+        'SELECT * FROM user_profiles WHERE user_id = ?'
+      ).bind(authUser.userId).first();
+
+      const feed = await exploreEngine.generateExploreFeed(env.DB, profile, category, page);
+      return jsonResponse(feed, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '探索流获取失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/promotions — 获取推广位
+  if (method === 'GET' && pathname === '/api/promotions') {
+    const url = new URL(request.url);
+    const slotName = url.searchParams.get('slot') || 'home';
+
+    try {
+      const promos = await env.DB.prepare(
+        `SELECT * FROM promotion_slots
+         WHERE slot_name = ? AND is_active = 1
+           AND (start_at IS NULL OR start_at <= datetime('now'))
+           AND (end_at IS NULL OR end_at >= datetime('now'))
+         ORDER BY weight DESC`
+      ).bind(slotName).all();
+
+      return jsonResponse({ promotions: promos.results || [] }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '推广位获取失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // GET /api/search/suggestions — 搜索建议
+  if (method === 'GET' && pathname === '/api/search/suggestions') {
+    const url = new URL(request.url);
+    const q = url.searchParams.get('q') || '';
+    if (!q || q.length < 2) return jsonResponse({ suggestions: [] }, 200, origin);
+
+    try {
+      const results = await bangumiSearch.search(env.DB, q, 0, { limit: 8 });
+      const suggestions = (results || []).map(r => ({
+        id: r.id, name: r.name, name_cn: r.name_cn,
+        type: r.type, score: r.score,
+      }));
+      return jsonResponse({ suggestions }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ suggestions: [] }, 200, origin);
+    }
+  }
+
+  // GET /api/profile/short — 获取短期画像
+  if (method === 'GET' && pathname === '/api/profile/short') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const shortProfile = await behaviorCollector.computeShortProfile(env.DB, authUser.userId);
+      return jsonResponse(shortProfile, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '短期画像获取失败: ' + err.message }, 500, origin);
     }
   }
 
@@ -5593,7 +5701,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior') || url.pathname.startsWith('/api/explore') || url.pathname.startsWith('/api/promotions') || url.pathname.startsWith('/api/search/suggestions')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin, context);
       if (result) return result;
     }
@@ -6559,6 +6667,23 @@ export default {
         console.log('Recommend cache refresh completed');
       } catch (err) {
         console.error('Recommend cache refresh error:', err.message);
+      }
+
+      // 每小时：刷新活跃用户短期画像
+      try {
+        const activeUsers = await env.DB.prepare(
+          `SELECT DISTINCT user_id FROM behavior_log
+           WHERE created_at > datetime('now', '-7 days')
+           LIMIT 100`
+        ).all();
+        for (const u of (activeUsers.results || [])) {
+          try {
+            await behaviorCollector.computeShortProfile(env.DB, u.user_id);
+          } catch {}
+        }
+        console.log('Short profile refresh completed, users:', (activeUsers.results || []).length);
+      } catch (err) {
+        console.error('Short profile refresh error:', err.message);
       }
     })());
   },

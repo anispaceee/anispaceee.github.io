@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Tv, Book, Plus, ExternalLink, Loader2, Newspaper, Calendar, RefreshCw, Flame, Sparkles, Image as ImageIcon, X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { NewsService, BangumiService, ProfileService } from '../../services/api';
+import { behaviorCollector } from '../../lib/BehaviorCollector';
+import { sessionProfile } from '../../lib/SessionProfile';
 import { useApp } from '../../context/AppContext';
 import { extractPreview } from '../../utils/subjectType';
 import AnimeSchedule from './AnimeSchedule';
@@ -32,6 +34,11 @@ const BANGUMI_TYPE_MAP = { 1: 'book', 2: 'anime', 3: 'music', 4: 'game', 6: 'rea
 export default function NewsZone() {
   const navigate = useNavigate();
   const { isAuthenticated, openAuth, currentUser } = useApp();
+
+  useEffect(() => {
+    behaviorCollector.trackPageEnter('news');
+    return () => behaviorCollector.trackPageLeave();
+  }, []);
   const [feedNews, setFeedNews] = useState([]);
   const [customNews, setCustomNews] = useState([]);
   const [bangumiMatchMap, setBangumiMatchMap] = useState({});
@@ -134,6 +141,8 @@ export default function NewsZone() {
   // 懒匹配：点击时搜索Bangumi并缓存结果
   const matchAndNavigate = useCallback(async (news) => {
     const isArticle = news.type === 'article';
+    behaviorCollector.trackNewsClick(news.id, news.source, news.category);
+    sessionProfile.trackAction('news_click', news.id);
     if (isArticle) {
       navigate(`/news/${news.id}`);
       return;

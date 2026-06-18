@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StorageService, BangumiService, CollectionMarkService, ProfileService } from '../../services/api';
+import { behaviorCollector } from '../../lib/BehaviorCollector';
+import { sessionProfile } from '../../lib/SessionProfile';
 import { useNavigate } from 'react-router-dom';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
 import EmojiPicker from '../Common/EmojiPicker';
@@ -407,6 +409,9 @@ export default function Amadeus() {
     setInput('');
     setIsTyping(true);
     setLlmError('');
+
+    behaviorCollector.trackNaviChat(history.length, false);
+    sessionProfile.trackAction('navi_chat', 0, { turn_count: history.length });
 
     const assistantId = nextId();
 

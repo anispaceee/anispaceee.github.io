@@ -265,6 +265,9 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   last_action_at TEXT,
   version INTEGER DEFAULT 1,
   similar_users TEXT DEFAULT '[]',
+  social_features TEXT DEFAULT '{}',
+  preference_vector TEXT DEFAULT '{}',
+  lifecycle_stage TEXT DEFAULT 'new',
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -572,3 +575,31 @@ CREATE INDEX IF NOT EXISTS idx_invite_relations_inviter ON invite_relations(invi
 CREATE INDEX IF NOT EXISTS idx_user_permissions_user ON user_permissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_permissions_permission ON user_permissions(permission);
 CREATE INDEX IF NOT EXISTS idx_invite_rewards_relation ON invite_rewards(invite_relation_id);
+
+-- v017: 产品级搜广推系统
+-- 短期画像表（7天行为聚合）
+CREATE TABLE IF NOT EXISTS user_profile_short (
+  user_id INTEGER PRIMARY KEY,
+  recent_tags TEXT DEFAULT '{}',
+  recent_types TEXT DEFAULT '{}',
+  recent_actions INTEGER DEFAULT 0,
+  recent_subjects TEXT DEFAULT '[]',
+  session_count INTEGER DEFAULT 0,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 推广位表
+CREATE TABLE IF NOT EXISTS promotion_slots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slot_name TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id INTEGER NOT NULL,
+  title TEXT,
+  cover_url TEXT,
+  weight INTEGER DEFAULT 1,
+  start_at TEXT,
+  end_at TEXT,
+  is_active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_promo_slot ON promotion_slots(slot_name, is_active);

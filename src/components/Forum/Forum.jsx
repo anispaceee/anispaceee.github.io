@@ -2,6 +2,8 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ForumService, ProfileService } from '../../services/api';
+import { behaviorCollector } from '../../lib/BehaviorCollector';
+import { sessionProfile } from '../../lib/SessionProfile';
 import { renderMarkdown } from '../../utils/renderMarkdown';
 import RichTextEditor from '../Common/RichTextEditor';
 import { ForumLeftSidebar, ForumRightSidebar } from './ForumSidebar';
@@ -108,6 +110,11 @@ function timeAgo(dateStr) {
 
 export default function Forum() {
   const { currentUser, isAuthenticated, openAuth } = useApp();
+
+  useEffect(() => {
+    behaviorCollector.trackPageEnter('forum');
+    return () => behaviorCollector.trackPageLeave();
+  }, []);
   const [activeBoard, setActiveBoard] = useState(null);
   const [sortBy, setSortBy] = useState('latest');
   const [searchQuery, setSearchQuery] = useState('');
@@ -520,7 +527,7 @@ export default function Forum() {
               const postTags = Array.isArray(post.tags) ? post.tags : [];
               const hasImage = postImages.length > 0;
               return (
-                <Link to={`/forum/post/${post.id}`} key={post.id} className="waterfall-card">
+                <Link to={`/forum/post/${post.id}`} key={post.id} className="waterfall-card" onClick={() => { behaviorCollector.trackViewPost(post.id); sessionProfile.trackAction('view_post', post.id); }}>
                   {hasImage ? (
                     <div className="waterfall-card-cover">
                       <img src={typeof postImages[0] === 'string' ? postImages[0] : postImages[0]?.preview} alt="" loading="lazy" />

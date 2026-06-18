@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { lazy, Suspense, Component, useState, useEffect } from 'react'
 import Layout from './components/Layout/Layout'
 import HomePage from './pages/HomePage'
+import ExplorePage from './pages/ExplorePage'
 import OAuthCallback from './pages/OAuthCallback'
 import WorldChannel from './components/WorldChannel/WorldChannel'
 import Forum from './components/Forum/Forum'
@@ -463,6 +464,7 @@ function AppInner() {
           <Route path="/musashi/:workId" element={<SocialGuard><WorkDetail /></SocialGuard>} />
           <Route path="/musashi" element={<SocialGuard><MusashiHome /></SocialGuard>} />
           <Route path="/news" element={<NewsZone />} />
+          <Route path="/explore" element={<ExplorePage />} />
           <Route path="/news/editor" element={<NewsEditor />} />
           <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/profile" element={<UserProfilePage />} />
