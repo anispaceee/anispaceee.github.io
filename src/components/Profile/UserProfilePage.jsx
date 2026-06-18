@@ -3,11 +3,13 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { FriendService, FollowService, CollectionMarkService, UserService, MailService, BangumiAuthService, GitHubAuthService, StorageService, UserGuestbookService, ForumService, NewsService } from '../../services/api';
 import { extractPreview } from '../../utils/subjectType';
-import { Calendar, MapPin, Heart, LinkIcon, Shield, ShieldOff, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download } from 'lucide-react';
+import { Calendar, MapPin, Heart, LinkIcon, Shield, ShieldOff, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download, Sparkles, MousePointerClick } from 'lucide-react';
 import { SubjectCard } from '../Common/CommonComponents';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import ActivityHeatmap from './ActivityHeatmap';
 import './UserProfilePage.css';
+import { isFireworkOn, setFireworkOn } from '../Common/FireworkEffect';
+import { isClickTextOn, setClickTextOn } from '../Common/ClickTextEffect';
 
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
 const MARK_COLORS = { wish: '#409eff', collect: '#e6a23c', doing: '#67c23a', on_hold: '#909399', dropped: '#f56c6c' };
@@ -63,6 +65,8 @@ export default function UserProfilePage() {
   const avatarInputRef = useRef(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState('profile');
+  const [fireworkEnabled, setFireworkEnabled] = useState(() => isFireworkOn());
+  const [clickTextEnabled, setClickTextEnabled] = useState(() => isClickTextOn());
   const [dataSettings, setDataSettings] = useState(() => {
     const saved = StorageService.get('acg_data_settings');
     return saved || { auto_enrich: true, local_backup: false };
@@ -1552,6 +1556,35 @@ export default function UserProfilePage() {
                       </div>
                       <label className="profile-settings-toggle">
                         <input type="checkbox" checked={filterNsfw} onChange={e => toggleFilterNsfw(e.target.checked)} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                  </div>
+                  <h3 style={{ marginTop: 20 }}>点击特效</h3>
+                  <div className="data-settings-list">
+                    <div className="data-settings-item">
+                      <div className="data-settings-info">
+                        <Sparkles size={16} />
+                        <div>
+                          <div className="data-settings-label">点击烟花特效</div>
+                          <div className="data-settings-desc">点击页面时显示粉色粒子烟花效果</div>
+                        </div>
+                      </div>
+                      <label className="profile-settings-toggle">
+                        <input type="checkbox" checked={fireworkEnabled} onChange={e => { const v = e.target.checked; setFireworkEnabled(v); setFireworkOn(v); }} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                    <div className="data-settings-item">
+                      <div className="data-settings-info">
+                        <MousePointerClick size={16} />
+                        <div>
+                          <div className="data-settings-label">点击台词特效</div>
+                          <div className="data-settings-desc">点击页面时显示爆裂魔法台词，向上浮动并淡出</div>
+                        </div>
+                      </div>
+                      <label className="profile-settings-toggle">
+                        <input type="checkbox" checked={clickTextEnabled} onChange={e => { const v = e.target.checked; setClickTextEnabled(v); setClickTextOn(v); }} />
                         <span className="toggle-slider" />
                       </label>
                     </div>

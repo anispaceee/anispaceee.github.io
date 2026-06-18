@@ -42,6 +42,7 @@ import NewsEditor from './components/NewsZone/NewsEditor'
 import AuthModal from './components/Common/AuthModal'
 import Live2DWidget from './components/Common/Live2DWidget'
 import FireworkEffect from './components/Common/FireworkEffect'
+import ClickTextEffect from './components/Common/ClickTextEffect'
 import DockBar from './components/Layout/DockBar'
 import AppWindow from './components/Layout/AppWindow'
 import { WindowManagerProvider, useWindowManager } from './context/WindowManager'
@@ -477,6 +478,7 @@ function AppInner() {
       </Routes>
       <AuthModal />
       <FireworkEffect />
+      <ClickTextEffect />
       <Live2DWidget />
       <WindowLayer />
       <MinimizedBars />
