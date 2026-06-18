@@ -50,10 +50,10 @@ export async function generateExploreFeed(db, profile, category = '', page = 1, 
   if (!category || category === 'post' || category === '全部') {
     const posts = await db.prepare(
       `SELECT p.id, p.title, p.content, p.category, p.created_at,
-              u.username, u.avatar_url,
+              u.name, u.avatar,
               (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as like_count
        FROM posts p
-       LEFT JOIN users u ON p.user_id = u.id
+       LEFT JOIN users u ON p.author_id = u.id
        ORDER BY like_count DESC, p.created_at DESC
        LIMIT ? OFFSET ?`
     ).bind(Math.ceil(pageSize * 0.2), offset).all();
@@ -63,7 +63,7 @@ export async function generateExploreFeed(db, profile, category = '', page = 1, 
         item_type: 'post',
         post_id: p.id, title: p.title, content: p.content?.slice(0, 100),
         category: p.category, like_count: p.like_count,
-        author: p.username, author_avatar: p.avatar_url,
+        author: p.name, author_avatar: p.avatar,
         created_at: p.created_at,
       });
     }
@@ -72,7 +72,7 @@ export async function generateExploreFeed(db, profile, category = '', page = 1, 
   // 3. 资讯 (20%)
   if (!category || category === 'news' || category === '全部') {
     const news = await db.prepare(
-      `SELECT id, title, summary, source, category, cover_url, created_at
+      `SELECT id, title, summary, source, category, cover, created_at
        FROM scraped_news
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`
@@ -83,7 +83,7 @@ export async function generateExploreFeed(db, profile, category = '', page = 1, 
         item_type: 'news',
         news_id: n.id, title: n.title, summary: n.summary,
         source: n.source, category: n.category,
-        cover_url: n.cover_url, created_at: n.created_at,
+        cover_url: n.cover, created_at: n.created_at,
       });
     }
   }
@@ -91,10 +91,11 @@ export async function generateExploreFeed(db, profile, category = '', page = 1, 
   // 4. 创作者作品 (20%)
   if (!category || category === 'work' || category === '全部') {
     const works = await db.prepare(
-      `SELECT w.id, w.title, w.work_type, w.cover_url, w.created_at,
-              u.username as author_name
+      `SELECT w.id, w.title, w.type, w.cover_image, w.created_at,
+              u.name as author_name
        FROM works w
-       LEFT JOIN users u ON w.user_id = u.id
+       LEFT JOIN users u ON w.author_id = u.id
+       WHERE w.is_visible = 1 AND w.visibility != 'private'
        ORDER BY w.created_at DESC
        LIMIT ? OFFSET ?`
     ).bind(Math.ceil(pageSize * 0.2), offset).all();
@@ -102,8 +103,8 @@ export async function generateExploreFeed(db, profile, category = '', page = 1, 
     for (const w of (works.results || [])) {
       items.push({
         item_type: 'work',
-        work_id: w.id, title: w.title, work_type: w.work_type,
-        cover_url: w.cover_url, author_name: w.author_name,
+        work_id: w.id, title: w.title, work_type: w.type,
+        cover_url: w.cover_image, author_name: w.author_name,
         created_at: w.created_at,
       });
     }
