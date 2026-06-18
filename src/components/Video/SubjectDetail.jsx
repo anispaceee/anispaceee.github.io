@@ -49,6 +49,9 @@ export default function SubjectDetail() {
   const [mediaMatches, setMediaMatches] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaErrors, setMediaErrors] = useState([]);
+  const [showMagnetPanel, setShowMagnetPanel] = useState(false);
+  const [allEpisodeMedia, setAllEpisodeMedia] = useState({});
+  const [magnetPanelLoading, setMagnetPanelLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,17 +118,42 @@ export default function SubjectDetail() {
     }
   }, [subject, subjectId]);
 
-  const handleWatchInSite = useCallback(() => {
-    // 直接跳转到第一集的播放页面，由播放页负责资源搜索和匹配
-    if (episodes.length > 0) {
-      const firstEp = episodes[0];
-      const epSort = firstEp.sort || firstEp.episode_sort || 1;
-      navigate(`/video/play/${subjectId}/${epSort}`);
-    } else {
-      // 没有剧集信息时，也尝试跳转（播放页会重新获取）
+  const handleWatchInSite = useCallback(async () => {
+    if (episodes.length === 0) {
       navigate(`/video/play/${subjectId}/1`);
+      return;
     }
-  }, [episodes, subjectId, navigate]);
+
+    setShowMagnetPanel(true);
+    setMagnetPanelLoading(true);
+    setAllEpisodeMedia({});
+
+    const subjectNames = [];
+    if (subject?.name_cn) subjectNames.push(subject.name_cn);
+    if (subject?.name) subjectNames.push(subject.name);
+
+    const epsToSearch = episodes.slice(0, 5);
+    const results = {};
+
+    await Promise.all(epsToSearch.map(async (ep) => {
+      const epSort = String(ep.sort || ep.episode_sort || '');
+      const request = {
+        subjectId: String(subjectId),
+        subjectNames,
+        episodeSort: epSort,
+        episodeName: ep.name || ep.name_cn || '',
+      };
+      try {
+        const result = await mediaSourceManager.fetchAll(request);
+        results[epSort] = result.results || [];
+      } catch {
+        results[epSort] = [];
+      }
+    }));
+
+    setAllEpisodeMedia(results);
+    setMagnetPanelLoading(false);
+  }, [episodes, subject, subjectId, navigate]);
 
   if (loading) {
     return (

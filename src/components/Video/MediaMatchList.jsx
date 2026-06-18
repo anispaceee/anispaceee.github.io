@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Server, Tag, HardDrive, Subtitles } from 'lucide-react';
+import { Play, Server, Tag, HardDrive, Subtitles, Copy, Check, Magnet } from 'lucide-react';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
 import './MediaMatchList.css';
 

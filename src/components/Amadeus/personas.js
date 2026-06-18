@@ -1,6 +1,9 @@
 import amadeusImg from '../../assets/Amadeus.webp';
 import { DIRECTIVE_GUIDE } from './naviActions';
 import { BangumiService, RecommendService } from '../../services/api';
+import { buildMemoryContext } from './naviMemory';
+import { getAffinityStore } from './naviAffinity';
+import { buildSkillPrompt } from './naviSkills';
 
 /** 预设人格库。image 为内置立绘（仅红莉栖有），其余用 avatar emoji 占位。 */
 export const PRESET_PERSONAS = [
@@ -198,11 +201,15 @@ function buildSiteDataContext(siteData) {
     : '';
 }
 
-/** 根据人格生成 system prompt（含站内动作指令说明 + 网站介绍 + 用户画像 + 站内实时数据） */
-export function buildSystemPrompt(persona, profile = null, siteData = null) {
+/** 根据人格生成 system prompt（含站内动作指令说明 + 网站介绍 + 用户画像 + 站内实时数据 + 记忆 + 好感度 + 技能） */
+export function buildSystemPrompt(persona, profile = null, siteData = null, userInput = '') {
   const cp = (persona.catchphrases || []).filter(Boolean).join('、');
   const preference = buildUserProfileFragment(profile);
   const siteContext = buildSiteDataContext(siteData);
+  const memoryContext = buildMemoryContext();
+  const affinityStore = getAffinityStore(persona.id);
+  const affinityContext = affinityStore.buildAffinityContext();
+  const skillPrompt = buildSkillPrompt(userInput);
   const parts = [
     `你是「${persona.name}」，ACG 社区 ANISpace 的站内 AI 助手。请始终保持以下角色设定，用中文回答。`,
     persona.personality ? `【人设】${persona.personality}` : '',
@@ -215,6 +222,9 @@ export function buildSystemPrompt(persona, profile = null, siteData = null) {
     SITE_GUIDE,
     preference,
     siteContext,
+    memoryContext,
+    affinityContext,
+    skillPrompt,
   ];
   return parts.filter(Boolean).join('\n');
 }

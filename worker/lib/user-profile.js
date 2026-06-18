@@ -58,6 +58,15 @@ export async function computeUserProfile(db, userId) {
   // 计算活跃度
   const activityScore = computeActivityScore(items);
 
+  // 计算社交特征
+  const socialFeatures = await computeSocialFeatures(db, userId);
+
+  // 计算生命周期阶段
+  const lifecycleStage = computeLifecycleStage(items, activityScore);
+
+  // 计算偏好向量（tag_weights 截断为 top-64）
+  const preferenceVector = computePreferenceVector(tagWeights);
+
   return {
     user_id: userId,
     tag_weights: JSON.stringify(tagWeights),
@@ -68,6 +77,9 @@ export async function computeUserProfile(db, userId) {
     last_action_at: new Date().toISOString(),
     version: 1,
     similar_users: '[]',
+    social_features: JSON.stringify(socialFeatures),
+    preference_vector: JSON.stringify(preferenceVector),
+    lifecycle_stage: lifecycleStage,
     updated_at: new Date().toISOString(),
   };
 }
@@ -215,6 +227,9 @@ function buildEmptyProfile(userId) {
     last_action_at: new Date().toISOString(),
     version: 1,
     similar_users: '[]',
+    social_features: '{}',
+    preference_vector: '{}',
+    lifecycle_stage: 'new',
     updated_at: new Date().toISOString(),
   };
 }
@@ -278,4 +293,49 @@ export async function cleanupBehaviorLog(db) {
   await db.prepare(
     "DELETE FROM behavior_log WHERE created_at < datetime('now', '-7 days')"
   ).run();
+}
+
+/**
+ * 计算社交特征
+ */
+async function computeSocialFeatures(db, userId) {
+  const followCount = await db.prepare(
+    'SELECT COUNT(*) as cnt FROM follows WHERE follower_id = ?'
+  ).bind(userId).first();
+  const followerCount = await db.prepare(
+    'SELECT COUNT(*) as cnt FROM follows WHERE following_id = ?'
+  ).bind(userId).first();
+  const postCount = await db.prepare(
+    'SELECT COUNT(*) as cnt FROM posts WHERE user_id = ?'
+  ).bind(userId).first();
+  const avgLikes = await db.prepare(
+    'SELECT AVG(like_count) as avg FROM posts WHERE user_id = ?'
+  ).bind(userId).first();
+
+  return {
+    follow_count: followCount?.cnt || 0,
+    follower_count: followerCount?.cnt || 0,
+    post_count: postCount?.cnt || 0,
+    avg_post_likes: Math.round((avgLikes?.avg || 0) * 10) / 10,
+  };
+}
+
+/**
+ * 计算生命周期阶段
+ */
+function computeLifecycleStage(items, activityScore) {
+  if (items.length < 5) return 'new';
+  if (items.length < 20) return 'growing';
+  if (activityScore >= 0.5) return 'active';
+  return 'dormant';
+}
+
+/**
+ * 计算偏好向量（tag_weights 截断为 top-64）
+ */
+function computePreferenceVector(tagWeights) {
+  return Object.entries(tagWeights)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 64)
+    .reduce((obj, [k, v]) => { obj[k] = v; return obj; }, {});
 }

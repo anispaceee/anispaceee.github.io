@@ -5,8 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import { X, Send, Mic, MicOff, Volume2, VolumeX, Minimize2, Maximize2, User, Bot, RotateCw, Settings, Brain, Trash2, Key, Server, AlertCircle, Check, ChevronDown, MessageCircle } from 'lucide-react';
 import EmojiPicker from '../Common/EmojiPicker';
 import { PRESET_PERSONAS, emptyOC, buildSystemPrompt, fetchSiteData } from './personas';
-import { parseDirectives, resolveGoto, runSearchAction } from './naviActions';
+import { parseDirectives, resolveGoto, runAction, runSearchAction } from './naviActions';
 import { streamLLM, testConnection } from './llmClient';
+import { memoryStore, summaryStore, compressMessages } from './naviMemory';
+import { getAffinityStore } from './naviAffinity';
+import { naviCron, generateGreeting } from './naviCron';
+import { deactivateSkill } from './naviSkills';
 import './Amadeus.css';
 
 const EXPRESSIONS = {
@@ -247,11 +251,31 @@ export default function Amadeus() {
   // 组件卸载时取消进行中的请求
   useEffect(() => {
     mountedRef.current = true; // StrictMode 下会先卸载再挂载，需在挂载时重置
+    // 启动 Cron 定时调度
+    naviCron.start();
+    naviCron.on((event, data) => {
+      if (!mountedRef.current) return;
+      if (event === 'new_anime' && data.items?.length > 0) {
+        const names = data.items.map(i => i.name).join('、');
+        naviCron.constructor.sendNotification('新番提醒', `你追的${names}今天更新了！`);
+      }
+      if (event === 'daily_greeting') {
+        const greeting = generateGreeting(data.hour, null, getAffinityStore(activePersona.id).get());
+        setMessages(prev => [...prev, {
+          id: nextId(),
+          role: 'assistant',
+          content: greeting,
+          expression: 'happy',
+          timestamp: new Date().toISOString(),
+        }]);
+      }
+    });
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();
+      naviCron.stop();
     };
-  }, []);
+  }, [activePersona]);
 
   // 获取用户画像，用于个性化
   useEffect(() => {
@@ -330,17 +354,36 @@ export default function Amadeus() {
     window.speechSynthesis.speak(u);
   }, []);
 
-  // 执行 search/recommend 动作，把真实条目写回对应消息的 action.items
+  // 执行动作（支持所有已注册工具）
   const runActions = useCallback(async (msgId, actions) => {
+    const toolContext = {
+      BangumiService,
+      CollectionMarkService,
+      currentUser,
+      navigate,
+      memoryStore,
+      affinityStore: getAffinityStore(activePersona.id),
+    };
     for (let idx = 0; idx < actions.length; idx++) {
       const action = actions[idx];
-      if (action.action !== 'search' && action.action !== 'recommend') continue;
       try {
-        const { items } = await runSearchAction(action, BangumiService);
+        const result = await runAction(action, toolContext);
         if (!mountedRef.current) return;
-        setMessages(prev => prev.map(m => m.id === msgId
-          ? { ...m, actions: m.actions.map((a, i) => i === idx ? { ...a, items, _state: 'done' } : a) }
-          : m));
+        // search/recommend 结果写回消息的 action.items
+        if ((action.action === 'search' || action.action === 'recommend') && result?.items) {
+          setMessages(prev => prev.map(m => m.id === msgId
+            ? { ...m, actions: m.actions.map((a, i) => i === idx ? { ...a, items: result.items, _state: 'done' } : a) }
+            : m));
+        }
+        // goto 动作直接跳转
+        if (action.action === 'goto') {
+          const resolved = resolveGoto(action);
+          if (resolved) navigate(resolved.route);
+        }
+        // play_music 动作触发音乐搜索
+        if (action.action === 'play_music' && result?.suggestion) {
+          navigate(`/music?q=${encodeURIComponent(result.suggestion)}`);
+        }
       } catch {
         if (!mountedRef.current) return;
         setMessages(prev => prev.map(m => m.id === msgId
@@ -348,7 +391,7 @@ export default function Amadeus() {
           : m));
       }
     }
-  }, []);
+  }, [activePersona, currentUser, navigate]);
 
   const sendMessage = useCallback(async (text) => {
     if (!text.trim()) return;
@@ -376,18 +419,80 @@ export default function Amadeus() {
         // 并行获取站内实时数据（今日放送/热门/推荐），注入 system prompt
         const siteData = await fetchSiteData();
         if (!mountedRef.current) return;
-        const full = await streamLLM(llmConfig, buildSystemPrompt(activePersona, userProfile, siteData), apiMessages, {
-          signal: controller.signal,
-          onToken: (delta) => {
-            if (!mountedRef.current) return;
-            setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + delta } : m));
-          },
-        });
+        // Agent Loop：最多 5 轮工具调用
+        const MAX_AGENT_LOOPS = 5;
+        let loopCount = 0;
+        let currentApiMessages = [...apiMessages];
+        let finalText = '';
+        let finalActions = [];
+
+        while (loopCount < MAX_AGENT_LOOPS) {
+          loopCount++;
+          const systemPrompt = buildSystemPrompt(activePersona, userProfile, siteData, text);
+          const response = await streamLLM(llmConfig, systemPrompt, currentApiMessages, {
+            signal: controller.signal,
+            onToken: (delta) => {
+              if (!mountedRef.current) return;
+              setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + delta } : m));
+            },
+          });
+          if (!mountedRef.current) return;
+
+          const { cleanText, actions } = parseDirectives(response);
+
+          // 如果没有工具调用，直接输出
+          if (actions.length === 0) {
+            finalText = cleanText || response;
+            break;
+          }
+
+          // 有工具调用 → 执行工具 → 结果注入上下文 → 继续循环
+          finalActions = [...finalActions, ...actions];
+          const toolContext = {
+            BangumiService,
+            CollectionMarkService,
+            currentUser,
+            navigate,
+            memoryStore,
+            affinityStore: getAffinityStore(activePersona.id),
+          };
+          const toolResults = [];
+          for (const action of actions) {
+            const result = await runAction(action, toolContext);
+            toolResults.push({ action: action.action, result });
+          }
+
+          // 将工具结果注入上下文
+          currentApiMessages.push(
+            { role: 'assistant', content: response },
+            { role: 'user', content: `工具执行结果：\n${JSON.stringify(toolResults, null, 2)}` }
+          );
+
+          // 最后一轮，用 LLM 的回复作为最终输出
+          if (loopCount === MAX_AGENT_LOOPS) {
+            finalText = cleanText || response;
+          } else {
+            // 清空流式输出，准备下一轮
+            setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: '' } : m));
+          }
+        }
+
         if (!mountedRef.current) return;
-        const { cleanText, actions } = parseDirectives(full);
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: cleanText || full, actions } : m));
-        if (actions.length) runActions(assistantId, actions);
-        if (voiceEnabled && 'speechSynthesis' in window && cleanText) speak(cleanText);
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: finalText, actions: finalActions } : m));
+        if (finalActions.length) runActions(assistantId, finalActions);
+        if (voiceEnabled && 'speechSynthesis' in window && finalText) speak(finalText);
+
+        // 记录好感度互动
+        const affinityStore = getAffinityStore(activePersona.id);
+        affinityStore.recordInteraction();
+
+        // 异步检查是否需要压缩对话摘要
+        const allMsgs = messagesRef.current;
+        if (summaryStore.shouldCompress(allMsgs.length)) {
+          compressMessages(allMsgs.slice(0, 30), llmConfig, streamLLM)
+            .then(summary => { if (summary) summaryStore.save(summary); })
+            .catch(() => {});
+        }
       } else {
         let result;
         if (activePersona.id === 'makise-kurisu') {

@@ -116,3 +116,31 @@ export async function getStreamUrl(
   // Web 端直接返回原始 URL
   return originalUrl;
 }
+
+/**
+ * 添加 .torrent 文件并开始下载
+ * @param file .torrent 文件（File 或 Blob）
+ * @param trackers tracker 列表
+ * @returns 本地流 URL（Tauri 端）或空字符串（Web 端）
+ */
+export async function addTorrentFile(
+  file: File | Blob,
+  trackers: string[],
+): Promise<string> {
+  if (isTauri) {
+    try {
+      const buffer = await file.arrayBuffer();
+      const { invoke } = await import('@tauri-apps/api/core');
+      const streamUrl = await invoke<string>('torrent_add_file', {
+        params: { fileData: Array.from(new Uint8Array(buffer)), trackers },
+      });
+      console.log('[TorrentAdapter] Tauri torrent file added, stream URL:', streamUrl);
+      return streamUrl;
+    } catch (err) {
+      console.error('[TorrentAdapter] Tauri torrent_add_file failed:', err);
+      throw err;
+    }
+  }
+  // Web 端返回空字符串，由 VideoPlayer 使用 WebTorrent
+  return '';
+}
