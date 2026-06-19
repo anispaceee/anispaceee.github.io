@@ -805,7 +805,6 @@ export default function UserProfilePage() {
                   {['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
                     const items = userMarks.filter(m => m.status === status);
                     const isCollapsed = (status === 'on_hold' || status === 'dropped') && expandedCategory !== status && items.length > 0;
-                    const isExpanded = expandedCategory === status;
 
                     return (
                       <div key={status} className="user-profile-category-section">
@@ -818,18 +817,18 @@ export default function UserProfilePage() {
                               <span className="category-more" onClick={() => setExpandedCategory(status)}>展开 ▼</span>
                             )
                           ) : (
-                            items.length > 5 && !isExpanded && (
+                            items.length > 5 && expandedCategory !== status && (
                               <span className="category-more" onClick={() => setExpandedCategory(status)}>更多 →</span>
                             )
                           )}
-                          {isExpanded && (
+                          {expandedCategory === status && (
                             <span className="category-more" onClick={() => setExpandedCategory(null)}>收起 ↑</span>
                           )}
                         </div>
                         {!isCollapsed && (
                           items.length > 0 ? (
-                            <div className={`category-covers ${isExpanded ? 'expanded' : 'scroll'}`}>
-                              {(isExpanded ? items : items.slice(0, 5)).map(mark => (
+                            <div className="category-covers">
+                              {(expandedCategory === status ? items : items.slice(0, 5)).map(mark => (
                                 <SubjectCard
                                   key={`${mark.user_id}_${mark.subject_id}`}
                                   item={{

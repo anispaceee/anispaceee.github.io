@@ -495,28 +495,6 @@
   align-items: stretch;
 }
 
-/* 横向滚动模式（默认显示5条） */
-.category-covers.scroll {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  gap: 12px;
-  padding-bottom: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-secondary) transparent;
-}
-.category-covers.scroll::-webkit-scrollbar { height: 6px; }
-.category-covers.scroll::-webkit-scrollbar-track { background: transparent; }
-.category-covers.scroll::-webkit-scrollbar-thumb { background: var(--border-secondary); border-radius: 3px; }
-.category-covers.scroll::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
-.category-covers.scroll .subject-card-link { min-width: 140px; max-width: 140px; flex-shrink: 0; }
-
-/* 展开模式（grid布局显示全部） */
-.category-covers.expanded {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-}
-
 /* 统一条目封面尺寸 */
 .category-covers .subject-card-link { display: flex; width: 100%; height: 100%; }
 .category-covers .subject-card { width: 100%; display: flex; flex-direction: column; }
