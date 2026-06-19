@@ -17,6 +17,7 @@ export function AppProvider({ children }) {
     const saved = StorageService.get('anispace_filter_nsfw');
     return saved !== null ? saved : true; // 默认开启屏蔽限制级
   });
+  const [bangumiBound, setBangumiBound] = useState(false);
 
   // 登录时自动检查社交权限
   useEffect(() => {
@@ -82,9 +83,16 @@ export function AppProvider({ children }) {
     setShowAuthModal(false);
   }, []);
 
-  const refreshUser = useCallback(() => {
+  const refreshUser = useCallback(async () => {
     const user = AuthService.getCurrentUser();
     if (user) setCurrentUser(user);
+    // 检查 Bangumi 绑定状态
+    try {
+      const status = await apiRequest('/api/auth/bangumi-status');
+      setBangumiBound(status.bound === true);
+    } catch {
+      setBangumiBound(false);
+    }
   }, []);
 
   const toggleSocialMode = useCallback((val) => {
@@ -110,6 +118,8 @@ export function AppProvider({ children }) {
       mailUnreadCount,
       showAuthModal,
       socialMode,
+      bangumiBound,
+      setBangumiBound,
       oauthLogin,
       logout,
       updateProfile,
