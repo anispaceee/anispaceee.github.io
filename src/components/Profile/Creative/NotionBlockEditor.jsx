@@ -54,7 +54,17 @@ export default function NotionBlockEditor({ note, onChange }) {
   // 同步外部 note 变更（切换笔记时）
   useEffect(() => {
     setTitle(note?.title || '');
-    setBlocks(note?.blocks && note.blocks.length > 0 ? note.blocks : [{ id: genId(), type: 'text', content: '' }]);
+    const newBlocks = note?.blocks && note.blocks.length > 0 ? note.blocks : [{ id: genId(), type: 'text', content: '' }];
+    setBlocks(newBlocks);
+    // contentEditable 不受 React 控制，需手动通过 ref 设置初始内容
+    requestAnimationFrame(() => {
+      newBlocks.forEach(b => {
+        const el = blockRefs.current[b.id];
+        if (el && b.type !== 'image' && b.type !== 'subject-link' && b.type !== 'divider') {
+          el.textContent = b.content || '';
+        }
+      });
+    });
   }, [note?.id]);
 
   // 通知父组件变更
