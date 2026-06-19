@@ -1,0 +1,487 @@
+/* GroupCreateForm — 创建小组表单样式 */
+
+.gcf-page {
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* ─── Back Link ─── */
+
+.gcf-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  margin-bottom: 16px;
+}
+
+.gcf-back-link:hover {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+/* ─── Header ─── */
+
+.gcf-header {
+  margin-bottom: 24px;
+}
+
+.gcf-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.gcf-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ─── Form ─── */
+
+.gcf-form {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─── Field ─── */
+
+.gcf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gcf-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.gcf-label-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.gcf-label-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.gcf-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  background: var(--bg-input);
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.gcf-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.gcf-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.gcf-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gcf-input-error {
+  border-color: #ef4444;
+}
+
+.gcf-input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.gcf-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  background: var(--bg-input);
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+  line-height: 1.6;
+  transition: all var(--transition-fast);
+}
+
+.gcf-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.gcf-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.gcf-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gcf-field-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #ef4444;
+}
+
+/* ─── Icon Preview ─── */
+
+.gcf-icon-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.gcf-icon-preview img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* ─── Checkbox Field ─── */
+
+.gcf-checkbox-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gcf-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.gcf-checkbox-label:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
+}
+
+.gcf-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.gcf-checkbox-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.gcf-nsfw-icon {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.gcf-checkbox-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.gcf-checkbox-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Error ─── */
+
+.gcf-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #fef2f2;
+  border-radius: 10px;
+  color: #ef4444;
+  font-size: 14px;
+}
+
+/* ─── Actions ─── */
+
+.gcf-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+.gcf-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  background: var(--primary);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.gcf-submit-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.gcf-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.gcf-spinning {
+  animation: gcf-spin 1s linear infinite;
+}
+
+@keyframes gcf-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 768px) {
+  .gcf-page {
+    padding: 16px;
+  }
+
+  .gcf-header {
+    margin-bottom: 20px;
+  }
+
+  .gcf-title {
+    font-size: 20px;
+  }
+
+  .gcf-subtitle {
+    font-size: 13px;
+  }
+
+  .gcf-form {
+    padding: 20px;
+    gap: 16px;
+    border-radius: 12px;
+  }
+
+  .gcf-field {
+    gap: 6px;
+  }
+
+  .gcf-label-text {
+    font-size: 13px;
+  }
+
+  .gcf-label-hint {
+    font-size: 11px;
+  }
+
+  .gcf-input,
+  .gcf-textarea {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+
+  .gcf-textarea {
+    min-height: 80px;
+  }
+
+  .gcf-checkbox-label {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .gcf-checkbox-box {
+    width: 28px;
+    height: 28px;
+  }
+
+  .gcf-checkbox-text {
+    font-size: 13px;
+  }
+
+  .gcf-checkbox-hint {
+    font-size: 11px;
+  }
+
+  .gcf-error {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+
+  .gcf-actions {
+    padding-top: 4px;
+  }
+
+  .gcf-submit-btn {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .gcf-page {
+    padding: 12px;
+  }
+
+  .gcf-back-link {
+    padding: 6px 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .gcf-header {
+    margin-bottom: 16px;
+  }
+
+  .gcf-title {
+    font-size: 18px;
+  }
+
+  .gcf-subtitle {
+    font-size: 12px;
+  }
+
+  .gcf-form {
+    padding: 16px;
+    gap: 14px;
+    border-radius: 10px;
+  }
+
+  .gcf-field {
+    gap: 4px;
+  }
+
+  .gcf-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .gcf-label-text {
+    font-size: 12px;
+  }
+
+  .gcf-label-hint {
+    font-size: 10px;
+  }
+
+  .gcf-input,
+  .gcf-textarea {
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  .gcf-textarea {
+    min-height: 60px;
+  }
+
+  .gcf-field-error {
+    font-size: 12px;
+  }
+
+  .gcf-icon-preview {
+    padding: 8px;
+  }
+
+  .gcf-icon-preview img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .gcf-checkbox-label {
+    padding: 8px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .gcf-checkbox-box {
+    width: 24px;
+    height: 24px;
+  }
+
+  .gcf-checkbox-text {
+    font-size: 12px;
+  }
+
+  .gcf-checkbox-hint {
+    font-size: 10px;
+    width: 100%;
+    order: 3;
+  }
+
+  .gcf-error {
+    padding: 10px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .gcf-actions {
+    padding-top: 2px;
+  }
+
+  .gcf-submit-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}

@@ -51,6 +51,11 @@ import { MusicProvider } from './context/MusicContext'
 import { StorageService, WorldChannelService, FriendPostService } from './services/api'
 import { useApp } from './context/AppContext'
 import { initMediaSources } from './services/media/initSources'
+// Super 超展开组件
+import SuperHome from './components/Super/SuperHome'
+import GroupDetail from './components/Super/GroupDetail'
+import TopicDetail from './components/Super/TopicDetail'
+import GroupCreateForm from './components/Super/GroupCreateForm'
 
 // 社交模式守卫：社交功能关闭时显示提示（邀请制，不可自由开启）
 function SocialGuard({ children }) {
@@ -476,6 +481,11 @@ function AppInner() {
           <Route path="/friends" element={<SocialGuard><FriendSpace /></SocialGuard>} />
           <Route path="/navi" element={<Amadeus />} />
           <Route path="/live2d" element={<Suspense fallback={<div style={{padding:40,textAlign:'center',color:'var(--text-quaternary)'}}>雨何时停？</div>}><Live2DPage /></Suspense>} />
+          {/* Super 超展开路由 */}
+          <Route path="/super" element={<SuperHome />} />
+          <Route path="/super/create" element={<GroupCreateForm />} />
+          <Route path="/super/group/:groupId" element={<GroupDetail />} />
+          <Route path="/super/topic/:topicId" element={<TopicDetail />} />
         </Route>
       </Routes>
       <AuthModal />
