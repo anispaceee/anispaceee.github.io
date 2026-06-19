@@ -52,9 +52,10 @@ export default function SuperHome() {
       access_token: localToken,
       refresh_token: refreshToken,
       expires_in: expiresAt ? Math.floor((expiresAt - Date.now()) / 1000) : null,
+      user_id: bangumiUser?.id,
       user: bangumiUser,
     }).then(result => {
-      if (result.success) {
+      if (result.ok || result.success) {
         setBangumiBound(true);
       }
     }).catch(err => {

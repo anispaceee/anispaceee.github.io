@@ -1716,7 +1716,7 @@ export const BangumiAuthService = {
           accessToken: oauthResult.access_token,
           refreshToken: oauthResult.refresh_token,
           expiresAt: oauthResult.expires_in ? Math.floor((Date.now() + oauthResult.expires_in * 1000) / 1000) : null,
-          bangumiUserId: oauthResult.user_id,
+          bangumiUserId: oauthResult.user_id || oauthResult.user?.id,
           bangumiUsername: oauthResult.user?.username || '',
           bangumiAvatar: oauthResult.user?.avatar || '',
         }),
