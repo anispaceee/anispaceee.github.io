@@ -7,6 +7,20 @@
   gap: 16px;
 }
 
+/* ─── 错误提示 ─── */
+.cs-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fef0f0;
+  border: 1px solid #f56c6c;
+  border-radius: var(--radius-md);
+  color: #f56c6c;
+  font-size: 13px;
+}
+.cs-error-text { flex: 1; }
+
 /* ─── 工具栏 ─── */
 .cs-toolbar {
   display: flex;
