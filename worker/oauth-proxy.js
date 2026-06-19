@@ -5967,48 +5967,48 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
     const result = await superProxy.handleGroupsList(env.DB, env, authUser.userId, params);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
+    return jsonResponse(result, 200, origin);
   }
 
-  // GET /api/super/groups/:id — 获取小组详情
-  const groupDetailMatch = pathname.match(/^\/api\/super\/groups\/(\d+)$/);
+  // GET /api/super/groups/:groupName — 获取小组详情
+  const groupDetailMatch = pathname.match(/^\/api\/super\/groups\/([\w-]+)$/);
   if (groupDetailMatch && method === 'GET') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
-    const groupId = Number(groupDetailMatch[1]);
-    const result = await superProxy.handleGroupDetail(env.DB, env, authUser.userId, groupId);
+    const groupName = groupDetailMatch[1];
+    const result = await superProxy.handleGroupDetail(env.DB, env, authUser.userId, groupName);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
+    return jsonResponse(result, 200, origin);
   }
 
-  // GET /api/super/groups/:id/topics — 获取话题列表
-  const groupTopicsMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/topics$/);
+  // GET /api/super/groups/:groupName/topics — 获取话题列表
+  const groupTopicsMatch = pathname.match(/^\/api\/super\/groups\/([\w-]+)\/topics$/);
   if (groupTopicsMatch && method === 'GET') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
-    const groupId = Number(groupTopicsMatch[1]);
+    const groupName = groupTopicsMatch[1];
     const sp = new URL(request.url).searchParams;
     const params = {
       page: Number(sp.get('page')) || 1,
       limit: Number(sp.get('limit')) || 20,
     };
 
-    const result = await superProxy.handleTopicsList(env.DB, env, authUser.userId, groupId, params);
+    const result = await superProxy.handleTopicsList(env.DB, env, authUser.userId, groupName, params);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
+    return jsonResponse(result, 200, origin);
   }
 
-  // POST /api/super/groups/:id/topics — 发表话题
+  // POST /api/super/groups/:groupName/topics — 发表话题
   if (groupTopicsMatch && method === 'POST') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
-    const groupId = Number(groupTopicsMatch[1]);
+    const groupName = groupTopicsMatch[1];
     try {
       const body = await request.json();
-      const result = await superProxy.handleCreateTopic(env.DB, env, authUser.userId, groupId, body);
+      const result = await superProxy.handleCreateTopic(env.DB, env, authUser.userId, groupName, body);
       if (result.error) return jsonResponse(result, result.status || 400, origin);
       return jsonResponse(result.data, 201, origin);
     } catch (err) {
@@ -6016,26 +6016,26 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     }
   }
 
-  // POST /api/super/groups/:id/join — 加入小组
-  const groupJoinMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/join$/);
+  // POST /api/super/groups/:groupName/join — 加入小组
+  const groupJoinMatch = pathname.match(/^\/api\/super\/groups\/([\w-]+)\/join$/);
   if (groupJoinMatch && method === 'POST') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
-    const groupId = Number(groupJoinMatch[1]);
-    const result = await superProxy.handleJoinGroup(env.DB, env, authUser.userId, groupId);
+    const groupName = groupJoinMatch[1];
+    const result = await superProxy.handleJoinGroup(env.DB, env, authUser.userId, groupName);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
     return jsonResponse(result.data, 200, origin);
   }
 
-  // DELETE /api/super/groups/:id/leave — 退出小组
-  const groupLeaveMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/leave$/);
+  // DELETE /api/super/groups/:groupName/leave — 退出小组
+  const groupLeaveMatch = pathname.match(/^\/api\/super\/groups\/([\w-]+)\/leave$/);
   if (groupLeaveMatch && method === 'DELETE') {
     const authUser = await getAuthUser(request, env);
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
 
-    const groupId = Number(groupLeaveMatch[1]);
-    const result = await superProxy.handleLeaveGroup(env.DB, env, authUser.userId, groupId);
+    const groupName = groupLeaveMatch[1];
+    const result = await superProxy.handleLeaveGroup(env.DB, env, authUser.userId, groupName);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
     return jsonResponse(result.data, 200, origin);
   }
@@ -6193,7 +6193,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/bangumi-sync') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior') || url.pathname.startsWith('/api/explore') || url.pathname.startsWith('/api/promotions') || url.pathname.startsWith('/api/search/suggestions') || url.pathname.startsWith('/api/super/') || url.pathname === '/api/auth/bind-bangumi' || url.pathname === '/api/auth/unbind-bangumi' || url.pathname === '/api/auth/bangumi-status') {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/bangumi-sync') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior') || url.pathname.startsWith('/api/explore') || url.pathname.startsWith('/api/promotions') || url.pathname.startsWith('/api/search/suggestions') || url.pathname.startsWith('/api/super/') || url.pathname.startsWith('/api/creative-notes') || url.pathname === '/api/auth/bind-bangumi' || url.pathname === '/api/auth/unbind-bangumi' || url.pathname === '/api/auth/bangumi-status') {
       const result = await handleApiRoutes(url.pathname, request, env, origin, context);
       if (result) return result;
     }

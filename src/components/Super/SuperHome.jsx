@@ -41,7 +41,7 @@ export default function SuperHome() {
     setError(null);
     try {
       const res = await SuperService.getGroups(page, PAGE_SIZE, sortBy);
-      setGroups(res.groups || []);
+      setGroups(res.data || []);
       setTotal(res.total || 0);
       setTotalPages(Math.max(1, Math.ceil((res.total || 0) / PAGE_SIZE)));
     } catch (err) {

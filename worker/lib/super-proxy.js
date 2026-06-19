@@ -4,7 +4,8 @@
  */
 
 // Bangumi Private API 基础 URL
-const BANGUMI_PRIVATE_API = 'https://api.bgm.tv';
+// 私有 API 端点位于 next.bgm.tv/p1/ 前缀下
+const BANGUMI_PRIVATE_API = 'https://next.bgm.tv';
 
 /**
  * 获取用户的 Bangumi access token
@@ -103,22 +104,23 @@ export async function handleGroupsList(db, env, userId, params = {}) {
   }
 
   const { page = 1, limit = 20, sort = 'members', cat } = params;
-  const queryParams = { page, limit, sort };
+  const offset = (page - 1) * limit;
+  const queryParams = { limit, offset, sort };
   if (cat) queryParams.cat = cat;
 
-  return await proxyBangumiAPI('/p/groups', tokenInfo.accessToken, { params: queryParams });
+  return await proxyBangumiAPI('/p1/groups', tokenInfo.accessToken, { params: queryParams });
 }
 
 /**
  * 处理小组详情请求
- * GET /api/super/groups/:id
+ * GET /api/super/groups/:groupName
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
- * @param {number} groupId - 小组 ID
+ * @param {string} groupName - 小组名称（英文标识）
  * @returns {object} 小组详情
  */
-export async function handleGroupDetail(db, env, userId, groupId) {
+export async function handleGroupDetail(db, env, userId, groupName) {
   const tokenInfo = await getBangumiToken(db, userId);
   if (!tokenInfo) {
     return { error: '请先绑定 Bangumi 账号', status: 401 };
@@ -127,20 +129,20 @@ export async function handleGroupDetail(db, env, userId, groupId) {
     return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
   }
 
-  return await proxyBangumiAPI(`/p/groups/${groupId}`, tokenInfo.accessToken);
+  return await proxyBangumiAPI(`/p1/groups/${groupName}`, tokenInfo.accessToken);
 }
 
 /**
  * 处理话题列表请求
- * GET /api/super/groups/:id/topics
+ * GET /api/super/groups/:groupName/topics
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
- * @param {number} groupId - 小组 ID
+ * @param {string} groupName - 小组名称（英文标识）
  * @param {object} params - 查询参数（page, limit）
  * @returns {object} 话题列表
  */
-export async function handleTopicsList(db, env, userId, groupId, params = {}) {
+export async function handleTopicsList(db, env, userId, groupName, params = {}) {
   const tokenInfo = await getBangumiToken(db, userId);
   if (!tokenInfo) {
     return { error: '请先绑定 Bangumi 账号', status: 401 };
@@ -149,34 +151,78 @@ export async function handleTopicsList(db, env, userId, groupId, params = {}) {
     return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
   }
 
-  const { page = 1, limit = 20 } = params;
-  return await proxyBangumiAPI(`/p/groups/${groupId}/topics`, tokenInfo.accessToken, { params: { page, limit } });
+  const { limit = 20, offset = 0 } = params;
+  return await proxyBangumiAPI(`/p1/groups/${groupName}/topics`, tokenInfo.accessToken, { params: { limit, offset } });
 }
 
 /**
  * 处理话题详情请求
  * GET /api/super/topics/:id
+ * 由于 Bangumi 没有公开的话题详情 API，使用 HTML 爬取
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
  * @param {number} topicId - 话题 ID
- * @returns {object} 话题详情
+ * @returns {object} 话题详情（包含帖子列表）
  */
 export async function handleTopicDetail(db, env, userId, topicId) {
   const tokenInfo = await getBangumiToken(db, userId);
   if (!tokenInfo) {
     return { error: '请先绑定 Bangumi 账号', status: 401 };
   }
-  if (tokenInfo.expired) {
-    return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
-  }
 
-  return await proxyBangumiAPI(`/p/topics/${topicId}`, tokenInfo.accessToken);
+  try {
+    // 爬取话题页面 HTML
+    const response = await fetch(`https://bgm.tv/group/topic/${topicId}`, {
+      headers: {
+        'User-Agent': 'ANISpace/1.0 (https://anispaceee.github.io)',
+        'Cookie': `chii_auth=${tokenInfo.accessToken}`,
+      },
+    });
+    
+    if (!response.ok) {
+      return { error: '话题不存在或无法访问', status: 404 };
+    }
+    
+    const html = await response.text();
+    
+    // 解析话题标题
+    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
+    const title = titleMatch ? titleMatch[1].trim() : `话题 ${topicId}`;
+    
+    // 解析帖子列表
+    const posts = [];
+    const postRegex = /<div[^>]*class="[^"]*reply_item[^"]*"[^>]*>[\s\S]*?<a[^>]*href="\/user\/([^"]+)"[^>]*>([^<]+)<\/a>[\s\S]*?<span[^>]*class="[^"]*date[^"]*"[^>]*>([^<]+)<\/span>[\s\S]*?<div[^>]*class="[^"]*message[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
+    let match;
+    let floor = 1;
+    while ((match = postRegex.exec(html)) !== null) {
+      posts.push({
+        id: floor,
+        floor: floor,
+        uid: match[1],
+        username: match[2].trim(),
+        createdAt: match[3].trim(),
+        content: match[4].trim().replace(/<[^>]+>/g, ''),
+      });
+      floor++;
+    }
+    
+    return {
+      id: parseInt(topicId),
+      title,
+      posts,
+      total: posts.length,
+    };
+  } catch (err) {
+    console.error('Failed to fetch topic detail:', err);
+    return { error: '获取话题详情失败', status: 500 };
+  }
 }
 
 /**
  * 处理帖子列表请求
  * GET /api/super/topics/:id/posts
+ * 由于 Bangumi 没有公开的帖子列表 API，使用 HTML 爬取
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
@@ -185,29 +231,35 @@ export async function handleTopicDetail(db, env, userId, topicId) {
  * @returns {object} 帖子列表
  */
 export async function handlePostsList(db, env, userId, topicId, params = {}) {
-  const tokenInfo = await getBangumiToken(db, userId);
-  if (!tokenInfo) {
-    return { error: '请先绑定 Bangumi 账号', status: 401 };
+  // 帖子列表已在 handleTopicDetail 中获取，这里直接返回
+  const result = await handleTopicDetail(db, env, userId, topicId);
+  if (result.error) {
+    return result;
   }
-  if (tokenInfo.expired) {
-    return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
-  }
-
+  
   const { page = 1, limit = 20 } = params;
-  return await proxyBangumiAPI(`/p/topics/${topicId}/posts`, tokenInfo.accessToken, { params: { page, limit } });
+  const start = (page - 1) * limit;
+  const end = start + limit;
+  
+  return {
+    data: result.posts.slice(start, end),
+    total: result.posts.length,
+    page,
+    limit,
+  };
 }
 
 /**
  * 处理发表话题请求
- * POST /api/super/groups/:id/topics
+ * POST /api/super/groups/:groupName/topics
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
- * @param {number} groupId - 小组 ID
+ * @param {string} groupName - 小组名称（英文标识）
  * @param {object} body - 话题内容（title, content）
  * @returns {object} 创建结果
  */
-export async function handleCreateTopic(db, env, userId, groupId, body) {
+export async function handleCreateTopic(db, env, userId, groupName, body) {
   const tokenInfo = await getBangumiToken(db, userId);
   if (!tokenInfo) {
     return { error: '请先绑定 Bangumi 账号', status: 401 };
@@ -220,7 +272,7 @@ export async function handleCreateTopic(db, env, userId, groupId, body) {
     return { error: '话题标题和内容不能为空', status: 400 };
   }
 
-  return await proxyBangumiAPI(`/p/groups/${groupId}/topics`, tokenInfo.accessToken, {
+  return await proxyBangumiAPI(`/p1/groups/${groupName}/topics`, tokenInfo.accessToken, {
     method: 'POST',
     body: { title: body.title, content: body.content },
   });
@@ -254,7 +306,7 @@ export async function handleCreatePost(db, env, userId, topicId, body) {
     postBody.related = body.related; // 关联帖子 ID（回复某楼层）
   }
 
-  return await proxyBangumiAPI(`/p/topics/${topicId}/posts`, tokenInfo.accessToken, {
+  return await proxyBangumiAPI(`/p1/topics/${topicId}/posts`, tokenInfo.accessToken, {
     method: 'POST',
     body: postBody,
   });
@@ -262,14 +314,14 @@ export async function handleCreatePost(db, env, userId, topicId, body) {
 
 /**
  * 处理加入小组请求
- * POST /api/super/groups/:id/join
+ * POST /api/super/groups/:groupName/join
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
- * @param {number} groupId - 小组 ID
+ * @param {string} groupName - 小组名称（英文标识）
  * @returns {object} 加入结果
  */
-export async function handleJoinGroup(db, env, userId, groupId) {
+export async function handleJoinGroup(db, env, userId, groupName) {
   const tokenInfo = await getBangumiToken(db, userId);
   if (!tokenInfo) {
     return { error: '请先绑定 Bangumi 账号', status: 401 };
@@ -278,21 +330,21 @@ export async function handleJoinGroup(db, env, userId, groupId) {
     return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
   }
 
-  return await proxyBangumiAPI(`/p/groups/${groupId}/join`, tokenInfo.accessToken, {
+  return await proxyBangumiAPI(`/p1/groups/${groupName}/join`, tokenInfo.accessToken, {
     method: 'POST',
   });
 }
 
 /**
  * 处理退出小组请求
- * DELETE /api/super/groups/:id/leave
+ * DELETE /api/super/groups/:groupName/leave
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
- * @param {number} groupId - 小组 ID
+ * @param {string} groupName - 小组名称（英文标识）
  * @returns {object} 退出结果
  */
-export async function handleLeaveGroup(db, env, userId, groupId) {
+export async function handleLeaveGroup(db, env, userId, groupName) {
   const tokenInfo = await getBangumiToken(db, userId);
   if (!tokenInfo) {
     return { error: '请先绑定 Bangumi 账号', status: 401 };
@@ -301,8 +353,8 @@ export async function handleLeaveGroup(db, env, userId, groupId) {
     return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
   }
 
-  return await proxyBangumiAPI(`/p/groups/${groupId}/leave`, tokenInfo.accessToken, {
-    method: 'DELETE',
+  return await proxyBangumiAPI(`/p1/groups/${groupName}/leave`, tokenInfo.accessToken, {
+    method: 'POST',
   });
 }
 
@@ -337,9 +389,9 @@ export async function handleCreateGroup(db, env, userId, body) {
     accessible: body.accessible !== false, // 默认公开
   };
 
-  return await proxyBangumiAPI('/p/groups', tokenInfo.accessToken, {
+  return await proxyBangumiAPI('/p1/groups', tokenInfo.accessToken, {
     method: 'POST',
-    body: groupBody,
+    body: groupData,
   });
 }
 
