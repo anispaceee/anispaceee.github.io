@@ -65,11 +65,17 @@ export async function syncToBangumi(accessToken, subjectId, status, rating = 0, 
     return { ok: false, error: '未绑定 Bangumi 账号' };
   }
 
-  // 状态映射：ANISpace → Bangumi
+  // 状态映射：ANISpace 字符串 → Bangumi 数字
   // ANISpace: wish, doing, done, dropped, on_hold
-  // Bangumi: wish, collect, done, dropped, on_hold
-  // 注意：ANISpace 的 "doing" 对应 Bangumi 的 "collect"
-  const bangumiStatus = status === 'doing' ? 'collect' : status;
+  // Bangumi: 1=wish(想看), 2=collect(看过), 3=doing(在看), 4=on_hold(搁置), 5=dropped(抛弃)
+  const statusMap = {
+    wish: 1,
+    done: 2,
+    doing: 3,
+    on_hold: 4,
+    dropped: 5,
+  };
+  const bangumiType = statusMap[status] || 1;
 
   try {
     // Bangumi API: PATCH /v0/users/-/collections/:subject_id
@@ -82,7 +88,7 @@ export async function syncToBangumi(accessToken, subjectId, status, rating = 0, 
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        type: bangumiStatus,
+        type: bangumiType,
         rate: rating > 0 ? rating : undefined,
         comment: comment || undefined,
         private: false, // 默认公开
@@ -166,14 +172,22 @@ export async function importBangumiCollections(env, userId, bangumiCollections) 
 
   for (const item of bangumiCollections) {
     const subjectId = item.subject_id;
-    const bangumiStatus = item.type; // wish, collect, done, dropped, on_hold
+    const bangumiType = Number(item.type); // Bangumi 数字类型：1=想看, 2=看过, 3=在看, 4=搁置, 5=抛弃
     const rating = item.rate || 0;
     const comment = item.comment || '';
     const hasEpisode = item.ep_status || 0; // 已看集数
 
-    // 状态映射：Bangumi → ANISpace
-    // Bangumi "collect" → ANISpace "doing"
-    const anispaceStatus = bangumiStatus === 'collect' ? 'doing' : bangumiStatus;
+    // 状态映射：Bangumi 数字 → ANISpace 字符串
+    // Bangumi: 1=wish(想看), 2=collect(看过), 3=doing(在看), 4=on_hold(搁置), 5=dropped(抛弃)
+    // ANISpace: wish, done, doing, on_hold, dropped
+    const statusMap = {
+      1: 'wish',
+      2: 'done',
+      3: 'doing',
+      4: 'on_hold',
+      5: 'dropped',
+    };
+    const anispaceStatus = statusMap[bangumiType] || 'wish';
 
     try {
       // 检查是否已存在
