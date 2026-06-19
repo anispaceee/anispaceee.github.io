@@ -1510,12 +1510,19 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
           { table: 'recommend_cache', column: 'user_id' },
           { table: 'creative_notes', column: 'user_id' },
           { table: 'reading_progress', column: 'user_id' },
+          { table: 'episode_progress', column: 'user_id' },
           { table: 'work_comments', column: 'author_id' },
           { table: 'work_favorites', column: 'user_id' },
           { table: 'work_likes', column: 'user_id' },
           { table: 'work_ratings', column: 'user_id' },
           { table: 'work_reports', column: 'reporter_id' },
           { table: 'works', column: 'author_id' },
+          { table: 'work_series', column: 'creator_id' },
+          { table: 'commissions', column: 'creator_id' },
+          { table: 'commission_responses', column: 'responder_id' },
+          { table: 'reader_impressions', column: 'user_id' },
+          { table: 'user_feed', column: 'user_id' },
+          { table: 'user_feed', column: 'creator_id' },
           { table: 'invites', column: 'creator_id' },
           { table: 'invite_relations', column: 'inviter_id' },
           { table: 'invite_relations', column: 'invitee_id' },
@@ -2476,6 +2483,30 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     try {
       const body = await request.json();
+
+      // 单条评分同步模式：当请求体包含 subjectId 和 rating 但 status 为 null 时
+      if (body.subjectId && body.rating != null && !body.status) {
+        const tokenInfo = await superProxy.getBangumiToken(env.DB, authUser.userId);
+        if (!tokenInfo) {
+          return jsonResponse({ error: '未绑定 Bangumi 账号' }, 400, origin);
+        }
+        // 获取用户当前收藏状态
+        const existingCollection = await env.DB.prepare(
+          'SELECT status FROM collections WHERE user_id = ? AND subject_id = ?'
+        ).bind(authUser.userId, body.subjectId).first();
+
+        const currentStatus = existingCollection?.status || 'wish';
+        const result = await bangumiSync.syncToBangumi(
+          tokenInfo.accessToken,
+          body.subjectId,
+          currentStatus,
+          body.rating,
+          ''
+        );
+        return jsonResponse({ ok: true, result }, 200, origin);
+      }
+
+      // 批量上传模式（原有逻辑）
       const { bangumiToken, bangumiUsername } = body;
       if (!bangumiToken || !bangumiUsername) {
         return jsonResponse({ error: '缺少 Bangumi token 或用户名' }, 400, origin);
@@ -3500,6 +3531,11 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       await env.DB.prepare(
         'INSERT OR REPLACE INTO ratings (user_id, subject_id, subject_type, score, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))'
       ).bind(authUser.userId, subjectId, subjectType ?? 2, score, content || '').run();
+
+      // 同步更新 collections 表的 rating 字段（如有收藏记录）
+      await env.DB.prepare(
+        'UPDATE collections SET rating = ?, updated_at = datetime(\'now\') WHERE user_id = ? AND subject_id = ?'
+      ).bind(score, authUser.userId, subjectId).run();
 
       const rating = await env.DB.prepare(
         'SELECT * FROM ratings WHERE user_id = ? AND subject_id = ?'
@@ -6189,6 +6225,47 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     } catch (err) {
       return jsonResponse({ error: '创建小组失败: ' + err.message }, 500, origin);
     }
+  }
+
+  // ─── Bangumi 评论/吐槽代理 API ───
+
+  // GET /api/bangumi/subjects/:id/comments — 获取条目吐槽（短评）
+  const subjectCommentsMatch = pathname.match(/^\/api\/bangumi\/subjects\/(\d+)\/comments$/);
+  if (subjectCommentsMatch && method === 'GET') {
+    const subjectId = parseInt(subjectCommentsMatch[1]);
+    const url = new URL(request.url);
+    const params = {
+      limit: parseInt(url.searchParams.get('limit') || '20'),
+      offset: parseInt(url.searchParams.get('offset') || '0'),
+    };
+    const result = await superProxy.handleSubjectComments(env, subjectId, params);
+    if (result.error) return jsonResponse(result, result.status || 500, origin);
+    return jsonResponse(result, 200, origin);
+  }
+
+  // GET /api/bangumi/subjects/:id/reviews — 获取条目长评（评论）
+  const subjectReviewsMatch = pathname.match(/^\/api\/bangumi\/subjects\/(\d+)\/reviews$/);
+  if (subjectReviewsMatch && method === 'GET') {
+    const subjectId = parseInt(subjectReviewsMatch[1]);
+    const url = new URL(request.url);
+    const params = {
+      limit: parseInt(url.searchParams.get('limit') || '10'),
+      offset: parseInt(url.searchParams.get('offset') || '0'),
+    };
+    const result = await superProxy.handleSubjectReviews(env, subjectId, params);
+    if (result.error) return jsonResponse(result, result.status || 500, origin);
+    return jsonResponse(result, 200, origin);
+  }
+
+  // GET /api/bangumi/collection/:subjectId — 获取用户对该条目的收藏状态（含评分）
+  const userCollectionMatch = pathname.match(/^\/api\/bangumi\/collection\/(\d+)$/);
+  if (userCollectionMatch && method === 'GET') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const subjectId = parseInt(userCollectionMatch[1]);
+    const result = await superProxy.handleUserCollection(env.DB, authUser.userId, subjectId);
+    if (result.error) return jsonResponse(result, result.status || 500, origin);
+    return jsonResponse(result, 200, origin);
   }
 
   // 未匹配的 API 路由
