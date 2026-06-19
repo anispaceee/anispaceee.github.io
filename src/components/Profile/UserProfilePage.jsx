@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { FriendService, FollowService, CollectionMarkService, UserService, MailService, BangumiAuthService, GitHubAuthService, StorageService, UserGuestbookService, ForumService, NewsService } from '../../services/api';
 import { extractPreview } from '../../utils/subjectType';
-import { Calendar, MapPin, Heart, LinkIcon, Shield, ShieldOff, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download, Sparkles, MousePointerClick, Feather } from 'lucide-react';
+import { Calendar, MapPin, Heart, LinkIcon, Shield, ShieldOff, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download, Upload, Sparkles, MousePointerClick, Feather } from 'lucide-react';
 import { SubjectCard } from '../Common/CommonComponents';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import ActivityHeatmap from './ActivityHeatmap';
@@ -95,6 +95,10 @@ export default function UserProfilePage() {
   // ─── Bangumi 导入状态 ───
   const [bangumiImporting, setBangumiImporting] = useState(false);
   const [bangumiImportResult, setBangumiImportResult] = useState(null);
+  const [bangumiOverwrite, setBangumiOverwrite] = useState(false);
+  // ─── Bangumi 上传同步状态 ───
+  const [bangumiUploading, setBangumiUploading] = useState(false);
+  const [bangumiUploadResult, setBangumiUploadResult] = useState(null);
 
   // ─── 发帖/资讯状态 ───
   const [userPosts, setUserPosts] = useState([]);
@@ -454,13 +458,14 @@ export default function UserProfilePage() {
         body: JSON.stringify({
           bangumiToken,
           bangumiUsername: bangumiUser.username || bangumiUser.nickname,
+          overwrite: bangumiOverwrite,
         }),
       });
       const data = await res.json();
       if (data.error) {
         setBangumiImportResult({ error: data.error });
       } else {
-        setBangumiImportResult({ imported: data.imported, skipped: data.skipped, total: data.total });
+        setBangumiImportResult({ imported: data.imported, skipped: data.skipped, updated: data.updated || 0, total: data.total });
         // 刷新收藏列表
         if (currentUser?.id) {
           const marks = await CollectionMarkService.getByUserId(currentUser.id);
@@ -471,6 +476,45 @@ export default function UserProfilePage() {
       setBangumiImportResult({ error: err.message || '导入失败' });
     } finally {
       setBangumiImporting(false);
+    }
+  };
+
+  // ─── 同步本地收藏到 Bangumi ───
+  const handleUploadToBangumi = async () => {
+    const bangumiToken = StorageService.get('acg_bangumi_token');
+    const bangumiUser = StorageService.get('acg_bangumi_user');
+    if (!bangumiToken || !bangumiUser) {
+      alert('请先绑定 Bangumi 账号');
+      return;
+    }
+
+    setBangumiUploading(true);
+    setBangumiUploadResult(null);
+
+    try {
+      const jwt = sessionStorage.getItem('acg_jwt_token');
+      const proxyUrl = StorageService.get('acg_oauth_proxy_url') || import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+      const res = await fetch(`${proxyUrl}/api/bangumi-sync/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          bangumiToken,
+          bangumiUsername: bangumiUser.username || bangumiUser.nickname,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setBangumiUploadResult({ error: data.error });
+      } else {
+        setBangumiUploadResult({ synced: data.synced, skipped: data.skipped, failed: data.failed, errors: data.errors });
+      }
+    } catch (err) {
+      setBangumiUploadResult({ error: err.message || '同步失败' });
+    } finally {
+      setBangumiUploading(false);
     }
   };
 
@@ -1516,6 +1560,15 @@ export default function UserProfilePage() {
                     {/* Bangumi 导入功能 */}
                     {BangumiAuthService.isBound() && (
                       <div className="bangumi-import-section" style={{ marginTop: '12px' }}>
+                        <label className="bangumi-overwrite-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={bangumiOverwrite}
+                            onChange={e => setBangumiOverwrite(e.target.checked)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          覆盖已有记录（用 Bangumi 数据替换本地名称/封面/状态）
+                        </label>
                         <button
                           className="bangumi-bind-btn"
                           onClick={handleImportFromBangumi}
@@ -1531,8 +1584,44 @@ export default function UserProfilePage() {
                               <span style={{ color: 'var(--error)' }}>导入失败: {bangumiImportResult.error}</span>
                             ) : (
                               <span style={{ color: 'var(--success)' }}>
-                                导入完成: 新增 {bangumiImportResult.imported} 条，跳过 {bangumiImportResult.skipped} 条（已存在），共 {bangumiImportResult.total} 条
+                                导入完成: 新增 {bangumiImportResult.imported} 条，更新 {bangumiImportResult.updated || 0} 条，跳过 {bangumiImportResult.skipped} 条，共 {bangumiImportResult.total} 条
                               </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* 同步到 Bangumi 功能 */}
+                    {BangumiAuthService.isBound() && (
+                      <div className="bangumi-upload-section" style={{ marginTop: '12px' }}>
+                        <button
+                          className="bangumi-bind-btn"
+                          onClick={handleUploadToBangumi}
+                          disabled={bangumiUploading}
+                          style={{ opacity: bangumiUploading ? 0.6 : 1 }}
+                        >
+                          {bangumiUploading ? <Loader2 size={16} className="oauth-spinning" /> : <Upload size={16} />}
+                          {bangumiUploading ? '正在同步...' : '同步到 Bangumi'}
+                        </button>
+                        <p className="settings-hint">对比本地与 Bangumi 的状态/评分/评论，不一致的上传更新</p>
+                        {bangumiUploadResult && (
+                          <div className="bangumi-upload-result" style={{ marginTop: '8px', fontSize: '13px' }}>
+                            {bangumiUploadResult.error ? (
+                              <span style={{ color: 'var(--error)' }}>同步失败: {bangumiUploadResult.error}</span>
+                            ) : (
+                              <>
+                                <span style={{ color: 'var(--success)' }}>
+                                  同步完成: 上传 {bangumiUploadResult.synced} 条，跳过 {bangumiUploadResult.skipped} 条（已一致），失败 {bangumiUploadResult.failed} 条
+                                </span>
+                                {bangumiUploadResult.errors && bangumiUploadResult.errors.length > 0 && (
+                                  <details style={{ marginTop: '4px' }}>
+                                    <summary style={{ cursor: 'pointer', color: 'var(--text-secondary)' }}>查看错误详情</summary>
+                                    <ul style={{ color: 'var(--error)', fontSize: '12px', marginTop: '4px' }}>
+                                      {bangumiUploadResult.errors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}
+                                    </ul>
+                                  </details>
+                                )}
+                              </>
                             )}
                           </div>
                         )}

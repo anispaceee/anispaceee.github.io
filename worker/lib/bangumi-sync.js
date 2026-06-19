@@ -162,13 +162,14 @@ export async function fetchBangumiCollections(accessToken, username, limit = 100
  * @param {Array} bangumiCollections - Bangumi 收藏数据
  * @returns {Promise<{imported: number, skipped: number, error?: string}>}
  */
-export async function importBangumiCollections(env, userId, bangumiCollections) {
+export async function importBangumiCollections(env, userId, bangumiCollections, overwrite = false) {
   if (!bangumiCollections || bangumiCollections.length === 0) {
-    return { imported: 0, skipped: 0 };
+    return { imported: 0, skipped: 0, updated: 0 };
   }
 
   let imported = 0;
   let skipped = 0;
+  let updated = 0;
 
   for (const item of bangumiCollections) {
     const subjectId = item.subject_id;
@@ -176,6 +177,13 @@ export async function importBangumiCollections(env, userId, bangumiCollections) 
     const rating = item.rate || 0;
     const comment = item.comment || '';
     const hasEpisode = item.ep_status || 0; // 已看集数
+
+    // 从 Bangumi API 响应中提取条目元信息
+    // 收藏列表响应的每个 item 包含 subject 对象（含 name/name_cn/images/type）
+    const subject = item.subject || {};
+    const subjectName = subject.name_cn || subject.name || '';
+    const subjectImage = (subject.images && (subject.images.large || subject.images.common)) || '';
+    const subjectType = subject.type ? String(subject.type) : '';
 
     // 状态映射：Bangumi 数字 → ANISpace 字符串
     // Bangumi: 1=wish(想看), 2=collect(看过), 3=doing(在看), 4=on_hold(搁置), 5=dropped(抛弃)
@@ -196,18 +204,23 @@ export async function importBangumiCollections(env, userId, bangumiCollections) 
       ).bind(userId, subjectId).first();
 
       if (existing) {
-        // 更新
-        await env.DB.prepare(
-          `UPDATE collections SET status = ?, rating = ?, comment = ?, updated_at = datetime('now')
-           WHERE user_id = ? AND subject_id = ?`
-        ).bind(anispaceStatus, rating, comment, userId, subjectId).run();
-        skipped++;
+        if (overwrite) {
+          // 覆盖模式：用新数据完全覆盖（含名称/封面/类型）
+          await env.DB.prepare(
+            `UPDATE collections SET status = ?, rating = ?, comment = ?, subject_name = ?, subject_image = ?, subject_type = ?, updated_at = datetime('now')
+             WHERE user_id = ? AND subject_id = ?`
+          ).bind(anispaceStatus, rating, comment, subjectName, subjectImage, subjectType, userId, subjectId).run();
+          updated++;
+        } else {
+          // 非覆盖模式：跳过已存在的记录
+          skipped++;
+        }
       } else {
-        // 插入
+        // 插入新记录（包含名称/封面/类型）
         await env.DB.prepare(
-          `INSERT INTO collections (user_id, subject_id, status, rating, comment, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
-        ).bind(userId, subjectId, anispaceStatus, rating, comment).run();
+          `INSERT INTO collections (user_id, subject_id, subject_type, subject_name, subject_image, status, rating, comment, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+        ).bind(userId, subjectId, subjectType, subjectName, subjectImage, anispaceStatus, rating, comment).run();
         imported++;
       }
     } catch (err) {
@@ -216,5 +229,95 @@ export async function importBangumiCollections(env, userId, bangumiCollections) 
     }
   }
 
-  return { imported, skipped };
+  return { imported, skipped, updated };
+}
+
+/**
+ * 将本地收藏批量同步（上传）到 Bangumi
+ * 对比本地与 Bangumi 端的状态/评分/评论，不一致的进行上传或更新
+ * @param {object} env - Worker 环境变量
+ * @param {number} userId - ANISpace 用户 ID
+ * @param {string} accessToken - Bangumi access token
+ * @param {string} username - Bangumi 用户名
+ * @returns {Promise<{synced: number, skipped: number, failed: number, errors: Array}>}
+ */
+export async function uploadCollectionsToBangumi(env, userId, accessToken, username) {
+  if (!accessToken || !username) {
+    return { synced: 0, skipped: 0, failed: 0, errors: ['缺少 Bangumi token 或用户名'] };
+  }
+
+  // 1. 读取本地所有收藏
+  const localCollections = await env.DB.prepare(
+    'SELECT subject_id, status, rating, comment FROM collections WHERE user_id = ?'
+  ).bind(userId).all();
+
+  if (!localCollections.results || localCollections.results.length === 0) {
+    return { synced: 0, skipped: 0, failed: 0, errors: [] };
+  }
+
+  // 2. 拉取 Bangumi 端所有收藏
+  const fetchResult = await fetchBangumiCollections(accessToken, username);
+  if (fetchResult.error) {
+    return { synced: 0, skipped: 0, failed: 0, errors: [fetchResult.error] };
+  }
+
+  // 3. 构建 Bangumi 收藏 Map（subject_id → {type, rate, comment}）
+  const bangumiMap = new Map();
+  for (const item of fetchResult.collections) {
+    bangumiMap.set(item.subject_id, {
+      type: Number(item.type),
+      rate: item.rate || 0,
+      comment: item.comment || '',
+    });
+  }
+
+  // 4. 状态映射：ANISpace 字符串 → Bangumi 数字
+  const statusMap = {
+    wish: 1,
+    done: 2,
+    doing: 3,
+    on_hold: 4,
+    dropped: 5,
+  };
+
+  let synced = 0;
+  let skipped = 0;
+  let failed = 0;
+  const errors = [];
+
+  // 5. 遍历本地收藏，对比并上传
+  for (const local of localCollections.results) {
+    const bangumiType = statusMap[local.status] || 1;
+    const localRating = local.rating || 0;
+    const localComment = local.comment || '';
+    const bangumiEntry = bangumiMap.get(local.subject_id);
+
+    // 判断是否一致
+    let isConsistent = false;
+    if (bangumiEntry) {
+      isConsistent =
+        bangumiEntry.type === bangumiType &&
+        bangumiEntry.rate === localRating &&
+        (bangumiEntry.comment || '').trim() === localComment.trim();
+    }
+
+    if (isConsistent) {
+      skipped++;
+      continue;
+    }
+
+    // 不一致或不存在，上传到 Bangumi
+    const result = await syncToBangumi(accessToken, local.subject_id, local.status, localRating, localComment);
+    if (result.ok) {
+      synced++;
+    } else {
+      failed++;
+      errors.push(`条目 ${local.subject_id}: ${result.error}`);
+    }
+
+    // 速率限制：每条之间延迟 200ms
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  return { synced, skipped, failed, errors };
 }

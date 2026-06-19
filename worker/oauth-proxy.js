@@ -2361,7 +2361,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
     try {
       const body = await request.json();
-      const { bangumiToken, bangumiUsername } = body;
+      const { bangumiToken, bangumiUsername, overwrite } = body;
       if (!bangumiToken || !bangumiUsername) {
         return jsonResponse({ error: '缺少 Bangumi token 或用户名' }, 400, origin);
       }
@@ -2370,16 +2370,40 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       if (fetchResult.error) {
         return jsonResponse({ error: fetchResult.error }, 400, origin);
       }
-      // 导入到本地数据库
-      const importResult = await bangumiSync.importBangumiCollections(env, authUser.userId, fetchResult.collections);
+      // 导入到本地数据库（overwrite=true 时覆盖已有记录）
+      const importResult = await bangumiSync.importBangumiCollections(env, authUser.userId, fetchResult.collections, !!overwrite);
       return jsonResponse({
         ok: true,
         imported: importResult.imported,
         skipped: importResult.skipped,
+        updated: importResult.updated || 0,
         total: fetchResult.collections.length,
       }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '导入失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/bangumi-sync/upload — 将本地收藏同步（上传）到 Bangumi
+  if (pathname === '/api/bangumi-sync/upload' && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    try {
+      const body = await request.json();
+      const { bangumiToken, bangumiUsername } = body;
+      if (!bangumiToken || !bangumiUsername) {
+        return jsonResponse({ error: '缺少 Bangumi token 或用户名' }, 400, origin);
+      }
+      const result = await bangumiSync.uploadCollectionsToBangumi(env, authUser.userId, bangumiToken, bangumiUsername);
+      return jsonResponse({
+        ok: true,
+        synced: result.synced,
+        skipped: result.skipped,
+        failed: result.failed,
+        errors: result.errors,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '同步失败: ' + err.message }, 500, origin);
     }
   }
 
