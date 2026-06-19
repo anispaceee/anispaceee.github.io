@@ -5,6 +5,8 @@ import { BangumiAuthService, GitHubAuthService, StorageService } from '../servic
 import { Loader2, CheckCircle, XCircle, Download } from 'lucide-react';
 import './OAuthCallback.css';
 
+const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+
 export default function OAuthCallback() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -112,7 +114,7 @@ export default function OAuthCallback() {
             const bangumiUser = StorageService.get('acg_bangumi_user');
 
             try {
-              const res = await fetch('/api/bangumi-sync/import', {
+              const res = await fetch(`${API_BASE}/api/bangumi-sync/import`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -147,7 +149,7 @@ export default function OAuthCallback() {
             const bangumiUser = StorageService.get('acg_bangumi_user');
 
             try {
-              const res = await fetch('/api/bangumi-sync/import', {
+              const res = await fetch(`${API_BASE}/api/bangumi-sync/import`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',

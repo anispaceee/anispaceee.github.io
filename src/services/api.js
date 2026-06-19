@@ -1706,7 +1706,7 @@ export const BangumiAuthService = {
     }
 
     try {
-      const res = await fetch('/api/auth/bind-bangumi', {
+      const res = await fetch(`${API_BASE}/api/auth/bind-bangumi`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1734,7 +1734,7 @@ export const BangumiAuthService = {
     if (!jwt) return { error: '请先登录' };
 
     try {
-      const res = await fetch('/api/auth/unbind-bangumi', {
+      const res = await fetch(`${API_BASE}/api/auth/unbind-bangumi`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${jwt}` },
       });

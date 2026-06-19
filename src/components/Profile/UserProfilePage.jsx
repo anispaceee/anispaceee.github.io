@@ -443,9 +443,14 @@ export default function UserProfilePage() {
     setBangumiImportResult(null);
 
     try {
-      const res = await fetch(`${window.location.origin}/api/bangumi-sync/import`, {
+      const jwt = sessionStorage.getItem('acg_jwt_token');
+      const proxyUrl = StorageService.get('acg_oauth_proxy_url') || import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
+      const res = await fetch(`${proxyUrl}/api/bangumi-sync/import`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
         body: JSON.stringify({
           bangumiToken,
           bangumiUsername: bangumiUser.username || bangumiUser.nickname,
