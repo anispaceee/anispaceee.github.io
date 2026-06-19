@@ -1422,10 +1422,21 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
         return jsonResponse({ error: '缺少 provider 或 providerId' }, 400, origin);
       }
 
-      // 查找已有用户
+      // 查找已有用户（同 provider + providerId）
       let user = await env.DB.prepare(
         'SELECT * FROM users WHERE provider = ? AND provider_id = ?'
       ).bind(provider, String(providerId)).first();
+
+      // 如果是 Bangumi 登录且没找到对应用户，检查是否有其他用户绑定了该 Bangumi 账号
+      if (!user && provider === 'bangumi') {
+        const linkedUser = await env.DB.prepare(
+          'SELECT * FROM users WHERE bangumi_user_id = ?'
+        ).bind(String(providerId)).first();
+        if (linkedUser) {
+          // 找到了已绑定该 Bangumi 账号的其他用户（如 GitHub 用户），直接登录到该账号
+          user = linkedUser;
+        }
+      }
 
       if (user) {
         // 更新 last_login
@@ -1461,10 +1472,75 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
       // 检查该 Bangumi 账号是否已被其他用户绑定
       const existingBind = await env.DB.prepare(
-        'SELECT id FROM users WHERE bangumi_user_id = ? AND id != ?'
+        'SELECT id, provider FROM users WHERE bangumi_user_id = ? AND id != ?'
       ).bind(bangumiUserId, authUser.userId).first();
+
       if (existingBind) {
-        return jsonResponse({ error: '该 Bangumi 账号已被其他用户绑定' }, 400, origin);
+        // 该 Bangumi 账号已作为独立用户存在（如通过 Bangumi 直接登录创建的账号）
+        // 执行账号融合：将旧账号的所有数据迁移到当前用户，然后删除旧账号
+        const oldUserId = existingBind.id;
+
+        // 迁移所有关联数据
+        const migrations = [
+          { table: 'collections', column: 'user_id' },
+          { table: 'ratings', column: 'user_id' },
+          { table: 'favorites', column: 'user_id' },
+          { table: 'posts', column: 'user_id' },
+          { table: 'replies', column: 'user_id' },
+          { table: 'likes', column: 'user_id' },
+          { table: 'notifications', column: 'user_id' },
+          { table: 'notifications', column: 'from_user_id' },
+          { table: 'follows', column: 'from_user_id' },
+          { table: 'follows', column: 'to_user_id' },
+          { table: 'mails', column: 'from_user_id' },
+          { table: 'mails', column: 'to_user_id' },
+          { table: 'private_messages', column: 'from_user_id' },
+          { table: 'private_messages', column: 'to_user_id' },
+          { table: 'friend_requests', column: 'from_user_id' },
+          { table: 'friend_requests', column: 'to_user_id' },
+          { table: 'friend_posts', column: 'user_id' },
+          { table: 'friend_post_comments', column: 'user_id' },
+          { table: 'friend_post_likes', column: 'user_id' },
+          { table: 'user_guestbook', column: 'user_id' },
+          { table: 'subject_comments', column: 'user_id' },
+          { table: 'behavior_log', column: 'user_id' },
+          { table: 'recommend_cache', column: 'user_id' },
+          { table: 'reading_progress', column: 'user_id' },
+          { table: 'work_comments', column: 'user_id' },
+          { table: 'work_favorites', column: 'user_id' },
+          { table: 'work_likes', column: 'user_id' },
+          { table: 'work_ratings', column: 'user_id' },
+          { table: 'invite_relations', column: 'user_id' },
+        ];
+
+        for (const { table, column } of migrations) {
+          try {
+            await env.DB.prepare(
+              `UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`
+            ).bind(authUser.userId, oldUserId).run();
+          } catch (e) {
+            // 某些表可能不存在，跳过
+            console.warn(`迁移 ${table}.${column} 失败:`, e.message);
+          }
+        }
+
+        // 迁移 user_profiles（主键是 user_id，需要特殊处理）
+        try {
+          // 先删除当前用户的 profile（如果存在），再用旧账号的 profile 替换
+          await env.DB.prepare(
+            'DELETE FROM user_profiles WHERE user_id = ?'
+          ).bind(authUser.userId).run();
+          await env.DB.prepare(
+            'UPDATE user_profiles SET user_id = ? WHERE user_id = ?'
+          ).bind(authUser.userId, oldUserId).run();
+        } catch (e) {
+          console.warn('迁移 user_profiles 失败:', e.message);
+        }
+
+        // 删除旧账号
+        await env.DB.prepare(
+          'DELETE FROM users WHERE id = ?'
+        ).bind(oldUserId).run();
       }
 
       // 更新当前用户的 Bangumi 绑定信息
@@ -1491,7 +1567,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       ).run();
 
       const updatedUser = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(authUser.userId).first();
-      return jsonResponse({ ok: true, user: formatUser(updatedUser) }, 200, origin);
+      return jsonResponse({ ok: true, user: formatUser(updatedUser), merged: !!existingBind }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '绑定失败: ' + err.message }, 500, origin);
     }
