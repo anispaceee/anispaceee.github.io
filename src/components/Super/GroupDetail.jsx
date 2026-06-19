@@ -64,7 +64,7 @@ export default function GroupDetail() {
     setTopicsError(null);
     try {
       const res = await SuperService.getGroupTopics(groupId, page, PAGE_SIZE);
-      setTopics(res.topics || []);
+      setTopics(res.data || []);
       setTotal(res.total || 0);
       setTotalPages(Math.max(1, Math.ceil((res.total || 0) / PAGE_SIZE)));
     } catch (err) {

@@ -32,7 +32,7 @@ export default function GroupCard({ group }) {
   const truncatedDesc = desc && desc.length > 100 ? desc.slice(0, 100) + '...' : desc;
 
   return (
-    <Link to={`/super/group/${id}`} className="gc-card">
+    <Link to={`/super/group/${name}`} className="gc-card">
       <div className="gc-icon">
         {icon ? (
           <img src={icon} alt={title || name} loading="lazy" />

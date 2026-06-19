@@ -49,7 +49,7 @@ export default function TopicDetail() {
   const fetchPosts = useCallback(async () => {
     try {
       const res = await SuperService.getTopicPosts(topicId, page, PAGE_SIZE);
-      setPosts(res.posts || []);
+      setPosts(res.data || []);
       setTotal(res.total || 0);
       setTotalPages(Math.max(1, Math.ceil((res.total || 0) / PAGE_SIZE)));
     } catch (err) {

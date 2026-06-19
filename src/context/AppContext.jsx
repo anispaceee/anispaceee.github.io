@@ -55,6 +55,12 @@ export function AppProvider({ children }) {
       MailService.getUnreadCountAsync(currentUser.id).then(data => {
         setMailUnreadCount(typeof data === 'object' ? (data.unread || 0) : (data || 0));
       }).catch(() => {});
+      // 检查 Bangumi 绑定状态
+      apiRequest('/api/auth/bangumi-status')
+        .then(status => setBangumiBound(status.bound === true && !status.expired))
+        .catch(() => setBangumiBound(false));
+    } else {
+      setBangumiBound(false);
     }
   }, [currentUser]);
 
@@ -94,7 +100,7 @@ export function AppProvider({ children }) {
     // 检查 Bangumi 绑定状态
     try {
       const status = await apiRequest('/api/auth/bangumi-status');
-      setBangumiBound(status.bound === true);
+      setBangumiBound(status.bound === true && !status.expired);
     } catch {
       setBangumiBound(false);
     }

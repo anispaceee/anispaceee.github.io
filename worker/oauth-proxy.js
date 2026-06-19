@@ -5967,7 +5967,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
     const result = await superProxy.handleGroupsList(env.DB, env, authUser.userId, params);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result, 200, origin);
+    return jsonResponse(result.data, 200, origin);
   }
 
   // GET /api/super/groups/:groupName — 获取小组详情
@@ -5979,7 +5979,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     const groupName = groupDetailMatch[1];
     const result = await superProxy.handleGroupDetail(env.DB, env, authUser.userId, groupName);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result, 200, origin);
+    return jsonResponse(result.data, 200, origin);
   }
 
   // GET /api/super/groups/:groupName/topics — 获取话题列表
@@ -5990,14 +5990,16 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
     const groupName = groupTopicsMatch[1];
     const sp = new URL(request.url).searchParams;
+    const page = Number(sp.get('page')) || 1;
+    const limit = Number(sp.get('limit')) || 20;
     const params = {
-      page: Number(sp.get('page')) || 1,
-      limit: Number(sp.get('limit')) || 20,
+      limit,
+      offset: (page - 1) * limit,
     };
 
     const result = await superProxy.handleTopicsList(env.DB, env, authUser.userId, groupName, params);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result, 200, origin);
+    return jsonResponse(result.data, 200, origin);
   }
 
   // POST /api/super/groups/:groupName/topics — 发表话题
@@ -6049,7 +6051,8 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     const topicId = Number(topicDetailMatch[1]);
     const result = await superProxy.handleTopicDetail(env.DB, env, authUser.userId, topicId);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
+    // handleTopicDetail 直接返回话题对象（不经过 proxyBangumiAPI）
+    return jsonResponse(result, 200, origin);
   }
 
   // GET /api/super/topics/:id/posts — 获取帖子列表
@@ -6067,7 +6070,8 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
     const result = await superProxy.handlePostsList(env.DB, env, authUser.userId, topicId, params);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
+    // handlePostsList 直接返回 { data: [...posts], total, page, limit }
+    return jsonResponse(result, 200, origin);
   }
 
   // POST /api/super/topics/:id/posts — 发表回复

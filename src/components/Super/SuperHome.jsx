@@ -3,6 +3,7 @@ import { Search, Users, MessageCircle, FileText, Clock, Calendar, Loader2, Alert
 import { SuperService } from '../../services/SuperService';
 import { useApp } from '../../context/AppContext';
 import GroupCard from './GroupCard';
+import BangumiBindPrompt from './BangumiBindPrompt';
 import './SuperHome.css';
 
 const SORT_OPTIONS = [
@@ -20,7 +21,7 @@ const PAGE_SIZE = 20;
  * 展示 Bangumi 小组列表，支持搜索、排序和分页
  */
 export default function SuperHome() {
-  const { currentUser } = useApp();
+  const { currentUser, bangumiBound } = useApp();
 
   // State
   const [groups, setGroups] = useState([]);
@@ -37,6 +38,10 @@ export default function SuperHome() {
 
   // Fetch groups from API
   const fetchGroups = useCallback(async () => {
+    if (!currentUser || !bangumiBound) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -92,6 +97,19 @@ export default function SuperHome() {
   const handleNextPage = useCallback(() => {
     setPage(p => Math.min(totalPages, p + 1));
   }, []);
+
+  // Render unauthenticated state (not logged in or Bangumi not bound)
+  if (!currentUser || !bangumiBound) {
+    return (
+      <div className="sh-page">
+        <div className="sh-header">
+          <h1 className="sh-title">超展开</h1>
+          <p className="sh-subtitle">Bangumi 小组讨论区</p>
+        </div>
+        <BangumiBindPrompt />
+      </div>
+    );
+  }
 
   // Render loading state
   if (loading && groups.length === 0) {

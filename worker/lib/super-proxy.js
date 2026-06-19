@@ -391,7 +391,7 @@ export async function handleCreateGroup(db, env, userId, body) {
 
   return await proxyBangumiAPI('/p1/groups', tokenInfo.accessToken, {
     method: 'POST',
-    body: groupData,
+    body: groupBody,
   });
 }
 
