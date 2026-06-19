@@ -1258,6 +1258,24 @@ export const RatingService = {
   },
 };
 
+// ─── BangumiCommentService ───
+export const BangumiCommentService = {
+  // 获取条目吐槽（短评）
+  async getComments(subjectId, limit = 20, offset = 0) {
+    return apiRequest(`/api/bangumi/subjects/${subjectId}/comments?limit=${limit}&offset=${offset}`);
+  },
+
+  // 获取条目长评（评论）
+  async getReviews(subjectId, limit = 10, offset = 0) {
+    return apiRequest(`/api/bangumi/subjects/${subjectId}/reviews?limit=${limit}&offset=${offset}`);
+  },
+
+  // 获取用户对该条目的收藏状态（含评分）
+  async getUserCollection(subjectId) {
+    return apiRequest(`/api/bangumi/collection/${subjectId}`);
+  },
+};
+
 // ─── LikeService ───
 // 保持 localStorage 实现（暂无后端端点）
 export const LikeService = {

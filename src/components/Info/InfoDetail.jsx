@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { BangumiService, RatingService, FavoriteService, CollectionMarkService, ApiError, isOnline, StorageService, Wenku8Service } from '../../services/api';
+import { BangumiService, RatingService, FavoriteService, CollectionMarkService, BangumiCommentService, ApiError, isOnline, StorageService, Wenku8Service } from '../../services/api';
 import { behaviorCollector } from '../../lib/BehaviorCollector';
 import { sessionProfile } from '../../lib/SessionProfile';
 import { BangumiDataService } from '../../services/BangumiDataService';
@@ -480,9 +480,7 @@ export default function InfoDetail() {
   const [hoverScore, setHoverScore] = useState(0);
   const [isFav, setIsFav] = useState(false);
   const [collectionMark, setCollectionMark] = useState(null);
-  const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
-  const [commentsPerPage, setCommentsPerPage] = useState(20);
   const [sortBy, setSortBy] = useState('latest');
   const [localComments, setLocalComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -492,6 +490,13 @@ export default function InfoDetail() {
   const [bgmCommentsPage, setBgmCommentsPage] = useState(1);
   const [bgmCommentsHasMore, setBgmCommentsHasMore] = useState(true);
   const [activeRatingFilter, setActiveRatingFilter] = useState(null);
+
+  const [bgmReviews, setBgmReviews] = useState([]);
+  const [bgmReviewsLoading, setBgmReviewsLoading] = useState(false);
+  const [bgmReviewsPage, setBgmReviewsPage] = useState(1);
+  const [bgmReviewsHasMore, setBgmReviewsHasMore] = useState(true);
+
+  const [commentSubTab, setCommentSubTab] = useState('local');
 
   // Tab 状态
   const [activeTab, setActiveTab] = useState('summary');
@@ -729,59 +734,23 @@ export default function InfoDetail() {
     } finally { setLoading(false); }
   }, [id, currentUser, preview]);
 
-  const COMMENT_CACHE_PREFIX = 'acg_bgm_comments_';
-
   const fetchBgmComments = useCallback(async (page = 1) => {
     if (!id) return;
-    const cacheKey = `${COMMENT_CACHE_PREFIX}${id}_${page}`;
-    const cached = StorageService.get(cacheKey, null);
-    if (cached && Date.now() - cached.timestamp < 1800000) {
-      if (page === 1) setBgmComments(cached.data);
-      else setBgmComments(prev => [...prev, ...cached.data]);
-      setBgmCommentsHasMore(cached.data.length >= 20);
-      return;
-    }
     setBgmCommentsLoading(true);
     try {
-      const url = `https://api.bgm.tv/v0/subjects/${id}/comments?offset=${(page - 1) * 20}&limit=20`;
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'ANISpace/1.0',
-          'Accept': 'application/json',
-        },
-      });
-      if (!res.ok) {
-        const fallbackUrl = `https://api.bgm.tv/subject/${id}/comments?page=${page}&limit=20`;
-        const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'ANISpace/1.0' } });
-        if (!fallbackRes.ok) throw new Error('Failed');
-        const fallbackData = await fallbackRes.json();
-        const comments = (Array.isArray(fallbackData) ? fallbackData : fallbackData?.comments || []).map(c => ({
-          id: c.id || Math.random().toString(36).slice(2),
-          username: c.user?.nickname || c.user?.username || '匿名',
-          avatar: c.user?.avatar?.small || c.user?.avatar?.medium || FALLBACK_AVATAR,
-          content: c.comment || c.content || '',
-          score: c.rate || c.score || null,
-          createdAt: c.updated_at || c.created_at || '',
-        }));
-        if (page === 1) setBgmComments(comments);
-        else setBgmComments(prev => [...prev, ...comments]);
-        setBgmCommentsHasMore(comments.length >= 20);
-        StorageService.set(cacheKey, { data: comments, timestamp: Date.now() });
-        return;
-      }
-      const data = await res.json();
-      const comments = (data?.data || data?.comments || []).map(c => ({
-        id: c.id || Math.random().toString(36).slice(2),
+      const result = await BangumiCommentService.getComments(parseInt(id), 20, (page - 1) * 20);
+      if (result.error) throw new Error(result.error);
+      const comments = (result.data || []).map(c => ({
+        id: c.id,
         username: c.user?.nickname || c.user?.username || '匿名',
-        avatar: c.user?.avatar?.small || c.user?.avatar?.medium || FALLBACK_AVATAR,
-        content: c.comment || c.content || '',
-        score: c.rate || c.score || null,
-        createdAt: c.updated_at || c.created_at || '',
+        avatar: c.user?.avatar?.medium || c.user?.avatar?.small || FALLBACK_AVATAR,
+        content: c.comment || '',
+        score: c.rate || 0,
+        createdAt: c.updatedAt ? new Date(c.updatedAt * 1000).toLocaleDateString('zh-CN') : '',
       }));
       if (page === 1) setBgmComments(comments);
       else setBgmComments(prev => [...prev, ...comments]);
       setBgmCommentsHasMore(comments.length >= 20);
-      StorageService.set(cacheKey, { data: comments, timestamp: Date.now() });
     } catch {
       if (page === 1) setBgmComments([]);
     } finally {
@@ -789,21 +758,86 @@ export default function InfoDetail() {
     }
   }, [id]);
 
+  const fetchBgmReviews = useCallback(async (page = 1) => {
+    if (!id) return;
+    setBgmReviewsLoading(true);
+    try {
+      const result = await BangumiCommentService.getReviews(parseInt(id), 10, (page - 1) * 10);
+      if (result.error) throw new Error(result.error);
+      const reviews = (result.data || []).map(r => ({
+        id: r.id,
+        username: r.user?.nickname || r.user?.username || '匿名',
+        avatar: r.user?.avatar?.medium || r.user?.avatar?.small || FALLBACK_AVATAR,
+        title: r.entry?.title || '',
+        summary: r.entry?.summary || '',
+        replies: r.entry?.replies || 0,
+        entryId: r.entry?.id || null,
+        createdAt: r.entry?.updatedAt ? new Date(r.entry.updatedAt * 1000).toLocaleDateString('zh-CN') : '',
+      }));
+      if (page === 1) setBgmReviews(reviews);
+      else setBgmReviews(prev => [...prev, ...reviews]);
+      setBgmReviewsHasMore(reviews.length >= 10);
+    } catch {
+      if (page === 1) setBgmReviews([]);
+    } finally {
+      setBgmReviewsLoading(false);
+    }
+  }, [id]);
+
+  const loadMoreReviews = () => {
+    const nextPage = bgmReviewsPage + 1;
+    setBgmReviewsPage(nextPage);
+    fetchBgmReviews(nextPage);
+  };
+
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
   useEffect(() => { fetchBgmComments(1); }, [fetchBgmComments]);
+  useEffect(() => { fetchBgmReviews(1); }, [fetchBgmReviews]);
   useEffect(() => {
     RatingService.getAverageScoreAsync(parseInt(id)).then(score => {
       setAvgScore(score);
     }).catch(() => {});
   }, [id]);
+
+  // 从 Bangumi 拉取用户评分初始化 userScore
+  useEffect(() => {
+    if (!currentUser) return;
+    BangumiCommentService.getUserCollection(parseInt(id))
+      .then(result => {
+        if (result && !result.error && result.rate > 0) {
+          setUserScore(result.rate);
+        }
+      })
+      .catch(() => {});
+  }, [id, currentUser]);
+
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [id]);
 
   const handleRate = async (score) => {
     if (!isAuthenticated) { openAuth(); return; }
     try {
+      // 1. 保存站内评分
       await RatingService.addRatingAsync(currentUser.id, parseInt(id), subject?.type || 2, score);
       setUserScore(score);
       behaviorCollector.trackRate(parseInt(id), score, subject?.type || 2);
+
+      // 2. 如果用户已绑定 Bangumi，同步评分到 Bangumi
+      if (currentUser.bangumi_bound_at || currentUser.bangumiUsername) {
+        try {
+          const token = sessionStorage.getItem('acg_jwt_token');
+          await fetch(`${API_BASE}/api/bangumi-sync/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ subjectId: parseInt(id), rating: score, status: null }),
+          });
+        } catch {
+          console.warn('Bangumi 评分同步失败');
+        }
+      }
+
+      // 3. 刷新社区均分
+      const newAvg = await RatingService.getAverageScoreAsync(parseInt(id));
+      setAvgScore(newAvg);
     } catch {}
   };
 
@@ -1600,50 +1634,119 @@ export default function InfoDetail() {
                 {/* 评论Tab */}
                 {activeTab === 'comments' && (
                   <div className="detail-comments-section">
-                    <div className="detail-comment-form">
-                      <textarea placeholder="写下你的评论..." value={newComment} onChange={e => setNewComment(e.target.value)} rows={3} />
-                      <button className="comment-submit" onClick={handleComment} disabled={!newComment.trim()}><Send size={14} /> 发表评论</button>
+                    <div className="comment-subtabs">
+                      <button className={`comment-subtab ${commentSubTab === 'local' ? 'active' : ''}`} onClick={() => setCommentSubTab('local')}>站内评论</button>
+                      <button className={`comment-subtab ${commentSubTab === 'bgmReviews' ? 'active' : ''}`} onClick={() => setCommentSubTab('bgmReviews')}>Bangumi评论</button>
+                      <button className={`comment-subtab ${commentSubTab === 'bgmComments' ? 'active' : ''}`} onClick={() => setCommentSubTab('bgmComments')}>Bangumi吐槽</button>
                     </div>
 
-                    <div className="detail-comments-toolbar">
-                      <div className="detail-comments-sort">
-                        <span className="sort-label">排序:</span>
-                        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="sort-select">
-                          <option value="latest">最新</option>
-                          <option value="hottest">最热</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {commentsLoading ? (
-                      <div className="detail-no-comments"><Loader2 size={18} className="vp-spin" /> 加载评论中...</div>
-                    ) : (
-                      <div className="detail-comments-list">
-                        {localComments.length === 0 ? (
-                          <div className="detail-no-comments">暂无评论，快来发表第一条评论吧！</div>
+                    {commentSubTab === 'local' && (
+                      <>
+                        <div className="detail-comment-form">
+                          <textarea placeholder="写下你的评论..." value={newComment} onChange={e => setNewComment(e.target.value)} rows={3} />
+                          <button className="comment-submit" onClick={handleComment} disabled={!newComment.trim()}><Send size={14} /> 发表评论</button>
+                        </div>
+                        <div className="detail-comments-toolbar">
+                          <div className="detail-comments-sort">
+                            <span className="sort-label">排序:</span>
+                            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="sort-select">
+                              <option value="latest">最新</option>
+                              <option value="hottest">最热</option>
+                            </select>
+                          </div>
+                        </div>
+                        {commentsLoading ? (
+                          <div className="detail-no-comments"><Loader2 size={18} className="vp-spin" /> 加载评论中...</div>
                         ) : (
-                          localComments.map(c => (
-                            <div key={c.id} className="detail-comment-item">
-                              <AvatarImg src={c.avatar} alt={c.username} size={36} />
-                              <div className="comment-body">
-                                <div className="comment-header">
-                                  <span className="comment-name">{c.username}</span>
-                                  <span className="comment-time">{c.timestamp}</span>
+                          <div className="detail-comments-list">
+                            {localComments.length === 0 ? (
+                              <div className="detail-no-comments">暂无评论，快来发表第一条评论吧！</div>
+                            ) : (
+                              localComments.map(c => (
+                                <div key={c.id} className="detail-comment-item">
+                                  <AvatarImg src={c.avatar} alt={c.username} size={36} />
+                                  <div className="comment-body">
+                                    <div className="comment-header">
+                                      <span className="comment-name">{c.username}</span>
+                                      <span className="comment-time">{c.timestamp}</span>
+                                    </div>
+                                    <p className="comment-content">{c.content}</p>
+                                    <div className="comment-actions">
+                                      <button className="comment-action-btn like" onClick={() => handleCommentLike(c.id)}>
+                                        <Heart size={14} /> {c.likes}
+                                      </button>
+                                      {currentUser && c.userId === currentUser.id && (
+                                        <button className="comment-action-btn report" onClick={() => handleCommentDelete(c.id)}>
+                                          <AlertCircle size={14} /> 删除
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <p className="comment-content">{c.content}</p>
-                                <div className="comment-actions">
-                                  <button className="comment-action-btn like" onClick={() => handleCommentLike(c.id)}>
-                                    <Heart size={14} /> {c.likes}
-                                  </button>
-                                  {currentUser && c.userId === currentUser.id && (
-                                    <button className="comment-action-btn report" onClick={() => handleCommentDelete(c.id)}>
-                                      <AlertCircle size={14} /> 删除
-                                    </button>
-                                  )}
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {commentSubTab === 'bgmReviews' && (
+                      <div className="detail-comments-list">
+                        {bgmReviewsLoading ? (
+                          <div className="detail-no-comments"><Loader2 size={18} className="vp-spin" /> 加载中...</div>
+                        ) : bgmReviews.length === 0 ? (
+                          <div className="detail-no-comments">暂无 Bangumi 长评</div>
+                        ) : (
+                          <>
+                            {bgmReviews.map(r => (
+                              <div key={r.id} className="detail-comment-item bgm-review-card" onClick={() => r.entryId && window.open(`https://bgm.tv/blog/${r.entryId}`, '_blank')}>
+                                <AvatarImg src={r.avatar} alt={r.username} size={36} />
+                                <div className="comment-body">
+                                  <div className="comment-header">
+                                    <span className="comment-name">{r.username}</span>
+                                    <span className="comment-time">{r.createdAt}</span>
+                                  </div>
+                                  <p className="bgm-review-title">{r.title}</p>
+                                  <p className="bgm-review-summary">{r.summary}</p>
+                                  <div className="comment-actions">
+                                    <span className="bgm-review-replies">💬 {r.replies} 回复</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))
+                            ))}
+                            {bgmReviewsHasMore && (
+                              <button className="load-more-btn" onClick={loadMoreReviews}>加载更多</button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {commentSubTab === 'bgmComments' && (
+                      <div className="bgm-chat-bubbles">
+                        {bgmCommentsLoading ? (
+                          <div className="detail-no-comments"><Loader2 size={18} className="vp-spin" /> 加载中...</div>
+                        ) : bgmComments.length === 0 ? (
+                          <div className="detail-no-comments">暂无 Bangumi 吐槽</div>
+                        ) : (
+                          <>
+                            {bgmComments.map((c, idx) => (
+                              <div key={c.id} className={`chat-bubble-row ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                <AvatarImg src={c.avatar} alt={c.username} size={32} />
+                                <div className="chat-bubble-content">
+                                  <span className="chat-bubble-name">{c.username}</span>
+                                  <div className="chat-bubble">
+                                    {c.score > 0 && <span className="chat-bubble-score">⭐{c.score}</span>}
+                                    <span className="chat-bubble-text">{c.content}</span>
+                                  </div>
+                                  <span className="chat-bubble-time">{c.createdAt}</span>
+                                </div>
+                              </div>
+                            ))}
+                            {bgmCommentsHasMore && (
+                              <button className="load-more-btn" onClick={loadMoreComments}>加载更多</button>
+                            )}
+                          </>
                         )}
                       </div>
                     )}

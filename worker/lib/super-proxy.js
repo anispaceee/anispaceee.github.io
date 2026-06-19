@@ -511,3 +511,160 @@ export async function handleUnbindBangumi(db, userId) {
     return { error: `解绑失败: ${err.message}`, status: 500 };
   }
 }
+
+/**
+ * 获取条目吐槽（短评）列表
+ * GET /api/bangumi/subjects/:id/comments
+ * @param {object} env - Worker 环境变量
+ * @param {number} subjectId - 条目 ID
+ * @param {object} params - 查询参数（limit, offset）
+ * @returns {object} 吐槽列表
+ */
+export async function handleSubjectComments(env, subjectId, params = {}) {
+  const { limit = 20, offset = 0 } = params;
+  const cacheKey = `bgm_comments_${subjectId}_${offset}_${limit}`;
+
+  // 尝试从 Cache API 读取
+  const cache = caches.default;
+  const cachedResponse = await cache.match(new Request(`https://cache.local/${cacheKey}`));
+  if (cachedResponse) {
+    const cachedData = await cachedResponse.json();
+    if (Date.now() - cachedData.cachedAt < 1800000) {
+      return { data: cachedData.data, total: cachedData.total, cached: true };
+    }
+  }
+
+  // 调用 Bangumi 私有 API（无需认证）
+  const url = new URL(`${BANGUMI_PRIVATE_API}/p1/subjects/${subjectId}/comments`);
+  url.searchParams.set('limit', limit);
+  url.searchParams.set('offset', offset);
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'ANISpace-SuperProxy/1.0',
+      },
+    });
+
+    if (!res.ok) {
+      return { error: `Bangumi API 返回 ${res.status}`, status: res.status };
+    }
+
+    const data = await res.json();
+
+    // 写入 Cache API
+    const cacheData = { ...data, cachedAt: Date.now() };
+    const responseToCache = new Response(JSON.stringify(cacheData), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    await cache.put(new Request(`https://cache.local/${cacheKey}`), responseToCache);
+
+    return { data: data.data, total: data.total, cached: false };
+  } catch (err) {
+    return { error: `Bangumi API 请求异常: ${err.message}`, status: 500 };
+  }
+}
+
+/**
+ * 获取条目长评（评论）列表
+ * GET /api/bangumi/subjects/:id/reviews
+ * @param {object} env - Worker 环境变量
+ * @param {number} subjectId - 条目 ID
+ * @param {object} params - 查询参数（limit, offset）
+ * @returns {object} 长评列表
+ */
+export async function handleSubjectReviews(env, subjectId, params = {}) {
+  const { limit = 10, offset = 0 } = params;
+  const cacheKey = `bgm_reviews_${subjectId}_${offset}_${limit}`;
+
+  // 尝试从 Cache API 读取
+  const cache = caches.default;
+  const cachedResponse = await cache.match(new Request(`https://cache.local/${cacheKey}`));
+  if (cachedResponse) {
+    const cachedData = await cachedResponse.json();
+    if (Date.now() - cachedData.cachedAt < 1800000) {
+      return { data: cachedData.data, total: cachedData.total, cached: true };
+    }
+  }
+
+  // 调用 Bangumi 私有 API（无需认证）
+  const url = new URL(`${BANGUMI_PRIVATE_API}/p1/subjects/${subjectId}/reviews`);
+  url.searchParams.set('limit', limit);
+  url.searchParams.set('offset', offset);
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'ANISpace-SuperProxy/1.0',
+      },
+    });
+
+    if (!res.ok) {
+      return { error: `Bangumi API 返回 ${res.status}`, status: res.status };
+    }
+
+    const data = await res.json();
+
+    // 写入 Cache API
+    const cacheData = { ...data, cachedAt: Date.now() };
+    const responseToCache = new Response(JSON.stringify(cacheData), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    await cache.put(new Request(`https://cache.local/${cacheKey}`), responseToCache);
+
+    return { data: data.data, total: data.total, cached: false };
+  } catch (err) {
+    return { error: `Bangumi API 请求异常: ${err.message}`, status: 500 };
+  }
+}
+
+/**
+ * 获取当前用户在 Bangumi 上对某条目的收藏状态（含评分）
+ * GET /api/bangumi/collection/:subjectId
+ * @param {object} db - D1 数据库
+ * @param {number} userId - 用户 ID
+ * @param {number} subjectId - 条目 ID
+ * @returns {object} 收藏状态（含 rate 评分）
+ */
+export async function handleUserCollection(db, userId, subjectId) {
+  const tokenInfo = await getBangumiToken(db, userId);
+  if (!tokenInfo) {
+    return { error: '未绑定 Bangumi 账号', status: 401 };
+  }
+  if (tokenInfo.expired) {
+    return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
+  }
+
+  // 调用 Bangumi v0 API 获取用户收藏状态
+  const url = `https://api.bgm.tv/v0/users/${tokenInfo.bangumiUsername}/collections/${subjectId}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${tokenInfo.accessToken}`,
+        'Accept': 'application/json',
+        'User-Agent': 'ANISpace-SuperProxy/1.0',
+      },
+    });
+
+    if (res.status === 404) {
+      return { data: null, rate: 0, type: 0 };
+    }
+
+    if (!res.ok) {
+      return { error: `Bangumi API 返回 ${res.status}`, status: res.status };
+    }
+
+    const data = await res.json();
+    return {
+      data: data,
+      rate: data.rate || 0,
+      type: data.type || 0,
+      comment: data.comment || '',
+    };
+  } catch (err) {
+    return { error: `Bangumi API 请求异常: ${err.message}`, status: 500 };
+  }
+}
