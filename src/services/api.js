@@ -1623,8 +1623,9 @@ export const BangumiAuthService = {
     }
   },
 
-  async loginWithBangumi(code) {
-    const oauthResult = await this.handleOAuthCallback(code);
+  async loginWithBangumi(code, existingOauthResult = null) {
+    // 支持传入已有的 oauthResult，避免重复使用 code
+    const oauthResult = existingOauthResult || await this.handleOAuthCallback(code);
     if (oauthResult.error) return { error: oauthResult.error };
 
     StorageService.set('acg_bangumi_token', oauthResult.access_token);

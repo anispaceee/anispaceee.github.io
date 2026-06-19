@@ -22,17 +22,20 @@ export default function CreativeSpace({ userId, isSelf }) {
   const [naviOpen, setNaviOpen] = useState(false);
   const [prefillQuestion, setPrefillQuestion] = useState('');
   const [insights, setInsights] = useState([]);
+  const [error, setError] = useState(null); // 错误提示
   const saveTimerRef = useRef(null);
   const currentNoteRef = useRef(null);
 
   // 加载笔记列表
   const loadNotes = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await CreativeSpaceService.list();
       setNotes(data.notes || []);
     } catch (err) {
       console.error('加载笔记失败:', err);
+      setError(err.message || '加载失败，请检查网络或登录状态');
     } finally {
       setLoading(false);
     }
@@ -86,6 +89,7 @@ export default function CreativeSpace({ userId, isSelf }) {
 
   // 新建笔记
   const handleCreate = useCallback(async () => {
+    setError(null);
     try {
       const note = await CreativeSpaceService.create({
         title: '',
@@ -101,6 +105,7 @@ export default function CreativeSpace({ userId, isSelf }) {
       setSaveStatus('');
     } catch (err) {
       console.error('新建笔记失败:', err);
+      setError(err.message || '新建失败，请检查网络或登录状态');
     }
   }, []);
 
@@ -162,6 +167,13 @@ export default function CreativeSpace({ userId, isSelf }) {
 
   return (
     <div className="cs-creative-space">
+      {/* 错误提示 */}
+      {error && (
+        <div className="cs-error-banner">
+          <span className="cs-error-text">{error}</span>
+          <button className="cs-btn cs-btn-ghost cs-btn-small" onClick={() => setError(null)}>关闭</button>
+        </div>
+      )}
       <div className="cs-toolbar">
         <div className="cs-toolbar-left">
           {view === 'editor' && (

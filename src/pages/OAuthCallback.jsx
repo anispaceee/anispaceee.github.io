@@ -134,8 +134,8 @@ export default function OAuthCallback() {
             setTimeout(() => navigate('/', { replace: true }), 2000);
           }
         } else {
-          // 登录流程
-          const result = await BangumiAuthService.loginWithBangumi(code);
+          // 登录流程：复用已获取的 oauthResult，避免重复使用 code
+          const result = await BangumiAuthService.loginWithBangumi(code, oauthResult);
           if (result.error) {
             setStatus('error');
             setErrorMsg(result.error);
