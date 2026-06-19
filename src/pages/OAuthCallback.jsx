@@ -178,7 +178,12 @@ export default function OAuthCallback() {
       }
     };
 
-    handleOAuth();
+    handleOAuth().finally(() => {
+      // 清除 URL 中的 code 参数，防止用户刷新页面时重复使用 code
+      if (window.location.search.includes('code=')) {
+        window.history.replaceState(null, null, window.location.pathname);
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
