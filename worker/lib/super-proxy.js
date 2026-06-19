@@ -108,7 +108,23 @@ export async function handleGroupsList(db, env, userId, params = {}) {
   const queryParams = { limit, offset, sort };
   if (cat) queryParams.cat = cat;
 
-  return await proxyBangumiAPI('/p1/groups', tokenInfo.accessToken, { params: queryParams });
+  const result = await proxyBangumiAPI('/p1/groups', tokenInfo.accessToken, { params: queryParams });
+  if (result.error) return result;
+
+  // 映射为前端期望的格式
+  const groups = (result.data?.data || []).map(g => ({
+    id: g.id,
+    name: g.name,
+    title: g.title,
+    icon: g.icon?.medium || g.icon?.small || '',
+    members: g.members || 0,
+    topics: g.topics || 0,
+    posts: g.posts || 0,
+    nsfw: g.nsfw || false,
+    desc: g.description || '',
+  }));
+
+  return { data: { data: groups, total: result.data?.total || 0 }, status: 200 };
 }
 
 /**
@@ -129,7 +145,25 @@ export async function handleGroupDetail(db, env, userId, groupName) {
     return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
   }
 
-  return await proxyBangumiAPI(`/p1/groups/${groupName}`, tokenInfo.accessToken);
+  const result = await proxyBangumiAPI(`/p1/groups/${groupName}`, tokenInfo.accessToken);
+  if (result.error) return result;
+
+  const g = result.data;
+  // 映射为前端期望的格式
+  return {
+    data: {
+      id: g.id,
+      name: g.name,
+      title: g.title,
+      icon: g.icon?.medium || g.icon?.small || '',
+      desc: g.description || '',
+      members: g.members || 0,
+      topics: g.topics || 0,
+      posts: g.posts || 0,
+      nsfw: g.nsfw || false,
+    },
+    status: 200,
+  };
 }
 
 /**
@@ -152,13 +186,27 @@ export async function handleTopicsList(db, env, userId, groupName, params = {}) 
   }
 
   const { limit = 20, offset = 0 } = params;
-  return await proxyBangumiAPI(`/p1/groups/${groupName}/topics`, tokenInfo.accessToken, { params: { limit, offset } });
+  const result = await proxyBangumiAPI(`/p1/groups/${groupName}/topics`, tokenInfo.accessToken, { params: { limit, offset } });
+  if (result.error) return result;
+
+  // 映射为前端期望的格式
+  const topics = (result.data?.data || []).map(t => ({
+    id: t.id,
+    title: t.title || '',
+    author: t.creator?.nickname || t.creator?.username || '匿名',
+    author_avatar: t.creator?.avatar?.medium || t.creator?.avatar?.small || '',
+    replies: t.replyCount || 0,
+    created_at: t.createdAt ? new Date(t.createdAt * 1000).toISOString() : '',
+    updated_at: t.updatedAt ? new Date(t.updatedAt * 1000).toISOString() : '',
+  }));
+
+  return { data: { data: topics, total: result.data?.total || 0 }, status: 200 };
 }
 
 /**
  * 处理话题详情请求
  * GET /api/super/topics/:id
- * 由于 Bangumi 没有公开的话题详情 API，使用 HTML 爬取
+ * 使用 Bangumi p1 API: p1/groups/-/topics/{topicId}
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
@@ -170,59 +218,36 @@ export async function handleTopicDetail(db, env, userId, topicId) {
   if (!tokenInfo) {
     return { error: '请先绑定 Bangumi 账号', status: 401 };
   }
-
-  try {
-    // 爬取话题页面 HTML
-    const response = await fetch(`https://bgm.tv/group/topic/${topicId}`, {
-      headers: {
-        'User-Agent': 'ANISpace/1.0 (https://anispaceee.github.io)',
-        'Cookie': `chii_auth=${tokenInfo.accessToken}`,
-      },
-    });
-    
-    if (!response.ok) {
-      return { error: '话题不存在或无法访问', status: 404 };
-    }
-    
-    const html = await response.text();
-    
-    // 解析话题标题
-    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
-    const title = titleMatch ? titleMatch[1].trim() : `话题 ${topicId}`;
-    
-    // 解析帖子列表
-    const posts = [];
-    const postRegex = /<div[^>]*class="[^"]*reply_item[^"]*"[^>]*>[\s\S]*?<a[^>]*href="\/user\/([^"]+)"[^>]*>([^<]+)<\/a>[\s\S]*?<span[^>]*class="[^"]*date[^"]*"[^>]*>([^<]+)<\/span>[\s\S]*?<div[^>]*class="[^"]*message[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
-    let match;
-    let floor = 1;
-    while ((match = postRegex.exec(html)) !== null) {
-      posts.push({
-        id: floor,
-        floor: floor,
-        uid: match[1],
-        username: match[2].trim(),
-        createdAt: match[3].trim(),
-        content: match[4].trim().replace(/<[^>]+>/g, ''),
-      });
-      floor++;
-    }
-    
-    return {
-      id: parseInt(topicId),
-      title,
-      posts,
-      total: posts.length,
-    };
-  } catch (err) {
-    console.error('Failed to fetch topic detail:', err);
-    return { error: '获取话题详情失败', status: 500 };
+  if (tokenInfo.expired) {
+    return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
   }
+
+  const result = await proxyBangumiAPI(`/p1/groups/-/topics/${topicId}`, tokenInfo.accessToken);
+  if (result.error) return result;
+
+  const topic = result.data;
+  // 映射为前端期望的格式
+  return {
+    id: topic.id,
+    title: topic.title || '',
+    author: topic.creator?.nickname || topic.creator?.username || '匿名',
+    author_avatar: topic.creator?.avatar?.medium || topic.creator?.avatar?.small || '',
+    created_at: topic.createdAt ? new Date(topic.createdAt * 1000).toISOString() : '',
+    updated_at: topic.updatedAt ? new Date(topic.updatedAt * 1000).toISOString() : '',
+    reply_count: topic.replyCount || 0,
+    group: topic.group ? {
+      id: topic.group.id,
+      name: topic.group.name,
+      title: topic.group.title,
+      icon: topic.group.icon?.medium || topic.group.icon?.small || '',
+    } : null,
+  };
 }
 
 /**
  * 处理帖子列表请求
  * GET /api/super/topics/:id/posts
- * 由于 Bangumi 没有公开的帖子列表 API，使用 HTML 爬取
+ * 从话题详情的 replies 字段获取帖子列表
  * @param {object} db - D1 数据库
  * @param {object} env - Worker 环境变量
  * @param {number} userId - 用户 ID
@@ -231,19 +256,39 @@ export async function handleTopicDetail(db, env, userId, topicId) {
  * @returns {object} 帖子列表
  */
 export async function handlePostsList(db, env, userId, topicId, params = {}) {
-  // 帖子列表已在 handleTopicDetail 中获取，这里直接返回
-  const result = await handleTopicDetail(db, env, userId, topicId);
-  if (result.error) {
-    return result;
+  const tokenInfo = await getBangumiToken(db, userId);
+  if (!tokenInfo) {
+    return { error: '请先绑定 Bangumi 账号', status: 401 };
   }
-  
-  const { page = 1, limit = 20 } = params;
+  if (tokenInfo.expired) {
+    return { error: 'Bangumi token 已过期，请重新绑定', status: 401 };
+  }
+
+  // 调用 p1 API 获取话题详情（含 replies）
+  const result = await proxyBangumiAPI(`/p1/groups/-/topics/${topicId}`, tokenInfo.accessToken);
+  if (result.error) return result;
+
+  const topic = result.data;
+  const replies = topic.replies || [];
+
+  // 映射为前端期望的格式
+  const posts = replies.map((reply, index) => ({
+    id: reply.id,
+    floor: index + 1,
+    author: reply.creator?.nickname || reply.creator?.username || '匿名',
+    author_avatar: reply.creator?.avatar?.medium || reply.creator?.avatar?.small || '',
+    content: reply.content || '',
+    created_at: reply.createdAt ? new Date(reply.createdAt * 1000).toISOString() : '',
+    related: null,
+  }));
+
+  const { page = 1, limit = 50 } = params;
   const start = (page - 1) * limit;
   const end = start + limit;
-  
+
   return {
-    data: result.posts.slice(start, end),
-    total: result.posts.length,
+    data: posts.slice(start, end),
+    total: posts.length,
     page,
     limit,
   };
@@ -306,7 +351,7 @@ export async function handleCreatePost(db, env, userId, topicId, body) {
     postBody.related = body.related; // 关联帖子 ID（回复某楼层）
   }
 
-  return await proxyBangumiAPI(`/p1/topics/${topicId}/posts`, tokenInfo.accessToken, {
+  return await proxyBangumiAPI(`/p1/groups/-/topics/${topicId}/replies`, tokenInfo.accessToken, {
     method: 'POST',
     body: postBody,
   });
