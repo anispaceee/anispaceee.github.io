@@ -1,0 +1,144 @@
+/* TopicCard — 话题卡片 */
+
+.tc-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-xs);
+  text-decoration: none;
+  color: inherit;
+  transition: all var(--transition-normal);
+}
+
+.tc-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+/* ─── Avatar ─── */
+
+.tc-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-input);
+}
+
+.tc-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tc-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+}
+
+.tc-avatar-placeholder span {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  opacity: 0.6;
+  user-select: none;
+}
+
+/* ─── Content ─── */
+
+.tc-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tc-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.tc-card:hover .tc-title {
+  color: var(--primary);
+}
+
+/* ─── Meta ─── */
+
+.tc-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.tc-author {
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.tc-stat,
+.tc-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tc-stat svg,
+.tc-time svg {
+  opacity: 0.7;
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 480px) {
+  .tc-card {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .tc-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .tc-avatar-placeholder span {
+    font-size: 14px;
+  }
+
+  .tc-title {
+    font-size: 13px;
+  }
+
+  .tc-meta {
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .tc-author {
+    max-width: 80px;
+  }
+}
