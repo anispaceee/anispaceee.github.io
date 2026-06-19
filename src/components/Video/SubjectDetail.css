@@ -659,3 +659,57 @@
     padding: 8px 10px;
   }
 }
+
+/* Magnet Panel */
+.sd-magnet-panel {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.sd-magnet-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sd-magnet-panel-header .sd-section-title {
+  margin-bottom: 0;
+}
+
+.sd-magnet-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all var(--transition-fast);
+}
+
+.sd-magnet-panel-close:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.sd-magnet-ep-group {
+  margin-bottom: 16px;
+}
+
+.sd-magnet-ep-group:last-child {
+  margin-bottom: 0;
+}
+
+.sd-magnet-ep-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  padding-left: 4px;
+}

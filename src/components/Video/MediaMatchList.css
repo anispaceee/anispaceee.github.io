@@ -175,3 +175,52 @@
     margin-left: auto;
   }
 }
+
+/* Magnet Link Row */
+.mml-magnet-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-input);
+  border-radius: var(--radius-xs);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.mml-magnet-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.mml-magnet-url {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.mml-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.mml-copy-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}

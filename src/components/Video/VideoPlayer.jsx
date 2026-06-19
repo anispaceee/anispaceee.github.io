@@ -4,7 +4,7 @@ import { BangumiService } from '../../services/api';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
 import { danmakuService } from '../../services/media/DanmakuService';
 import { isTauri, addTorrent, getStreamUrl } from '../../services/media/TorrentAdapter';
-import { ArrowLeft, Play, Server, ChevronLeft, ChevronRight, Loader2, List, Layers } from 'lucide-react';
+import { ArrowLeft, Play, Server, ChevronLeft, ChevronRight, Loader2, List, Layers, Upload } from 'lucide-react';
 import './VideoPlayer.css';
 
 // Dynamic imports for DPlayer and Hls - loaded on demand
@@ -38,6 +38,11 @@ export default function VideoPlayer() {
   const [showSourceList, setShowSourceList] = useState(false);
   const [danmakuList, setDanmakuList] = useState([]);
   const [torrentProgress, setTorrentProgress] = useState(null); // { progress, downloadSpeed, numPeers }
+  const [torrentFiles, setTorrentFiles] = useState([]);
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [torrentConnecting, setTorrentConnecting] = useState(false);
+  const torrentClientRef = useRef(null);
+  const uploadedFileRef = useRef(null);
 
   const playerRef = useRef(null);
   const playerContainerRef = useRef(null);
@@ -240,13 +245,12 @@ export default function VideoPlayer() {
       torrentRef.current = null;
     }
 
-    if (downloadKind === 'magnet') {
-      // BT 播放：Tauri 端使用 fx-torrent，Web 端使用 WebTorrent
+    if (downloadKind === 'magnet' || downloadKind === 'torrent') {
       const trackerList = [
         'udp://tracker1.itzmx.com:8080/announce',
         'udp://moonburrow.club:6969/announce',
         'udp://new-line.net:6969/announce',
-        'udp://opentracker.io:6969/announce',
+        'udp://opentrackr.io:6969/announce',
         'udp://tamas3.ynh.fr:6969/announce',
         'udp://tracker.bittor.pw:1337/announce',
         'udp://tracker.dump.cl:6969/announce',
@@ -278,7 +282,6 @@ export default function VideoPlayer() {
             }
             console.log('[VideoPlayer] Tauri BT stream URL:', streamUrl);
 
-            // 使用 hls.js 或 <video> 播放本地流
             const container = playerContainerRef.current;
             const videoEl = document.createElement('video');
             videoEl.style.width = '100%';
@@ -289,66 +292,159 @@ export default function VideoPlayer() {
 
             videoEl.src = streamUrl;
             videoEl.play().catch(e => console.warn('[VideoPlayer] autoplay blocked:', e));
-
-            // TODO: 轮询进度
           } catch (err) {
             setPlayError('Tauri BT 引擎错误: ' + (err.message || err));
           }
         };
         initTauriTorrent();
       } else {
-        // Web: 使用 WebTorrent（WebRTC）
-        const initWebTorrent = async () => {
+        // Web: WebTorrent + DPlayer 整合
+        const initWebTorrentWithDPlayer = async () => {
           try {
-            const { default: WebTorrent } = await import('webtorrent');
-            const client = new WebTorrent({
-              maxConns: 100,
-              tracker: { announce: trackerList },
-            });
-            torrentRef.current = client;
-
-            client.add(url, { announce: trackerList }, (torrent) => {
-              const file = torrent.files.sort((a, b) => b.length - a.length)[0];
-              if (!file) {
-                setPlayError('种子中未找到视频文件');
-                return;
-              }
-
-              const container = playerContainerRef.current;
-              const videoEl = document.createElement('video');
-              videoEl.style.width = '100%';
-              videoEl.style.height = '100%';
-              videoEl.controls = true;
-              videoEl.autoplay = true;
-              container.appendChild(videoEl);
-
-              file.renderTo(videoEl, (err) => {
-                if (err) {
-                  setPlayError('视频渲染失败: ' + err.message);
-                }
-              });
-
-              torrent.on('download', () => {
-                setTorrentProgress({
-                  progress: Math.round(torrent.progress * 100),
-                  downloadSpeed: Math.round(torrent.downloadSpeed / 1024),
-                  numPeers: torrent.numPeers,
-                });
-              });
-
-              torrent.on('error', (err) => {
-                setPlayError('种子下载失败: ' + err.message);
-              });
-            });
-
-            client.on('error', (err) => {
-              setPlayError('WebTorrent 错误: ' + err.message);
-            });
-          } catch (err) {
-            setPlayError('WebTorrent 加载失败，浏览器可能不支持 BT 播放');
+            await loadPlayerLibs;
+          } catch (e) {
+            console.error('[VideoPlayer] Failed to load player libs:', e);
           }
+
+          if (!DPlayer) {
+            setPlayError('DPlayer 加载失败，请刷新页面重试');
+            return;
+          }
+
+          // 1. 初始化 DPlayer（空视频源，后续由 WebTorrent 注入）
+          const playerConfig = {
+            container: playerContainerRef.current,
+            video: { url: '', pic: coverRef.current },
+            autoplay: true,
+            theme: '#fb7299',
+            screenshot: true,
+            hotkey: true,
+            preload: 'auto',
+            volume: 0.7,
+          };
+
+          // 弹幕配置
+          playerConfig.danmaku = {
+            id: `${subjectId}_${episodeId}`,
+            maximum: 1000,
+            bottom: '10%',
+            unlimited: false,
+          };
+          playerConfig.apiBackend = {
+            read: (endpoint, callback) => {
+              callback({
+                data: danmakuListRef.current.map(d => ({
+                  time: d.time,
+                  type: d.type,
+                  color: parseInt(String(d.color || '#ffffff').replace('#', ''), 16) || 0xffffff,
+                  author: d.author,
+                  text: d.text,
+                })),
+              });
+            },
+            send: (endpoint, danmaku, callback) => {
+              callback();
+            },
+          };
+
+          let dp;
+          try {
+            dp = new DPlayer(playerConfig);
+            playerRef.current = dp;
+          } catch (err) {
+            console.error('[VideoPlayer] DPlayer init error for BT:', err);
+            setPlayError('播放器初始化失败: ' + (err.message || '未知错误'));
+            return;
+          }
+
+          // 2. 加载 WebTorrent
+          setTorrentConnecting(true);
+          const { default: WebTorrent } = await import('webtorrent');
+          const client = new WebTorrent({
+            maxConns: 100,
+            tracker: { announce: trackerList },
+          });
+          torrentRef.current = client;
+          torrentClientRef.current = client;
+
+          client.on('error', (err) => {
+            setPlayError('WebTorrent 错误: ' + err.message);
+            setTorrentConnecting(false);
+          });
+
+          // 3. 添加种子（支持磁力链接和 .torrent 文件）
+          const torrentInput = uploadedFileRef.current || url;
+          client.add(torrentInput, { announce: trackerList }, (torrent) => {
+            setTorrentConnecting(false);
+
+            // 过滤视频文件
+            const videoExts = /\.(mp4|mkv|avi|wmv|flv|webm|mov|ts|m4v)$/i;
+            const videoFiles = torrent.files.filter(f => videoExts.test(f.name));
+            const filesToShow = videoFiles.length > 0 ? videoFiles : [torrent.files.sort((a, b) => b.length - a.length)[0]];
+
+            setTorrentFiles(filesToShow.map((f, i) => ({
+              name: f.name,
+              size: f.length,
+              index: i,
+              file: f,
+            })));
+            setSelectedFileIndex(0);
+
+            // 4. 渲染最大文件到 DPlayer 的 video 元素
+            const file = filesToShow[0];
+            file.renderTo(dp.video, (err) => {
+              if (err) {
+                console.error('[VideoPlayer] renderTo error:', err);
+                setPlayError('视频渲染失败: ' + err.message);
+              }
+            });
+
+            // 5. 进度监听
+            torrent.on('download', () => {
+              setTorrentProgress({
+                progress: Math.round(torrent.progress * 100),
+                downloadSpeed: Math.round(torrent.downloadSpeed / 1024),
+                numPeers: torrent.numPeers,
+              });
+            });
+
+            torrent.on('error', (err) => {
+              setPlayError('种子下载失败: ' + err.message);
+              setTorrentConnecting(false);
+            });
+          });
+
+          // 6. 进度保存
+          const progressKey = `acg_v2_progress_${subjectId}_${episodeId}_${currentMedia?.sourceId}`;
+          dp.on('timeupdate', () => {
+            const currentTime = dp.video.currentTime;
+            const duration = dp.video.duration;
+            if (duration > 0 && currentTime > 5) {
+              localStorage.setItem(progressKey, JSON.stringify({
+                time: currentTime,
+                duration,
+                updatedAt: Date.now(),
+              }));
+            }
+          });
+
+          dp.on('loadedmetadata', () => {
+            try {
+              const saved = JSON.parse(localStorage.getItem(progressKey));
+              if (saved?.time && saved?.duration) {
+                const ratio = saved.time / saved.duration;
+                if (ratio > 0.05 && ratio < 0.95) {
+                  dp.seek(saved.time);
+                }
+              }
+            } catch {}
+          });
+
+          dp.on('error', () => {
+            setPlayError('视频播放失败，请尝试切换播放源或剧集');
+          });
         };
-        initWebTorrent();
+        initWebTorrentWithDPlayer();
       }
 
       return () => {
@@ -356,7 +452,11 @@ export default function VideoPlayer() {
           torrentRef.current.destroy();
           torrentRef.current = null;
         }
-        // Remove any video elements added by WebTorrent
+        if (torrentClientRef.current) {
+          torrentClientRef.current = null;
+        }
+        setTorrentFiles([]);
+        setSelectedFileIndex(0);
         const container = playerContainerRef.current;
         if (container) {
           const videos = container.querySelectorAll('video:not(.dplayer-video)');
@@ -626,6 +726,49 @@ export default function VideoPlayer() {
     setShowSourceList(false);
   }, []);
 
+  // 种子内文件切换
+  const handleTorrentFileSwitch = useCallback((index) => {
+    if (!torrentFiles[index] || !playerRef.current) return;
+
+    const file = torrentFiles[index].file;
+    setSelectedFileIndex(index);
+
+    // 重新渲染到 DPlayer 的 video 元素
+    file.renderTo(playerRef.current.video, (err) => {
+      if (err) {
+        setPlayError('切换文件失败: ' + err.message);
+      }
+    });
+  }, [torrentFiles]);
+
+  // .torrent 文件上传
+  const handleTorrentUpload = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const uploadedMedia = {
+      mediaId: `upload_${Date.now()}`,
+      sourceId: 'upload',
+      title: file.name,
+      originalTitle: file.name,
+      publishedTime: Date.now(),
+      location: 'online',
+      kind: 'bittorrent',
+      download: { kind: 'torrent', url: file.name },
+      properties: {
+        subjectName: '',
+        episodeName: '',
+        subtitleLanguageIds: [],
+        resolution: '',
+        alliance: '本地上传',
+        size: { value: 0, unit: '' },
+      },
+    };
+
+    uploadedFileRef.current = file;
+    setCurrentMedia(uploadedMedia);
+  }, []);
+
   // Previous / Next episode
   const handlePrevEpisode = useCallback(() => {
     if (!currentEpisode) return;
@@ -698,6 +841,21 @@ export default function VideoPlayer() {
             <Layers size={16} />
             <span>资源</span>
           </button>
+          <button
+            className="vp-toggle-btn"
+            onClick={() => document.getElementById('vp-torrent-upload')?.click()}
+            title="上传种子文件"
+          >
+            <Upload size={16} />
+            <span>上传种子</span>
+          </button>
+          <input
+            id="vp-torrent-upload"
+            type="file"
+            accept=".torrent"
+            style={{ display: 'none' }}
+            onChange={handleTorrentUpload}
+          />
         </div>
       </div>
 
@@ -727,6 +885,32 @@ export default function VideoPlayer() {
               <span>缓冲: {torrentProgress.progress}%</span>
               <span>速度: {torrentProgress.downloadSpeed} KB/s</span>
               <span>节点: {torrentProgress.numPeers}</span>
+            </div>
+          )}
+          {/* Torrent file selector */}
+          {torrentFiles.length > 1 && (
+            <div className="vp-torrent-files">
+              <span className="vp-torrent-files-label">种子内文件：</span>
+              <div className="vp-torrent-files-list">
+                {torrentFiles.map((f, idx) => (
+                  <button
+                    key={idx}
+                    className={`vp-torrent-file-btn ${idx === selectedFileIndex ? 'active' : ''}`}
+                    onClick={() => handleTorrentFileSwitch(idx)}
+                    title={f.name}
+                  >
+                    <span className="vp-torrent-file-name">{f.name}</span>
+                    <span className="vp-torrent-file-size">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Torrent connecting indicator */}
+          {torrentConnecting && (
+            <div className="vp-torrent-info">
+              <Loader2 size={14} className="vp-spinning" />
+              <span>正在连接节点...</span>
             </div>
           )}
 

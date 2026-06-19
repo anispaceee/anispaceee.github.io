@@ -683,3 +683,81 @@
     padding: 8px 10px;
   }
 }
+
+/* ─── Torrent File Selector ─── */
+.vp-torrent-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+}
+
+.vp-torrent-files-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.vp-torrent-files-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vp-torrent-file-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  max-width: 280px;
+}
+
+.vp-torrent-file-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.vp-torrent-file-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  box-shadow: 0 0 0 2px rgba(232, 134, 162, 0.15);
+}
+
+.vp-torrent-file-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.vp-torrent-file-size {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── Torrent Connecting Indicator ─── */
+.vp-torrent-info .vp-spinning {
+  animation: vp-spin 0.8s linear infinite;
+}
+
+@media (max-width: 768px) {
+  .vp-torrent-file-btn {
+    max-width: 200px;
+  }
+
+  .vp-torrent-file-name {
+    max-width: 120px;
+  }
+}

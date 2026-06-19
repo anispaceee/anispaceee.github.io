@@ -1769,10 +1769,11 @@ export default function InfoDetail() {
                             <div className="source-group-items">
                               {g.items.map((m, i) => {
                                 const bt = isBT(m);
+                                const playUrl = `/video/play/${subject.id}/${selectedEp?.sort || selectedEp?.ep || 1}`;
                                 return (
                                   <div key={i} className="source-item" onClick={() => {
-                                    if (!bt && m.media.download?.url) {
-                                      navigate(`/video/play/${subject.id}/${selectedEp?.sort || selectedEp?.ep || 1}`, {
+                                    if (m.media.download?.url) {
+                                      navigate(playUrl, {
                                         state: { media: m.media, episode: selectedEp, subject }
                                       });
                                     }
@@ -1787,9 +1788,8 @@ export default function InfoDetail() {
                                       {m.media.properties?.resolution && <span className="prop-tag">{m.media.properties.resolution}</span>}
                                       {m.media.properties?.alliance && <span className="prop-tag">{m.media.properties.alliance}</span>}
                                     </div>
-                                    {!bt ? (
-                                      <button className="play-btn">▶ 播放</button>
-                                    ) : (
+                                    <button className="play-btn">▶ 播放</button>
+                                    {bt && (
                                       <button className="play-btn copy-btn" onClick={(e) => { e.stopPropagation(); copyToClipboard(m.media.download?.url || ''); }}>
                                         复制链接
                                       </button>

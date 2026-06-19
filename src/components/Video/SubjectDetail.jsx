@@ -237,6 +237,37 @@ export default function SubjectDetail() {
         </div>
       </div>
 
+      {/* Magnet Link Panel */}
+      {showMagnetPanel && (
+        <section className="sd-section sd-magnet-panel">
+          <div className="sd-magnet-panel-header">
+            <h2 className="sd-section-title"><Play size={18} /> 站内资源</h2>
+            <button className="sd-magnet-panel-close" onClick={() => setShowMagnetPanel(false)}>
+              ✕
+            </button>
+          </div>
+          {magnetPanelLoading && (
+            <div className="sd-media-loading">
+              <Loader2 size={24} className="sd-spinning" />
+              <p>正在搜索资源...</p>
+            </div>
+          )}
+          {!magnetPanelLoading && Object.entries(allEpisodeMedia).map(([epSort, matches]) => (
+            <div key={epSort} className="sd-magnet-ep-group">
+              <h3 className="sd-magnet-ep-title">第{epSort}话</h3>
+              <MediaMatchList
+                matches={matches}
+                subjectId={subjectId}
+                episodeId={epSort}
+              />
+            </div>
+          ))}
+          {!magnetPanelLoading && Object.keys(allEpisodeMedia).length === 0 && (
+            <div className="mml-empty">未找到资源</div>
+          )}
+        </section>
+      )}
+
       {/* Characters Section */}
       {characters.length > 0 && (
         <section className="sd-section">

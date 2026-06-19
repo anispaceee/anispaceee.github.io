@@ -32,6 +32,16 @@ export default function MediaMatchList({ matches, subjectId, episodeId }) {
     return groups;
   }, [matches]);
 
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopyMagnet = (e, magnetUrl, mediaId) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(magnetUrl).then(() => {
+      setCopiedId(mediaId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
   const handlePlay = (match) => {
     const { sourceId, mediaId } = match.media;
     navigate(`/video/play/${subjectId}/${episodeId}?sourceId=${sourceId}&mediaId=${encodeURIComponent(mediaId)}`);
@@ -76,6 +86,21 @@ export default function MediaMatchList({ matches, subjectId, episodeId }) {
                       <span className="mml-prop"><Server size={12} /> {props.playSource}</span>
                     )}
                   </div>
+                  {match.media.download?.kind === 'magnet' && (
+                    <div className="mml-magnet-row">
+                      <Magnet size={12} className="mml-magnet-icon" />
+                      <span className="mml-magnet-url" title={match.media.download.url}>
+                        {match.media.download.url.substring(0, 60)}...
+                      </span>
+                      <button
+                        className="mml-copy-btn"
+                        onClick={(e) => handleCopyMagnet(e, match.media.download.url, match.media.mediaId)}
+                        title="复制磁力链接"
+                      >
+                        {copiedId === match.media.mediaId ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  )}
                   <button
                     className="mml-play-btn"
                     onClick={() => handlePlay(match)}
