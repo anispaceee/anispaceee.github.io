@@ -557,6 +557,26 @@ export const CollectionMarkService = {
     });
     // 本地备份：检查开关后自动保存
     this.saveToLocalBackup(data);
+
+    // 自动同步到 Bangumi（如果已绑定）
+    const bangumiToken = BangumiAuthService.getValidToken();
+    if (bangumiToken && result && !result.error) {
+      try {
+        await apiRequest('/api/bangumi-sync/collection', {
+          method: 'POST',
+          body: JSON.stringify({
+            subjectId: data.subjectId,
+            status: data.status,
+            rating: data.rating || 0,
+            comment: data.comment || '',
+            bangumiToken,
+          }),
+        });
+      } catch (err) {
+        console.warn('Bangumi 同步失败:', err);
+      }
+    }
+
     return result;
   },
 
@@ -1584,7 +1604,10 @@ export const BangumiAuthService = {
     return `${oauthConfig.bangumi.authUrl}?${params.toString()}`;
   },
 
-  initiateLogin() {
+  initiateLogin(isBindMode = false) {
+    if (isBindMode) {
+      sessionStorage.setItem('oauth_mode_bind', '1');
+    }
     window.location.href = this.buildAuthUrl();
   },
 
@@ -1607,10 +1630,49 @@ export const BangumiAuthService = {
     StorageService.set('acg_bangumi_token', oauthResult.access_token);
     if (oauthResult.refresh_token) StorageService.set('acg_bangumi_refresh', oauthResult.refresh_token);
     StorageService.set('acg_bangumi_user', oauthResult.user);
+    // 记录 token 过期时间（Bangumi token 有效期约 7 天）
+    if (oauthResult.expires_in) {
+      const expiresAt = Date.now() + oauthResult.expires_in * 1000;
+      StorageService.set('acg_bangumi_token_expires', expiresAt);
+    }
 
     // 通过 AuthService 创建或登录用户（现在走后端 API）
     const result = await AuthService.loginWithOAuth('bangumi', oauthResult.user);
     return result;
+  },
+
+  async refreshToken() {
+    const refreshToken = StorageService.get('acg_bangumi_refresh');
+    if (!refreshToken) return { error: '无 refresh token' };
+
+    try {
+      const res = await fetch(`${oauthConfig.tokenBase}/bangumi/refresh?refresh_token=${encodeURIComponent(refreshToken)}`);
+      const data = await res.json();
+      if (data.error) return { error: data.error };
+
+      StorageService.set('acg_bangumi_token', data.access_token);
+      if (data.refresh_token) StorageService.set('acg_bangumi_refresh', data.refresh_token);
+      if (data.expires_in) {
+        const expiresAt = Date.now() + data.expires_in * 1000;
+        StorageService.set('acg_bangumi_token_expires', expiresAt);
+      }
+
+      return { ok: true, access_token: data.access_token };
+    } catch (err) {
+      return { error: err.message || '刷新失败' };
+    }
+  },
+
+  getValidToken() {
+    const token = StorageService.get('acg_bangumi_token');
+    const expiresAt = StorageService.get('acg_bangumi_token_expires');
+
+    // Token 过期前 1 小时刷新
+    if (expiresAt && Date.now() > expiresAt - 3600000) {
+      this.refreshToken().catch(err => console.warn('Token 自动刷新失败:', err));
+    }
+
+    return token;
   },
 
   getBoundAccount() {
@@ -1625,6 +1687,65 @@ export const BangumiAuthService = {
     StorageService.remove('acg_bangumi_token');
     StorageService.remove('acg_bangumi_refresh');
     StorageService.remove('acg_bangumi_user');
+    StorageService.remove('acg_bangumi_token_expires');
+  },
+
+  // 绑定 Bangumi 账号到当前已登录用户（存入数据库）
+  async bindToCurrentUser(oauthResult) {
+    const jwt = sessionStorage.getItem('acg_jwt_token');
+    if (!jwt) return { error: '请先登录' };
+
+    // 同时保存到 localStorage 供前端使用
+    StorageService.set('acg_bangumi_token', oauthResult.access_token);
+    if (oauthResult.refresh_token) StorageService.set('acg_bangumi_refresh', oauthResult.refresh_token);
+    StorageService.set('acg_bangumi_user', oauthResult.user);
+    if (oauthResult.expires_in) {
+      const expiresAt = Date.now() + oauthResult.expires_in * 1000;
+      StorageService.set('acg_bangumi_token_expires', expiresAt);
+    }
+
+    try {
+      const res = await fetch('/api/auth/bind-bangumi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          accessToken: oauthResult.access_token,
+          refreshToken: oauthResult.refresh_token,
+          expiresAt: oauthResult.expires_in ? Math.floor((Date.now() + oauthResult.expires_in * 1000) / 1000) : null,
+          bangumiUserId: oauthResult.user_id,
+          bangumiUsername: oauthResult.user?.username || '',
+          bangumiAvatar: oauthResult.user?.avatar || '',
+        }),
+      });
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      return { error: err.message || '绑定失败' };
+    }
+  },
+
+  // 解绑 Bangumi 账号（从数据库删除）
+  async unbindFromServer() {
+    const jwt = sessionStorage.getItem('acg_jwt_token');
+    if (!jwt) return { error: '请先登录' };
+
+    try {
+      const res = await fetch('/api/auth/unbind-bangumi', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${jwt}` },
+      });
+      const data = await res.json();
+      // 同时清除本地存储
+      if (data.ok) {
+        this.unbind();
+      }
+      return data;
+    } catch (err) {
+      return { error: err.message || '解绑失败' };
+    }
   },
 };
 
@@ -2034,3 +2155,7 @@ export const CreativeSpaceService = {
     return apiRequest('/api/creative-notes/timeline');
   },
 };
+
+// ─── SuperService ───
+// 超展开（Bangumi 小组）API，走后端代理
+export { SuperService } from './SuperService.js';

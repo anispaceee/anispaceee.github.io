@@ -1,4 +1,3140 @@
 /**
+ * ANISpace Worker - 打包版本
+ * 用于手动部署到 Cloudflare Dashboard
+ *
+ * 此文件包含所有依赖模块，无需单独上传 lib 目录
+ */
+
+// ═══════════════════════════════════════════════════════════
+// 模块定义
+// ═══════════════════════════════════════════════════════════
+
+// ─── bangumiSync 模块 ────────────────────────────────────────
+const bangumiSync = {};
+(function(module) {
+/**
+ * Bangumi 收藏同步模块
+ * 实现双向同步：ANISpace → Bangumi 和 Bangumi → ANISpace
+ */
+
+const BANGUMI_API_URL = 'https://api.bgm.tv';
+const BANGUMI_TOKEN_URL = 'https://bgm.tv/oauth/access_token';
+
+/**
+ * 刷新 Bangumi access token
+ * @param {string} refreshToken - Bangumi refresh token
+ * @param {object} env - Worker 环境变量（包含 BANGUMI_CLIENT_ID, BANGUMI_CLIENT_SECRET）
+ * @returns {Promise<{ok: boolean, access_token?: string, refresh_token?: string, error?: string}>}
+ */
+async function refreshBangumiToken(refreshToken, env) {
+  if (!refreshToken || !env.BANGUMI_CLIENT_ID || !env.BANGUMI_CLIENT_SECRET) {
+    return { ok: false, error: '缺少 refresh token 或环境变量' };
+  }
+
+  try {
+    const body = new URLSearchParams({
+      client_id: env.BANGUMI_CLIENT_ID.trim(),
+      client_secret: env.BANGUMI_CLIENT_SECRET.trim(),
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    });
+
+    const res = await fetch(BANGUMI_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'ANISpace/1.0',
+        'Accept': 'application/json',
+      },
+      body: body.toString(),
+    });
+
+    const data = await res.json();
+    if (!data.access_token) {
+      return { ok: false, error: data.error_description || '刷新失败' };
+    }
+
+    return {
+      ok: true,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token || refreshToken,
+      expires_in: data.expires_in,
+    };
+  } catch (err) {
+    return { ok: false, error: err.message || '网络错误' };
+  }
+}
+
+/**
+ * 同步单个条目收藏状态到 Bangumi
+ * @param {string} accessToken - Bangumi access token
+ * @param {number} subjectId - Bangumi 条目 ID
+ * @param {string} status - ANISpace 状态 (wish/collect/done/on_hold/dropped)
+ * @param {number} rating - 评分 (0-10)
+ * @param {string} comment - 评论
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+async function syncToBangumi(accessToken, subjectId, status, rating = 0, comment = '') {
+  if (!accessToken) {
+    return { ok: false, error: '未绑定 Bangumi 账号' };
+  }
+
+  // 状态映射：ANISpace → Bangumi
+  // ANISpace: wish, doing, done, dropped, on_hold
+  // Bangumi: wish, collect, done, dropped, on_hold
+  // 注意：ANISpace 的 "doing" 对应 Bangumi 的 "collect"
+  const bangumiStatus = status === 'doing' ? 'collect' : status;
+
+  try {
+    // Bangumi API: PATCH /v0/users/-/collections/:subject_id
+    const res = await fetch(`${BANGUMI_API_URL}/v0/users/-/collections/${subjectId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'ANISpace/1.0',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        type: bangumiStatus,
+        rate: rating > 0 ? rating : undefined,
+        comment: comment || undefined,
+        private: false, // 默认公开
+      }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      return { ok: false, error: errData.error || `Bangumi API 错误: ${res.status}` };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || '网络错误' };
+  }
+}
+
+/**
+ * 从 Bangumi 拉取用户所有收藏
+ * @param {string} accessToken - Bangumi access token
+ * @param {string} username - Bangumi 用户名
+ * @param {number} limit - 每页数量
+ * @returns {Promise<{collections: Array, error?: string}>}
+ */
+async function fetchBangumiCollections(accessToken, username, limit = 100) {
+  if (!accessToken || !username) {
+    return { collections: [], error: '缺少 Bangumi token 或用户名' };
+  }
+
+  try {
+    const allCollections = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const res = await fetch(`${BANGUMI_API_URL}/v0/users/${username}/collections?limit=${limit}&offset=${offset}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'User-Agent': 'ANISpace/1.0',
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        return { collections: [], error: errData.error || `Bangumi API 错误: ${res.status}` };
+      }
+
+      const data = await res.json();
+      const collections = data.data || [];
+
+      allCollections.push(...collections);
+
+      if (collections.length < limit) {
+        hasMore = false;
+      } else {
+        offset += limit;
+      }
+    }
+
+    return { collections: allCollections };
+  } catch (err) {
+    return { collections: [], error: err.message || '网络错误' };
+  }
+}
+
+/**
+ * 将 Bangumi 收藏数据导入到本地数据库
+ * @param {object} env - Worker 环境变量
+ * @param {number} userId - ANISpace 用户 ID
+ * @param {Array} bangumiCollections - Bangumi 收藏数据
+ * @returns {Promise<{imported: number, skipped: number, error?: string}>}
+ */
+async function importBangumiCollections(env, userId, bangumiCollections) {
+  if (!bangumiCollections || bangumiCollections.length === 0) {
+    return { imported: 0, skipped: 0 };
+  }
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const item of bangumiCollections) {
+    const subjectId = item.subject_id;
+    const bangumiStatus = item.type; // wish, collect, done, dropped, on_hold
+    const rating = item.rate || 0;
+    const comment = item.comment || '';
+    const hasEpisode = item.ep_status || 0; // 已看集数
+
+    // 状态映射：Bangumi → ANISpace
+    // Bangumi "collect" → ANISpace "doing"
+    const anispaceStatus = bangumiStatus === 'collect' ? 'doing' : bangumiStatus;
+
+    try {
+      // 检查是否已存在
+      const existing = await env.DB.prepare(
+        'SELECT id FROM collections WHERE user_id = ? AND subject_id = ?'
+      ).bind(userId, subjectId).first();
+
+      if (existing) {
+        // 更新
+        await env.DB.prepare(
+          `UPDATE collections SET status = ?, rating = ?, comment = ?, updated_at = datetime('now')
+           WHERE user_id = ? AND subject_id = ?`
+        ).bind(anispaceStatus, rating, comment, userId, subjectId).run();
+        skipped++;
+      } else {
+        // 插入
+        await env.DB.prepare(
+          `INSERT INTO collections (user_id, subject_id, status, rating, comment, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+        ).bind(userId, subjectId, anispaceStatus, rating, comment).run();
+        imported++;
+      }
+    } catch (err) {
+      console.warn(`Import collection ${subjectId} failed:`, err);
+      skipped++;
+    }
+  }
+
+  return { imported, skipped };
+}
+
+// 导出函数到模块对象
+module.refreshBangumiToken = refreshBangumiToken;
+module.syncToBangumi = syncToBangumi;
+module.fetchBangumiCollections = fetchBangumiCollections;
+module.importBangumiCollections = importBangumiCollections;
+module.refreshBangumiToken = refreshBangumiToken;
+module.syncToBangumi = syncToBangumi;
+module.fetchBangumiCollections = fetchBangumiCollections;
+module.importBangumiCollections = importBangumiCollections;
+module.BANGUMI_API_URL = BANGUMI_API_URL;
+module.BANGUMI_TOKEN_URL = BANGUMI_TOKEN_URL;
+module.body = body;
+module.res = res;
+module.data = data;
+module.bangumiStatus = bangumiStatus;
+module.res = res;
+module.errData = errData;
+module.allCollections = allCollections;
+module.res = res;
+module.errData = errData;
+module.data = data;
+module.collections = collections;
+module.subjectId = subjectId;
+module.bangumiStatus = bangumiStatus;
+module.rating = rating;
+module.comment = comment;
+module.hasEpisode = hasEpisode;
+module.anispaceStatus = anispaceStatus;
+module.existing = existing;
+})(bangumiSync);
+
+// ─── bangumiSearch 模块 ────────────────────────────────────────
+const bangumiSearch = {};
+(function(module) {
+/**
+ * ANISpace Worker — Bangumi 搜索
+ *
+ * 策略（三层优先级）：
+ *   1. bangumi_subjects（全量数据，用户标记过的条目）
+ *   2. bangumi_index（轻量索引，覆盖 99% 全量条目）
+ *   3. 官方 /v0/search/subjects 兜底 + 回写
+ *
+ * 不在 Worker 里做完整的 like-中文-模糊匹配；只做 SQL LIKE + 排序。
+ * 真正模糊搜索留到前端用 fzf 风格二次过滤（见 BangumiSearchService.js）。
+ */
+
+const UA = 'ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace; search)';
+const OFFICIAL_BASE = 'https://api.bgm.tv';
+const FALLBACK_THRESHOLD = 5;   // 本地命中 < 此数时调官方
+const OFFICIAL_MAX = 25;
+const LOCAL_LIMIT = 30;
+
+/**
+ * 把 SQL LIKE 的元字符转义
+ */
+function escapeLike(s) {
+  return s.replace(/[\\%_]/g, ch => '\\' + ch);
+}
+
+/**
+ * bangumi_subjects 搜索（全量数据，优先级最高）
+ * @returns Promise<{items, source}>
+ */
+async function subjectsSearch(env, q, type = 0, limit = LOCAL_LIMIT) {
+  if (!q || !q.trim()) return { items: [], source: 'enriched' };
+  const like = '%' + escapeLike(q.trim()) + '%';
+  const params = [like, like];
+  let where = `(name LIKE ? ESCAPE '\\' OR name_cn LIKE ? ESCAPE '\\')`;
+  if (type && type > 0) {
+    where += ' AND type = ?';
+    params.push(Number(type));
+  }
+  const sql = `
+    SELECT id, name AS title, name_cn AS title_cn, '' AS title_ja, type,
+           air_date AS begin, '' AS end, score, rank, image
+    FROM bangumi_subjects
+    WHERE ${where}
+    ORDER BY (CASE WHEN rank > 0 THEN 0 ELSE 1 END), rank ASC, score DESC
+    LIMIT ?
+  `;
+  params.push(limit);
+  const result = await env.DB.prepare(sql).bind(...params).all();
+  return { items: result.results || [], source: 'enriched' };
+}
+
+/**
+ * 本地索引搜（bangumi_index，轻量）
+ * @param env
+ * @param q 关键词
+ * @param type bangumi type: 1/2/3/4/6/0(all)
+ * @param limit
+ * @returns Promise<{items, source}>
+ */
+async function localSearch(env, q, type = 0, limit = LOCAL_LIMIT) {
+  if (!q || !q.trim()) return { items: [], source: 'local' };
+  const like = '%' + escapeLike(q.trim()) + '%';
+  const params = [like, like, like, like];
+  let where = `(title LIKE ? ESCAPE '\\' OR title_cn LIKE ? ESCAPE '\\' OR title_ja LIKE ? ESCAPE '\\' OR aliases LIKE ? ESCAPE '\\')`;
+  if (type && type > 0) {
+    where += ' AND type = ?';
+    params.push(Number(type));
+  }
+  const sql = `
+    SELECT id, title, title_cn, title_ja, type, begin, end, score, rank, image
+    FROM bangumi_index
+    WHERE ${where}
+    ORDER BY (CASE WHEN rank > 0 THEN 0 ELSE 1 END), rank ASC, score DESC
+    LIMIT ?
+  `;
+  params.push(limit);
+  const result = await env.DB.prepare(sql).bind(...params).all();
+  return { items: result.results || [], source: 'local' };
+}
+
+/**
+ * 官方 API 兜底（带限流退避）
+ */
+async function officialSearch(q, type = 0) {
+  const filter = { type: type && type > 0 ? [Number(type)] : [1, 2, 3, 4, 6] };
+  const body = JSON.stringify({ keyword: q, filter, sort: 'match' });
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(`${OFFICIAL_BASE}/v0/search/subjects?limit=${OFFICIAL_MAX}`, {
+        method: 'POST',
+        headers: {
+          'User-Agent': UA,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body,
+      });
+      if (res.status === 429) {
+        // 退避一次
+        await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) throw new Error(`bgm ${res.status}`);
+      const data = await res.json();
+      return (data.data || []).map(it => ({
+        id: it.id,
+        title: it.name || '',
+        title_cn: it.name_cn || '',
+        title_ja: '',
+        type: it.type || 0,
+        begin: it.date || '',
+        end: '',
+        score: it.rating?.score || 0,
+        rank: it.rank || 0,
+        image: (it.images && (it.images.large || it.images.common)) || '',
+      }));
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  console.warn('[bangumi-search] official fallback failed:', lastErr?.message);
+  return [];
+}
+
+/**
+ * 把官方返回的少量关键字段回写本地索引（仅写已不存在的）
+ */
+async function backfillFromOfficial(env, officialItems) {
+  if (!Array.isArray(officialItems) || officialItems.length === 0) return;
+  const stmt = env.DB.prepare(`
+    INSERT OR IGNORE INTO bangumi_index
+      (id, title, title_cn, type, begin, score, rank, image, source_hash, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'official-fallback', datetime('now'))
+  `);
+  const batch = officialItems.slice(0, 50).map(it => stmt.bind(
+    it.id, it.title, it.title_cn || '', it.type || 0, it.begin || '',
+    it.score || 0, it.rank || 0, it.image || ''
+  ));
+  if (batch.length > 0) {
+    try {
+      await env.DB.batch(batch);
+    } catch (e) {
+      console.warn('[bangumi-search] backfill failed:', e?.message);
+    }
+  }
+}
+
+/**
+ * 主入口：搜索
+ * 优先级：bangumi_subjects → bangumi_index → 官方 API
+ */
+async function search(env, q, type = 0, options = {}) {
+  const { needFallback = true } = options;
+
+  // 第一层：bangumi_subjects（全量数据）
+  const enriched = await subjectsSearch(env, q, type);
+
+  // 第二层：bangumi_index（轻量索引，补充 enriched 未覆盖的条目）
+  const local = await localSearch(env, q, type);
+
+  // 合并两层本地数据（enriched 优先，去重）
+  const seen = new Set(enriched.items.map(it => it.id));
+  const merged = [...enriched.items];
+  for (const it of local.items) {
+    if (!seen.has(it.id)) {
+      merged.push(it);
+      seen.add(it.id);
+    }
+  }
+
+  if (merged.length >= FALLBACK_THRESHOLD || !needFallback) {
+    const source = enriched.items.length > 0 ? 'enriched' : 'local';
+    return { source, count: merged.length, items: merged.slice(0, LOCAL_LIMIT) };
+  }
+
+  // 第三层：官方 API 兜底
+  const official = await officialSearch(q, type);
+  if (official.length > 0) {
+    // 异步回写（不阻塞响应）
+    backfillFromOfficial(env, official).catch(() => {});
+  }
+
+  // 合并去重（本地优先）
+  for (const it of official) {
+    if (!seen.has(it.id)) {
+      merged.push(it);
+      seen.add(it.id);
+    }
+  }
+
+  const finalSource = enriched.items.length > 0 ? 'enriched'
+    : merged.length > local.items.length ? 'mixed'
+    : 'local';
+  return { source: finalSource, count: merged.length, items: merged.slice(0, LOCAL_LIMIT) };
+}
+
+/**
+ * 主入口：详情
+ * 优先级：bangumi_subjects（全量）→ bangumi_index（轻量）→ 官方 API
+ */
+async function getDetail(env, id) {
+  if (!id) return null;
+
+  // 第一层：bangumi_subjects（全量数据，优先）
+  const enriched = await env.DB.prepare(
+    'SELECT * FROM bangumi_subjects WHERE id = ?'
+  ).bind(Number(id)).first();
+  if (enriched) {
+    return { source: 'enriched', data: enriched };
+  }
+
+  // 第二层：bangumi_index（轻量索引）
+  const local = await env.DB.prepare(
+    'SELECT * FROM bangumi_index WHERE id = ?'
+  ).bind(Number(id)).first();
+  if (local && local.summary) {
+    return { source: 'local', data: local };
+  }
+
+  // 第三层：官方 API 兜底
+  try {
+    const res = await fetch(`${OFFICIAL_BASE}/v0/subjects/${Number(id)}`, {
+      headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+    });
+    if (!res.ok) return local ? { source: 'local', data: local } : null;
+    const data = await res.json();
+    return { source: 'official', data };
+  } catch {
+    return local ? { source: 'local', data: local } : null;
+  }
+}
+
+const _internal = { FALLBACK_THRESHOLD, OFFICIAL_BASE };
+
+
+// 导出函数到模块对象
+module.subjectsSearch = subjectsSearch;
+module.localSearch = localSearch;
+module.officialSearch = officialSearch;
+module.backfillFromOfficial = backfillFromOfficial;
+module.search = search;
+module.getDetail = getDetail;
+module.escapeLike = escapeLike;
+module.subjectsSearch = subjectsSearch;
+module.localSearch = localSearch;
+module.officialSearch = officialSearch;
+module.backfillFromOfficial = backfillFromOfficial;
+module.search = search;
+module.getDetail = getDetail;
+module.UA = UA;
+module.OFFICIAL_BASE = OFFICIAL_BASE;
+module.FALLBACK_THRESHOLD = FALLBACK_THRESHOLD;
+module.OFFICIAL_MAX = OFFICIAL_MAX;
+module.LOCAL_LIMIT = LOCAL_LIMIT;
+module.like = like;
+module.params = params;
+module.sql = sql;
+module.result = result;
+module.like = like;
+module.params = params;
+module.sql = sql;
+module.result = result;
+module.filter = filter;
+module.body = body;
+module.res = res;
+module.data = data;
+module.stmt = stmt;
+module.batch = batch;
+module.enriched = enriched;
+module.local = local;
+module.seen = seen;
+module.merged = merged;
+module.source = source;
+module.official = official;
+module.finalSource = finalSource;
+module.enriched = enriched;
+module.local = local;
+module.res = res;
+module.data = data;
+module._internal = _internal;
+})(bangumiSearch);
+
+// ─── newsScraper 模块 ────────────────────────────────────────
+const newsScraper = {};
+(function(module) {
+/**
+ * ANISpace 资讯爬虫模块
+ *
+ * 数据源：
+ * 1. Bangumi Calendar API — 当季新番
+ * 2. Bangumi 热门排行 — 高分动画
+ * 3. Bangumi 游戏排行 — 高分游戏
+ * 4. Bangumi 小说排行 — 高分小说/漫画
+ * 5. 月幕 Galgame — Galgame 发行（OAuth2 API）
+ * 6. HikariNagi — 光凪 Galgame 社区（HTML 爬取）
+ * 7. CnGal — 中文 Gal 文章/新闻/每周速报（公开 API）
+ * 8. Steam — Steam 精选/特惠/新品
+ * 9. Steam — 精选/特惠游戏
+ * 10. Jikan Season — MyAnimeList 当季新番（公开 API）
+ * 11. Jikan Top — MyAnimeList 热门排行（公开 API）
+ * 12. Kitsu Trending — Kitsu 热门动漫（公开 API）
+ * 13. Kitsu Current — Kitsu 正在播出（公开 API）
+ *
+ * 注意：AniList 和 B站 API 在 Cloudflare Worker 环境中被封禁（403/412），不可用
+ *
+ * 所有爬取结果统一为 { source, source_id, title, link, summary, cover, category, extra }
+ */
+
+const BANGUMI_API = 'https://api.bgm.tv';
+const BANGUMI_UA = 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)';
+
+// ─── Bangumi Calendar ──────────────────────────────────────
+
+async function scrapeBangumiCalendar() {
+  const res = await fetch(`${BANGUMI_API}/calendar`, {
+    headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
+  });
+  if (!res.ok) return [];
+
+  const days = await res.json();
+  const items = [];
+
+  for (const day of days) {
+    const weekday = day.weekday?.cn || '';
+    for (const item of (day.items || [])) {
+      if (item.type !== 2) continue;
+      const rating = item.rating?.score || 0;
+      const doing = item.collection?.doing || 0;
+      items.push({
+        source: 'bangumi_calendar',
+        source_id: `bgm_${item.id}`,
+        title: item.name_cn || item.name || '',
+        link: (item.url || `https://bgm.tv/subject/${item.id}`).replace('http://', 'https://'),
+        summary: item.summary || `${weekday}放送 · 评分 ${rating} · ${doing}人在看`,
+        cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
+        category: '新番导视',
+        extra: JSON.stringify({
+          weekday,
+          rating,
+          doing,
+          air_date: item.air_date || '',
+          name_jp: item.name || '',
+          bgm_id: item.id,
+        }),
+      });
+    }
+  }
+  return items;
+}
+
+// ─── Bangumi Hot (browser rank) ────────────────────────────
+
+async function scrapeBangumiHot() {
+  const res = await fetch(`${BANGUMI_API}/v0/subjects?type=2&sort=rank&limit=20`, {
+    headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
+  });
+  if (!res.ok) return [];
+
+  try {
+    const data = await res.json();
+    const items = (data.data || []).map(item => ({
+      source: 'bangumi_hot',
+      source_id: `bgm_hot_${item.id}`,
+      title: item.name_cn || item.name || '',
+      link: `https://bgm.tv/subject/${item.id}`,
+      summary: `评分 ${item.rating?.score || '-'} · 排名 #${item.rank || '-'}`,
+      cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
+      category: '热门推荐',
+      extra: JSON.stringify({
+        rating: item.rating?.score || 0,
+        rank: item.rank || 0,
+        name_jp: item.name || '',
+        bgm_id: item.id,
+      }),
+    }));
+    return items;
+  } catch {
+    return [];
+  }
+}
+
+// ─── Bangumi 游戏排行 ─────────────────────────────────────
+
+async function scrapeBangumiGame() {
+  const res = await fetch(`${BANGUMI_API}/v0/subjects?type=4&sort=rank&limit=20`, {
+    headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
+  });
+  if (!res.ok) return [];
+
+  try {
+    const data = await res.json();
+    const items = (data.data || []).map(item => ({
+      source: 'bangumi_game',
+      source_id: `bgm_game_${item.id}`,
+      title: item.name_cn || item.name || '',
+      link: `https://bgm.tv/subject/${item.id}`,
+      summary: `评分 ${item.rating?.score || '-'} · 排名 #${item.rank || '-'} · ${(item.tags || []).slice(0, 3).map(t => t.name).join('/')}`,
+      cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
+      category: '游戏推荐',
+      extra: JSON.stringify({
+        rating: item.rating?.score || 0,
+        rank: item.rank || 0,
+        name_jp: item.name || '',
+        bgm_id: item.id,
+        platform: item.platform || '',
+        tags: (item.tags || []).slice(0, 5).map(t => t.name),
+      }),
+    }));
+    return items;
+  } catch {
+    return [];
+  }
+}
+
+// ─── Bangumi 小说/漫画排行 ────────────────────────────────
+
+async function scrapeBangumiBook() {
+  const items = [];
+
+  // type=1 小说, type=3 音乐
+  for (const [type, typeName] of [[1, '小说'], [3, '音乐']]) {
+    try {
+      const res = await fetch(`${BANGUMI_API}/v0/subjects?type=${type}&sort=rank&limit=10`, {
+        headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'application/json' },
+      });
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      for (const item of (data.data || [])) {
+        items.push({
+          source: 'bangumi_book',
+          source_id: `bgm_book_${item.id}`,
+          title: item.name_cn || item.name || '',
+          link: `https://bgm.tv/subject/${item.id}`,
+          summary: `${typeName} · 评分 ${item.rating?.score || '-'} · 排名 #${item.rank || '-'}`,
+          cover: (item.images?.large || item.images?.common || '').replace('http://', 'https://'),
+          category: typeName === '小说' ? '轻小说' : '音乐推荐',
+          extra: JSON.stringify({
+            rating: item.rating?.score || 0,
+            rank: item.rank || 0,
+            name_jp: item.name || '',
+            bgm_id: item.id,
+            type: typeName,
+          }),
+        });
+      }
+    } catch {}
+  }
+
+  return items;
+}
+
+// ─── 月幕 Galgame (OAuth2 API) ─────────────────────────────
+
+const YMGAL_TOKEN_URL = 'https://www.ymgal.games/oauth/token';
+const YMGAL_API = 'https://www.ymgal.games/open/archive';
+const YMGAL_CLIENT_ID = 'ymgal';
+const YMGAL_CLIENT_SECRET = 'luna0327';
+
+let ymgalTokenCache = { token: '', expires: 0 };
+
+async function getYmgalToken() {
+  if (ymgalTokenCache.token && Date.now() < ymgalTokenCache.expires - 300000) {
+    return ymgalTokenCache.token;
+  }
+  try {
+    const res = await fetch(
+      `${YMGAL_TOKEN_URL}?grant_type=client_credentials&client_id=${YMGAL_CLIENT_ID}&client_secret=${YMGAL_CLIENT_SECRET}&scope=public`,
+      { headers: { 'Accept': 'application/json;charset=utf-8', 'version': '1' } }
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    const token = data.access_token || '';
+    const expiresIn = (data.expires_in || 3600) * 1000;
+    ymgalTokenCache = { token, expires: Date.now() + expiresIn };
+    return token;
+  } catch {
+    return '';
+  }
+}
+
+async function scrapeYmgal() {
+  const items = [];
+  const token = await getYmgalToken();
+  if (!token) return items;
+
+  const headers = {
+    'Accept': 'application/json;charset=utf-8',
+    'Authorization': `Bearer ${token}`,
+    'version': '1',
+  };
+
+  // 1. 按日期区间查询近期发行的游戏（正确端点：/open/archive/game）
+  try {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+    const releaseStartDate = thirtyDaysAgo.toISOString().split('T')[0];
+    const releaseEndDate = now.toISOString().split('T')[0];
+
+    const res = await fetch(
+      `${YMGAL_API}/game?releaseStartDate=${releaseStartDate}&releaseEndDate=${releaseEndDate}`,
+      { headers }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const games = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      for (const game of games) {
+        const title = game.chineseName || game.mainName || game.name || '';
+        if (!title) continue;
+        const cover = game.mainImg || '';
+        items.push({
+          source: 'ymgal',
+          source_id: `ymgal_${game.gid}`,
+          title,
+          link: `https://www.ymgal.games/ga${game.gid}`,
+          summary: `${game.orgName || 'Galgame'} · ${game.releaseDate || '发售日期未知'}${game.haveChinese ? ' · 有中文' : ''}`,
+          cover,
+          category: '新作发售',
+          extra: JSON.stringify({
+            gid: game.gid,
+            type: game.typeDesc || '',
+            releaseDate: game.releaseDate || '',
+            haveChinese: game.haveChinese || false,
+            orgName: game.orgName || '',
+            restricted: game.restricted || false,
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  // 2. 获取随机游戏作为补充
+  if (items.length < 5) {
+    try {
+      const res = await fetch(`${YMGAL_API}/random-game?num=5`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const games = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        for (const game of games) {
+          const title = game.chineseName || game.mainName || game.name || '';
+          if (!title) continue;
+          if (items.find(i => i.source_id === `ymgal_${game.gid}`)) continue;
+          const cover = game.mainImg
+            ? (game.mainImg.startsWith('http') ? game.mainImg : `https://cdn.ymgal.games/${game.mainImg}`)
+            : '';
+          items.push({
+            source: 'ymgal',
+            source_id: `ymgal_${game.gid}`,
+            title,
+            link: `https://www.ymgal.games/ga${game.gid}`,
+            summary: `${game.orgName || 'Galgame'} · ${game.releaseDate || ''}${game.haveChinese ? ' · 有中文' : ''}`,
+            cover,
+            category: 'Gal档案',
+            extra: JSON.stringify({
+              gid: game.gid,
+              releaseDate: game.releaseDate || '',
+              haveChinese: game.haveChinese || false,
+            }),
+          });
+        }
+      }
+    } catch {}
+  }
+
+  return items.slice(0, 20);
+}
+
+// ─── HikariNagi (HTML 爬取) ────────────────────────────────
+
+async function scrapeHikariNagi() {
+  const items = [];
+
+  try {
+    const res = await fetch('https://www.hikarinagi.org/', {
+      headers: { 'User-Agent': BANGUMI_UA, 'Accept': 'text/html' },
+    });
+    if (!res.ok) return items;
+
+    const html = await res.text();
+
+    const articleRe = /href="https?:\/\/www\.hikarinagi\.org\/community\/article\/(\d+)"[^>]*>([\s\S]*?)<\/a>/g;
+    let match;
+    const seen = new Set();
+
+    while ((match = articleRe.exec(html)) !== null && items.length < 10) {
+      const id = match[1];
+      const titleRaw = match[2].replace(/<[^>]*>/g, '').trim();
+      if (!titleRaw || titleRaw.length < 4 || seen.has(id)) continue;
+      seen.add(id);
+      items.push({
+        source: 'hikarinagi',
+        source_id: `hn_${id}`,
+        title: titleRaw,
+        link: `https://www.hikarinagi.org/community/article/${id}`,
+        summary: '光凪 Galgame 社区',
+        cover: '',
+        category: 'Gal档案',
+        extra: JSON.stringify({ id: Number(id), type: 'article' }),
+      });
+    }
+
+    const weeklyRe = /href="(https?:\/\/www\.hikarinagi\.org\/community\/article\/(\d+))"[^>]*>[\s\S]*?Gal周报/gi;
+    while ((match = weeklyRe.exec(html)) !== null && items.length < 15) {
+      const url = match[1];
+      const id = match[2];
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const titleMatch = match[0].match(/>([^<]*(?:Gal周报|周报)[^<]*)</);
+      const title = titleMatch ? titleMatch[1].trim() : `Gal周报 #${id}`;
+      items.push({
+        source: 'hikarinagi',
+        source_id: `hn_weekly_${id}`,
+        title,
+        link: url,
+        summary: '光凪 Gal 周报',
+        cover: '',
+        category: '每周速报',
+        extra: JSON.stringify({ id: Number(id), type: 'weekly' }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 15);
+}
+
+// ─── CnGal (公开 API) ──────────────────────────────────────
+
+const CNGAL_API = 'https://api.cngal.org/api';
+
+async function scrapeCnGal() {
+  const items = [];
+
+  // 1. 获取最新文章（POST 请求）
+  try {
+    const res = await fetch(`${CNGAL_API}/articles/GetArticleHomeList`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 1, pageSize: 10 }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const articles = Array.isArray(data) ? data : (data.data || data.result || []);
+      for (const article of articles.slice(0, 10)) {
+        const title = article.name || article.title || article.displayName || '';
+        if (!title) continue;
+        const articleLink = article.link || `https://www.cngal.org/articles/index/${article.id}`;
+        items.push({
+          source: 'cngal',
+          source_id: `cngal_art_${article.id}`,
+          title,
+          link: articleLink,
+          summary: (article.briefIntroduction || '').slice(0, 100),
+          cover: article.mainImage || '',
+          category: '业界动态',
+          extra: JSON.stringify({
+            id: article.id,
+            type: 'article',
+            author: article.createUserName || '',
+            createTime: article.lastEditTime || '',
+            originalLink: article.link || '',
+            readerCount: article.readerCount || 0,
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  // 2. 获取每周速报概览（GET 请求）
+  try {
+    const res = await fetch(`${CNGAL_API}/news/GetWeeklyNewsOverview`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const weeklyList = Array.isArray(data) ? data : (data.result || data.data || []);
+      for (const weekly of weeklyList.slice(0, 5)) {
+        const title = weekly.name || weekly.title || weekly.displayName || '';
+        if (!title) continue;
+        if (items.find(i => i.title === title)) continue;
+        const weeklyLink = weekly.link || `https://www.cngal.org/news/weekly/${weekly.id}`;
+        items.push({
+          source: 'cngal',
+          source_id: `cngal_weekly_${weekly.id}`,
+          title,
+          link: weeklyLink,
+          summary: (weekly.briefIntroduction || '').slice(0, 100),
+          cover: weekly.mainImage || '',
+          category: '每周速报',
+          extra: JSON.stringify({
+            id: weekly.id,
+            type: 'weekly',
+            displayName: weekly.displayName || '',
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  // 3. 获取近期发售游戏（GET 请求）
+  try {
+    const res = await fetch(`${CNGAL_API}/entries/GetPublishGamesByTime`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const games = Array.isArray(data) ? data : (data.result || data.data || []);
+      for (const game of games.slice(0, 10)) {
+        const title = game.name || '';
+        if (!title) continue;
+        if (items.find(i => i.source_id === `cngal_game_${game.id}`)) continue;
+        items.push({
+          source: 'cngal',
+          source_id: `cngal_game_${game.id}`,
+          title,
+          link: `https://www.cngal.org/entries/index/${game.id}`,
+          summary: (game.briefIntroduction || '').slice(0, 100) || `${game.publishTime || ''}`,
+          cover: game.mainImage || '',
+          category: 'Gal档案',
+          extra: JSON.stringify({
+            id: game.id,
+            type: 'game',
+            publishTime: game.publishTime || '',
+          }),
+        });
+      }
+    }
+  } catch {}
+
+  return items.slice(0, 25);
+}
+
+
+
+// ─── Steam 精选/特惠 ──────────────────────────────────────
+
+async function scrapeSteam() {
+  const items = [];
+
+  try {
+    const res = await fetch('https://store.steampowered.com/api/featuredcategories/', {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!res.ok) return items;
+
+    const data = await res.json();
+
+    // 1. Spotlight 精选
+    const spotlight = data.spotlight || [];
+    for (const item of spotlight.slice(0, 5)) {
+      const title = item.name || '';
+      if (!title) continue;
+      items.push({
+        source: 'steam',
+        source_id: `steam_spot_${item.id}`,
+        title,
+        link: `https://store.steampowered.com/app/${item.id}`,
+        summary: `Steam 精选${item.discounted ? ` · -${item.discount_percent}%` : ''}`,
+        cover: item.header_image?.replace('http://', 'https://') || item.large_capsule_image?.replace('http://', 'https://') || '',
+        category: 'Steam精选',
+        extra: JSON.stringify({
+          appId: item.id,
+          discounted: item.discounted || false,
+          discountPercent: item.discount_percent || 0,
+          finalPrice: item.final_price || 0,
+        }),
+      });
+    }
+
+    // 2. Daily Deal 每日特惠
+    const deals = data.specials || data.daily_deals || [];
+    for (const item of (deals.items || deals).slice(0, 10)) {
+      const title = item.name || '';
+      if (!title) continue;
+      if (items.find(i => i.source_id === `steam_deal_${item.id}`)) continue;
+      items.push({
+        source: 'steam',
+        source_id: `steam_deal_${item.id}`,
+        title,
+        link: `https://store.steampowered.com/app/${item.id}`,
+        summary: `Steam 特惠 · -${item.discount_percent || 0}%`,
+        cover: item.header_image?.replace('http://', 'https://') || item.large_capsule_image?.replace('http://', 'https://') || '',
+        category: 'Steam特惠',
+        extra: JSON.stringify({
+          appId: item.id,
+          discountPercent: item.discount_percent || 0,
+          originalPrice: item.original_price || 0,
+          finalPrice: item.final_price || 0,
+        }),
+      });
+    }
+
+    // 3. New Releases 新品
+    const newReleases = data.new_releases || [];
+    for (const item of (newReleases.items || newReleases).slice(0, 5)) {
+      const title = item.name || '';
+      if (!title) continue;
+      if (items.find(i => i.source_id === `steam_new_${item.id}`)) continue;
+      items.push({
+        source: 'steam',
+        source_id: `steam_new_${item.id}`,
+        title,
+        link: `https://store.steampowered.com/app/${item.id}`,
+        summary: 'Steam 新品',
+        cover: item.header_image?.replace('http://', 'https://') || item.large_capsule_image?.replace('http://', 'https://') || '',
+        category: 'Steam新品',
+        extra: JSON.stringify({
+          appId: item.id,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 20);
+}
+
+// ─── Jikan (MyAnimeList) ──────────────────────────────────────
+// 爬取当季新番和热门排行
+
+const JIKAN_API = 'https://api.jikan.moe/v4';
+
+async function scrapeJikanSeason() {
+  const items = [];
+
+  try {
+    // 获取当季新番（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${JIKAN_API}/seasons/now?limit=25`, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const title = anime.title || anime.title_japanese || '';
+      if (!title) continue;
+
+      const genres = (anime.genres || []).map(g => g.name).join('、');
+      const studios = (anime.studios || []).map(s => s.name).join('、');
+      const score = anime.score || 0;
+      const status = anime.status || '';
+
+      items.push({
+        source: 'jikan_season',
+        source_id: `mal_${anime.mal_id}`,
+        title,
+        link: anime.url || `https://myanimelist.net/anime/${anime.mal_id}`,
+        summary: `${anime.type || 'TV'} · ${anime.episodes || '?'}集 · 评分 ${score} · ${genres || '未知类型'}`,
+        cover: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '',
+        category: '新番导视',
+        extra: JSON.stringify({
+          malId: anime.mal_id,
+          score,
+          episodes: anime.episodes,
+          type: anime.type,
+          status,
+          genres,
+          studios,
+          year: anime.year,
+          season: anime.season,
+          airing: anime.airing,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 25);
+}
+
+async function scrapeJikanTop() {
+  const items = [];
+
+  try {
+    // 获取评分排行（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${JIKAN_API}/top/anime?filter=bypopularity&limit=25`, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const title = anime.title || anime.title_japanese || '';
+      if (!title) continue;
+
+      const genres = (anime.genres || []).map(g => g.name).join('、');
+      const score = anime.score || 0;
+      const rank = anime.rank || 0;
+      const popularity = anime.popularity || 0;
+
+      items.push({
+        source: 'jikan_top',
+        source_id: `mal_top_${anime.mal_id}`,
+        title,
+        link: anime.url || `https://myanimelist.net/anime/${anime.mal_id}`,
+        summary: `排名 #${rank} · 评分 ${score} · ${popularity}人收藏`,
+        cover: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '',
+        category: '热门推荐',
+        extra: JSON.stringify({
+          malId: anime.mal_id,
+          score,
+          rank,
+          popularity,
+          genres,
+          type: anime.type,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 25);
+}
+
+// ─── Kitsu (动漫数据库) ──────────────────────────────────────
+// 爬取热门动漫和当季新番
+
+const KITSU_API = 'https://kitsu.io/api/edge';
+
+async function scrapeKitsuTrending() {
+  const items = [];
+
+  try {
+    // 获取热门动漫（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${KITSU_API}/anime?page[limit]=20&sort=popularityRank`, {
+      headers: {
+        'Accept': 'application/vnd.api+json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const attrs = anime.attributes || {};
+      const title = attrs.canonicalTitle || attrs.titles?.en_jp || attrs.titles?.ja || '';
+      if (!title) continue;
+
+      const score = attrs.averageRating || 0;
+      const rank = attrs.popularityRank || 0;
+      const ratingRank = attrs.ratingRank || 0;
+      const status = attrs.status || '';
+      const type = attrs.subtype || 'TV';
+
+      items.push({
+        source: 'kitsu_trending',
+        source_id: `kitsu_${anime.id}`,
+        title,
+        link: `https://kitsu.io/anime/${anime.id}`,
+        summary: `${type} · ${attrs.episodeCount || '?'}集 · 评分 ${score/10 || '?'} · 热门排名 #${rank}`,
+        cover: attrs.posterImage?.large || attrs.posterImage?.medium || attrs.posterImage?.original || '',
+        category: '热门推荐',
+        extra: JSON.stringify({
+          kitsuId: anime.id,
+          slug: attrs.slug,
+          score,
+          popularityRank: rank,
+          ratingRank,
+          status,
+          type,
+          startDate: attrs.startDate,
+          endDate: attrs.endDate,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 20);
+}
+
+async function scrapeKitsuCurrent() {
+  const items = [];
+
+  try {
+    // 获取当前播出动漫（5秒超时）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${KITSU_API}/anime?page[limit]=20&filter[status]=current&sort=startDate`, {
+      headers: {
+        'Accept': 'application/vnd.api+json',
+        'User-Agent': 'Afterrainliu/ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace)',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return items;
+
+    const data = await res.json();
+    const animeList = data.data || [];
+
+    for (const anime of animeList) {
+      const attrs = anime.attributes || {};
+      const title = attrs.canonicalTitle || attrs.titles?.en_jp || attrs.titles?.ja || '';
+      if (!title) continue;
+
+      const score = attrs.averageRating || 0;
+      const type = attrs.subtype || 'TV';
+
+      items.push({
+        source: 'kitsu_current',
+        source_id: `kitsu_cur_${anime.id}`,
+        title,
+        link: `https://kitsu.io/anime/${anime.id}`,
+        summary: `${type} · 正在播出 · 评分 ${score/10 || '?'}`,
+        cover: attrs.posterImage?.large || attrs.posterImage?.medium || attrs.posterImage?.original || '',
+        category: '新番导视',
+        extra: JSON.stringify({
+          kitsuId: anime.id,
+          slug: attrs.slug,
+          score,
+          type,
+          startDate: attrs.startDate,
+          status: attrs.status,
+        }),
+      });
+    }
+  } catch {}
+
+  return items.slice(0, 20);
+}
+
+// ─── 统一爬取入口 ──────────────────────────────────────────
+
+async function runAllScrapers(db) {
+  const scrapers = [
+    { name: 'bangumi_calendar', fn: scrapeBangumiCalendar },
+    { name: 'bangumi_hot', fn: scrapeBangumiHot },
+    { name: 'bangumi_game', fn: scrapeBangumiGame },
+    { name: 'bangumi_book', fn: scrapeBangumiBook },
+    { name: 'ymgal', fn: scrapeYmgal },
+    { name: 'hikarinagi', fn: scrapeHikariNagi },
+    { name: 'cngal', fn: scrapeCnGal },
+    { name: 'steam', fn: scrapeSteam },
+    { name: 'jikan_season', fn: scrapeJikanSeason },
+    { name: 'jikan_top', fn: scrapeJikanTop },
+    { name: 'kitsu_trending', fn: scrapeKitsuTrending },
+    { name: 'kitsu_current', fn: scrapeKitsuCurrent },
+  ];
+
+  const results = {};
+  let total = 0;
+
+  for (const scraper of scrapers) {
+    try {
+      const items = await scraper.fn();
+      let inserted = 0;
+
+      for (const item of items) {
+        try {
+          await db.prepare(
+            `INSERT OR REPLACE INTO scraped_news (source, source_id, title, link, summary, cover, category, extra, scraped_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+          ).bind(item.source, item.source_id, item.title, item.link, item.summary, item.cover, item.category, item.extra).run();
+          inserted++;
+        } catch {}
+      }
+
+      results[scraper.name] = inserted;
+      total += inserted;
+    } catch (err) {
+      results[scraper.name] = `error: ${err.message}`;
+    }
+  }
+
+  // 清理 30 天前的旧数据
+  try {
+    await db.prepare(
+      "DELETE FROM scraped_news WHERE scraped_at < datetime('now', '-30 days')"
+    ).run();
+  } catch {}
+
+  return { total, sources: results };
+}
+
+async function scrapeSingleSource(sourceName) {
+  const scrapers = {
+    bangumi_calendar: scrapeBangumiCalendar,
+    bangumi_hot: scrapeBangumiHot,
+    bangumi_game: scrapeBangumiGame,
+    bangumi_book: scrapeBangumiBook,
+    ymgal: scrapeYmgal,
+    hikarinagi: scrapeHikariNagi,
+    cngal: scrapeCnGal,
+    steam: scrapeSteam,
+    jikan_season: scrapeJikanSeason,
+    jikan_top: scrapeJikanTop,
+    kitsu_trending: scrapeKitsuTrending,
+    kitsu_current: scrapeKitsuCurrent,
+  };
+
+  const fn = scrapers[sourceName];
+  if (!fn) return [];
+
+  try {
+    return await fn();
+  } catch {
+    return [];
+  }
+}
+
+
+// 导出函数到模块对象
+module.scrapeBangumiCalendar = scrapeBangumiCalendar;
+module.scrapeBangumiHot = scrapeBangumiHot;
+module.scrapeBangumiGame = scrapeBangumiGame;
+module.scrapeBangumiBook = scrapeBangumiBook;
+module.getYmgalToken = getYmgalToken;
+module.scrapeYmgal = scrapeYmgal;
+module.scrapeHikariNagi = scrapeHikariNagi;
+module.scrapeCnGal = scrapeCnGal;
+module.scrapeSteam = scrapeSteam;
+module.scrapeJikanSeason = scrapeJikanSeason;
+module.scrapeJikanTop = scrapeJikanTop;
+module.scrapeKitsuTrending = scrapeKitsuTrending;
+module.scrapeKitsuCurrent = scrapeKitsuCurrent;
+module.runAllScrapers = runAllScrapers;
+module.scrapeSingleSource = scrapeSingleSource;
+module.scrapeBangumiCalendar = scrapeBangumiCalendar;
+module.scrapeBangumiHot = scrapeBangumiHot;
+module.scrapeBangumiGame = scrapeBangumiGame;
+module.scrapeBangumiBook = scrapeBangumiBook;
+module.getYmgalToken = getYmgalToken;
+module.scrapeYmgal = scrapeYmgal;
+module.scrapeHikariNagi = scrapeHikariNagi;
+module.scrapeCnGal = scrapeCnGal;
+module.scrapeSteam = scrapeSteam;
+module.scrapeJikanSeason = scrapeJikanSeason;
+module.scrapeJikanTop = scrapeJikanTop;
+module.scrapeKitsuTrending = scrapeKitsuTrending;
+module.scrapeKitsuCurrent = scrapeKitsuCurrent;
+module.runAllScrapers = runAllScrapers;
+module.scrapeSingleSource = scrapeSingleSource;
+module.BANGUMI_API = BANGUMI_API;
+module.BANGUMI_UA = BANGUMI_UA;
+module.res = res;
+module.days = days;
+module.items = items;
+module.weekday = weekday;
+module.rating = rating;
+module.doing = doing;
+module.res = res;
+module.data = data;
+module.items = items;
+module.res = res;
+module.data = data;
+module.items = items;
+module.items = items;
+module.res = res;
+module.data = data;
+module.YMGAL_TOKEN_URL = YMGAL_TOKEN_URL;
+module.YMGAL_API = YMGAL_API;
+module.YMGAL_CLIENT_ID = YMGAL_CLIENT_ID;
+module.YMGAL_CLIENT_SECRET = YMGAL_CLIENT_SECRET;
+module.res = res;
+module.data = data;
+module.token = token;
+module.expiresIn = expiresIn;
+module.items = items;
+module.token = token;
+module.headers = headers;
+module.now = now;
+module.thirtyDaysAgo = thirtyDaysAgo;
+module.releaseStartDate = releaseStartDate;
+module.releaseEndDate = releaseEndDate;
+module.res = res;
+module.data = data;
+module.games = games;
+module.title = title;
+module.cover = cover;
+module.res = res;
+module.data = data;
+module.games = games;
+module.title = title;
+module.cover = cover;
+module.items = items;
+module.res = res;
+module.html = html;
+module.articleRe = articleRe;
+module.seen = seen;
+module.id = id;
+module.titleRaw = titleRaw;
+module.weeklyRe = weeklyRe;
+module.url = url;
+module.id = id;
+module.titleMatch = titleMatch;
+module.title = title;
+module.CNGAL_API = CNGAL_API;
+module.items = items;
+module.res = res;
+module.data = data;
+module.articles = articles;
+module.title = title;
+module.articleLink = articleLink;
+module.res = res;
+module.data = data;
+module.weeklyList = weeklyList;
+module.title = title;
+module.weeklyLink = weeklyLink;
+module.res = res;
+module.data = data;
+module.games = games;
+module.title = title;
+module.items = items;
+module.res = res;
+module.data = data;
+module.spotlight = spotlight;
+module.title = title;
+module.deals = deals;
+module.title = title;
+module.newReleases = newReleases;
+module.title = title;
+module.JIKAN_API = JIKAN_API;
+module.items = items;
+module.controller = controller;
+module.timeoutId = timeoutId;
+module.res = res;
+module.data = data;
+module.animeList = animeList;
+module.title = title;
+module.genres = genres;
+module.studios = studios;
+module.score = score;
+module.status = status;
+module.items = items;
+module.controller = controller;
+module.timeoutId = timeoutId;
+module.res = res;
+module.data = data;
+module.animeList = animeList;
+module.title = title;
+module.genres = genres;
+module.score = score;
+module.rank = rank;
+module.popularity = popularity;
+module.KITSU_API = KITSU_API;
+module.items = items;
+module.controller = controller;
+module.timeoutId = timeoutId;
+module.res = res;
+module.data = data;
+module.animeList = animeList;
+module.attrs = attrs;
+module.title = title;
+module.score = score;
+module.rank = rank;
+module.ratingRank = ratingRank;
+module.status = status;
+module.type = type;
+module.items = items;
+module.controller = controller;
+module.timeoutId = timeoutId;
+module.res = res;
+module.data = data;
+module.animeList = animeList;
+module.attrs = attrs;
+module.title = title;
+module.score = score;
+module.type = type;
+module.scrapers = scrapers;
+module.results = results;
+module.items = items;
+module.scrapers = scrapers;
+module.fn = fn;
+})(newsScraper);
+
+// ─── bangumiEnrich 模块 ────────────────────────────────────────
+const bangumiEnrich = {};
+(function(module) {
+/**
+ * ANISpace Worker — Bangumi 条目全量入库
+ *
+ * 当用户首次标记一个条目时，从 Bangumi API 拉取全量数据存入 bangumi_subjects 表。
+ * 后续搜索/详情获取优先使用此表数据，减少对官方 API 的依赖。
+ */
+
+const UA = 'ANISpace/1.0 (https://github.com/afterrain-2005/ANISpace; enrich)';
+const BANGUMI_API = 'https://api.bgm.tv';
+const MAX_RETRIES = 2;
+const RETRY_DELAYS = [500, 1000];
+
+/**
+ * 检查 bangumi_subjects 表是否已有该条目
+ */
+async function hasSubject(env, subjectId) {
+  const row = await env.DB.prepare(
+    'SELECT id FROM bangumi_subjects WHERE id = ?'
+  ).bind(Number(subjectId)).first();
+  return !!row;
+}
+
+/**
+ * 从 Bangumi API 拉取条目全量数据并存入 D1
+ * @param env
+ * @param subjectId Bangumi subject ID
+ * @returns {Promise<boolean>} 是否入库成功
+ */
+async function enrichSubject(env, subjectId) {
+  if (!subjectId) return false;
+
+  // 已存在则跳过
+  if (await hasSubject(env, subjectId)) return true;
+
+  // 从 Bangumi API 拉取全量数据
+  const data = await fetchSubjectDetail(subjectId);
+  if (!data || !data.id) return false;
+
+  // 存入 D1
+  try {
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO bangumi_subjects
+        (id, type, name, name_cn, summary, image, images, score, rank,
+         rating, tags, eps, air_date, air_weekday, platform,
+         infobox, crt, staff, collection, source, enriched_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrich', datetime('now'), datetime('now'))
+    `).bind(
+      Number(data.id),
+      data.type || 2,
+      data.name || '',
+      data.name_cn || '',
+      data.summary || '',
+      data.images?.large || data.images?.common || data.image || '',
+      JSON.stringify(data.images || {}),
+      data.rating?.score || 0,
+      data.rank || 0,
+      JSON.stringify(data.rating || {}),
+      JSON.stringify(
+        Array.isArray(data.tags)
+          ? data.tags.map(t => typeof t === 'string' ? { name: t } : { name: t.name, count: t.count })
+          : []
+      ),
+      data.eps || data.eps_count || 0,
+      data.air_date || '',
+      data.air_weekday || 0,
+      data.platform || '',
+      JSON.stringify(Array.isArray(data.infobox) ? data.infobox : []),
+      JSON.stringify(Array.isArray(data.crt) ? data.crt : []),
+      JSON.stringify(Array.isArray(data.staff) ? data.staff : []),
+      JSON.stringify(data.collection || {}),
+    ).run();
+
+    return true;
+  } catch (err) {
+    console.warn('[bangumi-enrich] DB insert failed:', err?.message);
+    return false;
+  }
+}
+
+/**
+ * 从 Bangumi API 拉取条目详情（带重试）
+ */
+async function fetchSubjectDetail(subjectId) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${BANGUMI_API}/subject/${subjectId}?responseGroup=large`, {
+        headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+      });
+      if (res.status === 429) {
+        await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt] || 1000));
+        continue;
+      }
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt] || 500));
+      }
+    }
+  }
+  console.warn('[bangumi-enrich] fetch failed:', lastErr?.message);
+  return null;
+}
+
+
+// 导出函数到模块对象
+module.hasSubject = hasSubject;
+module.enrichSubject = enrichSubject;
+module.fetchSubjectDetail = fetchSubjectDetail;
+module.hasSubject = hasSubject;
+module.enrichSubject = enrichSubject;
+module.fetchSubjectDetail = fetchSubjectDetail;
+module.UA = UA;
+module.BANGUMI_API = BANGUMI_API;
+module.MAX_RETRIES = MAX_RETRIES;
+module.RETRY_DELAYS = RETRY_DELAYS;
+module.row = row;
+module.data = data;
+module.res = res;
+})(bangumiEnrich);
+
+// ─── userProfile 模块 ────────────────────────────────────────
+const userProfile = {};
+(function(module) {
+/**
+ * ANISpace 用户画像计算引擎
+ * 功能：标签权重(TF-IDF)、类型亲和度、消费统计、评分倾向、相似用户
+ */
+
+function safeJson(value, fallback) {
+  if (typeof value === 'string' && value) {
+    try { return JSON.parse(value); } catch {}
+  }
+  return value ?? fallback;
+}
+
+/**
+ * 计算单个用户的完整画像
+ * @param {object} db - D1 数据库绑定
+ * @param {number} userId - 用户 ID
+ * @returns {object} 画像对象
+ */
+async function computeUserProfile(db, userId) {
+  const collections = await db.prepare(
+    'SELECT subject_id, status, rating FROM collections WHERE user_id = ?'
+  ).bind(userId).all();
+
+  if (!collections.results || collections.results.length === 0) {
+    return buildEmptyProfile(userId);
+  }
+
+  const items = collections.results;
+  const totalCollections = items.length;
+
+  // 批量获取条目标签和类型
+  const subjectIds = items.map(c => c.subject_id);
+  const placeholders = subjectIds.map(() => '?').join(',');
+  const subjects = await db.prepare(
+    `SELECT id, type, tags FROM bangumi_subjects WHERE id IN (${placeholders})`
+  ).bind(...subjectIds).all();
+
+  const subjectMap = {};
+  for (const s of (subjects.results || [])) {
+    subjectMap[s.id] = {
+      type: s.type,
+      tags: safeJson(s.tags, []),
+    };
+  }
+
+  // 计算标签权重 (TF-IDF)
+  const tagWeights = await computeTagWeights(db, items, subjectMap, userId);
+
+  // 计算类型亲和度
+  const typeAffinity = computeTypeAffinity(items, subjectMap);
+
+  // 计算消费统计
+  const consumptionStats = computeConsumptionStats(items);
+
+  // 计算评分倾向
+  const ratingTendency = computeRatingTendency(items);
+
+  // 计算活跃度
+  const activityScore = computeActivityScore(items);
+
+  // 计算社交特征
+  const socialFeatures = await computeSocialFeatures(db, userId);
+
+  // 计算生命周期阶段
+  const lifecycleStage = computeLifecycleStage(items, activityScore);
+
+  // 计算偏好向量（tag_weights 截断为 top-64）
+  const preferenceVector = computePreferenceVector(tagWeights);
+
+  return {
+    user_id: userId,
+    tag_weights: JSON.stringify(tagWeights),
+    type_affinity: JSON.stringify(typeAffinity),
+    consumption_stats: JSON.stringify(consumptionStats),
+    rating_tendency: ratingTendency,
+    activity_score: activityScore,
+    last_action_at: new Date().toISOString(),
+    version: 1,
+    similar_users: '[]',
+    social_features: JSON.stringify(socialFeatures),
+    preference_vector: JSON.stringify(preferenceVector),
+    lifecycle_stage: lifecycleStage,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * 标签权重 (类 TF-IDF)
+ * TF(t) = 用户含标签t的收藏数 / 总收藏数
+ * IDF(t) = log(总用户数 / 含标签t的用户数)
+ */
+async function computeTagWeights(db, items, subjectMap, userId) {
+  const tagCount = {};
+  let totalTagged = 0;
+
+  for (const item of items) {
+    const subject = subjectMap[item.subject_id];
+    if (!subject) continue;
+    const tags = subject.tags;
+    if (!Array.isArray(tags)) continue;
+    for (const tag of tags) {
+      const name = typeof tag === 'string' ? tag : tag.name;
+      if (!name) continue;
+      tagCount[name] = (tagCount[name] || 0) + 1;
+      totalTagged++;
+    }
+  }
+
+  if (totalTagged === 0) return {};
+
+  const totalUsersResult = await db.prepare(
+    'SELECT COUNT(DISTINCT user_id) as cnt FROM collections'
+  ).first();
+  const totalUsers = totalUsersResult?.cnt || 1;
+
+  const weights = {};
+  for (const [tag, count] of Object.entries(tagCount)) {
+    const tf = count / totalTagged;
+    const usersWithTag = await db.prepare(
+      `SELECT COUNT(DISTINCT c.user_id) as cnt
+       FROM collections c
+       JOIN bangumi_subjects bs ON c.subject_id = bs.id
+       WHERE bs.tags LIKE ?`
+    ).bind(`%${tag}%`).first();
+    const userCount = usersWithTag?.cnt || 1;
+    const idf = Math.log(totalUsers / Math.max(userCount, 1));
+    weights[tag] = Math.round(tf * idf * 1000) / 1000;
+  }
+
+  return weights;
+}
+
+/**
+ * 类型亲和度：按 anime(2)/game(4)/novel(1)/real(6) 归一化
+ */
+function computeTypeAffinity(items, subjectMap) {
+  const typeCount = { anime: 0, game: 0, novel: 0, real: 0 };
+  const TYPE_MAP = { 1: 'novel', 2: 'anime', 4: 'game', 6: 'real' };
+
+  for (const item of items) {
+    const subject = subjectMap[item.subject_id];
+    const typeKey = TYPE_MAP[subject?.type] || null;
+    if (typeKey) typeCount[typeKey]++;
+  }
+
+  const total = Object.values(typeCount).reduce((a, b) => a + b, 0);
+  if (total === 0) return { anime: 0, game: 0, novel: 0, real: 0 };
+
+  return {
+    anime: Math.round((typeCount.anime / total) * 100) / 100,
+    game: Math.round((typeCount.game / total) * 100) / 100,
+    novel: Math.round((typeCount.novel / total) * 100) / 100,
+    real: Math.round((typeCount.real / total) * 100) / 100,
+  };
+}
+
+/**
+ * 消费统计
+ */
+function computeConsumptionStats(items) {
+  const ratedItems = items.filter(c => c.rating > 0);
+  const avgRating = ratedItems.length > 0
+    ? Math.round(ratedItems.reduce((s, c) => s + c.rating, 0) / ratedItems.length * 10) / 10
+    : 0;
+
+  let ratingStd = 0;
+  if (ratedItems.length > 1) {
+    const variance = ratedItems.reduce((s, c) => s + Math.pow(c.rating - avgRating, 2), 0) / ratedItems.length;
+    ratingStd = Math.round(Math.sqrt(variance) * 10) / 10;
+  }
+
+  const statusCount = {};
+  for (const item of items) {
+    statusCount[item.status] = (statusCount[item.status] || 0) + 1;
+  }
+
+  return {
+    total_collections: items.length,
+    avg_rating: avgRating,
+    rating_std: ratingStd,
+    collection_by_status: statusCount,
+  };
+}
+
+/**
+ * 评分倾向
+ */
+function computeRatingTendency(items) {
+  const ratedItems = items.filter(c => c.rating > 0);
+  if (ratedItems.length === 0) return 'normal';
+
+  const avgRating = ratedItems.reduce((s, c) => s + c.rating, 0) / ratedItems.length;
+  let ratingStd = 0;
+  if (ratedItems.length > 1) {
+    const variance = ratedItems.reduce((s, c) => s + Math.pow(c.rating - avgRating, 2), 0) / ratedItems.length;
+    ratingStd = Math.sqrt(variance);
+  }
+
+  if (avgRating >= 8.5 && ratingStd < 1.0) return 'generous';
+  if (avgRating <= 5.0 || ratingStd > 2.5) return 'strict';
+  return 'normal';
+}
+
+/**
+ * 活跃度
+ */
+function computeActivityScore(items) {
+  if (items.length >= 30) return 0.9;
+  if (items.length >= 10) return 0.5;
+  if (items.length >= 1) return 0.2;
+  return 0;
+}
+
+/**
+ * 空画像（新用户/冷启动）
+ */
+function buildEmptyProfile(userId) {
+  return {
+    user_id: userId,
+    tag_weights: '{}',
+    type_affinity: '{}',
+    consumption_stats: JSON.stringify({
+      total_collections: 0, avg_rating: 0, rating_std: 0, collection_by_status: {}
+    }),
+    rating_tendency: 'normal',
+    activity_score: 0,
+    last_action_at: new Date().toISOString(),
+    version: 1,
+    similar_users: '[]',
+    social_features: '{}',
+    preference_vector: '{}',
+    lifecycle_stage: 'new',
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * 计算当前用户与所有其他用户的余弦相似度，返回 top-20
+ * similarity(A, B) = (Σ w_A(t) × w_B(t)) / (√Σ w_A² × √Σ w_B²)
+ */
+async function computeSimilarUsers(db, userId) {
+  const currentProfile = await db.prepare(
+    'SELECT tag_weights FROM user_profiles WHERE user_id = ?'
+  ).bind(userId).first();
+
+  if (!currentProfile) return [];
+
+  const currentWeights = safeJson(currentProfile.tag_weights, {});
+  const currentTags = Object.keys(currentWeights);
+  if (currentTags.length === 0) return [];
+
+  const currentNorm = Math.sqrt(
+    Object.values(currentWeights).reduce((sum, w) => sum + w * w, 0)
+  );
+  if (currentNorm === 0) return [];
+
+  const allProfiles = await db.prepare(
+    'SELECT user_id, tag_weights FROM user_profiles WHERE user_id != ? AND tag_weights != ?'
+  ).bind(userId, '{}').all();
+
+  const similarities = [];
+  for (const p of (allProfiles.results || [])) {
+    const otherWeights = safeJson(p.tag_weights, {});
+    const otherTags = Object.keys(otherWeights);
+    if (otherTags.length === 0) continue;
+
+    const commonTags = currentTags.filter(t => otherWeights[t] !== undefined);
+    if (commonTags.length === 0) continue;
+
+    let dotProduct = 0;
+    let otherNormSq = 0;
+    for (const tag of commonTags) {
+      dotProduct += currentWeights[tag] * otherWeights[tag];
+    }
+    for (const w of Object.values(otherWeights)) {
+      otherNormSq += w * w;
+    }
+    const otherNorm = Math.sqrt(otherNormSq);
+    if (otherNorm === 0) continue;
+
+    const similarity = dotProduct / (currentNorm * otherNorm);
+    similarities.push({ user_id: p.user_id, similarity: Math.round(similarity * 1000) / 1000 });
+  }
+
+  similarities.sort((a, b) => b.similarity - a.similarity);
+  return similarities.slice(0, 20);
+}
+
+/**
+ * 清理 7 天前的 behavior_log
+ */
+async function cleanupBehaviorLog(db) {
+  await db.prepare(
+    "DELETE FROM behavior_log WHERE created_at < datetime('now', '-7 days')"
+  ).run();
+}
+
+/**
+ * 计算社交特征
+ */
+async function computeSocialFeatures(db, userId) {
+  const followCount = await db.prepare(
+    'SELECT COUNT(*) as cnt FROM follows WHERE follower_id = ?'
+  ).bind(userId).first();
+  const followerCount = await db.prepare(
+    'SELECT COUNT(*) as cnt FROM follows WHERE following_id = ?'
+  ).bind(userId).first();
+  const postCount = await db.prepare(
+    'SELECT COUNT(*) as cnt FROM posts WHERE user_id = ?'
+  ).bind(userId).first();
+  const avgLikes = await db.prepare(
+    'SELECT AVG(like_count) as avg FROM posts WHERE user_id = ?'
+  ).bind(userId).first();
+
+  return {
+    follow_count: followCount?.cnt || 0,
+    follower_count: followerCount?.cnt || 0,
+    post_count: postCount?.cnt || 0,
+    avg_post_likes: Math.round((avgLikes?.avg || 0) * 10) / 10,
+  };
+}
+
+/**
+ * 计算生命周期阶段
+ */
+function computeLifecycleStage(items, activityScore) {
+  if (items.length < 5) return 'new';
+  if (items.length < 20) return 'growing';
+  if (activityScore >= 0.5) return 'active';
+  return 'dormant';
+}
+
+/**
+ * 计算偏好向量（tag_weights 截断为 top-64）
+ */
+function computePreferenceVector(tagWeights) {
+  return Object.entries(tagWeights)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 64)
+    .reduce((obj, [k, v]) => { obj[k] = v; return obj; }, {});
+}
+
+// 导出函数到模块对象
+module.computeUserProfile = computeUserProfile;
+module.computeTagWeights = computeTagWeights;
+module.computeSimilarUsers = computeSimilarUsers;
+module.cleanupBehaviorLog = cleanupBehaviorLog;
+module.computeSocialFeatures = computeSocialFeatures;
+module.safeJson = safeJson;
+module.computeUserProfile = computeUserProfile;
+module.computeTagWeights = computeTagWeights;
+module.computeTypeAffinity = computeTypeAffinity;
+module.computeConsumptionStats = computeConsumptionStats;
+module.computeRatingTendency = computeRatingTendency;
+module.computeActivityScore = computeActivityScore;
+module.buildEmptyProfile = buildEmptyProfile;
+module.computeSimilarUsers = computeSimilarUsers;
+module.cleanupBehaviorLog = cleanupBehaviorLog;
+module.computeSocialFeatures = computeSocialFeatures;
+module.computeLifecycleStage = computeLifecycleStage;
+module.computePreferenceVector = computePreferenceVector;
+module.collections = collections;
+module.items = items;
+module.totalCollections = totalCollections;
+module.subjectIds = subjectIds;
+module.placeholders = placeholders;
+module.subjects = subjects;
+module.subjectMap = subjectMap;
+module.tagWeights = tagWeights;
+module.typeAffinity = typeAffinity;
+module.consumptionStats = consumptionStats;
+module.ratingTendency = ratingTendency;
+module.activityScore = activityScore;
+module.socialFeatures = socialFeatures;
+module.lifecycleStage = lifecycleStage;
+module.preferenceVector = preferenceVector;
+module.tagCount = tagCount;
+module.subject = subject;
+module.tags = tags;
+module.name = name;
+module.totalUsersResult = totalUsersResult;
+module.totalUsers = totalUsers;
+module.weights = weights;
+module.tf = tf;
+module.usersWithTag = usersWithTag;
+module.userCount = userCount;
+module.idf = idf;
+module.typeCount = typeCount;
+module.TYPE_MAP = TYPE_MAP;
+module.subject = subject;
+module.typeKey = typeKey;
+module.total = total;
+module.ratedItems = ratedItems;
+module.avgRating = avgRating;
+module.variance = variance;
+module.statusCount = statusCount;
+module.ratedItems = ratedItems;
+module.avgRating = avgRating;
+module.variance = variance;
+module.currentProfile = currentProfile;
+module.currentWeights = currentWeights;
+module.currentTags = currentTags;
+module.currentNorm = currentNorm;
+module.allProfiles = allProfiles;
+module.similarities = similarities;
+module.otherWeights = otherWeights;
+module.otherTags = otherTags;
+module.commonTags = commonTags;
+module.otherNorm = otherNorm;
+module.similarity = similarity;
+module.followCount = followCount;
+module.followerCount = followerCount;
+module.postCount = postCount;
+module.avgLikes = avgLikes;
+})(userProfile);
+
+// ─── recommendEngine 模块 ────────────────────────────────────────
+const recommendEngine = {};
+(function(module) {
+/**
+ * ANISpace 推荐引擎 v2
+ * 四层架构：召回 → 粗排 → 精排 → 重排
+ */
+
+import { lrPredict, extractFeatures } from './lr-ranker.js';
+
+function safeJson(value, fallback) {
+  if (typeof value === 'string' && value) {
+    try { return JSON.parse(value); } catch {}
+  }
+  return value ?? fallback;
+}
+
+// ═══════════════════════════════════════
+// 第一层：多路召回
+// ═══════════════════════════════════════
+
+async function recallLayer(db, userId, profile, shortProfile) {
+  const tagWeights = safeJson(profile.tag_weights, {});
+  const typeAffinity = safeJson(profile.type_affinity, {});
+  const similarUsers = safeJson(profile.similar_users, []);
+  const preferenceVector = safeJson(profile.preference_vector, {});
+
+  const candidates = [];
+  const seenIds = new Set();
+
+  // 1. 协同过滤召回
+  if (similarUsers.length > 0) {
+    const similarIds = similarUsers.map(u => u.user_id);
+    const placeholders = similarIds.map(() => '?').join(',');
+    const cfItems = await db.prepare(
+      `SELECT c.subject_id, COUNT(*) as cnt
+       FROM collections c
+       WHERE c.user_id IN (${placeholders})
+         AND c.subject_id NOT IN (SELECT subject_id FROM collections WHERE user_id = ?)
+       GROUP BY c.subject_id
+       ORDER BY cnt DESC
+       LIMIT 50`
+    ).bind(...similarIds, userId).all();
+
+    for (const item of (cfItems.results || [])) {
+      if (!seenIds.has(item.subject_id)) {
+        candidates.push({ subject_id: item.subject_id, cf_score: item.cnt / 20, recall_source: 'cf' });
+        seenIds.add(item.subject_id);
+      }
+    }
+  }
+
+  // 2. 标签向量召回
+  const vectorTags = Object.entries(preferenceVector)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([tag]) => tag);
+
+  if (vectorTags.length > 0) {
+    const tagConditions = vectorTags.map(() => `bs.tags LIKE ?`).join(' OR ');
+    const tagParams = vectorTags.map(t => `%${t}%`);
+    const vectorItems = await db.prepare(
+      `SELECT bs.id, bs.type, bs.score, bs.tags
+       FROM bangumi_subjects bs
+       WHERE (${tagConditions})
+         AND bs.id NOT IN (SELECT subject_id FROM collections WHERE user_id = ?)
+         AND bs.score >= 7.0
+       ORDER BY bs.score DESC
+       LIMIT 50`
+    ).bind(...tagParams, userId).all();
+
+    for (const item of (vectorItems.results || [])) {
+      if (!seenIds.has(item.id)) {
+        candidates.push({
+          subject_id: item.id, type: item.type, score: item.score,
+          tags: safeJson(item.tags, []), cf_score: 0, recall_source: 'vector',
+        });
+        seenIds.add(item.id);
+      }
+    }
+  }
+
+  // 3. 内容匹配召回
+  const topTags = Object.entries(tagWeights)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([tag]) => tag);
+
+  if (topTags.length > 0) {
+    const tagConditions = topTags.map(() => `bs.tags LIKE ?`).join(' OR ');
+    const tagParams = topTags.map(t => `%${t}%`);
+    const tagItems = await db.prepare(
+      `SELECT bs.id, bs.type, bs.score, bs.tags
+       FROM bangumi_subjects bs
+       WHERE (${tagConditions})
+         AND bs.id NOT IN (SELECT subject_id FROM collections WHERE user_id = ?)
+         AND bs.score >= 6.5
+       ORDER BY bs.score DESC
+       LIMIT 30`
+    ).bind(...tagParams, userId).all();
+
+    for (const item of (tagItems.results || [])) {
+      if (!seenIds.has(item.id)) {
+        candidates.push({
+          subject_id: item.id, type: item.type, score: item.score,
+          tags: safeJson(item.tags, []), cf_score: 0, recall_source: 'content',
+        });
+        seenIds.add(item.id);
+      }
+    }
+  }
+
+  // 4. 社交召回
+  try {
+    const socialItems = await db.prepare(
+      `SELECT c.subject_id, COUNT(*) as cnt
+       FROM collections c
+       JOIN follows f ON f.following_id = c.user_id
+       WHERE f.follower_id = ?
+         AND c.subject_id NOT IN (SELECT subject_id FROM collections WHERE user_id = ?)
+       GROUP BY c.subject_id
+       ORDER BY cnt DESC
+       LIMIT 30`
+    ).bind(userId, userId).all();
+
+    for (const item of (socialItems.results || [])) {
+      if (!seenIds.has(item.subject_id)) {
+        candidates.push({
+          subject_id: item.subject_id, cf_score: 0,
+          social_count: item.cnt, recall_source: 'social',
+        });
+        seenIds.add(item.subject_id);
+      }
+    }
+  } catch {
+    // follows 表可能不存在，静默跳过
+  }
+
+  // 5. 热门兜底
+  const hotItems = await db.prepare(
+    `SELECT bs.id, bs.type, bs.score, bs.tags
+     FROM bangumi_subjects bs
+     WHERE bs.id NOT IN (SELECT subject_id FROM collections WHERE user_id = ?)
+     ORDER BY bs.score DESC
+     LIMIT 30`
+  ).bind(userId).all();
+
+  for (const item of (hotItems.results || [])) {
+    if (!seenIds.has(item.id)) {
+      candidates.push({
+        subject_id: item.id, type: item.type, score: item.score,
+        tags: safeJson(item.tags, []), cf_score: 0, recall_source: 'hot',
+      });
+      seenIds.add(item.id);
+    }
+  }
+
+  return candidates;
+}
+
+// ═══════════════════════════════════════
+// 第二层：粗排
+// ═══════════════════════════════════════
+
+function coarseRankLayer(candidates, profile) {
+  const typeAffinity = safeJson(profile.type_affinity, {});
+
+  return candidates
+    .map(item => {
+      const typeKey = { 1: 'novel', 2: 'anime', 4: 'game', 6: 'real' }[item.type] || '';
+      const typeMatch = (typeAffinity[typeKey] || 0) > 0.3 ? 1.0 : 0.5;
+      const popularity = Math.min((item.score || 0) / 10, 1.0);
+      const coarseScore = typeMatch * 0.6 + popularity * 0.4;
+      return { ...item, _coarse_score: coarseScore };
+    })
+    .sort((a, b) => b._coarse_score - a._coarse_score)
+    .slice(0, 50);
+}
+
+// ═══════════════════════════════════════
+// 第三层：精排 (LR)
+// ═══════════════════════════════════════
+
+function fineRankLayer(candidates, profile, shortProfile) {
+  const profileObj = {
+    tag_weights: safeJson(profile.tag_weights, {}),
+    type_affinity: safeJson(profile.type_affinity, {}),
+    rating_tendency: profile.rating_tendency,
+  };
+  const shortObj = shortProfile ? {
+    recent_tags: safeJson(shortProfile.recent_tags, {}),
+    recent_types: safeJson(shortProfile.recent_types, {}),
+  } : {};
+
+  return candidates
+    .map(item => {
+      const features = extractFeatures(item, profileObj, shortObj);
+      const lrScore = lrPredict(features);
+      return { ...item, _lr_score: lrScore };
+    })
+    .sort((a, b) => b._lr_score - a._lr_score)
+    .slice(0, 20);
+}
+
+// ═══════════════════════════════════════
+// 第四层：重排
+// ═══════════════════════════════════════
+
+function rerankLayer(candidates, options = {}) {
+  const promotions = options.promotions || [];
+  const shownSubjects = options.shownSubjects || [];
+  const shownSet = new Set(shownSubjects);
+  const result = [];
+  const typeCount = {};
+  let promoIndex = 0;
+
+  for (const item of candidates) {
+    if (shownSet.has(item.subject_id)) continue;
+
+    const typeKey = item.type || 'unknown';
+    typeCount[typeKey] = (typeCount[typeKey] || 0) + 1;
+    if (result.length > 3 && typeCount[typeKey] > Math.ceil(result.length * 0.4 + 1)) continue;
+
+    let finalScore = item._lr_score || 0;
+    if (item.created_at) {
+      const hoursSince = (Date.now() - new Date(item.created_at).getTime()) / 3600000;
+      if (hoursSince < 24) finalScore *= 1.1;
+    }
+
+    result.push({ ...item, _final_score: finalScore });
+
+    if (result.length % 5 === 0 && promoIndex < promotions.length) {
+      result.push({ ...promotions[promoIndex++], is_promotion: true });
+    }
+  }
+
+  return result;
+}
+
+// ═══════════════════════════════════════
+// 主入口
+// ═══════════════════════════════════════
+
+/**
+ * 为单个用户计算推荐并写入缓存
+ */
+async function refreshUserRecommendCache(db, userId) {
+  const profile = await db.prepare(
+    'SELECT * FROM user_profiles WHERE user_id = ?'
+  ).bind(userId).first();
+  if (!profile) return;
+
+  let shortProfile = null;
+  try {
+    shortProfile = await db.prepare(
+      'SELECT * FROM user_profile_short WHERE user_id = ?'
+    ).bind(userId).first();
+  } catch {}
+
+  let promotions = [];
+  try {
+    const promoResult = await db.prepare(
+      `SELECT * FROM promotion_slots
+       WHERE is_active = 1
+         AND (start_at IS NULL OR start_at <= datetime('now'))
+         AND (end_at IS NULL OR end_at >= datetime('now'))
+       ORDER BY weight DESC`
+    ).all();
+    promotions = promoResult.results || [];
+  } catch {}
+
+  const recalled = await recallLayer(db, userId, profile, shortProfile);
+  const coarseRanked = coarseRankLayer(recalled, profile);
+  const fineRanked = fineRankLayer(coarseRanked, profile, shortProfile);
+  const homeRandom = rerankLayer(fineRanked, {
+    promotions: promotions.filter(p => p.slot_name === 'home_random'),
+  });
+
+  const typeAffinity = safeJson(profile.type_affinity, {});
+  const forumPosts = computeForumPosts(typeAffinity);
+  const newsFeed = computeNewsFeed(typeAffinity);
+
+  const scenes = [
+    { scene: 'home_random', items: homeRandom },
+    { scene: 'forum_posts', items: forumPosts },
+    { scene: 'news_feed', items: newsFeed },
+  ];
+
+  for (const s of scenes) {
+    await db.prepare(
+      `INSERT OR REPLACE INTO recommend_cache (user_id, scene, items, generated_at)
+       VALUES (?, ?, ?, datetime('now'))`
+    ).bind(userId, s.scene, JSON.stringify(s.items)).run();
+  }
+}
+
+function computeForumPosts(typeAffinity) {
+  const boardWeights = [];
+  if (typeAffinity.anime > 0.3) {
+    const weight = typeAffinity.anime > 0.5 ? 1.3 : 1.15;
+    boardWeights.push({ board: 'newanime', weight }, { board: 'oldanime', weight });
+  }
+  if (typeAffinity.game > 0.3) {
+    const weight = typeAffinity.game > 0.5 ? 1.3 : 1.15;
+    boardWeights.push({ board: 'galgame', weight }, { board: 'game', weight });
+  }
+  if (typeAffinity.novel > 0.3) {
+    const weight = typeAffinity.novel > 0.5 ? 1.3 : 1.15;
+    boardWeights.push({ board: 'novel', weight });
+  }
+  return boardWeights;
+}
+
+function computeNewsFeed(typeAffinity) {
+  const categoryWeights = [];
+  if (typeAffinity.anime > 0.3) {
+    const weight = typeAffinity.anime > 0.5 ? 1.3 : 1.15;
+    categoryWeights.push(
+      { category: '新番导视', weight },
+      { category: '热门推荐', weight },
+      { category: '每周速报', weight },
+    );
+  }
+  if (typeAffinity.game > 0.3) {
+    const weight = typeAffinity.game > 0.5 ? 1.3 : 1.15;
+    categoryWeights.push(
+      { category: '游戏推荐', weight },
+      { category: 'VN推荐', weight },
+      { category: 'Steam精选', weight },
+      { category: 'Steam特惠', weight },
+      { category: 'Steam新品', weight },
+    );
+  }
+  if (typeAffinity.novel > 0.3) {
+    const weight = typeAffinity.novel > 0.5 ? 1.3 : 1.15;
+    categoryWeights.push({ category: '轻小说', weight });
+  }
+  return categoryWeights;
+}
+
+/**
+ * 为所有活跃用户刷新推荐缓存
+ */
+async function refreshAllRecommendCaches(db) {
+  let activeUsers;
+  try {
+    activeUsers = await db.prepare(
+      `SELECT DISTINCT user_id FROM behavior_log
+       WHERE created_at > datetime('now', '-7 days')
+       UNION
+       SELECT user_id FROM user_profiles WHERE activity_score >= 0.5`
+    ).all();
+  } catch {
+    activeUsers = await db.prepare(
+      'SELECT user_id FROM user_profiles WHERE activity_score >= 0.5'
+    ).all();
+  }
+
+  for (const row of (activeUsers.results || [])) {
+    try {
+      await refreshUserRecommendCache(db, row.user_id);
+    } catch (err) {
+      console.error(`Failed to refresh cache for user ${row.user_id}:`, err.message);
+    }
+  }
+}
+
+/**
+ * 获取热门推荐（冷启动）
+ */
+async function getHotRecommendations(db) {
+  const items = await db.prepare(
+    `SELECT id, name, name_cn, type, score, images
+     FROM bangumi_subjects
+     ORDER BY score DESC
+     LIMIT 20`
+  ).all();
+
+  return (items.results || []).map(item => ({
+    subject_id: item.id,
+    name: item.name,
+    name_cn: item.name_cn,
+    type: item.type,
+    score: item.score,
+    images: safeJson(item.images, {}),
+    reason: 'hot',
+  }));
+}
+
+// 导出函数到模块对象
+module.recallLayer = recallLayer;
+module.refreshUserRecommendCache = refreshUserRecommendCache;
+module.refreshAllRecommendCaches = refreshAllRecommendCaches;
+module.getHotRecommendations = getHotRecommendations;
+module.safeJson = safeJson;
+module.recallLayer = recallLayer;
+module.coarseRankLayer = coarseRankLayer;
+module.fineRankLayer = fineRankLayer;
+module.rerankLayer = rerankLayer;
+module.refreshUserRecommendCache = refreshUserRecommendCache;
+module.computeForumPosts = computeForumPosts;
+module.computeNewsFeed = computeNewsFeed;
+module.refreshAllRecommendCaches = refreshAllRecommendCaches;
+module.getHotRecommendations = getHotRecommendations;
+module.tagWeights = tagWeights;
+module.typeAffinity = typeAffinity;
+module.similarUsers = similarUsers;
+module.preferenceVector = preferenceVector;
+module.candidates = candidates;
+module.seenIds = seenIds;
+module.similarIds = similarIds;
+module.placeholders = placeholders;
+module.cfItems = cfItems;
+module.vectorTags = vectorTags;
+module.tagConditions = tagConditions;
+module.tagParams = tagParams;
+module.vectorItems = vectorItems;
+module.topTags = topTags;
+module.tagConditions = tagConditions;
+module.tagParams = tagParams;
+module.tagItems = tagItems;
+module.socialItems = socialItems;
+module.hotItems = hotItems;
+module.typeAffinity = typeAffinity;
+module.typeKey = typeKey;
+module.typeMatch = typeMatch;
+module.popularity = popularity;
+module.coarseScore = coarseScore;
+module.profileObj = profileObj;
+module.shortObj = shortObj;
+module.features = features;
+module.lrScore = lrScore;
+module.promotions = promotions;
+module.shownSubjects = shownSubjects;
+module.shownSet = shownSet;
+module.result = result;
+module.typeCount = typeCount;
+module.typeKey = typeKey;
+module.hoursSince = hoursSince;
+module.profile = profile;
+module.promoResult = promoResult;
+module.recalled = recalled;
+module.coarseRanked = coarseRanked;
+module.fineRanked = fineRanked;
+module.homeRandom = homeRandom;
+module.typeAffinity = typeAffinity;
+module.forumPosts = forumPosts;
+module.newsFeed = newsFeed;
+module.scenes = scenes;
+module.boardWeights = boardWeights;
+module.weight = weight;
+module.weight = weight;
+module.weight = weight;
+module.categoryWeights = categoryWeights;
+module.weight = weight;
+module.weight = weight;
+module.weight = weight;
+module.items = items;
+})(recommendEngine);
+
+// ─── behaviorCollector 模块 ────────────────────────────────────────
+const behaviorCollector = {};
+(function(module) {
+/**
+ * worker/lib/behavior-collector.js
+ * 后端批量行为处理 + 短期画像计算
+ */
+
+/**
+ * 批量写入行为日志
+ */
+async function batchInsertBehaviors(db, userId, actions) {
+  const stmt = db.prepare(
+    'INSERT INTO behavior_log (user_id, action, target_type, target_id, metadata) VALUES (?, ?, ?, ?, ?)'
+  );
+  const batch = actions.map(a =>
+    stmt.bind(userId, a.action, a.target_type || '', a.target_id || 0, JSON.stringify(a.metadata || {}))
+  );
+  await db.batch(batch);
+}
+
+/**
+ * 计算用户短期画像（7天行为聚合）
+ */
+async function computeShortProfile(db, userId) {
+  const sevenDaysAgo = "datetime('now', '-7 days')";
+
+  const actionStats = await db.prepare(
+    `SELECT action, target_type, COUNT(*) as cnt
+     FROM behavior_log
+     WHERE user_id = ? AND created_at > ${sevenDaysAgo}
+     GROUP BY action, target_type`
+  ).bind(userId).all();
+
+  const recentSubjects = await db.prepare(
+    `SELECT DISTINCT target_id
+     FROM behavior_log
+     WHERE user_id = ? AND target_type IN ('anime', 'game', 'novel')
+       AND created_at > ${sevenDaysAgo}
+     LIMIT 100`
+  ).bind(userId).all();
+
+  const subjectIds = (recentSubjects.results || []).map(r => r.target_id);
+  let recentTags = {};
+  if (subjectIds.length > 0) {
+    const placeholders = subjectIds.map(() => '?').join(',');
+    const subjects = await db.prepare(
+      `SELECT tags FROM bangumi_subjects WHERE id IN (${placeholders})`
+    ).bind(...subjectIds).all();
+
+    const tagCount = {};
+    for (const s of (subjects.results || [])) {
+      try {
+        const tags = JSON.parse(s.tags || '[]');
+        for (const tag of tags) {
+          const name = typeof tag === 'string' ? tag : tag.name;
+          if (name) tagCount[name] = (tagCount[name] || 0) + 1;
+        }
+      } catch {}
+    }
+    recentTags = tagCount;
+  }
+
+  const recentTypes = {};
+  for (const row of (actionStats.results || [])) {
+    if (['anime', 'game', 'novel'].includes(row.target_type)) {
+      recentTypes[row.target_type] = (recentTypes[row.target_type] || 0) + row.cnt;
+    }
+  }
+
+  const totalActions = (actionStats.results || []).reduce((s, r) => s + r.cnt, 0);
+
+  const sessionResult = await db.prepare(
+    `SELECT COUNT(*) as cnt FROM behavior_log
+     WHERE user_id = ? AND action = 'page_stay'
+       AND created_at > ${sevenDaysAgo}`
+  ).bind(userId).first();
+
+  const shortProfile = {
+    recent_tags: JSON.stringify(recentTags),
+    recent_types: JSON.stringify(recentTypes),
+    recent_actions: totalActions,
+    recent_subjects: JSON.stringify(subjectIds),
+    session_count: sessionResult?.cnt || 0,
+    updated_at: new Date().toISOString(),
+  };
+
+  await db.prepare(
+    `INSERT OR REPLACE INTO user_profile_short
+     (user_id, recent_tags, recent_types, recent_actions, recent_subjects, session_count, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    userId, shortProfile.recent_tags, shortProfile.recent_types,
+    shortProfile.recent_actions, shortProfile.recent_subjects,
+    shortProfile.session_count, shortProfile.updated_at
+  ).run();
+
+  return shortProfile;
+}
+
+// 导出函数到模块对象
+module.batchInsertBehaviors = batchInsertBehaviors;
+module.computeShortProfile = computeShortProfile;
+module.batchInsertBehaviors = batchInsertBehaviors;
+module.computeShortProfile = computeShortProfile;
+module.stmt = stmt;
+module.batch = batch;
+module.sevenDaysAgo = sevenDaysAgo;
+module.actionStats = actionStats;
+module.recentSubjects = recentSubjects;
+module.subjectIds = subjectIds;
+module.placeholders = placeholders;
+module.subjects = subjects;
+module.tagCount = tagCount;
+module.tags = tags;
+module.name = name;
+module.recentTypes = recentTypes;
+module.totalActions = totalActions;
+module.sessionResult = sessionResult;
+module.shortProfile = shortProfile;
+})(behaviorCollector);
+
+// ─── exploreEngine 模块 ────────────────────────────────────────
+const exploreEngine = {};
+(function(module) {
+/**
+ * worker/lib/explore-engine.js
+ * 探索流聚合引擎：多源内容聚合 + 个性化排序
+ */
+
+function safeJson(value, fallback) {
+  if (typeof value === 'string' && value) {
+    try { return JSON.parse(value); } catch {}
+  }
+  return value ?? fallback;
+}
+
+/**
+ * 生成探索流
+ */
+async function generateExploreFeed(db, profile, category = '', page = 1, pageSize = 20) {
+  const typeAffinity = safeJson(profile?.type_affinity, {});
+  const tagWeights = safeJson(profile?.tag_weights, {});
+  const offset = (page - 1) * pageSize;
+
+  const items = [];
+
+  // 1. 推荐条目 (40%)
+  if (!category || ['anime', 'game', 'novel', '全部'].includes(category)) {
+    const typeMap = { anime: 2, game: 4, novel: 1 };
+    const typeFilter = category && category !== '全部' && typeMap[category]
+      ? `AND bs.type = ${typeMap[category]}`
+      : '';
+    const subjects = await db.prepare(
+      `SELECT bs.id, bs.name, bs.name_cn, bs.type, bs.score, bs.images, bs.tags
+       FROM bangumi_subjects bs
+       WHERE bs.score >= 7.0 ${typeFilter}
+       ORDER BY bs.score DESC
+       LIMIT ? OFFSET ?`
+    ).bind(Math.ceil(pageSize * 0.4), offset).all();
+
+    for (const s of (subjects.results || [])) {
+      items.push({
+        item_type: 'subject',
+        subject_id: s.id, name: s.name, name_cn: s.name_cn,
+        type: s.type, score: s.score,
+        images: safeJson(s.images, {}),
+        tags: safeJson(s.tags, []),
+        created_at: null,
+      });
+    }
+  }
+
+  // 2. 热门帖子 (20%)
+  if (!category || category === 'post' || category === '全部') {
+    const posts = await db.prepare(
+      `SELECT p.id, p.title, p.content, p.category, p.created_at,
+              u.name, u.avatar,
+              (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) as like_count
+       FROM posts p
+       LEFT JOIN users u ON p.author_id = u.id
+       ORDER BY like_count DESC, p.created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(Math.ceil(pageSize * 0.2), offset).all();
+
+    for (const p of (posts.results || [])) {
+      items.push({
+        item_type: 'post',
+        post_id: p.id, title: p.title, content: p.content?.slice(0, 100),
+        category: p.category, like_count: p.like_count,
+        author: p.name, author_avatar: p.avatar,
+        created_at: p.created_at,
+      });
+    }
+  }
+
+  // 3. 资讯 (20%)
+  if (!category || category === 'news' || category === '全部') {
+    const news = await db.prepare(
+      `SELECT id, title, summary, source, category, cover, created_at
+       FROM scraped_news
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(Math.ceil(pageSize * 0.2), offset).all();
+
+    for (const n of (news.results || [])) {
+      items.push({
+        item_type: 'news',
+        news_id: n.id, title: n.title, summary: n.summary,
+        source: n.source, category: n.category,
+        cover_url: n.cover, created_at: n.created_at,
+      });
+    }
+  }
+
+  // 4. 创作者作品 (20%)
+  if (!category || category === 'work' || category === '全部') {
+    const works = await db.prepare(
+      `SELECT w.id, w.title, w.type, w.cover_image, w.created_at,
+              u.name as author_name
+       FROM works w
+       LEFT JOIN users u ON w.author_id = u.id
+       WHERE w.is_visible = 1 AND w.visibility != 'private'
+       ORDER BY w.created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(Math.ceil(pageSize * 0.2), offset).all();
+
+    for (const w of (works.results || [])) {
+      items.push({
+        item_type: 'work',
+        work_id: w.id, title: w.title, work_type: w.type,
+        cover_url: w.cover_image, author_name: w.author_name,
+        created_at: w.created_at,
+      });
+    }
+  }
+
+  // 个性化排序
+  const ranked = personalizeExploreItems(items, typeAffinity, tagWeights);
+
+  return {
+    items: ranked.slice(0, pageSize),
+    page,
+    has_more: ranked.length >= pageSize,
+  };
+}
+
+function personalizeExploreItems(items, typeAffinity, tagWeights) {
+  return items.map(item => {
+    let boost = 1.0;
+
+    if (item.item_type === 'subject') {
+      const typeKey = { 2: 'anime', 4: 'game', 1: 'novel', 6: 'real' }[item.type] || '';
+      if (typeKey && typeAffinity[typeKey] > 0.3) boost *= 1.2;
+    }
+
+    if (item.tags && Array.isArray(item.tags)) {
+      for (const tag of item.tags) {
+        const name = typeof tag === 'string' ? tag : tag.name;
+        if (name && tagWeights[name]) boost *= 1.05;
+      }
+    }
+
+    if (item.created_at) {
+      const daysSince = (Date.now() - new Date(item.created_at).getTime()) / 86400000;
+      if (daysSince < 1) boost *= 1.3;
+      else if (daysSince < 7) boost *= 1.1;
+    }
+
+    return { ...item, _explore_score: (item.score || item.like_count || 0) * boost };
+  }).sort((a, b) => b._explore_score - a._explore_score);
+}
+
+// 导出函数到模块对象
+module.generateExploreFeed = generateExploreFeed;
+module.safeJson = safeJson;
+module.generateExploreFeed = generateExploreFeed;
+module.personalizeExploreItems = personalizeExploreItems;
+module.typeAffinity = typeAffinity;
+module.tagWeights = tagWeights;
+module.offset = offset;
+module.items = items;
+module.typeMap = typeMap;
+module.typeFilter = typeFilter;
+module.subjects = subjects;
+module.posts = posts;
+module.news = news;
+module.works = works;
+module.ranked = ranked;
+module.typeKey = typeKey;
+module.name = name;
+module.daysSince = daysSince;
+})(exploreEngine);
+
+// ─── creativeNotes 模块 ────────────────────────────────────────
+const creativeNotes = {};
+(function(module) {
+/**
+ * 创作空间纯函数库
+ * 提取自 oauth-proxy.js 的可测试逻辑：输入校验、序列化、所有权校验、时间线构建
+ */
+
+/** 安全 JSON 解析，失败返回 fallback */
+function safeJsonParse(value, fallback) {
+  if (typeof value !== 'string' || !value) return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+/** 校验笔记新建/更新输入，返回 { valid, data, error } */
+function validateNoteInput(body) {
+  if (!body || typeof body !== 'object') {
+    return { valid: false, error: '请求体无效', data: null };
+  }
+  const title = typeof body.title === 'string' ? body.title.slice(0, 200) : '';
+  if (body.title && typeof body.title === 'string' && body.title.length > 200) {
+    return { valid: false, error: '标题不能超过 200 字符', data: null };
+  }
+  let blocks = [];
+  if (body.blocks !== undefined) {
+    if (!Array.isArray(body.blocks)) {
+      return { valid: false, error: 'blocks 必须是数组', data: null };
+    }
+    blocks = body.blocks;
+  }
+  let linked_subject_ids = [];
+  if (body.linked_subject_ids !== undefined) {
+    if (!Array.isArray(body.linked_subject_ids)) {
+      return { valid: false, error: 'linked_subject_ids 必须是数组', data: null };
+    }
+    linked_subject_ids = body.linked_subject_ids;
+  }
+  let linked_subjects_snapshot = [];
+  if (body.linked_subjects_snapshot !== undefined) {
+    if (!Array.isArray(body.linked_subjects_snapshot)) {
+      return { valid: false, error: 'linked_subjects_snapshot 必须是数组', data: null };
+    }
+    linked_subjects_snapshot = body.linked_subjects_snapshot;
+  }
+  let tags = [];
+  if (body.tags !== undefined) {
+    if (!Array.isArray(body.tags)) {
+      return { valid: false, error: 'tags 必须是数组', data: null };
+    }
+    tags = body.tags;
+  }
+  const is_pinned = body.is_pinned ? 1 : 0;
+  return {
+    valid: true,
+    error: null,
+    data: { title, blocks, linked_subject_ids, linked_subjects_snapshot, tags, is_pinned },
+  };
+}
+
+/** 把 blocks 数组序列化为 JSON 字符串（DB 存储） */
+function serializeBlocks(blocks) {
+  if (!Array.isArray(blocks)) return '[]';
+  return JSON.stringify(blocks);
+}
+
+/** 把 DB 行的 JSON 字段反序列化为对象 */
+function parseNote(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    title: row.title || '',
+    blocks: safeJsonParse(row.blocks, []),
+    linked_subject_ids: safeJsonParse(row.linked_subject_ids, []),
+    linked_subjects_snapshot: safeJsonParse(row.linked_subjects_snapshot, []),
+    tags: safeJsonParse(row.tags, []),
+    is_pinned: row.is_pinned || 0,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+/** 所有权校验：authUser.userId === note.user_id */
+function checkOwnership(authUser, note) {
+  if (!authUser || !note) return false;
+  return authUser.userId === note.user_id;
+}
+
+/** 构建时间线条目 */
+function buildTimelineEntry(type, row) {
+  const entry = {
+    type,
+    id: row.id,
+    subject_id: row.subject_id,
+    subject_name: row.subject_name || '',
+    subject_image: row.subject_image || '',
+    subject_type: row.subject_type,
+    content: row.content || '',
+    created_at: row.created_at,
+  };
+  if (type === 'rating') {
+    entry.score = row.score;
+  }
+  return entry;
+}
+
+/** 组装 Navi 上下文：笔记内容 + 关联条目历史短评 */
+function buildNaviContext(note, insights) {
+  const lines = [];
+  lines.push('你是用户的创作助手 Navi。以下是用户的笔记内容和关联条目的历史短评，请基于这些上下文回答用户的问题。');
+  lines.push('');
+  lines.push('【当前笔记】');
+  lines.push(`标题：${note.title || '（无标题）'}`);
+  lines.push('内容：');
+  for (const block of (note.blocks || [])) {
+    if (block.type === 'text' || block.type === 'quote') {
+      lines.push(block.content || '');
+    } else if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+      lines.push(`${'#'.repeat(Number(block.type[1]))} ${block.content || ''}`);
+    } else if (block.type === 'todo') {
+      lines.push(`- [${block.checked ? 'x' : ' '}] ${block.content || ''}`);
+    } else if (block.type === 'divider') {
+      lines.push('---');
+    } else if (block.type === 'image') {
+      lines.push(`[图片: ${block.src || ''}]`);
+    } else if (block.type === 'subject-link') {
+      lines.push(`[条目: ${block.subject_name || ''}]`);
+    }
+  }
+  lines.push('');
+  lines.push('【关联条目历史短评】');
+  if (insights && insights.length > 0) {
+    insights.forEach((it, i) => {
+      const score = it.score ? `（评分：${it.score}）` : '';
+      lines.push(`${i + 1}. ${it.subject_name || '未知条目'}${score}："${it.content || ''}"`);
+    });
+  } else {
+    lines.push('（暂无关联短评）');
+  }
+  return lines.join('\n');
+}
+
+
+// 导出函数到模块对象
+module.safeJsonParse = safeJsonParse;
+module.validateNoteInput = validateNoteInput;
+module.serializeBlocks = serializeBlocks;
+module.parseNote = parseNote;
+module.checkOwnership = checkOwnership;
+module.buildTimelineEntry = buildTimelineEntry;
+module.buildNaviContext = buildNaviContext;
+module.title = title;
+module.is_pinned = is_pinned;
+module.entry = entry;
+module.lines = lines;
+module.score = score;
+})(creativeNotes);
+
+// ─── lrRanker 模块 ────────────────────────────────────────
+const lrRanker = {};
+(function(module) {
+/**
+ * worker/lib/lr-ranker.js
+ * LR (Logistic Regression) 精排器
+ * 特征加权 + sigmoid 输出 [0, 1] 概率
+ */
+
+const LR_WEIGHTS = {
+  tag_match:      2.0,
+  type_match:     1.5,
+  cf_score:       1.8,
+  popularity:     0.8,
+  recency:        0.5,
+  rating_match:   1.0,
+  social:         1.2,
+};
+const LR_BIAS = -1.5;
+
+/**
+ * LR 预测
+ * @param {object} features - 特征字典
+ * @returns {number} [0, 1] 概率值
+ */
+function lrPredict(features) {
+  let z = LR_BIAS;
+  for (const [key, weight] of Object.entries(LR_WEIGHTS)) {
+    z += weight * (features[key] || 0);
+  }
+  return 1 / (1 + Math.exp(-z));
+}
+
+/**
+ * 为候选条目提取特征
+ */
+function extractFeatures(item, profile, shortProfile) {
+  const tagWeights = profile?.tag_weights || {};
+  const typeAffinity = profile?.type_affinity || {};
+  const ratingTendency = profile?.rating_tendency || 'normal';
+  const recentTags = shortProfile?.recent_tags || {};
+
+  // 1. 标签匹配度
+  let tagMatch = 0;
+  if (item.tags && Array.isArray(item.tags)) {
+    let dotProduct = 0;
+    let userNorm = 0;
+    let itemNorm = 0;
+    for (const tag of item.tags) {
+      const name = typeof tag === 'string' ? tag : tag.name;
+      if (!name) continue;
+      const uw = tagWeights[name] || 0;
+      const sw = recentTags[name] || 0;
+      const combinedWeight = uw * 0.7 + sw * 0.3;
+      dotProduct += combinedWeight;
+      userNorm += combinedWeight * combinedWeight;
+      itemNorm += 1;
+    }
+    tagMatch = itemNorm > 0 ? dotProduct / (Math.sqrt(userNorm) * Math.sqrt(itemNorm)) : 0;
+  }
+
+  // 2. 类型匹配度
+  const typeKey = { 1: 'novel', 2: 'anime', 4: 'game', 6: 'real' }[item.type] || '';
+  const typeMatch = typeAffinity[typeKey] || 0;
+
+  // 3. 协同过滤分
+  const cfScore = item.cf_score || 0;
+
+  // 4. 全局热度
+  const popularity = Math.min((item.score || 0) / 10, 1.0);
+
+  // 5. 新鲜度
+  let recency = 0;
+  if (item.created_at) {
+    const daysSince = (Date.now() - new Date(item.created_at).getTime()) / 86400000;
+    recency = Math.max(0, 1 - daysSince / 365);
+  }
+
+  // 6. 评分倾向匹配
+  let ratingMatch = 0.5;
+  if (ratingTendency === 'strict' && (item.score || 0) >= 8) ratingMatch = 1.0;
+  if (ratingTendency === 'generous') ratingMatch = 0.7;
+
+  // 7. 社交信号
+  const social = item.social_count ? Math.min(item.social_count / 10, 1.0) : 0;
+
+  return {
+    tag_match: tagMatch,
+    type_match: typeMatch,
+    cf_score: cfScore,
+    popularity: popularity,
+    recency: recency,
+    rating_match: ratingMatch,
+    social: social,
+  };
+}
+
+/**
+ * 对候选集进行精排
+ */
+function rankWithLR(candidates, profile, shortProfile) {
+  return candidates
+    .map(item => {
+      const features = extractFeatures(item, profile, shortProfile);
+      const lrScore = lrPredict(features);
+      return { ...item, _lr_score: lrScore, _features: features };
+    })
+    .sort((a, b) => b._lr_score - a._lr_score);
+}
+
+// 导出函数到模块对象
+module.lrPredict = lrPredict;
+module.extractFeatures = extractFeatures;
+module.rankWithLR = rankWithLR;
+module.LR_WEIGHTS = LR_WEIGHTS;
+module.LR_BIAS = LR_BIAS;
+module.tagWeights = tagWeights;
+module.typeAffinity = typeAffinity;
+module.ratingTendency = ratingTendency;
+module.recentTags = recentTags;
+module.name = name;
+module.uw = uw;
+module.sw = sw;
+module.combinedWeight = combinedWeight;
+module.typeKey = typeKey;
+module.typeMatch = typeMatch;
+module.cfScore = cfScore;
+module.popularity = popularity;
+module.daysSince = daysSince;
+module.social = social;
+module.features = features;
+module.lrScore = lrScore;
+})(lrRanker);
+
+// ═══════════════════════════════════════════════════════════
+// 主 Worker 代码
+// ═══════════════════════════════════════════════════════════
+
+/**
  * ANISpace 代理 — Cloudflare Worker
  *
  * 功能：
@@ -18,22 +3154,6 @@
  */
 
 // ─── ES Module 依赖 ────────────────────────────────────────
-import * as bangumiSync from './lib/bangumi-sync.js';
-import * as bangumiSearch from './lib/bangumi-search.js';
-import * as newsScraper from './lib/news-scraper.js';
-import * as bangumiEnrich from './lib/bangumi-enrich.js';
-import * as userProfile from './lib/user-profile.js';
-import * as recommendEngine from './lib/recommend-engine.js';
-import * as behaviorCollector from './lib/behavior-collector.js';
-import * as exploreEngine from './lib/explore-engine.js';
-import * as superProxy from './lib/super-proxy.js';
-import {
-  validateNoteInput,
-  serializeBlocks,
-  parseNote,
-  checkOwnership,
-  buildTimelineEntry,
-} from './lib/creative-notes.js';
 
 // ─── SSRF 防护 ───────────────────────────────────────────
 
@@ -1445,79 +4565,6 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
       return jsonResponse({ token, user: formatUser(user) }, 200, origin);
     } catch (err) {
       return jsonResponse({ error: '登录失败: ' + err.message }, 500, origin);
-    }
-  }
-
-  // POST /api/auth/bind-bangumi — 已登录用户绑定 Bangumi 账号
-  if (method === 'POST' && pathname === '/api/auth/bind-bangumi') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-    try {
-      const body = await request.json();
-      const { accessToken, refreshToken, expiresAt, bangumiUserId, bangumiUsername, bangumiAvatar } = body;
-      if (!accessToken) {
-        return jsonResponse({ error: '缺少 Bangumi access token' }, 400, origin);
-      }
-
-      // 检查该 Bangumi 账号是否已被其他用户绑定
-      const existingBind = await env.DB.prepare(
-        'SELECT id FROM users WHERE bangumi_user_id = ? AND id != ?'
-      ).bind(bangumiUserId, authUser.userId).first();
-      if (existingBind) {
-        return jsonResponse({ error: '该 Bangumi 账号已被其他用户绑定' }, 400, origin);
-      }
-
-      // 更新当前用户的 Bangumi 绑定信息
-      await env.DB.prepare(
-        `UPDATE users SET
-          bangumi_access_token = ?,
-          bangumi_refresh_token = ?,
-          bangumi_token_expires_at = ?,
-          bangumi_user_id = ?,
-          bangumi_username = ?,
-          bangumi_avatar = ?,
-          bangumi_bound_at = ?,
-          updated_at = datetime('now')
-        WHERE id = ?`
-      ).bind(
-        accessToken,
-        refreshToken || null,
-        expiresAt || null,
-        bangumiUserId || null,
-        bangumiUsername || null,
-        bangumiAvatar || null,
-        Math.floor(Date.now() / 1000),
-        authUser.userId
-      ).run();
-
-      const updatedUser = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(authUser.userId).first();
-      return jsonResponse({ ok: true, user: formatUser(updatedUser) }, 200, origin);
-    } catch (err) {
-      return jsonResponse({ error: '绑定失败: ' + err.message }, 500, origin);
-    }
-  }
-
-  // POST /api/auth/unbind-bangumi — 已登录用户解绑 Bangumi 账号
-  if (method === 'POST' && pathname === '/api/auth/unbind-bangumi') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-    try {
-      await env.DB.prepare(
-        `UPDATE users SET
-          bangumi_access_token = NULL,
-          bangumi_refresh_token = NULL,
-          bangumi_token_expires_at = NULL,
-          bangumi_user_id = NULL,
-          bangumi_username = NULL,
-          bangumi_avatar = NULL,
-          bangumi_bound_at = NULL,
-          updated_at = datetime('now')
-        WHERE id = ?`
-      ).bind(authUser.userId).run();
-
-      return jsonResponse({ ok: true }, 200, origin);
-    } catch (err) {
-      return jsonResponse({ error: '解绑失败: ' + err.message }, 500, origin);
     }
   }
 
@@ -5892,191 +8939,6 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     return jsonResponse({ impressions: impressions.results, page, limit }, 200, origin);
   }
 
-  // ─── 超展开（Bangumi 小组）API ───
-
-  // GET /api/auth/bangumi-status — 查询 Bangumi 账号绑定状态
-  if (method === 'GET' && pathname === '/api/auth/bangumi-status') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const status = await superProxy.handleBangumiStatus(env.DB, authUser.userId);
-    return jsonResponse(status, 200, origin);
-  }
-
-  // POST /api/auth/bind-bangumi — 绑定 Bangumi 账号
-  if (method === 'POST' && pathname === '/api/auth/bind-bangumi') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    try {
-      const body = await request.json();
-      const result = await superProxy.handleBindBangumi(env.DB, authUser.userId, body);
-      if (result.error) return jsonResponse(result, result.status || 400, origin);
-      return jsonResponse(result, 200, origin);
-    } catch (err) {
-      return jsonResponse({ error: '绑定失败: ' + err.message }, 500, origin);
-    }
-  }
-
-  // DELETE /api/auth/unbind-bangumi — 解绑 Bangumi 账号
-  if (method === 'DELETE' && pathname === '/api/auth/unbind-bangumi') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const result = await superProxy.handleUnbindBangumi(env.DB, authUser.userId);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result, 200, origin);
-  }
-
-  // GET /api/super/groups — 获取小组列表
-  if (method === 'GET' && pathname === '/api/super/groups') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const sp = new URL(request.url).searchParams;
-    const params = {
-      page: Number(sp.get('page')) || 1,
-      limit: Number(sp.get('limit')) || 20,
-      sort: sp.get('sort') || 'members',
-      cat: sp.get('cat') || null,
-    };
-
-    const result = await superProxy.handleGroupsList(env.DB, env, authUser.userId, params);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
-  }
-
-  // GET /api/super/groups/:id — 获取小组详情
-  const groupDetailMatch = pathname.match(/^\/api\/super\/groups\/(\d+)$/);
-  if (groupDetailMatch && method === 'GET') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const groupId = Number(groupDetailMatch[1]);
-    const result = await superProxy.handleGroupDetail(env.DB, env, authUser.userId, groupId);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
-  }
-
-  // GET /api/super/groups/:id/topics — 获取话题列表
-  const groupTopicsMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/topics$/);
-  if (groupTopicsMatch && method === 'GET') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const groupId = Number(groupTopicsMatch[1]);
-    const sp = new URL(request.url).searchParams;
-    const params = {
-      page: Number(sp.get('page')) || 1,
-      limit: Number(sp.get('limit')) || 20,
-    };
-
-    const result = await superProxy.handleTopicsList(env.DB, env, authUser.userId, groupId, params);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
-  }
-
-  // POST /api/super/groups/:id/topics — 发表话题
-  if (groupTopicsMatch && method === 'POST') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const groupId = Number(groupTopicsMatch[1]);
-    try {
-      const body = await request.json();
-      const result = await superProxy.handleCreateTopic(env.DB, env, authUser.userId, groupId, body);
-      if (result.error) return jsonResponse(result, result.status || 400, origin);
-      return jsonResponse(result.data, 201, origin);
-    } catch (err) {
-      return jsonResponse({ error: '发表话题失败: ' + err.message }, 500, origin);
-    }
-  }
-
-  // POST /api/super/groups/:id/join — 加入小组
-  const groupJoinMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/join$/);
-  if (groupJoinMatch && method === 'POST') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const groupId = Number(groupJoinMatch[1]);
-    const result = await superProxy.handleJoinGroup(env.DB, env, authUser.userId, groupId);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
-  }
-
-  // DELETE /api/super/groups/:id/leave — 退出小组
-  const groupLeaveMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/leave$/);
-  if (groupLeaveMatch && method === 'DELETE') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const groupId = Number(groupLeaveMatch[1]);
-    const result = await superProxy.handleLeaveGroup(env.DB, env, authUser.userId, groupId);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
-  }
-
-  // GET /api/super/topics/:id — 获取话题详情
-  const topicDetailMatch = pathname.match(/^\/api\/super\/topics\/(\d+)$/);
-  if (topicDetailMatch && method === 'GET') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const topicId = Number(topicDetailMatch[1]);
-    const result = await superProxy.handleTopicDetail(env.DB, env, authUser.userId, topicId);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
-  }
-
-  // GET /api/super/topics/:id/posts — 获取帖子列表
-  const topicPostsMatch = pathname.match(/^\/api\/super\/topics\/(\d+)\/posts$/);
-  if (topicPostsMatch && method === 'GET') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const topicId = Number(topicPostsMatch[1]);
-    const sp = new URL(request.url).searchParams;
-    const params = {
-      page: Number(sp.get('page')) || 1,
-      limit: Number(sp.get('limit')) || 20,
-    };
-
-    const result = await superProxy.handlePostsList(env.DB, env, authUser.userId, topicId, params);
-    if (result.error) return jsonResponse(result, result.status || 400, origin);
-    return jsonResponse(result.data, 200, origin);
-  }
-
-  // POST /api/super/topics/:id/posts — 发表回复
-  if (topicPostsMatch && method === 'POST') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    const topicId = Number(topicPostsMatch[1]);
-    try {
-      const body = await request.json();
-      const result = await superProxy.handleCreatePost(env.DB, env, authUser.userId, topicId, body);
-      if (result.error) return jsonResponse(result, result.status || 400, origin);
-      return jsonResponse(result.data, 201, origin);
-    } catch (err) {
-      return jsonResponse({ error: '发表回复失败: ' + err.message }, 500, origin);
-    }
-  }
-
-  // POST /api/super/groups — 创建小组
-  if (method === 'POST' && pathname === '/api/super/groups') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    try {
-      const body = await request.json();
-      const result = await superProxy.handleCreateGroup(env.DB, env, authUser.userId, body);
-      if (result.error) return jsonResponse(result, result.status || 400, origin);
-      return jsonResponse(result.data, 201, origin);
-    } catch (err) {
-      return jsonResponse({ error: '创建小组失败: ' + err.message }, 500, origin);
-    }
-  }
-
   // 未匹配的 API 路由
   return null;
 }
@@ -6169,7 +9031,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/bangumi-sync') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior') || url.pathname.startsWith('/api/explore') || url.pathname.startsWith('/api/promotions') || url.pathname.startsWith('/api/search/suggestions') || url.pathname.startsWith('/api/super/') || url.pathname === '/api/auth/bind-bangumi' || url.pathname === '/api/auth/unbind-bangumi' || url.pathname === '/api/auth/bangumi-status') {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/bangumi-sync') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior') || url.pathname.startsWith('/api/explore') || url.pathname.startsWith('/api/promotions') || url.pathname.startsWith('/api/search/suggestions')) {
       const result = await handleApiRoutes(url.pathname, request, env, origin, context);
       if (result) return result;
     }
@@ -7170,3 +10032,4 @@ export default {
     })());
   },
 };
+

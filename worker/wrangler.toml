@@ -6,7 +6,8 @@ workers_dev = true
 
 [vars]
 ALLOWED_ORIGIN = "https://anispaceee.github.io"
-# 敏感信息（CLIENT_SECRET）请在 Cloudflare Dashboard 中配置为 Secrets
+BANGUMI_CLIENT_ID = "bgm63786a34fc67673eb"
+# 敏感信息（BANGUMI_CLIENT_SECRET）请在 Cloudflare Dashboard 中配置为 Secrets
 
 [[d1_databases]]
 binding = "DB"

@@ -92,6 +92,9 @@ export default function UserProfilePage() {
   const [guestbookLoading, setGuestbookLoading] = useState(false);
   const [guestbookInput, setGuestbookInput] = useState('');
   const [guestbookSubmitting, setGuestbookSubmitting] = useState(false);
+  // ─── Bangumi 导入状态 ───
+  const [bangumiImporting, setBangumiImporting] = useState(false);
+  const [bangumiImportResult, setBangumiImportResult] = useState(null);
 
   // ─── 发帖/资讯状态 ───
   const [userPosts, setUserPosts] = useState([]);
@@ -425,6 +428,45 @@ export default function UserProfilePage() {
       UserService.updateSettings(currentUser.id, settings).catch(() => {});
     }
     updateProfile({ preferences: { ...(currentUser?.preferences || {}), privacy: updated } });
+  };
+
+  // ─── 从 Bangumi 导入收藏 ───
+  const handleImportFromBangumi = async () => {
+    const bangumiToken = StorageService.get('acg_bangumi_token');
+    const bangumiUser = StorageService.get('acg_bangumi_user');
+    if (!bangumiToken || !bangumiUser) {
+      alert('请先绑定 Bangumi 账号');
+      return;
+    }
+
+    setBangumiImporting(true);
+    setBangumiImportResult(null);
+
+    try {
+      const res = await fetch(`${window.location.origin}/api/bangumi-sync/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bangumiToken,
+          bangumiUsername: bangumiUser.username || bangumiUser.nickname,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setBangumiImportResult({ error: data.error });
+      } else {
+        setBangumiImportResult({ imported: data.imported, skipped: data.skipped, total: data.total });
+        // 刷新收藏列表
+        if (currentUser?.id) {
+          const marks = await CollectionMarkService.getByUserId(currentUser.id);
+          setUserMarks(marks || []);
+        }
+      }
+    } catch (err) {
+      setBangumiImportResult({ error: err.message || '导入失败' });
+    } finally {
+      setBangumiImporting(false);
+    }
   };
 
   // ─── 数据设置持久化 ───
@@ -1456,15 +1498,40 @@ export default function UserProfilePage() {
                             <span className="settings-hint">Bangumi 账号已绑定</span>
                           </div>
                         </div>
-                        <button className="bangumi-unbind-btn" onClick={() => { BangumiAuthService.unbind(); setSettingsTab('bangumi'); }}>解除绑定</button>
+                        <button className="bangumi-unbind-btn" onClick={async () => { await BangumiAuthService.unbindFromServer(); setSettingsTab('bangumi'); }}>解除绑定</button>
                       </div>
                     ) : (
                       <>
-                        <button className="bangumi-bind-btn" onClick={() => BangumiAuthService.initiateLogin()}>
+                        <button className="bangumi-bind-btn" onClick={() => BangumiAuthService.initiateLogin(true)}>
                           <BookOpen size={16} /> 绑定 Bangumi 账号
                         </button>
                         <p className="settings-hint">将跳转至 Bangumi 进行授权</p>
                       </>
+                    )}
+                    {/* Bangumi 导入功能 */}
+                    {BangumiAuthService.isBound() && (
+                      <div className="bangumi-import-section" style={{ marginTop: '12px' }}>
+                        <button
+                          className="bangumi-bind-btn"
+                          onClick={handleImportFromBangumi}
+                          disabled={bangumiImporting}
+                          style={{ opacity: bangumiImporting ? 0.6 : 1 }}
+                        >
+                          {bangumiImporting ? <Loader2 size={16} className="oauth-spinning" /> : <Download size={16} />}
+                          {bangumiImporting ? '正在导入...' : '从 Bangumi 导入收藏'}
+                        </button>
+                        {bangumiImportResult && (
+                          <div className="bangumi-import-result" style={{ marginTop: '8px', fontSize: '13px' }}>
+                            {bangumiImportResult.error ? (
+                              <span style={{ color: 'var(--error)' }}>导入失败: {bangumiImportResult.error}</span>
+                            ) : (
+                              <span style={{ color: 'var(--success)' }}>
+                                导入完成: 新增 {bangumiImportResult.imported} 条，跳过 {bangumiImportResult.skipped} 条（已存在），共 {bangumiImportResult.total} 条
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="account-bind-section">
