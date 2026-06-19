@@ -66,11 +66,11 @@ export async function syncToBangumi(accessToken, subjectId, status, rating = 0, 
   }
 
   // 状态映射：ANISpace 字符串 → Bangumi 数字
-  // ANISpace: wish, doing, done, dropped, on_hold
+  // ANISpace: wish, collect, doing, on_hold, dropped
   // Bangumi: 1=wish(想看), 2=collect(看过), 3=doing(在看), 4=on_hold(搁置), 5=dropped(抛弃)
   const statusMap = {
     wish: 1,
-    done: 2,
+    collect: 2,
     doing: 3,
     on_hold: 4,
     dropped: 5,
@@ -187,10 +187,10 @@ export async function importBangumiCollections(env, userId, bangumiCollections, 
 
     // 状态映射：Bangumi 数字 → ANISpace 字符串
     // Bangumi: 1=wish(想看), 2=collect(看过), 3=doing(在看), 4=on_hold(搁置), 5=dropped(抛弃)
-    // ANISpace: wish, done, doing, on_hold, dropped
+    // ANISpace: wish, collect, doing, on_hold, dropped
     const statusMap = {
       1: 'wish',
-      2: 'done',
+      2: 'collect',
       3: 'doing',
       4: 'on_hold',
       5: 'dropped',
@@ -274,7 +274,7 @@ export async function uploadCollectionsToBangumi(env, userId, accessToken, usern
   // 4. 状态映射：ANISpace 字符串 → Bangumi 数字
   const statusMap = {
     wish: 1,
-    done: 2,
+    collect: 2,
     doing: 3,
     on_hold: 4,
     dropped: 5,
