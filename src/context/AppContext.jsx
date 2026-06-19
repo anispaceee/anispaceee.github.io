@@ -21,10 +21,12 @@ export function AppProvider({ children }) {
 
   // 登录时自动检查社交权限
   useEffect(() => {
-    if (isAuthenticated) {
-      // 管理员：如果之前已开启社交模式则保持，否则不强制开启（管理员可自由开关）
-      if (currentUser?.is_admin) return;
-      // 普通用户：检查权限后自动开启
+    if (isAuthenticated && currentUser) {
+      // 管理员：保持 localStorage 中的选择（管理员可自由开关）
+      if (currentUser.is_admin) return;
+      // 普通用户：先重置为 false，再检查权限
+      setSocialMode(false);
+      StorageService.set('anispace_social_mode', false);
       apiRequest('/api/permissions/check?permission=social.post')
         .then(res => {
           if (res.has_permission) {
@@ -43,7 +45,7 @@ export function AppProvider({ children }) {
         })
         .catch(() => {});
     }
-  }, [isAuthenticated, currentUser?.is_admin]);
+  }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -66,6 +68,9 @@ export function AppProvider({ children }) {
     AuthService.logout();
     setCurrentUser(null);
     setIsAuthenticated(false);
+    // 清除社交模式状态，防止切换账号后残留
+    setSocialMode(false);
+    StorageService.set('anispace_social_mode', false);
   }, []);
 
   const updateProfile = useCallback(async (updates) => {
