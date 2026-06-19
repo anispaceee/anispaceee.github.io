@@ -54,6 +54,7 @@ export default function CreativeSpace({ userId, isSelf }) {
   const scheduleSave = useCallback((note) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setSaveStatus('saving');
+    setError(null);
     saveTimerRef.current = setTimeout(async () => {
       if (!note || !note.id) return;
       setSaving(true);
@@ -73,6 +74,7 @@ export default function CreativeSpace({ userId, isSelf }) {
       } catch (err) {
         console.error('保存失败:', err);
         setSaveStatus('');
+        setError(err.message || '保存失败，请检查网络或登录状态');
       } finally {
         setSaving(false);
       }
@@ -101,6 +103,7 @@ export default function CreativeSpace({ userId, isSelf }) {
       });
       setNotes(prev => [note, ...prev]);
       setCurrentNote(note);
+      currentNoteRef.current = note; // 同步更新 ref，避免 useEffect 滞后导致第一次输入丢失
       setView('editor');
       setSaveStatus('');
     } catch (err) {
@@ -113,11 +116,13 @@ export default function CreativeSpace({ userId, isSelf }) {
   const handleOpen = useCallback(async (note) => {
     setView('editor');
     setCurrentNote(note);
+    currentNoteRef.current = note; // 同步更新 ref
     setSaveStatus('');
     // 加载完整详情（确保 blocks 完整）
     try {
       const full = await CreativeSpaceService.get(note.id);
       setCurrentNote(full);
+      currentNoteRef.current = full; // 同步更新 ref
     } catch (err) {
       console.error('加载笔记详情失败:', err);
     }
