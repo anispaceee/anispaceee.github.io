@@ -1,0 +1,721 @@
+/* ─── 创作空间样式 ─── */
+/* 复用萌系 CSS 变量：var(--primary), var(--bg-card), var(--border-secondary), var(--radius-lg), var(--shadow-sm) 等 */
+
+.cs-creative-space {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── 工具栏 ─── */
+.cs-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cs-toolbar-left, .cs-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cs-save-status {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── 按钮 ─── */
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.cs-btn-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-primary);
+}
+.cs-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.cs-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.cs-btn-ghost {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+.cs-btn-ghost:hover { background: var(--bg-hover, #f0eef3); color: var(--text-primary); }
+.cs-btn-danger {
+  background: #f56c6c;
+  color: #fff;
+}
+
+/* ─── 主布局 ─── */
+.cs-main {
+  display: flex;
+  gap: 16px;
+}
+.cs-main.with-navi .cs-content { flex: 1; min-width: 0; }
+.cs-main.with-navi .cs-navi-wrap { width: 380px; flex-shrink: 0; }
+.cs-content { flex: 1; min-width: 0; }
+
+/* ─── 笔记列表 ─── */
+.cs-note-list-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.cs-note-search {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.cs-note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.cs-note-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cs-note-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+.cs-note-card.pinned {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(255,182,193,0.08) 100%);
+}
+.cs-note-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cs-pin-icon { color: var(--primary); flex-shrink: 0; }
+.cs-note-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-note-card-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-height: 80px;
+  overflow: hidden;
+}
+.cs-note-card-preview .cs-block { margin: 2px 0; }
+.cs-note-card-preview .cs-block-text { margin: 0; }
+.cs-note-card-empty { color: var(--text-quaternary); font-size: 12px; }
+.cs-note-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-wrap: wrap;
+}
+.cs-note-meta { display: inline-flex; align-items: center; gap: 3px; }
+.cs-note-tags { display: inline-flex; gap: 4px; }
+.cs-note-tag {
+  background: var(--bg-input);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+.cs-note-list-empty, .cs-note-list-loading, .cs-timeline-empty, .cs-timeline-loading, .cs-navi-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.cs-note-list-empty p, .cs-timeline-empty p, .cs-navi-empty p { font-size: 13px; }
+
+/* ─── 编辑器 ─── */
+.cs-editor {
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.cs-editor-title {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 8px 0;
+  margin-bottom: 16px;
+  outline: none;
+  border-bottom: 1px solid transparent;
+}
+.cs-editor-title:focus { border-bottom-color: var(--border-secondary); }
+.cs-editor-title::placeholder { color: var(--text-quaternary); }
+
+.cs-editor-blocks { display: flex; flex-direction: column; gap: 2px; }
+.cs-editor-block-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  position: relative;
+  padding: 2px 0;
+}
+.cs-block-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+.cs-editor-block-row:hover .cs-block-controls { opacity: 1; }
+.cs-block-add, .cs-block-grip {
+  background: transparent;
+  border: none;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+.cs-block-add:hover { color: var(--primary); }
+.cs-block-grip { cursor: grab; }
+.cs-block-content { flex: 1; min-width: 0; }
+
+.cs-block-editable {
+  min-height: 24px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.cs-block-editable:focus { background: var(--bg-input); }
+.cs-block-editable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-quaternary);
+  pointer-events: none;
+}
+.cs-block-h1-edit { font-size: 20px; font-weight: 700; }
+.cs-block-h2-edit { font-size: 17px; font-weight: 700; }
+.cs-block-h3-edit { font-size: 15px; font-weight: 600; }
+.cs-block-quote-edit {
+  border-left: 3px solid var(--primary);
+  padding-left: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.cs-block-todo-edit {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 6px;
+}
+.cs-todo-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-secondary);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.cs-todo-checkbox.checked { background: var(--primary); border-color: var(--primary); }
+.cs-block-todo-text.checked { text-decoration: line-through; color: var(--text-quaternary); }
+
+.cs-block-image-edit { padding: 4px 6px; display: flex; flex-direction: column; gap: 6px; }
+.cs-block-image-edit img { max-width: 100%; border-radius: var(--radius-md); }
+.cs-image-placeholder {
+  padding: 24px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--text-quaternary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.cs-image-actions { display: flex; gap: 6px; align-items: center; }
+.cs-image-url-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+.cs-btn-small { padding: 4px 8px; font-size: 12px; }
+
+.cs-block-subject-link-edit { display: flex; flex-direction: column; gap: 8px; padding: 4px 6px; }
+.cs-subject-link-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+}
+.cs-subject-name-preview { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+.cs-subject-link-actions { display: flex; gap: 6px; align-items: center; }
+.cs-subject-id-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+/* ─── 搜索弹窗 ─── */
+.cs-search-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 400px;
+  max-width: 90vw;
+  max-height: 80vh;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+.cs-search-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cs-search-close {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+.cs-search-close:hover { background: var(--bg-input); }
+.cs-search-input-wrap {
+  padding: 12px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid var(--border-secondary);
+}
+.cs-search-input-wrap input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+.cs-search-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cs-search-empty { text-align: center; padding: 20px; color: var(--text-quaternary); font-size: 13px; }
+.cs-search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cs-search-item:hover { background: var(--bg-input); }
+.cs-search-thumb { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; }
+.cs-search-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.cs-search-name { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+.cs-search-meta { font-size: 11px; color: var(--text-tertiary); }
+
+/* ─── 块菜单 ─── */
+.cs-block-menu { position: relative; flex-shrink: 0; padding-top: 4px; }
+.cs-block-menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+}
+.cs-block-menu-btn:hover { background: var(--bg-input); color: var(--text-primary); }
+.cs-block-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 6px;
+  z-index: 10;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cs-menu-section { display: flex; flex-direction: column; gap: 2px; }
+.cs-menu-label { font-size: 10px; color: var(--text-quaternary); padding: 2px 8px; }
+.cs-menu-item {
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cs-menu-item:hover { background: var(--bg-input); color: var(--text-primary); }
+.cs-menu-item.danger:hover { color: #f56c6c; }
+.cs-menu-divider { height: 1px; background: var(--border-secondary); margin: 4px 0; }
+
+.cs-editor-quick-ask {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+/* ─── Navi 对话面板 ─── */
+.cs-navi-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  max-height: 70vh;
+}
+.cs-navi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-secondary);
+}
+.cs-navi-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+}
+.cs-navi-context-badge {
+  font-size: 10px;
+  background: rgba(255,182,193,0.2);
+  color: var(--primary);
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 4px;
+}
+.cs-navi-close {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+.cs-navi-close:hover { background: var(--bg-input); }
+.cs-navi-quick-prompts {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-secondary);
+}
+.cs-quick-prompt {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cs-quick-prompt:hover { background: var(--primary); color: #fff; }
+.cs-quick-prompt:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cs-navi-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cs-navi-msg {
+  display: flex;
+  gap: 8px;
+  max-width: 90%;
+}
+.cs-navi-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.cs-navi-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.cs-navi-msg.user .cs-navi-msg-avatar { background: var(--primary); color: #fff; }
+.cs-navi-msg.assistant .cs-navi-msg-avatar { background: #e6a23c; color: #fff; }
+.cs-navi-msg-content {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.cs-navi-msg.user .cs-navi-msg-content { background: var(--primary); color: #fff; }
+.cs-navi-msg.assistant .cs-navi-msg-content { background: var(--bg-input); }
+
+.cs-navi-input-area {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-secondary);
+}
+.cs-navi-input {
+  flex: 1;
+  resize: none;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.cs-navi-input:focus { border-color: var(--primary); }
+
+/* ─── 时间线 ─── */
+.cs-timeline-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cs-timeline-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.cs-timeline-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+.cs-filter-btn {
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: none;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cs-filter-btn.active { background: var(--primary); color: #fff; }
+.cs-filter-btn:hover:not(.active) { background: var(--bg-hover, #f0eef3); }
+
+.cs-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+.cs-timeline-list::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-secondary);
+}
+.cs-timeline-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  position: relative;
+}
+.cs-timeline-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+  z-index: 1;
+}
+.cs-timeline-content {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+.cs-timeline-item-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.cs-timeline-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.cs-timeline-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.cs-timeline-subject-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cs-timeline-type {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.cs-timeline-score {
+  font-size: 11px;
+  color: #e6a23c;
+  font-weight: 600;
+}
+.cs-timeline-date {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  margin-left: auto;
+}
+.cs-timeline-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+.cs-timeline-error { color: #f56c6c; padding: 20px; text-align: center; font-size: 13px; }
+
+/* ─── 通用动画 ─── */
+.cs-spin { animation: cs-spin 1s linear infinite; }
+@keyframes cs-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ─── 块渲染（只读，用于卡片预览） ─── */
+.cs-block { margin: 4px 0; font-size: 13px; color: var(--text-secondary); }
+.cs-block-h1 { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.cs-block-h2 { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.cs-block-h3 { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.cs-block-text { margin: 0; }
+.cs-block-todo { display: flex; align-items: center; gap: 6px; }
+.cs-todo-checkbox {
+  width: 14px; height: 14px;
+  border: 1.5px solid var(--border-secondary);
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+.cs-block-todo.checked .cs-todo-text { text-decoration: line-through; color: var(--text-quaternary); }
+.cs-block-quote {
+  border-left: 2px solid var(--primary);
+  padding-left: 8px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  margin: 4px 0;
+}
+.cs-block-image img { max-width: 100%; border-radius: 4px; }
+.cs-image-caption { font-size: 11px; color: var(--text-quaternary); text-align: center; margin-top: 4px; }
+.cs-block-subject-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-input);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--primary);
+  font-size: 12px;
+}
+.cs-subject-thumb { width: 20px; height: 20px; border-radius: 3px; object-fit: cover; }
+.cs-subject-info { display: inline-flex; align-items: center; gap: 3px; }
+.cs-block-divider { border: none; border-top: 1px solid var(--border-secondary); margin: 8px 0; }

@@ -3,10 +3,11 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { FriendService, FollowService, CollectionMarkService, UserService, MailService, BangumiAuthService, GitHubAuthService, StorageService, UserGuestbookService, ForumService, NewsService } from '../../services/api';
 import { extractPreview } from '../../utils/subjectType';
-import { Calendar, MapPin, Heart, LinkIcon, Shield, ShieldOff, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download, Sparkles, MousePointerClick } from 'lucide-react';
+import { Calendar, MapPin, Heart, LinkIcon, Shield, ShieldOff, BookOpen, UserPlus, UserCheck, UserX, MessageCircle, MoreHorizontal, Star, Users, Activity, MessageSquare, Loader2, Edit3, Settings, Camera, Mail, Smile, Lock, Globe, Search, Newspaper, Send, Trash2, Database, HardDrive, Download, Sparkles, MousePointerClick, Feather } from 'lucide-react';
 import { SubjectCard } from '../Common/CommonComponents';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import ActivityHeatmap from './ActivityHeatmap';
+import CreativeSpace from './Creative/CreativeSpace.jsx';
 import './UserProfilePage.css';
 import { isFireworkOn, setFireworkOn } from '../Common/FireworkEffect';
 import { isClickTextOn, setClickTextOn } from '../Common/ClickTextEffect';
@@ -771,6 +772,11 @@ export default function UserProfilePage() {
                   <BookOpen size={14} /> 发帖
                 </button>
                 )}
+                {isSelf && (
+                <button className={`user-profile-tab ${activeTab === 'creative' ? 'active' : ''}`} onClick={() => setActiveTab('creative')}>
+                  <Feather size={14} /> 创作
+                </button>
+                )}
               </div>
 
               {/* ─── 收藏标签页 ─── */}
@@ -799,6 +805,7 @@ export default function UserProfilePage() {
                   {['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
                     const items = userMarks.filter(m => m.status === status);
                     const isCollapsed = (status === 'on_hold' || status === 'dropped') && expandedCategory !== status && items.length > 0;
+                    const isExpanded = expandedCategory === status;
 
                     return (
                       <div key={status} className="user-profile-category-section">
@@ -811,18 +818,18 @@ export default function UserProfilePage() {
                               <span className="category-more" onClick={() => setExpandedCategory(status)}>展开 ▼</span>
                             )
                           ) : (
-                            items.length > 5 && expandedCategory !== status && (
+                            items.length > 5 && !isExpanded && (
                               <span className="category-more" onClick={() => setExpandedCategory(status)}>更多 →</span>
                             )
                           )}
-                          {expandedCategory === status && (
+                          {isExpanded && (
                             <span className="category-more" onClick={() => setExpandedCategory(null)}>收起 ↑</span>
                           )}
                         </div>
                         {!isCollapsed && (
                           items.length > 0 ? (
-                            <div className="category-covers">
-                              {(expandedCategory === status ? items : items.slice(0, 5)).map(mark => (
+                            <div className={`category-covers ${isExpanded ? 'expanded' : 'scroll'}`}>
+                              {(isExpanded ? items : items.slice(0, 5)).map(mark => (
                                 <SubjectCard
                                   key={`${mark.user_id}_${mark.subject_id}`}
                                   item={{
@@ -1299,6 +1306,13 @@ export default function UserProfilePage() {
                   {expandedSections.posts && userPosts.length > 5 && (
                     <span className="category-more" style={{ marginTop: 8 }} onClick={() => setExpandedSections(prev => ({ ...prev, posts: false }))}>收起 ↑</span>
                   )}
+                </div>
+              )}
+
+              {/* ─── 创作空间标签页 ─── */}
+              {activeTab === 'creative' && isSelf && (
+                <div className="user-profile-category-section">
+                  <CreativeSpace userId={effectiveUserId} isSelf={isSelf} />
                 </div>
               )}
             </>

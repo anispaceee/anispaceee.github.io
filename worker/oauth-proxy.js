@@ -26,6 +26,13 @@ import * as userProfile from './lib/user-profile.js';
 import * as recommendEngine from './lib/recommend-engine.js';
 import * as behaviorCollector from './lib/behavior-collector.js';
 import * as exploreEngine from './lib/explore-engine.js';
+import {
+  validateNoteInput,
+  serializeBlocks,
+  parseNote,
+  checkOwnership,
+  buildTimelineEntry,
+} from './lib/creative-notes.js';
 
 // ─── SSRF 防护 ───────────────────────────────────────────
 
@@ -2700,6 +2707,151 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     } catch (err) {
       return jsonResponse({ error: '更新失败: ' + err.message }, 500, origin);
     }
+  }
+
+  // ─── 创作空间 API ───
+
+  // GET /api/creative-notes — 获取当前用户所有笔记（需认证）
+  if (method === 'GET' && pathname === '/api/creative-notes') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const result = await env.DB.prepare(
+      'SELECT id, user_id, title, blocks, linked_subject_ids, linked_subjects_snapshot, tags, is_pinned, created_at, updated_at FROM creative_notes WHERE user_id = ? ORDER BY is_pinned DESC, updated_at DESC'
+    ).bind(authUser.userId).all();
+
+    const notes = (result.results || []).map(parseNote);
+    return jsonResponse({ notes }, 200, origin);
+  }
+
+  // POST /api/creative-notes — 新建笔记（需认证）
+  if (method === 'POST' && pathname === '/api/creative-notes') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    let body;
+    try { body = await request.json(); } catch { return jsonResponse({ error: '请求体无效' }, 400, origin); }
+
+    const { valid, data, error } = validateNoteInput(body);
+    if (!valid) return jsonResponse({ error }, 400, origin);
+
+    const result = await env.DB.prepare(
+      'INSERT INTO creative_notes (user_id, title, blocks, linked_subject_ids, linked_subjects_snapshot, tags, is_pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime(\'now\'), datetime(\'now\'))'
+    ).bind(
+      authUser.userId,
+      data.title,
+      serializeBlocks(data.blocks),
+      JSON.stringify(data.linked_subject_ids),
+      JSON.stringify(data.linked_subjects_snapshot),
+      JSON.stringify(data.tags),
+      data.is_pinned
+    ).run();
+
+    const note = await env.DB.prepare(
+      'SELECT id, user_id, title, blocks, linked_subject_ids, linked_subjects_snapshot, tags, is_pinned, created_at, updated_at FROM creative_notes WHERE id = ?'
+    ).bind(result.meta.last_row_id).first();
+
+    return jsonResponse(parseNote(note), 201, origin);
+  }
+
+  // GET /api/creative-notes/timeline — 感悟时间线（需认证）
+  // 注意：此路由必须放在 /:id 路由之前，否则 timeline 会被当成 id 匹配
+  if (method === 'GET' && pathname === '/api/creative-notes/timeline') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const ratings = await env.DB.prepare(
+      `SELECT r.id, r.subject_id, r.subject_type, r.score, r.content, r.created_at,
+              c.subject_name, c.subject_image
+       FROM ratings r
+       LEFT JOIN collections c ON c.user_id = r.user_id AND c.subject_id = r.subject_id
+       WHERE r.user_id = ? AND r.content != ''
+       ORDER BY r.created_at DESC
+       LIMIT 100`
+    ).bind(authUser.userId).all();
+
+    const comments = await env.DB.prepare(
+      `SELECT sc.id, sc.subject_id, sc.content, sc.created_at,
+              c.subject_name, c.subject_image, c.subject_type
+       FROM subject_comments sc
+       LEFT JOIN collections c ON c.user_id = sc.user_id AND c.subject_id = sc.subject_id
+       WHERE sc.user_id = ?
+       ORDER BY sc.created_at DESC
+       LIMIT 100`
+    ).bind(authUser.userId).all();
+
+    const timeline = [];
+    for (const r of (ratings.results || [])) {
+      timeline.push(buildTimelineEntry('rating', {
+        id: r.id, subject_id: r.subject_id, subject_name: r.subject_name,
+        subject_image: r.subject_image, subject_type: r.subject_type,
+        score: r.score, content: r.content, created_at: r.created_at,
+      }));
+    }
+    for (const c of (comments.results || [])) {
+      timeline.push(buildTimelineEntry('comment', {
+        id: c.id, subject_id: c.subject_id, subject_name: c.subject_name,
+        subject_image: c.subject_image, subject_type: c.subject_type,
+        content: c.content, created_at: c.created_at,
+      }));
+    }
+    timeline.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
+    return jsonResponse({ timeline }, 200, origin);
+  }
+
+  // GET/PUT/DELETE /api/creative-notes/:id — 单条笔记操作（需认证 + 所有权）
+  const creativeNoteMatch = pathname.match(/^\/api\/creative-notes\/(\d+)$/);
+  if (creativeNoteMatch) {
+    const noteId = Number(creativeNoteMatch[1]);
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const row = await env.DB.prepare(
+      'SELECT id, user_id, title, blocks, linked_subject_ids, linked_subjects_snapshot, tags, is_pinned, created_at, updated_at FROM creative_notes WHERE id = ?'
+    ).bind(noteId).first();
+
+    if (!row) return jsonResponse({ error: '笔记不存在' }, 404, origin);
+    if (!checkOwnership(authUser, row)) return jsonResponse({ error: '无权操作' }, 403, origin);
+
+    // GET — 详情
+    if (method === 'GET') {
+      return jsonResponse(parseNote(row), 200, origin);
+    }
+
+    // PUT — 更新
+    if (method === 'PUT') {
+      let body;
+      try { body = await request.json(); } catch { return jsonResponse({ error: '请求体无效' }, 400, origin); }
+
+      const { valid, data, error } = validateNoteInput(body);
+      if (!valid) return jsonResponse({ error }, 400, origin);
+
+      await env.DB.prepare(
+        'UPDATE creative_notes SET title = ?, blocks = ?, linked_subject_ids = ?, linked_subjects_snapshot = ?, tags = ?, is_pinned = ?, updated_at = datetime(\'now\') WHERE id = ?'
+      ).bind(
+        data.title,
+        serializeBlocks(data.blocks),
+        JSON.stringify(data.linked_subject_ids),
+        JSON.stringify(data.linked_subjects_snapshot),
+        JSON.stringify(data.tags),
+        data.is_pinned,
+        noteId
+      ).run();
+
+      const updated = await env.DB.prepare(
+        'SELECT id, user_id, title, blocks, linked_subject_ids, linked_subjects_snapshot, tags, is_pinned, created_at, updated_at FROM creative_notes WHERE id = ?'
+      ).bind(noteId).first();
+      return jsonResponse(parseNote(updated), 200, origin);
+    }
+
+    // DELETE — 删除
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM creative_notes WHERE id = ?').bind(noteId).run();
+      return jsonResponse({ message: '已删除' }, 200, origin);
+    }
+
+    return jsonResponse({ error: '方法不允许' }, 405, origin);
   }
 
   // PUT /api/users/:id/profile-visibility — 更新发帖/资讯显示开关（需认证，仅本人）

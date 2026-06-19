@@ -1998,3 +1998,39 @@ export const ShortProfileService = {
     return apiRequest('/api/profile/short');
   },
 };
+
+// ─── CreativeSpaceService ───
+// 创作空间笔记，走后端 API（需认证）
+export const CreativeSpaceService = {
+  async list() {
+    return apiRequest('/api/creative-notes');
+  },
+
+  async create(data) {
+    return apiRequest('/api/creative-notes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async get(id) {
+    return apiRequest(`/api/creative-notes/${id}`);
+  },
+
+  async update(id, data) {
+    return apiRequest(`/api/creative-notes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async remove(id) {
+    return apiRequest(`/api/creative-notes/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async getTimeline() {
+    return apiRequest('/api/creative-notes/timeline');
+  },
+};
