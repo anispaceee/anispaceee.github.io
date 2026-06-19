@@ -35,6 +35,14 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin INTEGER DEFAULT 0,
   password_hash TEXT,
   email_verified INTEGER DEFAULT 0,
+  -- Bangumi OAuth token 相关字段
+  bangumi_access_token TEXT DEFAULT NULL,
+  bangumi_refresh_token TEXT DEFAULT NULL,
+  bangumi_token_expires_at INTEGER DEFAULT NULL,
+  bangumi_user_id INTEGER DEFAULT NULL,
+  bangumi_username TEXT DEFAULT NULL,
+  bangumi_avatar TEXT DEFAULT NULL,
+  bangumi_bound_at INTEGER DEFAULT NULL,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   UNIQUE(provider, provider_id)
