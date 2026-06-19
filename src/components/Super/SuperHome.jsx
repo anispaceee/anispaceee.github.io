@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Search, Users, MessageCircle, FileText, Clock, Calendar, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SuperService } from '../../services/SuperService';
 import { useApp } from '../../context/AppContext';
+import { BangumiAuthService, StorageService } from '../../services/api';
 import GroupCard from './GroupCard';
 import BangumiBindPrompt from './BangumiBindPrompt';
 import './SuperHome.css';
@@ -21,7 +22,7 @@ const PAGE_SIZE = 20;
  * 展示 Bangumi 小组列表，支持搜索、排序和分页
  */
 export default function SuperHome() {
-  const { currentUser, bangumiBound } = useApp();
+  const { currentUser, bangumiBound, setBangumiBound } = useApp();
 
   // State
   const [groups, setGroups] = useState([]);
@@ -30,11 +31,38 @@ export default function SuperHome() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   // Filters
   const [sortBy, setSortBy] = useState('members');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 自动同步 localStorage 中的 Bangumi token 到 D1 数据库
+  useEffect(() => {
+    if (!currentUser || bangumiBound) return;
+    const localToken = StorageService.get('acg_bangumi_token');
+    if (!localToken) return;
+    // localStorage 中有 token 但 D1 中没有，自动同步
+    setSyncing(true);
+    const refreshToken = StorageService.get('acg_bangumi_refresh');
+    const bangumiUser = StorageService.get('acg_bangumi_user');
+    const expiresAt = StorageService.get('acg_bangumi_token_expires');
+    BangumiAuthService.bindToCurrentUser({
+      access_token: localToken,
+      refresh_token: refreshToken,
+      expires_in: expiresAt ? Math.floor((expiresAt - Date.now()) / 1000) : null,
+      user: bangumiUser,
+    }).then(result => {
+      if (result.success) {
+        setBangumiBound(true);
+      }
+    }).catch(err => {
+      console.warn('自动同步 Bangumi token 失败:', err);
+    }).finally(() => {
+      setSyncing(false);
+    });
+  }, [currentUser, bangumiBound, setBangumiBound]);
 
   // Fetch groups from API
   const fetchGroups = useCallback(async () => {
@@ -97,6 +125,22 @@ export default function SuperHome() {
   const handleNextPage = useCallback(() => {
     setPage(p => Math.min(totalPages, p + 1));
   }, []);
+
+  // Render syncing state (auto-syncing localStorage token to D1)
+  if (syncing) {
+    return (
+      <div className="sh-page">
+        <div className="sh-header">
+          <h1 className="sh-title">超展开</h1>
+          <p className="sh-subtitle">Bangumi 小组讨论区</p>
+        </div>
+        <div className="sh-loading">
+          <Loader2 size={32} className="sh-spinning" />
+          <p>正在同步 Bangumi 账号信息...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Render unauthenticated state (not logged in or Bangumi not bound)
   if (!currentUser || !bangumiBound) {

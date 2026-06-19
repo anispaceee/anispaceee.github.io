@@ -440,12 +440,17 @@ export async function handleBangumiStatus(db, userId) {
  * @returns {object} 绑定结果
  */
 export async function handleBindBangumi(db, userId, tokenData) {
-  if (!tokenData.access_token) {
+  // 兼容驼峰和下划线两种字段命名
+  const accessToken = tokenData.accessToken || tokenData.access_token;
+  if (!accessToken) {
     return { error: '缺少 access_token', status: 400 };
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const expiresAt = tokenData.expires_in ? now + tokenData.expires_in : null;
+  // 前端可能传 expiresAt（已计算好的时间戳）或 expires_in（秒数）
+  const expiresAt = tokenData.expiresAt
+    ? Math.floor(tokenData.expiresAt / 1000)
+    : (tokenData.expires_in ? now + tokenData.expires_in : null);
 
   try {
     await db.prepare(
@@ -459,12 +464,12 @@ export async function handleBindBangumi(db, userId, tokenData) {
         bangumi_bound_at = ?
       WHERE id = ?`
     ).bind(
-      tokenData.access_token,
-      tokenData.refresh_token || null,
+      accessToken,
+      tokenData.refreshToken || tokenData.refresh_token || null,
       expiresAt,
-      tokenData.user_id || null,
-      tokenData.username || null,
-      tokenData.avatar || null,
+      tokenData.bangumiUserId || tokenData.user_id || null,
+      tokenData.bangumiUsername || tokenData.username || null,
+      tokenData.bangumiAvatar || tokenData.avatar || null,
       now,
       userId
     ).run();
@@ -472,8 +477,8 @@ export async function handleBindBangumi(db, userId, tokenData) {
     return {
       success: true,
       message: 'Bangumi 账号绑定成功',
-      bangumiUserId: tokenData.user_id,
-      bangumiUsername: tokenData.username,
+      bangumiUserId: tokenData.bangumiUserId || tokenData.user_id,
+      bangumiUsername: tokenData.bangumiUsername || tokenData.username,
     };
   } catch (err) {
     return { error: `绑定失败: ${err.message}`, status: 500 };
