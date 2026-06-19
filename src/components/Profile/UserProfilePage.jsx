@@ -15,6 +15,13 @@ import { isClickTextOn, setClickTextOn } from '../Common/ClickTextEffect';
 const FALLBACK_IMG = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="%23f9f3f5"%3E%3Crect width="40" height="40" rx="20"/%3E%3Ctext x="20" y="24" text-anchor="middle" fill="%23c8bfcc" font-size="12"%3E%3F%3C/text%3E%3C/svg%3E';
 const MARK_COLORS = { wish: '#409eff', collect: '#e6a23c', doing: '#67c23a', on_hold: '#909399', dropped: '#f56c6c' };
 
+// 动词 → subject_type 映射：看→动画(2), 读→书籍(1), 玩→游戏(4)；三次元(6)归入动画
+const STATUS_VERBS = {
+  wish: [{ verb: '想看', type: 2 }, { verb: '想读', type: 1 }, { verb: '想玩', type: 4 }],
+  doing: [{ verb: '在看', type: 2 }, { verb: '在读', type: 1 }, { verb: '在玩', type: 4 }],
+  collect: [{ verb: '看过', type: 2 }, { verb: '读过', type: 1 }, { verb: '玩过', type: 4 }],
+};
+
 const PRIVACY_OPTIONS = [
   { key: 'public', label: '公开', icon: Globe, desc: '所有人可见' },
   { key: 'friends', label: '仅好友', icon: UserCheck, desc: '仅好友可见' },
@@ -53,6 +60,7 @@ export default function UserProfilePage() {
   const [requestMessage, setRequestMessage] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState({}); // { wish: 2, collect: 1 } — 按 subject_type 筛选，null/undefined 表示全部
   const [expandedSections, setExpandedSections] = useState({});
   const [activityData, setActivityData] = useState([]);
   const [userComments, setUserComments] = useState([]);
@@ -279,6 +287,11 @@ export default function UserProfilePage() {
       { key: 'dropped', count: markCounts.dropped, color: MARK_COLORS.dropped, label: '抛弃' },
     ].filter(d => d.count > 0);
   }, [markCounts, totalMarks]);
+
+  // 切换分类筛选：点击选中对应类型，再点击取消（显示全部）
+  const toggleCategoryFilter = useCallback((status, type) => {
+    setCategoryFilter(prev => ({ ...prev, [status]: prev[status] === type ? null : type }));
+  }, []);
 
   // ─── 他人主页：好友操作 ───
   const handleSendRequest = async () => {
@@ -894,14 +907,37 @@ export default function UserProfilePage() {
 
                   {/* 收藏分类列表 */}
                   {['wish', 'doing', 'collect', 'on_hold', 'dropped'].map(status => {
-                    const items = userMarks.filter(m => m.status === status);
+                    const allItems = userMarks.filter(m => m.status === status);
+                    const filterType = categoryFilter[status];
+                    const items = filterType
+                      ? allItems.filter(m => {
+                          const t = Number(m.subject_type);
+                          // 三次元(6)归入动画(2)
+                          return filterType === 2 ? (t === 2 || t === 6) : t === filterType;
+                        })
+                      : allItems;
                     const isCollapsed = (status === 'on_hold' || status === 'dropped') && expandedCategory !== status && items.length > 0;
+                    const verbs = STATUS_VERBS[status];
 
                     return (
                       <div key={status} className="user-profile-category-section">
                         <div className="user-profile-category-header">
                           <span className="category-indicator" style={{ background: MARK_COLORS[status] }} />
-                          <span className="category-title">{status === 'wish' ? '想看 / 想读 / 想玩' : status === 'collect' ? '看过 / 读过 / 玩过' : status === 'doing' ? '在看 / 在读 / 在玩' : CollectionMarkService.MARK_LABELS[status]}</span>
+                          {verbs ? (
+                            <span className="category-filter-tags">
+                              {verbs.map(({ verb, type }) => (
+                                <span
+                                  key={type}
+                                  className={`category-filter-tag ${categoryFilter[status] === type ? 'active' : ''}`}
+                                  onClick={() => toggleCategoryFilter(status, type)}
+                                >
+                                  {verb}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            <span className="category-title">{CollectionMarkService.MARK_LABELS[status]}</span>
+                          )}
                           <span className="category-count">{items.length} 部</span>
                           {(status === 'on_hold' || status === 'dropped') ? (
                             isCollapsed && (

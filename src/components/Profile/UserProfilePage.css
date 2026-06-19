@@ -474,6 +474,31 @@
   color: var(--text-primary);
 }
 
+/* 分类筛选标签（想看/想读/想玩 等可点击动词） */
+.category-filter-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.category-filter-tag {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+  transition: color 0.2s, background 0.2s;
+  user-select: none;
+}
+.category-filter-tag:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+}
+.category-filter-tag.active {
+  color: var(--primary);
+  background: rgba(64, 158, 255, 0.12);
+}
+
 .category-count {
   font-size: 12px;
   color: var(--text-quaternary);
