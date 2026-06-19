@@ -26,6 +26,7 @@ import * as userProfile from './lib/user-profile.js';
 import * as recommendEngine from './lib/recommend-engine.js';
 import * as behaviorCollector from './lib/behavior-collector.js';
 import * as exploreEngine from './lib/explore-engine.js';
+import * as superProxy from './lib/super-proxy.js';
 import {
   validateNoteInput,
   serializeBlocks,
@@ -2260,6 +2261,53 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     ).bind(authUser.userId, subjectId).run();
 
     return jsonResponse({ message: '已删除收藏' }, 200, origin);
+  }
+
+  // ─── Bangumi 收藏同步 API ───
+
+  // POST /api/bangumi-sync/collection — 同步单个条目到 Bangumi
+  if (pathname === '/api/bangumi-sync/collection' && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    try {
+      const body = await request.json();
+      const { subjectId, status, rating, comment, bangumiToken } = body;
+      if (!subjectId || !status || !bangumiToken) {
+        return jsonResponse({ error: '缺少参数' }, 400, origin);
+      }
+      const result = await bangumiSync.syncToBangumi(bangumiToken, subjectId, status, rating, comment);
+      return jsonResponse(result, result.ok ? 200 : 400, origin);
+    } catch (err) {
+      return jsonResponse({ error: '同步失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/bangumi-sync/import — 从 Bangumi 导入所有收藏
+  if (pathname === '/api/bangumi-sync/import' && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    try {
+      const body = await request.json();
+      const { bangumiToken, bangumiUsername } = body;
+      if (!bangumiToken || !bangumiUsername) {
+        return jsonResponse({ error: '缺少 Bangumi token 或用户名' }, 400, origin);
+      }
+      // 拉取 Bangumi 收藏
+      const fetchResult = await bangumiSync.fetchBangumiCollections(bangumiToken, bangumiUsername);
+      if (fetchResult.error) {
+        return jsonResponse({ error: fetchResult.error }, 400, origin);
+      }
+      // 导入到本地数据库
+      const importResult = await bangumiSync.importBangumiCollections(env, authUser.userId, fetchResult.collections);
+      return jsonResponse({
+        ok: true,
+        imported: importResult.imported,
+        skipped: importResult.skipped,
+        total: fetchResult.collections.length,
+      }, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '导入失败: ' + err.message }, 500, origin);
+    }
   }
 
   // POST /api/follows/:userId — 切换关注（需认证 + 社交权限）
@@ -5771,6 +5819,191 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
     return jsonResponse({ impressions: impressions.results, page, limit }, 200, origin);
   }
 
+  // ─── 超展开（Bangumi 小组）API ───
+
+  // GET /api/auth/bangumi-status — 查询 Bangumi 账号绑定状态
+  if (method === 'GET' && pathname === '/api/auth/bangumi-status') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const status = await superProxy.handleBangumiStatus(env.DB, authUser.userId);
+    return jsonResponse(status, 200, origin);
+  }
+
+  // POST /api/auth/bind-bangumi — 绑定 Bangumi 账号
+  if (method === 'POST' && pathname === '/api/auth/bind-bangumi') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const result = await superProxy.handleBindBangumi(env.DB, authUser.userId, body);
+      if (result.error) return jsonResponse(result, result.status || 400, origin);
+      return jsonResponse(result, 200, origin);
+    } catch (err) {
+      return jsonResponse({ error: '绑定失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // DELETE /api/auth/unbind-bangumi — 解绑 Bangumi 账号
+  if (method === 'DELETE' && pathname === '/api/auth/unbind-bangumi') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const result = await superProxy.handleUnbindBangumi(env.DB, authUser.userId);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result, 200, origin);
+  }
+
+  // GET /api/super/groups — 获取小组列表
+  if (method === 'GET' && pathname === '/api/super/groups') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const sp = new URL(request.url).searchParams;
+    const params = {
+      page: Number(sp.get('page')) || 1,
+      limit: Number(sp.get('limit')) || 20,
+      sort: sp.get('sort') || 'members',
+      cat: sp.get('cat') || null,
+    };
+
+    const result = await superProxy.handleGroupsList(env.DB, env, authUser.userId, params);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // GET /api/super/groups/:id — 获取小组详情
+  const groupDetailMatch = pathname.match(/^\/api\/super\/groups\/(\d+)$/);
+  if (groupDetailMatch && method === 'GET') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const groupId = Number(groupDetailMatch[1]);
+    const result = await superProxy.handleGroupDetail(env.DB, env, authUser.userId, groupId);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // GET /api/super/groups/:id/topics — 获取话题列表
+  const groupTopicsMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/topics$/);
+  if (groupTopicsMatch && method === 'GET') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const groupId = Number(groupTopicsMatch[1]);
+    const sp = new URL(request.url).searchParams;
+    const params = {
+      page: Number(sp.get('page')) || 1,
+      limit: Number(sp.get('limit')) || 20,
+    };
+
+    const result = await superProxy.handleTopicsList(env.DB, env, authUser.userId, groupId, params);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // POST /api/super/groups/:id/topics — 发表话题
+  if (groupTopicsMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const groupId = Number(groupTopicsMatch[1]);
+    try {
+      const body = await request.json();
+      const result = await superProxy.handleCreateTopic(env.DB, env, authUser.userId, groupId, body);
+      if (result.error) return jsonResponse(result, result.status || 400, origin);
+      return jsonResponse(result.data, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '发表话题失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/super/groups/:id/join — 加入小组
+  const groupJoinMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/join$/);
+  if (groupJoinMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const groupId = Number(groupJoinMatch[1]);
+    const result = await superProxy.handleJoinGroup(env.DB, env, authUser.userId, groupId);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // DELETE /api/super/groups/:id/leave — 退出小组
+  const groupLeaveMatch = pathname.match(/^\/api\/super\/groups\/(\d+)\/leave$/);
+  if (groupLeaveMatch && method === 'DELETE') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const groupId = Number(groupLeaveMatch[1]);
+    const result = await superProxy.handleLeaveGroup(env.DB, env, authUser.userId, groupId);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // GET /api/super/topics/:id — 获取话题详情
+  const topicDetailMatch = pathname.match(/^\/api\/super\/topics\/(\d+)$/);
+  if (topicDetailMatch && method === 'GET') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const topicId = Number(topicDetailMatch[1]);
+    const result = await superProxy.handleTopicDetail(env.DB, env, authUser.userId, topicId);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // GET /api/super/topics/:id/posts — 获取帖子列表
+  const topicPostsMatch = pathname.match(/^\/api\/super\/topics\/(\d+)\/posts$/);
+  if (topicPostsMatch && method === 'GET') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const topicId = Number(topicPostsMatch[1]);
+    const sp = new URL(request.url).searchParams;
+    const params = {
+      page: Number(sp.get('page')) || 1,
+      limit: Number(sp.get('limit')) || 20,
+    };
+
+    const result = await superProxy.handlePostsList(env.DB, env, authUser.userId, topicId, params);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // POST /api/super/topics/:id/posts — 发表回复
+  if (topicPostsMatch && method === 'POST') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    const topicId = Number(topicPostsMatch[1]);
+    try {
+      const body = await request.json();
+      const result = await superProxy.handleCreatePost(env.DB, env, authUser.userId, topicId, body);
+      if (result.error) return jsonResponse(result, result.status || 400, origin);
+      return jsonResponse(result.data, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '发表回复失败: ' + err.message }, 500, origin);
+    }
+  }
+
+  // POST /api/super/groups — 创建小组
+  if (method === 'POST' && pathname === '/api/super/groups') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+
+    try {
+      const body = await request.json();
+      const result = await superProxy.handleCreateGroup(env.DB, env, authUser.userId, body);
+      if (result.error) return jsonResponse(result, result.status || 400, origin);
+      return jsonResponse(result.data, 201, origin);
+    } catch (err) {
+      return jsonResponse({ error: '创建小组失败: ' + err.message }, 500, origin);
+    }
+  }
+
   // 未匹配的 API 路由
   return null;
 }
@@ -5863,7 +6096,7 @@ export default {
     }
 
     // ── Worker API 路由 ──
-    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior') || url.pathname.startsWith('/api/explore') || url.pathname.startsWith('/api/promotions') || url.pathname.startsWith('/api/search/suggestions')) {
+    if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/users/') || url.pathname.startsWith('/api/subjects/') || url.pathname.startsWith('/api/posts') || url.pathname.startsWith('/api/uploads') || url.pathname.startsWith('/api/collections') || url.pathname.startsWith('/api/follows') || url.pathname.startsWith('/api/notifications') || url.pathname.startsWith('/api/world-messages') || url.pathname.startsWith('/api/news') || url.pathname.startsWith('/api/ratings') || url.pathname.startsWith('/api/favorites') || url.pathname.startsWith('/api/mails') || url.pathname.startsWith('/api/private-messages') || url.pathname.startsWith('/api/friends') || url.pathname.startsWith('/api/friend-posts') || url.pathname.startsWith('/api/user-guestbook') || url.pathname.startsWith('/api/bangumi-search') || url.pathname.startsWith('/api/bangumi-sync') || url.pathname.startsWith('/api/works') || url.pathname.startsWith('/api/reading-progress') || url.pathname.startsWith('/api/invites') || url.pathname.startsWith('/api/permissions') || url.pathname.startsWith('/api/profile') || url.pathname.startsWith('/api/recommend') || url.pathname.startsWith('/api/behavior') || url.pathname.startsWith('/api/explore') || url.pathname.startsWith('/api/promotions') || url.pathname.startsWith('/api/search/suggestions') || url.pathname.startsWith('/api/super/') || url.pathname === '/api/auth/bind-bangumi' || url.pathname === '/api/auth/unbind-bangumi' || url.pathname === '/api/auth/bangumi-status') {
       const result = await handleApiRoutes(url.pathname, request, env, origin, context);
       if (result) return result;
     }
@@ -6011,6 +6244,20 @@ export default {
         return jsonResponse(result, 200, origin);
       } catch (err) {
         return jsonResponse({ error: 'Bangumi 授权服务异常' }, 500, origin);
+      }
+    }
+
+    // Bangumi token 刷新
+    if (url.pathname === '/oauth/bangumi/refresh') {
+      const refreshToken = url.searchParams.get('refresh_token');
+      if (!refreshToken) return jsonResponse({ error: '缺少 refresh_token 参数' }, 400, origin);
+
+      try {
+        const result = await bangumiSync.refreshBangumiToken(refreshToken, env);
+        if (result.error) return jsonResponse(result, 400, origin);
+        return jsonResponse(result, 200, origin);
+      } catch (err) {
+        return jsonResponse({ error: 'Bangumi token 刷新异常' }, 500, origin);
       }
     }
 
