@@ -1530,13 +1530,56 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
           { table: 'user_permissions', column: 'granted_by' },
         ];
 
+        // Step 1: 删除旧账号中与新账号冲突的记录（UNIQUE 约束）
+        // 当两个用户都有相同业务键时，保留新账号的记录，删除旧账号的
+        // bind 顺序统一为 (oldUserId, authUser.userId)
+        const conflictDeletes = [
+          // collections: UNIQUE(user_id, subject_id)
+          `DELETE FROM collections WHERE user_id = ? AND subject_id IN (SELECT subject_id FROM collections WHERE user_id = ?)`,
+          // ratings: UNIQUE(user_id, subject_id)
+          `DELETE FROM ratings WHERE user_id = ? AND subject_id IN (SELECT subject_id FROM ratings WHERE user_id = ?)`,
+          // favorites: UNIQUE(user_id, target_type, target_id)
+          `DELETE FROM favorites WHERE user_id = ? AND (target_type || '_' || target_id) IN (SELECT (target_type || '_' || target_id) FROM favorites WHERE user_id = ?)`,
+          // follows: UNIQUE(from_user_id, to_user_id) — from_user_id 列
+          `DELETE FROM follows WHERE from_user_id = ? AND to_user_id IN (SELECT to_user_id FROM follows WHERE from_user_id = ?)`,
+          // follows: UNIQUE(from_user_id, to_user_id) — to_user_id 列
+          `DELETE FROM follows WHERE to_user_id = ? AND from_user_id IN (SELECT from_user_id FROM follows WHERE to_user_id = ?)`,
+          // likes: UNIQUE(user_id, COALESCE(post_id, 0), COALESCE(reply_id, 0))
+          // 拆分为帖子点赞和回复点赞两种情况
+          `DELETE FROM likes WHERE user_id = ? AND post_id IS NOT NULL AND post_id IN (SELECT post_id FROM likes WHERE user_id = ? AND post_id IS NOT NULL)`,
+          `DELETE FROM likes WHERE user_id = ? AND reply_id IS NOT NULL AND reply_id IN (SELECT reply_id FROM likes WHERE user_id = ? AND reply_id IS NOT NULL)`,
+          // friend_requests: UNIQUE(from_user_id, to_user_id) — from_user_id 列
+          `DELETE FROM friend_requests WHERE from_user_id = ? AND to_user_id IN (SELECT to_user_id FROM friend_requests WHERE from_user_id = ?)`,
+          // friend_requests: UNIQUE(from_user_id, to_user_id) — to_user_id 列
+          `DELETE FROM friend_requests WHERE to_user_id = ? AND from_user_id IN (SELECT from_user_id FROM friend_requests WHERE to_user_id = ?)`,
+          // friend_post_likes: UNIQUE(post_id, user_id)
+          `DELETE FROM friend_post_likes WHERE user_id = ? AND post_id IN (SELECT post_id FROM friend_post_likes WHERE user_id = ?)`,
+          // reading_progress: UNIQUE(user_id, work_id)
+          `DELETE FROM reading_progress WHERE user_id = ? AND work_id IN (SELECT work_id FROM reading_progress WHERE user_id = ?)`,
+          // work_favorites: UNIQUE(user_id, work_id)
+          `DELETE FROM work_favorites WHERE user_id = ? AND work_id IN (SELECT work_id FROM work_favorites WHERE user_id = ?)`,
+          // work_likes: UNIQUE(user_id, work_id)
+          `DELETE FROM work_likes WHERE user_id = ? AND work_id IN (SELECT work_id FROM work_likes WHERE user_id = ?)`,
+          // work_ratings: UNIQUE(user_id, work_id)
+          `DELETE FROM work_ratings WHERE user_id = ? AND work_id IN (SELECT work_id FROM work_ratings WHERE user_id = ?)`,
+          // user_permissions: UNIQUE(user_id, permission)
+          `DELETE FROM user_permissions WHERE user_id = ? AND permission IN (SELECT permission FROM user_permissions WHERE user_id = ?)`,
+        ];
+        for (const sql of conflictDeletes) {
+          try {
+            await env.DB.prepare(sql).bind(oldUserId, authUser.userId).run();
+          } catch (e) {
+            console.warn('冲突记录删除失败:', e.message, 'SQL:', sql);
+          }
+        }
+
+        // Step 2: 迁移所有关联数据（UPDATE user_id 列）
         for (const { table, column } of migrations) {
           try {
             await env.DB.prepare(
               `UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`
             ).bind(authUser.userId, oldUserId).run();
           } catch (e) {
-            // 某些表可能不存在，跳过
             console.warn(`迁移 ${table}.${column} 失败:`, e.message);
           }
         }
@@ -1554,7 +1597,16 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
           console.warn('迁移 user_profiles 失败:', e.message);
         }
 
-        // 删除旧账号
+        // 清理 user_profile_short（非外键引用，但避免孤儿数据）
+        try {
+          await env.DB.prepare(
+            'DELETE FROM user_profile_short WHERE user_id = ?'
+          ).bind(oldUserId).run();
+        } catch (e) {
+          console.warn('清理 user_profile_short 失败:', e.message);
+        }
+
+        // Step 3: 删除旧账号
         await env.DB.prepare(
           'DELETE FROM users WHERE id = ?'
         ).bind(oldUserId).run();
@@ -5415,8 +5467,8 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
         }, 200, origin);
       }
 
-      // 缓存未命中 → 返回热门推荐
-      const hot = await recommendEngine.getHotRecommendations(env.DB);
+      // 缓存未命中 → 返回热门推荐（排除用户已收藏）
+      const hot = await recommendEngine.getHotRecommendations(env.DB, authUser.userId);
       return jsonResponse({
         user_id: authUser.userId,
         scene,
@@ -6050,20 +6102,7 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
   }
 
   // POST /api/auth/bind-bangumi — 绑定 Bangumi 账号
-  if (method === 'POST' && pathname === '/api/auth/bind-bangumi') {
-    const authUser = await getAuthUser(request, env);
-    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
-
-    try {
-      const body = await request.json();
-      const result = await superProxy.handleBindBangumi(env.DB, authUser.userId, body);
-      if (result.error) return jsonResponse(result, result.status || 400, origin);
-      return jsonResponse(result, 200, origin);
-    } catch (err) {
-      return jsonResponse({ error: '绑定失败: ' + err.message }, 500, origin);
-    }
-  }
-
+  // 注意：实际处理逻辑在上方 handleApiRoutes 早期（含账号融合），此处为占位注释
   // DELETE /api/auth/unbind-bangumi — 解绑 Bangumi 账号
   if (method === 'DELETE' && pathname === '/api/auth/unbind-bangumi') {
     const authUser = await getAuthUser(request, env);

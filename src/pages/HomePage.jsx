@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService, RecommendService } from '../services/api';
+import { BangumiService, UserService, ForumService, WorldChannelService, NewsService, AniBTService, RecommendService, CollectionMarkService } from '../services/api';
 import { behaviorCollector } from '../lib/BehaviorCollector';
 import { sessionProfile } from '../lib/SessionProfile';
 import HikarinagiService from '../services/HikarinagiService';
@@ -440,11 +440,23 @@ export default function HomePage() {
       const data = await RecommendService.getRecommend('home_random');
       const items = data?.items || [];
       if (items.length > 0) {
+        // 获取用户已收藏的条目 ID，用于前端二次过滤
+        let collectedIds = new Set();
+        if (isAuthenticated && currentUser?.id) {
+          try {
+            const collections = await CollectionMarkService.getByUserId(currentUser.id);
+            if (Array.isArray(collections)) {
+              collectedIds = new Set(collections.map(c => c.subject_id));
+            }
+          } catch {}
+        }
+        const filteredItems = items.filter(i => !collectedIds.has(i.subject_id));
+        const pool = filteredItems.length > 0 ? filteredItems : items;
         // 加权随机选择一条
-        const totalWeight = items.reduce((s, i) => s + (i.score || 1), 0);
+        const totalWeight = pool.reduce((s, i) => s + (i.score || 1), 0);
         let rand = Math.random() * totalWeight;
-        let selected = items[0];
-        for (const item of items) {
+        let selected = pool[0];
+        for (const item of pool) {
           rand -= (item.score || 1);
           if (rand <= 0) { selected = item; break; }
         }
@@ -471,7 +483,17 @@ export default function HomePage() {
       // 降级：使用原有随机逻辑
       try {
         const typeCode = TYPE_OPTIONS.find(o => o.key === (type || randomType))?.typeCode || 0;
-        const subject = await BangumiService.getRandomSubject(typeCode);
+        // 获取用户已收藏的条目 ID 作为排除列表
+        let excludeIds = [];
+        if (isAuthenticated && currentUser?.id) {
+          try {
+            const collections = await CollectionMarkService.getByUserId(currentUser.id);
+            if (Array.isArray(collections)) {
+              excludeIds = collections.map(c => c.subject_id);
+            }
+          } catch {}
+        }
+        const subject = await BangumiService.getRandomSubject(typeCode, excludeIds);
         if (subject && filterNsfw) {
           try {
             const inaccessibleIds = await BangumiService.checkAccessibility([subject]);
@@ -489,7 +511,7 @@ export default function HomePage() {
     } finally {
       setRandomLoading(false);
     }
-  }, [randomType, filterNsfw]);
+  }, [randomType, filterNsfw, isAuthenticated, currentUser]);
 
   const handleRandomTypeChange = useCallback((type) => {
     setRandomType(type);

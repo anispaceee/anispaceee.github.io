@@ -365,13 +365,25 @@ export async function refreshAllRecommendCaches(db) {
 /**
  * 获取热门推荐（冷启动）
  */
-export async function getHotRecommendations(db) {
-  const items = await db.prepare(
-    `SELECT id, name, name_cn, type, score, images
-     FROM bangumi_subjects
-     ORDER BY score DESC
-     LIMIT 20`
-  ).all();
+export async function getHotRecommendations(db, userId = null) {
+  const excludeClause = userId
+    ? `WHERE id NOT IN (SELECT subject_id FROM collections WHERE user_id = ?)`
+    : '';
+  const stmt = userId
+    ? db.prepare(
+        `SELECT id, name, name_cn, type, score, images
+         FROM bangumi_subjects
+         ${excludeClause}
+         ORDER BY score DESC
+         LIMIT 20`
+      ).bind(userId)
+    : db.prepare(
+        `SELECT id, name, name_cn, type, score, images
+         FROM bangumi_subjects
+         ORDER BY score DESC
+         LIMIT 20`
+      );
+  const items = await stmt.all();
 
   return (items.results || []).map(item => ({
     subject_id: item.id,
