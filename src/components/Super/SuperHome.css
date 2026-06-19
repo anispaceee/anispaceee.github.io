@@ -1,0 +1,401 @@
+/* SuperHome — 超展开首页样式 */
+
+.sh-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ─── Header ─── */
+
+.sh-header {
+  margin-bottom: 20px;
+}
+
+.sh-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sh-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ─── Toolbar ─── */
+
+.sh-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ─── Search ─── */
+
+.sh-search-bar {
+  flex: 1;
+  min-width: 240px;
+  max-width: 400px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-normal);
+}
+
+.sh-search-bar:focus-within {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.sh-search-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.sh-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.sh-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.sh-clear-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: var(--bg-input);
+  border-radius: 50%;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.sh-clear-btn:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+/* ─── Sort ─── */
+
+.sh-sort-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sh-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  background: var(--bg-card);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-normal);
+}
+
+.sh-sort-btn:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.sh-sort-btn.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.sh-sort-btn svg {
+  opacity: 0.8;
+}
+
+.sh-sort-btn.active svg {
+  opacity: 1;
+}
+
+/* ─── Stats ─── */
+
+.sh-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.sh-stat-item strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* ─── Grid ─── */
+
+.sh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ─── Loading ─── */
+
+.sh-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: var(--text-tertiary);
+  gap: 12px;
+}
+
+.sh-loading p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.sh-spinning {
+  animation: sh-spin 1s linear infinite;
+}
+
+@keyframes sh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sh-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.sh-loading-overlay .sh-spinning {
+  color: #fff;
+}
+
+/* ─── Error ─── */
+
+.sh-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: var(--text-tertiary);
+  gap: 12px;
+}
+
+.sh-error svg {
+  color: #ef4444;
+}
+
+.sh-error p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.sh-retry-btn {
+  padding: 10px 20px;
+  border: none;
+  background: var(--primary);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.sh-retry-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+/* ─── Empty ─── */
+
+.sh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text-tertiary);
+  gap: 12px;
+  grid-column: 1 / -1;
+}
+
+.sh-empty svg {
+  opacity: 0.4;
+}
+
+.sh-empty p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ─── Pagination ─── */
+
+.sh-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 0;
+}
+
+.sh-page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border: none;
+  background: var(--bg-card);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-normal);
+}
+
+.sh-page-btn:hover:not(:disabled) {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.sh-page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sh-page-info {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ─── Responsive ─── */
+
+@media (max-width: 768px) {
+  .sh-page {
+    padding: 16px;
+  }
+
+  .sh-title {
+    font-size: 20px;
+  }
+
+  .sh-toolbar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sh-search-bar {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .sh-sort-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .sh-sort-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .sh-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .sh-pagination {
+    gap: 12px;
+  }
+
+  .sh-page-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sh-page {
+    padding: 12px;
+  }
+
+  .sh-header {
+    margin-bottom: 16px;
+  }
+
+  .sh-title {
+    font-size: 18px;
+  }
+
+  .sh-subtitle {
+    font-size: 12px;
+  }
+
+  .sh-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .sh-sort-group {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .sh-sort-btn span {
+    display: none;
+  }
+
+  .sh-sort-btn {
+    padding: 8px;
+  }
+
+  .sh-sort-btn svg {
+    size: 16;
+  }
+}
