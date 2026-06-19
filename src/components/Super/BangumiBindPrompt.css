@@ -1,0 +1,108 @@
+/* BangumiBindPrompt - 提示绑定 Bangumi 账号的卡片样式 */
+
+.bangumi-bind-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--bg-card);
+  backdrop-filter: blur(var(--blur-md)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-glass);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.bangumi-bind-prompt-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-bg);
+  border-radius: 50%;
+  color: var(--primary);
+}
+
+.bangumi-bind-prompt-content {
+  text-align: center;
+}
+
+.bangumi-bind-prompt-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.bangumi-bind-prompt-desc {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.bangumi-bind-prompt-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.bangumi-bind-prompt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.bangumi-bind-prompt-btn.primary {
+  background: var(--primary);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-primary);
+}
+
+.bangumi-bind-prompt-btn.primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(232, 134, 162, 0.25);
+}
+
+.bangumi-bind-prompt-btn.secondary {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.bangumi-bind-prompt-btn.secondary:hover {
+  background: var(--bg-input-focus);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .bangumi-bind-prompt {
+  background: rgba(45, 45, 50, 0.72);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .bangumi-bind-prompt-icon {
+  background: var(--primary-bg);
+}
+
+[data-theme="dark"] .bangumi-bind-prompt-btn.secondary {
+  background: rgba(60, 60, 65, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .bangumi-bind-prompt-btn.secondary:hover {
+  background: rgba(70, 70, 75, 0.9);
+}
