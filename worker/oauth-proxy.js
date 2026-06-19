@@ -6230,9 +6230,9 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
   // ─── Bangumi 评论/吐槽代理 API ───
 
   // GET /api/bangumi/subjects/:id/comments — 获取条目吐槽（短评）
-  const subjectCommentsMatch = pathname.match(/^\/api\/bangumi\/subjects\/(\d+)\/comments$/);
-  if (subjectCommentsMatch && method === 'GET') {
-    const subjectId = parseInt(subjectCommentsMatch[1]);
+  const bgmSubjectCommentsMatch = pathname.match(/^\/api\/bangumi\/subjects\/(\d+)\/comments$/);
+  if (bgmSubjectCommentsMatch && method === 'GET') {
+    const subjectId = parseInt(bgmSubjectCommentsMatch[1]);
     const url = new URL(request.url);
     const params = {
       limit: parseInt(url.searchParams.get('limit') || '20'),
