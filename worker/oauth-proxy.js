@@ -395,7 +395,15 @@ async function handleBangumiProxy(pathname, searchParams, request, env, origin) 
     fetchOptions.body = await request.text();
   }
 
-  const res = await fetch(targetUrl, fetchOptions);
+  let res = await fetch(targetUrl, fetchOptions);
+
+  // 如果 401 且携带了 Authorization，去掉重试一次（处理过期 token）
+  if (res.status === 401 && headers['Authorization']) {
+    const retryHeaders = { ...headers };
+    delete retryHeaders['Authorization'];
+    const retryOptions = { ...fetchOptions, headers: retryHeaders };
+    res = await fetch(targetUrl, retryOptions);
+  }
 
   // 构建响应
   const resHeaders = new Headers();
@@ -6199,6 +6207,21 @@ async function handleApiRoutes(pathname, request, env, origin, context) {
 
     const groupName = groupLeaveMatch[1];
     const result = await superProxy.handleLeaveGroup(env.DB, env, authUser.userId, groupName);
+    if (result.error) return jsonResponse(result, result.status || 400, origin);
+    return jsonResponse(result.data, 200, origin);
+  }
+
+  // GET /api/super/topics/latest — 获取最新小组话题列表（超展开首页）
+  if (method === 'GET' && pathname === '/api/super/topics/latest') {
+    const authUser = await getAuthUser(request, env);
+    if (!authUser) return jsonResponse({ error: '未认证' }, 401, origin);
+    const sp = new URL(request.url).searchParams;
+    const params = {
+      limit: Number(sp.get('limit')) || 20,
+      offset: Number(sp.get('offset')) || 0,
+      mode: sp.get('mode') || 'all',
+    };
+    const result = await superProxy.handleLatestTopics(env.DB, authUser.userId, params);
     if (result.error) return jsonResponse(result, result.status || 400, origin);
     return jsonResponse(result.data, 200, origin);
   }
