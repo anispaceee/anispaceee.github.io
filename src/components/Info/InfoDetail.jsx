@@ -6,12 +6,13 @@ import { sessionProfile } from '../../lib/SessionProfile';
 import { BangumiDataService } from '../../services/BangumiDataService';
 import HikarinagiService from '../../services/HikarinagiService';
 import { SourceMerger } from '../../services/SourceMerger';
-import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText, Sparkles, Check, X, MessageSquare, Lock, Eye, MoreVertical } from 'lucide-react';
+import { Star, ExternalLink, Heart, Share2, Bookmark, MessageCircle, Send, ArrowLeft, RefreshCw, Users, Calendar, Tv, BookOpen, Gamepad2, ChevronRight, Play, Loader2, Filter, ChevronDown, AlertCircle, ChevronUp, ShieldOff, Search, Download, BookText, Sparkles, Check, X, MessageSquare, Lock, Eye, MoreVertical, Lightbulb } from 'lucide-react';
 import { MarkdownRenderer } from '../Common/MarkdownEditor/MarkdownEditor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { mediaSourceManager } from '../../services/media/MediaSourceManager';
 import { MatchKind, MediaSourceKind } from '../../services/media/types';
 import FansubGroupsPanel from './FansubGroups';
+import { extractPreview, typeToKey } from '../../utils/subjectType';
 import './InfoDetail.css';
 
 const API_BASE = import.meta.env.VITE_OAUTH_PROXY_URL || 'https://anispace-oauth-proxy.afterrainliu.workers.dev';
@@ -497,6 +498,11 @@ export default function InfoDetail() {
   const [bgmReviewsHasMore, setBgmReviewsHasMore] = useState(true);
 
   const [commentSubTab, setCommentSubTab] = useState('local');
+
+  // 相关推荐状态
+  const [relatedSubjects, setRelatedSubjects] = useState([]);
+  const [similarByTags, setSimilarByTags] = useState([]);
+  const [recommendLoading, setRecommendLoading] = useState(false);
 
   // Tab 状态
   const [activeTab, setActiveTab] = useState('summary');
@@ -1150,6 +1156,45 @@ export default function InfoDetail() {
     }
   }, [activeTab, wenku8Searched, subject?.type, searchWenku8]);
 
+  // 切换到相关推荐标签时加载推荐数据
+  useEffect(() => {
+    if (activeTab !== 'recommend' || recommendLoading || (relatedSubjects.length > 0 || similarByTags.length > 0)) return;
+    if (!subject?.id) return;
+
+    setRecommendLoading(true);
+    (async () => {
+      // 1. 同系列作品
+      try {
+        const related = await BangumiService.getRelatedSubjects(subject.id);
+        const filtered = (related || [])
+          .filter(r => r.id && r.id !== subject.id)
+          .slice(0, 5);
+        setRelatedSubjects(filtered);
+      } catch {}
+
+      // 2. 相似tag作品
+      try {
+        const tags = (subject.tags || [])
+          .slice()
+          .sort((a, b) => (b.count || 0) - (a.count || 0))
+          .slice(0, 3)
+          .map(t => typeof t === 'string' ? t : t.name)
+          .filter(Boolean);
+
+        if (tags.length > 0) {
+          const searchTag = tags[0];
+          const result = await BangumiService.searchSubjects(searchTag, subject.type || 0, 6, 0);
+          const items = (result?.list || [])
+            .filter(r => String(r.id) !== String(subject.id))
+            .slice(0, 5);
+          setSimilarByTags(items);
+        }
+      } catch {}
+
+      setRecommendLoading(false);
+    })();
+  }, [activeTab, subject?.id, subject?.tags, subject?.type, recommendLoading, relatedSubjects.length, similarByTags.length]);
+
   const loadMoreComments = () => {
     const nextPage = bgmCommentsPage + 1;
     setBgmCommentsPage(nextPage);
@@ -1513,6 +1558,10 @@ export default function InfoDetail() {
                 {hikarinagiLoading && (
                   <span className="detail-tab-loading"><Loader2 size={12} className="spinning" /></span>
                 )}
+                {/* 相关推荐标签 */}
+                <button className={`detail-tab ${activeTab === 'recommend' ? 'active' : ''}`} onClick={() => setActiveTab('recommend')}>
+                  <Lightbulb size={12} /> 相关推荐
+                </button>
               </div>
 
               <div className="detail-tab-content">
@@ -2208,6 +2257,86 @@ export default function InfoDetail() {
                           ))}
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 相关推荐Tab */}
+                {activeTab === 'recommend' && (
+                  <div className="detail-recommend-section">
+                    {recommendLoading ? (
+                      <div className="detail-recommend-loading">
+                        <Loader2 size={20} className="spinning" /> 正在加载推荐...
+                      </div>
+                    ) : (
+                      <>
+                        {/* 同系列作品 */}
+                        {relatedSubjects.length > 0 && (
+                          <div className="detail-recommend-group">
+                            <h3 className="detail-recommend-title"><Sparkles size={14} /> 同系列作品</h3>
+                            <div className="detail-recommend-grid">
+                              {relatedSubjects.map(item => {
+                                const itemId = item.id || item.subject_id;
+                                const itemImage = item.images?.large || item.images?.common || item.image || '';
+                                const itemName = item.name_cn || item.name || '';
+                                const itemType = item.type || subject?.type || 2;
+                                const preview = extractPreview({ ...item, type: itemType });
+                                return (
+                                  <Link key={itemId} to={`/info/${typeToKey(itemType)}/${itemId}`} state={{ preview }} className="detail-recommend-card">
+                                    <div className="detail-recommend-cover">
+                                      {itemImage ? (
+                                        <img src={itemImage} alt={itemName} loading="lazy" onError={e => { e.target.style.display = 'none'; }} />
+                                      ) : (
+                                        <div className="detail-recommend-no-img">{itemName.slice(0, 4)}</div>
+                                      )}
+                                    </div>
+                                    <div className="detail-recommend-info">
+                                      <div className="detail-recommend-name">{itemName}</div>
+                                      {item.relation && <span className="detail-recommend-relation">{item.relation}</span>}
+                                    </div>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 相似tag作品 */}
+                        {similarByTags.length > 0 && (
+                          <div className="detail-recommend-group">
+                            <h3 className="detail-recommend-title"><Lightbulb size={14} /> 相似标签作品</h3>
+                            <div className="detail-recommend-grid">
+                              {similarByTags.map(item => {
+                                const itemId = item.id;
+                                const itemImage = item.images?.large || item.images?.common || '';
+                                const itemName = item.name_cn || item.name || '';
+                                const itemType = item.type || subject?.type || 2;
+                                const preview = extractPreview(item);
+                                return (
+                                  <Link key={itemId} to={`/info/${typeToKey(itemType)}/${itemId}`} state={{ preview }} className="detail-recommend-card">
+                                    <div className="detail-recommend-cover">
+                                      {itemImage ? (
+                                        <img src={itemImage} alt={itemName} loading="lazy" onError={e => { e.target.style.display = 'none'; }} />
+                                      ) : (
+                                        <div className="detail-recommend-no-img">{itemName.slice(0, 4)}</div>
+                                      )}
+                                    </div>
+                                    <div className="detail-recommend-info">
+                                      <div className="detail-recommend-name">{itemName}</div>
+                                      {item.score > 0 && <span className="detail-recommend-score"><Star size={10} fill="var(--star-color)" /> {Number(item.score).toFixed(1)}</span>}
+                                    </div>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 无推荐数据 */}
+                        {relatedSubjects.length === 0 && similarByTags.length === 0 && (
+                          <div className="detail-no-comments">暂无相关推荐数据</div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
